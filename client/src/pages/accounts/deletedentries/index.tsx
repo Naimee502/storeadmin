@@ -18,9 +18,7 @@ const DeletedAccounts = () => {
   const navigate = useNavigate();
   const actions = useAppSelector(state => selectModuleActions(state, "accounts"));
   const dispatch = useAppDispatch();
-  // Same columns as the live list: City and Outstanding always, Channel only
-  // when the module is on. A deleted party can still be carrying a balance,
-  // which is exactly what you want to see before deciding whether to reset it.
+  // Same columns as the live list; deleted parties may still carry a balance.
   const channelsEnabled = useAppSelector(state => selectIsModuleBusinessEnabled(state, "channels"));
 
   // Use unified query with status = false

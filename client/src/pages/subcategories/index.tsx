@@ -41,9 +41,7 @@ const SubCategories = () => {
 
   const subCategoryList = data?.getSubCategories || [];
 
-  // Rearrange: sub-categories are ordered inside their own category (that is
-  // how the app's catalogue browse shows them), so the modal works one
-  // category at a time.
+  // Rearrange works one category at a time (sub-categories are ordered per category).
   const { reorderSubCategories, loading: reordering } = useReorderSubCategories();
   const [isReorderOpen, setIsReorderOpen] = useState(false);
   const [reorderCategoryId, setReorderCategoryId] = useState<string>("");
@@ -69,9 +67,7 @@ const SubCategories = () => {
   };
   const isLoading = useAppSelector((state) => state.loader.isLoading);
 
-  // Form state for add/edit
-  // Image is optional, same as on Categories. It is what the client app's
-  // catalogue browse mode shows on the sub-category tile.
+  // Form state; the optional image is the app's sub-category tile.
   const [formValues, setFormValues] = useState<{
     subcategoryname: string;
     status: boolean;
@@ -85,8 +81,7 @@ const SubCategories = () => {
   });
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
-  // The image this sub-category had when editing started — deleted from the
-  // server once a save replaces or removes it (same rule as Categories).
+  // Image at edit start; deleted after save if replaced or removed.
   const previousImageUrl = useRef<string>("");
   const [formErrors, setFormErrors] = useState<{
     subcategoryname?: string;
@@ -95,8 +90,7 @@ const SubCategories = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
 
-  // Handle form input change — a File means the image picker fired: preview
-  // it straight away (blob URL) and upload only on Save, like Categories.
+  // A File means the picker fired: preview via blob URL, upload on Save.
   const handleFormChange = (name: string, value: string | boolean | File) => {
     if (value instanceof File) {
       setSelectedFile(value);
@@ -253,8 +247,7 @@ const SubCategories = () => {
     { label: "Status", key: "status" },
   ];
 
-  // Grouped by category in the categories' own (rearranged) order, then the
-  // sub-categories' order inside each — the same order the app shows.
+  // Grouped in the app's order: category order, then sub-category order.
   const categoryRank = new Map<string, number>(categoryData.map((c: any, i: number) => [c.id, i]));
   const orderedSubs = [...subCategoryList].sort(
     (a: any, b: any) =>

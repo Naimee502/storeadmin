@@ -16,9 +16,7 @@ export const GET_MODELS = gql`
   }
 `;
 
-// Models list page: grid columns plus what the inline edit form reads from a
-// row (no admin ref). Same root field/args as GET_MODELS, so both share the
-// normalized cache list.
+// Models list page: grid + inline-form fields; shares the cache with GET_MODELS.
 export const GET_MODELS_LIST = gql`
   query GetModelsList($adminId: ID) {
     getModels(adminId: $adminId) {

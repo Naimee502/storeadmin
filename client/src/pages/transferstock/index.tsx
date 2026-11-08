@@ -15,8 +15,7 @@ import {
 import { formatDateDMY } from "../../utils/helper";
 import { useServerTable, useServerPaging } from "../../hooks/useservertable";
 
-// Columns the server can filter. Product, Qty and Purchase Rate are built from
-// the product lookup on this page, so they have none (search still finds product names).
+// Server-filterable columns; Product, Qty and Purchase Rate are built locally.
 const SERVER_FILTER_KEYS = [
   "vouchernumber", "fromBranchName", "toBranchName", "totalamountDisplay",
   "transferdate", "createdByDisplay", "status",
@@ -38,10 +37,7 @@ const TransferStock = () => {
   const branches = branchesData?.getBranches || [];
   const allProducts = productData?.getProductServices || [];
 
-  // Resolve a transfer line's product (+ variant) name and the unit label
-  // picked for it (transferunitid points at one of that product variant's
-  // unit conversions, or its base unit — neither is populated by the
-  // transfer query itself).
+  // Resolve a line's product/variant name and unit label (not populated by the query).
   const productNameOf = (item: any) => {
     const product = allProducts.find((p: any) => p.id === item.productid);
     if (!product) return "-";
@@ -68,8 +64,7 @@ const TransferStock = () => {
 
   useEffect(() => {
     const fetchData = async () => {
-      // Already have rows from the cache → refresh quietly in the background
-      // instead of covering the table with the full-screen loader.
+      // Cached rows: refresh in the background without the full-screen loader.
       const blocking = !transferStocks.length;
       if (blocking) dispatch(showLoading());
       try {
@@ -107,8 +102,7 @@ const TransferStock = () => {
     },
   ];
 
-  // Stack one line per item so multi-product transfers still read cleanly
-  // (most vouchers only have one line, but the model allows several).
+  // One line per item for multi-product transfers.
   const stackedCell = (items: any[], render: (item: any) => React.ReactNode) => (
     <div className="flex flex-col gap-0">
       {(items || []).map((it, i) => (

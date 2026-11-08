@@ -42,18 +42,13 @@ export const usePreviewInvoiceJournalLazy = () => {
   return fetchPreview;
 };
 
-// Ledger movements (lazy)
-// "network-only": the balance is a running journal total, so a cached one is
-// stale the moment any other voucher touches the ledger.
+// Ledger movements (lazy), always from the network.
 export const useLedgerMovementsLazy = () => {
   const [run] = useLazyQuery(GET_LEDGER_MOVEMENTS, { fetchPolicy: "network-only" });
   return run;
 };
 
-// Transactions Query
-// Defaults to "cache-and-network" for the same reason as usePaymentsQuery
-// invoices/returns/expense notes create journal entries server-side, and the
-// outstanding-invoice calculation counts "Agst Ref" transaction settlements.
+// Transactions Query: cache-and-network, since journals are created server-side.
 export const useTransactionsQuery = (fetchPolicy: WatchQueryFetchPolicy = "cache-and-network") => {
   const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
   const selectedBranchId = useAppSelector((state) => state.selectedBranch.branchId);
@@ -69,9 +64,7 @@ export const useTransactionsQuery = (fetchPolicy: WatchQueryFetchPolicy = "cache
   return { data, loading, error, refetch };
 };
 
-// Transactions LIST (lite)
-// Same filter as useTransactionsQuery, but only the listing columns (no
-// entries[]). Used by the Transactions list page only.
+// Transactions list (lite), list page only
 export const useTransactionsListQuery = (fetchPolicy: WatchQueryFetchPolicy = "cache-and-network") => {
   const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
   const selectedBranchId = useAppSelector((state) => state.selectedBranch.branchId);

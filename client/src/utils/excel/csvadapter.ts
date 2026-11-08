@@ -12,25 +12,7 @@ import {
 } from "./productschema";
 import { idColumnHeader } from "./exportproducts";
 
-/**
- * CSV support, and an honest account of what it costs.
- *
- * CSV is plain text: one grid, no dropdowns, no hidden columns, no cell
- * colouring, no images. So it cannot carry the four-sheet layout the xlsx
- * template uses. Instead it gets a FLAT layout:
- *
- *   - one row per unit price (the innermost repeating thing)
- *   - product and variant columns repeat down the block
- *   - unit conversions are packed into one text column: "KG:1|GM:0.001|BOX:12"
- *
- * It is uglier, but it round-trips, and it suits people who live in Google
- * Sheets. Both formats normalise into the same row arrays, so from that point
- * on there is a single code path.
- *
- * Units in a CSV are matched by NAME, since there is nowhere to hide an id.
- * That is the real trade-off: two categories with the same name are ambiguous
- * in CSV and the importer will say so rather than pick one.
- */
+// CSV: flat layout (one row per unit price, conversions packed "KG:1|GM:0.001"); units matched by name.
 
 export const CONVERSION_COLUMN = "Unit Conversions";
 const CONVERSION_HINT = "Format: UnitName:Factor, separated by |  e.g.  KG:1|GM:0.001";
@@ -73,9 +55,7 @@ export const buildCsvColumns = (
   ];
 };
 
-/* ------------------------------------------------------------------ *
- * Export
- * ------------------------------------------------------------------ */
+// Export
 
 const packConversions = (conversions: any[]): string =>
   (conversions || [])
@@ -83,11 +63,7 @@ const packConversions = (conversions: any[]): string =>
     .filter((s) => s !== ":")
     .join("|");
 
-/**
- * Flatten the four sheet-row arrays into the single CSV grid.
- * Takes the same rows productsToSheetRows() produces, so export logic is not
- * written twice.
- */
+// Flatten the four sheet-row arrays into one CSV grid.
 export const sheetRowsToCsv = (
   rows: Partial<Record<SheetId, Record<string, any>[]>>,
   permissions: Record<string, boolean | undefined>
@@ -95,8 +71,7 @@ export const sheetRowsToCsv = (
   const columns = buildCsvColumns(permissions);
 
   const productByRef = new Map<string, Record<string, any>>();
-  // Variant / price rows point at a product by its code, or its name when it
-  // has none — key the products the same way.
+  // Key products by code, or name when there is none.
   for (const row of rows.Products ?? []) productByRef.set(String(row.productref || row.name), row);
 
   const conversionsByKey = new Map<string, any[]>();
@@ -123,8 +98,7 @@ export const sheetRowsToCsv = (
     const prices = pricesByKey.get(key) ?? [{}];
     const conversions = packConversions(conversionsByKey.get(key) ?? []);
 
-    // One line per price row; a variant with no pricing still gets one line so
-    // it is visible in the file rather than silently dropped.
+    // One line per price row; a variant without prices still gets one line.
     prices.forEach((price) => {
       const line: Record<string, any> = {};
       for (const col of columns) {
@@ -158,9 +132,7 @@ export const buildCsvTemplate = (
   return Papa.unparse([example], { columns: columns.map((c) => c.header) });
 };
 
-/* ------------------------------------------------------------------ *
- * Import
- * ------------------------------------------------------------------ */
+// Import
 
 const norm = (v: any) => (v === null || v === undefined ? "" : String(v).trim());
 
@@ -172,15 +144,7 @@ export interface CsvSheetRows {
   warnings: string[];
 }
 
-/**
- * Explode the flat CSV grid back into the four row sets the xlsx parser
- * already knows how to assemble, so validation and grouping stay shared.
- *
- * Product Code is optional in CSV — people paste from other systems and will
- * not have one. When it is missing, the product name groups the lines, which
- * is why two different products with the same name are reported as a
- * conflict rather than merged.
- */
+// Explode the CSV grid into the xlsx row sets; without a code, lines group by product name.
 export const csvToSheetRows = (
   text: string,
   permissions: Record<string, boolean | undefined>
@@ -213,8 +177,7 @@ export const csvToSheetRows = (
   const seenProducts = new Set<string>();
   const seenVariants = new Set<string>();
 
-  // A CSV made before the Product Code moved to the product columns has a
-  // "ProductRef" join key and the code under "Product Code" as a variant field.
+  // Old CSVs have a "ProductRef" key and the code as a variant field.
   const legacy = (parsed.meta?.fields ?? []).includes("ProductRef");
   const nameHeader = productCols.find((c) => c.key === "name")?.header ?? "Name";
 

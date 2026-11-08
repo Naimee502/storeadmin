@@ -22,10 +22,7 @@ import {
 import { useAppSelector } from '../../../redux/hooks';
 import { PAYMENT_SIDE_EFFECT_QUERIES } from '../shared/paymentsideeffects';
 
-// Mutations
-// A sales invoice auto-creates / updates / removes a Payment + Transaction on
-// the server (SalesInvoice.adjustStockAndTransactions). Refetch those caches or
-// Payments ▸ Add will keep showing the invoice as outstanding.
+// Mutations: refetch Payment/Transaction caches, which the server updates with the invoice.
 export const useSalesInvoiceMutations = () => {
   const [addSalesInvoiceMutation] = useMutation(ADD_SALES_INVOICE, {
     refetchQueries: PAYMENT_SIDE_EFFECT_QUERIES,
@@ -39,8 +36,7 @@ export const useSalesInvoiceMutations = () => {
   const [resetSalesInvoiceMutation] = useMutation(RESET_SALES_INVOICE, {
     refetchQueries: PAYMENT_SIDE_EFFECT_QUERIES,
   });
-  // Cancelling moves stock and removes a journal and a receipt, so the same
-  // caches have to be refreshed as a save does.
+  // Cancelling moves stock and removes journal + receipt, so refresh the same caches.
   const [cancelSalesInvoiceMutation] = useMutation(CANCEL_SALES_INVOICE, {
     refetchQueries: PAYMENT_SIDE_EFFECT_QUERIES,
   });
@@ -63,15 +59,7 @@ export const useSalesInvoiceMutations = () => {
 };
 
 // Sales Invoices Query
-/**
- * Active salesinvoices.
- *
- * Cancelled bills are left out by DEFAULT. A cancelled bill has been reversed
- * out of the books entirely — no stock, no journal, no receipt — so counting it
- * in a report, a dashboard total, a GST return or a payment selection would be
- * quoting a sale that never happened. Only the management listing wants to see
- * them, and it asks for them explicitly with { includeCancelled: true }.
- */
+/** Active sales invoices; cancelled bills only with { includeCancelled: true }. */
 export const useSalesInvoicesQuery = (
   fetchPolicy?: WatchQueryFetchPolicy,
   opts?: { includeCancelled?: boolean }

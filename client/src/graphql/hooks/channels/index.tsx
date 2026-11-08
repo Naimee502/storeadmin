@@ -3,9 +3,7 @@ import { GET_CHANNELS, GET_CHANNEL_BY_ID, GET_DELETED_CHANNELS } from "../../que
 import { CREATE_CHANNEL, UPDATE_CHANNEL, DELETE_CHANNEL, RESET_CHANNEL } from "../../mutations/channels";
 import { useAppSelector } from "../../../redux/hooks";
 
-// Resolve the owning admin from auth. Callers may still pass an explicit
-// adminId (e.g. Business Settings managing another admin); otherwise we scope
-// to the logged-in admin so channels never leak across tenants.
+// Scope to the logged-in admin unless adminId is passed, so channels never leak across tenants.
 const useResolvedAdminId = (override?: string) => {
   const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
   if (override) return override;

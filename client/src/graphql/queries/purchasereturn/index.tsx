@@ -69,9 +69,7 @@ export const GET_PURCHASE_RETURNS = gql`
   }
 `;
 
-// Listing-only query: just the Purchase Returns table columns. Also serves the
-// Purchase Invoices listing, which only needs sourceInvoiceId to hide "Return"
-// on bills that already have one.
+// Listing-only columns; also used by Purchase Invoices for sourceInvoiceId.
 export const GET_PURCHASE_RETURNS_LIST = gql`
   query GetPurchaseReturnsList($filter: PurchaseReturnFilterInput) {
     getPurchaseReturns(filter: $filter) {

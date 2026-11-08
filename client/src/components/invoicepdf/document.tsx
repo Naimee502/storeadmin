@@ -1,30 +1,7 @@
 import { Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
 import type { InvoicePdfModel } from "./model";
 
-/**
- * The invoice, drawn as a real PDF.
- *
- * Every line here is a vector instruction, not a picture: the text in the
- * finished file can be selected, searched, copied into an accounting
- * package and printed at any size without going soft. The old route
- * (html2canvas -> JPEG -> jsPDF.addImage) produced a PDF whose entire
- * contents were one flat photograph of the screen — which is what "the PDF
- * is an image" meant. It also weighed about ten times as much.
- *
- * ── Fonts ───────────────────────────────────────────────────────────────
- * Helvetica only, which is one of the fourteen faces every PDF reader is
- * required to have. Nothing is registered and nothing is downloaded, so
- * building a bill never waits on the network — the difference between a
- * file that appears instantly at the counter and one that appears after a
- * spinner. Helvetica is also the closest built-in match to the Arial the
- * printed copy uses, so the two look like the same document.
- *
- * ── Sizes ───────────────────────────────────────────────────────────────
- * The HTML invoice is specified in px, PDFs are specified in points, and
- * 1px at 96dpi is 0.75pt. Rather than convert each number by hand and
- * leave a trail of 8.25s, px() does it, so any measurement below can be
- * read straight against the stylesheet in components/printinvoice.
- */
+/** Invoice drawn as a vector PDF; built-in Helvetica only, px() converts CSS px to pt. */
 
 const px = (v: number) => v * 0.75;
 
@@ -158,8 +135,7 @@ const s = StyleSheet.create({
     textAlign: "right",
     minHeight: px(90),
   },
-  // With Terms hidden, the signature must not stretch across the whole row
-  // it becomes a normal right-aligned block, as it does in the printed copy.
+  // Without Terms, the signature is a right-aligned block.
   signStandalone: { width: px(260), marginLeft: "auto" },
   bold: { fontFamily: "Helvetica-Bold" },
 });
@@ -178,8 +154,7 @@ export const InvoiceDocument = ({ model: m }: { model: InvoicePdfModel }) => {
   ] as any;
 
   const lastCol = cols.length - 1;
-  // Matches the HTML: the final ROW of meta cells carries no bottom border,
-  // because the grid's own border closes it.
+  // Last row of meta cells has no bottom border; the grid closes it.
   const lastRowStart = Math.floor((m.metaCells.length - 1) / 3) * 3;
 
   return (
@@ -220,8 +195,7 @@ export const InvoiceDocument = ({ model: m }: { model: InvoicePdfModel }) => {
           </View>
 
           {/* ---- items ---- */}
-          {/* `fixed` repeats the header when a long bill runs onto a second
-              page; without it page two would be a wall of unlabelled numbers. */}
+          {/* `fixed` repeats the header on every page. */}
           <View style={s.th} fixed>
             {cols.map((c, i) => (
               <View key={c.key as string} style={[{ width: c.w }, i === lastCol ? s.noRight : {}]}>

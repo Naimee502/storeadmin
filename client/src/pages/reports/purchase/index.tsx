@@ -17,9 +17,7 @@ import { normalizeToYMD, formatDateDMY, todayYMD, shiftDaysYMD } from "../../../
 import { FaClipboardList, FaFileInvoiceDollar, FaUndoAlt } from "react-icons/fa";
 import { partyLabel } from "../../../utils/partylabel";
 
-// Order lifecycle for the report's Status column/filter. `status` on an order
-// is the soft-delete flag (true/false), not its stage — comparing it as text
-// hid every order (sales) or crashed the page (purchase).
+// Lifecycle stage for Status; order `status` is the soft-delete flag, not the stage.
 const orderStage = (o: any): "cancelled" | "converted" | "active" =>
   o?.cancelStatus === "cancelled" || o?.orderStatus === "cancelled"
     ? "cancelled"
@@ -34,8 +32,7 @@ const reportTabs = [
   { id: "Purchase Return (DN)", label: "Purchase Return (DN)", icon: <FaUndoAlt className="text-xs text-indigo-600" /> },
 ];
 
-// One line per line item: "Product - Variant × Qty". ReportTable renders an
-// array one item per line and exports it joined with "; ".
+// "Product - Variant × Qty" per line item; ReportTable puts each on its own line.
 const productLine = (p: any, name?: string) => {
   const n = name || p.productserviceid?.name || "Unknown";
   const v = p.variantid?.name ? ` - ${p.variantid.name}` : "";
@@ -73,13 +70,7 @@ const PurchaseReports: React.FC = () => {
   const adminid = type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : type === 'staff' ? staff?.admin?.id : undefined;
   const branchid = type === 'admin' ? selectedBranchId : type === 'branch' ? branch?.id : type === 'staff' ? staff?.branchid?.id : undefined;
 
-  // Server-side date range for orders / returns. billdate / returndate are
-  // stored as "YYYY-MM-DD…" strings and compared as strings, so the To bound
-  // gets a "\uffff" suffix to keep anything stamped on the To day. The range is
-  // widened by a day each side (timestamps saved in UTC); the exact range is
-  // still applied client-side below.
-  // Invoices are NOT ranged on the server: getPurchaseInvoices compares the
-  // string billdate against `new Date(...)`, which never matches.
+  // Server date range for orders/returns: "\uffff" keeps the To day, a day wider each side.
   const serverFrom = appliedFilters.fromDate ? shiftYMD(appliedFilters.fromDate, -1) : null;
   const serverToDay = appliedFilters.toDate ? shiftYMD(appliedFilters.toDate, 1) : null;
   const serverTo = serverToDay ? `${serverToDay}\uffff` : null;
@@ -88,8 +79,7 @@ const PurchaseReports: React.FC = () => {
   const isOrderTab = activeTab === "Purchase Order";
   const isReturnTab = activeTab === "Purchase Return (DN)";
 
-  // Data (only the active tab's documents are fetched)
-  // Active invoices are ranged on the server too (resolver now compares text).
+  // Data: only the active tab's documents are fetched (invoices ranged server-side).
   const { data: activeData, loading: activeLoading } = useQuery(GET_PURCHASE_INVOICES_REPORT, {
     variables: {
       filter: {
@@ -301,10 +291,7 @@ const PurchaseReports: React.FC = () => {
       });
   }, [purchaseReturns, appliedFilters]);
 
-  // ── Per-tab config ──
-  // Purchase is bought from vendors — the Party dropdown lists Vendor and
-  // Both accounts only (customers / expense ledgers are left out). The full
-  // accountsList is still used for labels, so old bills keep their party name.
+  // Party dropdown lists Vendor and Both accounts; full list still used for labels.
   const partyOptions = useMemo(
     () =>
       accountsList

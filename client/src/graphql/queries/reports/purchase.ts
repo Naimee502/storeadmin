@@ -1,8 +1,6 @@
 import { gql } from "@apollo/client";
 
-// Purchase Reports page only — just what each report row / filter reads.
-// Line items carry only name, variant and qty (the Product(s) cell, the
-// Product filter and Total Qty); everything else is header-level.
+// Purchase Reports fields only.
 
 const PURCHASE_REPORT_PARTY = `
   partyacc {

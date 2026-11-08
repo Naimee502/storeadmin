@@ -4,33 +4,7 @@ import { useTransactionsQuery } from "../transactions";
 import { useSalesReturnsQuery } from "../salesreturn";
 import { usePurchaseReturnsQuery } from "../purchasereturn";
 
-/**
- * Single source of truth for "how much is still owed on this bill".
- *
- * An invoice's outstanding is NEVER stored — it is always derived, so deleting
- * a payment or a return automatically restores the balance. Three things
- * reduce it:
- *
- *   outstanding = totalamount
- *               − Σ Payment allocations        (Payment.invoices[].settledamount)
- *               − Σ Transaction allocations    (Tally "Agst Ref" journal settlements)
- *               − Σ un-refunded Returns        (SalesReturn / PurchaseReturn)
- *
- * ── Why returns need the "un-refunded" qualifier ────────────────────────────
- * A return always posts "Dr Sales Return / Cr Customer", which reduces what the
- * party owes. But when `refundMode` is "auto" AND the source bill was cash/bank,
- * the model ALSO creates a refund Payment ("Dr Customer / Cr Cash") that hands
- * the money back — the two legs cancel and the invoice debt stands.
- *
- * Rather than re-deriving that rule from refundMode + paymenttype (which drift
- * apart — e.g. refundMode "auto" on a CREDIT bill creates no refund at all), we
- * just check the data: if a refund Payment exists that references this return,
- * the money went back, so don't net it. Otherwise net it.
- *
- * Before this existed, returns were ignored entirely: a ₹2,000 return on a
- * ₹15,645 invoice left the Party Ledger saying ₹13,645 while the payment screen
- * still asked for ₹15,645.
- */
+/** Outstanding = total − payment allocations − journal allocations − un-refunded returns (never stored). */
 
 type Options = {
   /** Exclude the payment currently being edited so its own allocation isn't double-counted. */
@@ -82,7 +56,7 @@ export const useOutstanding = ({ excludePaymentId, excludeTransactionId }: Optio
     return s;
   }, [paymentsData]);
 
-  // ── Credit-note value still sitting against each source invoice
+  // Credit-note value still against each source invoice
   const returnsByInvoice = useMemo(() => {
     const map: Record<string, number> = {};
 
@@ -116,13 +90,7 @@ export const useOutstanding = ({ excludePaymentId, excludeTransactionId }: Optio
     [paidByInvoice, returnsByInvoice]
   );
 
-  /**
-   * Credit created when payments + returns exceed a bill's face value — the
-   * "paid in full, returned afterwards" case. `outstandingOf` floors at zero,
-   * so this is where that over-payment shows up. A party-level balance must
-   * subtract it, exactly like an unallocated advance; ignoring it made the
-   * party report disagree with the ledger by the returned amount.
-   */
+  /** Over-payment credit per bill; party balances must subtract it like an advance. */
   const excessCreditOf = useMemo(
     () => (inv: any) => {
       if (!inv?.id) return 0;

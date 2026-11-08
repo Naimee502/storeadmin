@@ -52,18 +52,13 @@ const Categories = () => {
   });
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
-  // The image this category had when editing started. If the save ends up
-  // storing something else — a replacement, or nothing at all — the old file
-  // is left on the server with no page able to show it, so it is deleted once
-  // the save succeeds.
+  // Image at edit start; deleted after save if replaced or removed.
   const previousImageUrl = useRef<string>("");
   const [formErrors, setFormErrors] = useState<{ categoryname?: string }>({});
   const [isEditing, setIsEditing] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
 
-  // Handle form input change — a File means the image picker just fired,
-  // so preview it immediately (blob URL) and hold the real file for upload
-  // on Save, same pattern as the product form.
+  // A File means the picker fired: preview via blob URL, upload on Save.
   const handleFormChange = (name: string, value: string | boolean | File) => {
     if (value instanceof File) {
       setSelectedFile(value);
@@ -74,8 +69,7 @@ const Categories = () => {
       return;
     }
 
-    // The preview's clears the image. Whatever file was picked but not yet
-    // uploaded goes with it; the previously saved one is deleted on Save.
+    // Clear the image; the saved one is deleted on Save.
     if (name === "image" && value === "") {
       setSelectedFile(null);
       setFormValues((prev) => {
@@ -133,8 +127,7 @@ const Categories = () => {
     if (!validateForm()) return;
     dispatch(showLoading());
     try {
-      // Upload the newly picked file (if any) now — same as the product
-      // form, upload only happens on Save, not on file pick.
+      // Upload the picked file only on Save.
       const uploadedUrl = selectedFile
         ? (await uploadImageMutation({ variables: { file: selectedFile } })).data?.uploadImage?.url
         : formValues.image;
@@ -168,8 +161,7 @@ const Categories = () => {
         dispatch(showMessage({ message: "Category added successfully.", type: "success" }));
       }
 
-      // Saved, and the category now points at `uploadedUrl` — so if it used to
-      // point somewhere else, that file is unreachable and can go.
+      // Delete the old image file now that nothing points at it.
       const replaced = previousImageUrl.current;
       previousImageUrl.current = "";
       if (replaced && replaced !== uploadedUrl) void deleteImages([replaced]);
@@ -197,8 +189,7 @@ const Categories = () => {
     { label: "Status", key: "status" },
   ];
 
-  // Server returns categories in storefront order, so Seq Number is the
-  // position shown on the app and website.
+  // Server returns storefront order, so Seq Number is the app/website position.
   const tableData = [...categoryList].map((cat: any, index: number) => ({
     ...cat,
     seqNo: index + 1,

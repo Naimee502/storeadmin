@@ -1,8 +1,6 @@
 import { gql } from "@apollo/client";
 
-// Field set kept in sync with the Admin Register form. companyName,
-// mobile, and noOfBranches were missing earlier — without them the list
-// table and the edit modal would receive `undefined` for those fields.
+// Keep in sync with the Admin Register form.
 const ADMIN_FIELDS = `
   id
   admincode

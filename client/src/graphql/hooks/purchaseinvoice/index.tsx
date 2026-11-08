@@ -19,10 +19,7 @@ import {
 import { useAppSelector } from '../../../redux/hooks';
 import { PAYMENT_SIDE_EFFECT_QUERIES } from '../shared/paymentsideeffects';
 
-// Mutations
-// A purchase invoice auto-creates / updates / removes a Payment + Transaction
-// on the server (PurchaseInvoice.adjustStockAndTransactions). Refetch those
-// caches or Payments ▸ Add will keep showing the bill as outstanding.
+// Mutations: refetch Payment/Transaction caches, which the server updates with the invoice.
 export const usePurchaseInvoiceMutations = () => {
   const [addPurchaseInvoiceMutation] = useMutation(ADD_PURCHASE_INVOICE, {
     refetchQueries: PAYMENT_SIDE_EFFECT_QUERIES,
@@ -36,8 +33,7 @@ export const usePurchaseInvoiceMutations = () => {
   const [resetPurchaseInvoiceMutation] = useMutation(RESET_PURCHASE_INVOICE, {
     refetchQueries: PAYMENT_SIDE_EFFECT_QUERIES,
   });
-  // Cancelling moves stock and removes a journal and a payment, so the same
-  // caches have to be refreshed as a save does.
+  // Cancelling moves stock and removes journal + payment, so refresh the same caches.
   const [cancelPurchaseInvoiceMutation] = useMutation(CANCEL_PURCHASE_INVOICE, {
     refetchQueries: PAYMENT_SIDE_EFFECT_QUERIES,
   });
@@ -56,15 +52,7 @@ export const usePurchaseInvoiceMutations = () => {
 };
 
 // Purchase Invoices Query
-/**
- * Active purchase invoices.
- *
- * Cancelled bills are left out by DEFAULT. A cancelled bill has been reversed
- * out of the books entirely — no stock, no journal, no payment — so counting it
- * in a report, a dashboard total, a GST return or a payment selection would be
- * quoting a purchase that never happened. Only the management listing wants to
- * see them, and it asks for them explicitly with { includeCancelled: true }.
- */
+/** Active purchase invoices; cancelled bills only with { includeCancelled: true }. */
 export const usePurchaseInvoicesQuery = (
   fetchPolicy?: WatchQueryFetchPolicy,
   opts?: { includeCancelled?: boolean }
@@ -168,8 +156,7 @@ export const usePurchaseInvoicesSettleQuery = (fetchPolicy?: WatchQueryFetchPoli
   return { data, loading, error, refetch };
 };
 
-// Purchase Invoices PAGE (server paging)
-// One page of the listing; search and column filters run on the server.
+// Purchase Invoices page (server paging, search and filters)
 export const usePurchaseInvoicesPageQuery = ({
   page,
   pageSize,

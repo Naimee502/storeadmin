@@ -1,6 +1,4 @@
-// Building blocks shared by the Party View and Staff View pages: a profile
-// card, tabs, and filterable Orders / Payments / Parties tables. Filtering is
-// client-side over the rows the page already fetched for that one account.
+// Shared Party/Staff View building blocks; filtering is client-side.
 import React, { useMemo, useState } from "react";
 import { useNavigate } from "react-router";
 import { formatINR } from "../../utils/helper";

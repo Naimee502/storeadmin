@@ -14,15 +14,7 @@ import {
   type SheetId,
 } from "./productschema";
 
-/**
- * Writes the product workbook — both the blank template and the populated
- * export, because they are the same file with and without rows.
- *
- * ExcelJS rather than SheetJS: the xlsx@0.18.5 community build reads data
- * validation but cannot write it, so a template made with it would have no
- * dropdowns at all. ExcelJS is loaded with a dynamic import so its ~900KB
- * stays out of the main bundle until someone actually clicks Import or Export.
- */
+// Writes the product template/export with ExcelJS (writes dropdowns), loaded lazily.
 
 export interface MasterOption {
   id: string;
@@ -59,14 +51,7 @@ const colLetter = (index: number): string => {
   return out;
 };
 
-/* ------------------------------------------------------------------ *
- * Reference columns get TWO columns: the visible name and a hidden id.
- *
- * The hidden one is an INDEX/MATCH against the master sheet, so it resolves
- * live as the user picks from the dropdown. Import reads the id first and
- * falls back to matching the name — which is what makes it impossible to
- * attach a product to the wrong record just because two of them share a name.
- * ------------------------------------------------------------------ */
+// Reference columns: visible name + hidden id resolved live; import prefers the id.
 
 export const idColumnHeader = (col: ColumnDef) => `${col.header}_ID`;
 
@@ -93,9 +78,7 @@ const layoutColumns = (columns: ColumnDef[]): LaidOutColumn[] => {
   return out;
 };
 
-/* ------------------------------------------------------------------ *
- * Hidden master sheet
- * ------------------------------------------------------------------ */
+// Hidden master sheet
 
 const writeMasterSheet = (
   workbook: ExcelJS.Workbook,
@@ -127,9 +110,7 @@ const writeMasterSheet = (
     column += 2;
   }
 
-  // Enum lists (Active/Inactive, Yes/No, Fixed/Percentage) live here too, so
-  // every dropdown in the file has a real source range rather than an inline
-  // list — inline lists silently break past 255 characters.
+  // Enum lists live here too; inline dropdown lists break past 255 chars.
   const enumRanges = new Map<string, string>();
   enumValues.forEach((values, i) => {
     const letter = colLetter(column + i);
@@ -166,9 +147,7 @@ const writeMetaSheet = (workbook: ExcelJS.Workbook, meta: WorkbookMeta) => {
   sheet.state = "veryHidden";
 };
 
-/* ------------------------------------------------------------------ *
- * Data sheets
- * ------------------------------------------------------------------ */
+// Data sheets
 
 const HEADER_FILL = "FF1F3B4D";
 const REQUIRED_FILL = "FF7A3E00";
@@ -241,14 +220,7 @@ const writeDataSheet = (
   for (const { def, index, idIndex } of laidOut) {
     const letter = colLetter(index);
 
-    // "Product Code" on the child sheets: a live dropdown of every product on
-    // the Products sheet — its code, or its name while the code is blank. A
-    // code typed there appears here at once. Typing is still allowed.
-    // VariantRef on the conversion / price sheets: a dropdown of just the
-    // chosen product's variants. OFFSET+MATCH+COUNTIF rather than FILTER, so
-    // it works in every Excel version — it expects a product's variant rows to
-    // sit together on the Variants sheet (as exported, and as people type
-    // them). Typing stays allowed and the importer checks every VariantRef.
+    // Child sheets get a live Product Code dropdown; VariantRef lists only that product's variants.
     if (
       def.structural && def.key === "variantref" && variantsCols &&
       (sheetId === "UnitConversions" || sheetId === "UnitPrices")
@@ -286,11 +258,7 @@ const writeDataSheet = (
     if (def.type === "ref" && def.master) {
       const nameRange = masterNameRange(def.master);
       const label = MASTER_LABELS[def.master];
-      // Category, Brand, Unit... accept a typed name that is not in the list
-      // the import creates it. The dropdown stays, but no popup: Excel can't
-      // remember an accepted value (the list lives on the hidden master sheet),
-      // so it would ask again on every cell. The import review lists every
-      // new record once instead — that is the real confirmation.
+      // Typed new names are allowed (import creates them), so no error popup.
       const creatable = isCreatableMaster(def.master);
       const validation = creatable
         ? {
@@ -325,9 +293,7 @@ const writeDataSheet = (
       continue;
     }
 
-    // Image cells: Excel can't open a file picker from a cell without macros,
-    // so the next best thing — a tooltip the moment the cell is selected,
-    // saying exactly where the picture option is.
+    // Image cells: a tooltip says where Excel's picture option is.
     if (def.type === "productimage" || def.type === "masterimage") {
       for (let r = 2; r <= lastRow; r++) {
         sheet.getCell(r, index).dataValidation = {
@@ -338,9 +304,6 @@ const writeDataSheet = (
           showInputMessage: true,
           promptTitle: "Add a picture",
           // Excel caps an input message at 255 characters.
-          // Worded for every Excel: "Place in Cell" only exists in recent
-          // Microsoft 365; Office 2019/2021 can only float a picture over the
-          // cell — which the import reads just the same.
           prompt: def.type === "productimage"
             ? "Insert > Pictures > This Device. Shrink the picture and keep its top-left corner in this cell (hold Alt while resizing to snap to the cell). Several pictures: put them all here. Newer Microsoft 365: Place in Cell."
             : "Insert > Pictures > This Device. Shrink the picture and keep its top-left corner in this cell (hold Alt while resizing to snap to the cell). Newer Microsoft 365: Place in Cell. Or paste a web address.",
@@ -366,9 +329,7 @@ const writeDataSheet = (
     }
 
     if (def.type === "number" || def.type === "integer") {
-      // "General", not "0.00": a factor of 1 should read 1, and 0.001 (grams
-      // per kg) must not be displayed as 0.00. The stored value was always
-      // right; the fixed two-decimal format just hid it.
+      // "General" so factors like 0.001 aren't shown as 0.00.
       sheet.getColumn(index).numFmt = def.type === "integer" ? "0" : "General";
       // Whole-number columns (Quantity) refuse 1.5 at the cell, so the
       // mistake never reaches the import.
@@ -395,11 +356,7 @@ const writeDataSheet = (
     }
   }
 
-  // Products sheet: a hidden column holding each row's key — the Product Code,
-  // or the Name while the code is blank — which the child sheets' dropdown
-  // lists. "&''" keeps a numeric code as text so COUNTIF(…,"?*") counts it.
-  // It sits in the same row as the product, so sorting the sheet keeps it
-  // right. The importer ignores it (its header starts with "__").
+  // Hidden per-row key (code, or name) for child-sheet dropdowns; "&''" keeps it text.
   if (sheetId === "Products" && productKey) {
     const { index, codeLetter, nameLetter } = productKey;
     const header = sheet.getCell(1, index);
@@ -421,9 +378,7 @@ const writeDataSheet = (
 /** Hidden helper column on the Products sheet (never imported). */
 const PRODUCT_KEY_HEADER = "__productkey";
 
-/* ------------------------------------------------------------------ *
- * Public API
- * ------------------------------------------------------------------ */
+// Public API
 
 export interface BuildWorkbookArgs {
   permissions: Record<string, boolean | undefined>;
@@ -460,9 +415,7 @@ export const buildProductWorkbook = async (
     Array.from(enumSets.values())
   );
 
-  // The child sheets' "Product Code" dropdown reads a hidden key column on
-  // the Products sheet (code, or name while the code is blank), placed after
-  // the last real column. OFFSET/COUNTIF keeps the list to filled rows only.
+  // Child "Product Code" dropdown reads the hidden key column, filled rows only.
   const productLayout = layoutColumns(schema.bySheet("Products"));
   const codeColumn = productLayout.find((c) => c.def.key === "productref");
   const nameColumn = productLayout.find((c) => c.def.key === "name");
@@ -498,8 +451,7 @@ export const buildProductWorkbook = async (
 
   writeMetaSheet(workbook, args.meta);
 
-  // The master sheet is added first so named ranges exist before the data
-  // sheets reference them, but the user should land on Products.
+  // Master sheet is added first for named ranges, but Products is active.
   const products = workbook.getWorksheet("Products");
   if (products) workbook.views = [{ activeTab: products.id - 1 } as any];
 
@@ -511,9 +463,7 @@ export const buildProductWorkbook = async (
   return { blob, schema };
 };
 
-/* ------------------------------------------------------------------ *
- * Turning live products into sheet rows
- * ------------------------------------------------------------------ */
+// Turning live products into sheet rows
 
 const idOf = (value: any): string => {
   if (!value) return "";
@@ -535,12 +485,7 @@ const dateOf = (value: any): Date | "" => {
   return Number.isNaN(d.getTime()) ? "" : d;
 };
 
-/**
- * Flatten the products list into the four sheets.
- *
- * ProductRef is the first variant's product code where one exists, so a file
- * exported here can be edited and re-imported without the user inventing keys.
- */
+// Flatten products into the four sheets, keyed by product code so re-import works.
 export const productsToSheetRows = (
   products: any[]
 ): Partial<Record<SheetId, Record<string, any>[]>> => {
@@ -553,8 +498,7 @@ export const productsToSheetRows = (
     if (product?.isservice) return; // services get their own template later
 
     const variants: any[] = Array.isArray(product.productvariants) ? product.productvariants : [];
-    // The product's code lives on the Products sheet. The other sheets point
-    // back with that code — or the name, for a product that has none.
+    // Other sheets point back by product code, or name when there is none.
     const productCode: string = variants[0]?.productcode || "";
     const productLink: string = productCode || product.name || `Product ${productIndex + 1}`;
 
@@ -597,10 +541,7 @@ export const productsToSheetRows = (
     });
 
     variants.forEach((variant: any, variantIndex: number) => {
-      // Variant Code: the first variant carries the Product Code, extra
-      // variants their own code. The conversion / price rows repeat it.
-      // (A saved extra variant always has a code; the SKU / position is only
-      // a fallback so two variants never share a blank.)
+      // First variant carries the Product Code, extras their own (SKU/position as fallback).
       const skuIsUnique =
         !!variant?.sku && variants.filter((v: any) => v?.sku === variant.sku).length === 1;
       const variantRef =

@@ -59,8 +59,7 @@ export const usePurchaseReturnMutations = () => {
   };
 };
 
-// Returns reduce an invoice's outstanding (see useOutstanding), and a return
-// can be created moments before this list is read — so revalidate on mount.
+// Returns reduce outstanding, so revalidate on mount.
 export const usePurchaseReturnsQuery = (fetchPolicy: WatchQueryFetchPolicy = "cache-and-network") => {
   const { type, admin, branch, staff } = useAppSelector((s) => s.auth);
   const selectedBranchId = useAppSelector((s) => s.selectedBranch.branchId);
@@ -74,8 +73,7 @@ export const usePurchaseReturnsQuery = (fetchPolicy: WatchQueryFetchPolicy = "ca
   return { data, loading, error, refetch };
 };
 
-// Lite listing variant of usePurchaseReturnsQuery — same filter / policy,
-// only the table columns (+ sourceInvoiceId for the Purchase Invoices list).
+// Lite listing variant (+ sourceInvoiceId for the Purchase Invoices list).
 export const usePurchaseReturnsListQuery = (fetchPolicy: WatchQueryFetchPolicy = "cache-and-network") => {
   const { type, admin, branch, staff } = useAppSelector((s) => s.auth);
   const selectedBranchId = useAppSelector((s) => s.selectedBranch.branchId);

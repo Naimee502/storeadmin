@@ -1,9 +1,6 @@
 import { gql } from "@apollo/client";
 
-// Analytical reports (pages/reports/analytics) — only the invoice line fields
-// that page reads. Same root field/filter as GET_SALES_INVOICES. Dates are
-// filtered client-side (the server's billdate range filter casts to Date
-// against a String field and never matches).
+// Analytics report fields; dates filtered client-side (server billdate filter never matches).
 export const ANALYTICS_REPORT_SALES_INVOICES = gql`
   query AnalyticsReportSalesInvoices($filter: SalesInvoiceFilterInput) {
     getSalesInvoices(filter: $filter) {
@@ -22,9 +19,7 @@ export const ANALYTICS_REPORT_SALES_INVOICES = gql`
   }
 `;
 
-// Profit Margin tab only: the variant purchase rate + unit data needed to cost
-// an invoice line. Invoices keep no cost snapshot, so cost is derived from the
-// variant's current purchaserate (per purchase unit) converted to base units.
+// Profit Margin: cost derived from the variant's current purchase rate.
 export const ANALYTICS_REPORT_PRODUCT_COSTS = gql`
   query AnalyticsReportProductCosts($filter: ProductServiceFilterInput, $limit: Int, $offset: Int) {
     getProductServices(filter: $filter, limit: $limit, offset: $offset) {

@@ -9,8 +9,7 @@ import {
 import { useAppSelector } from "../../../redux/hooks";
 import { PAYMENT_SIDE_EFFECT_QUERIES } from "../shared/paymentsideeffects";
 
-// The server scopes claims from the login + x-branch-id header; the branch is
-// only passed as a variable so switching branches gives a fresh cache entry.
+// Server scopes by login + branch header; branch var just splits the cache.
 export const useExpenseClaimsQuery = (skip = false) => {
   const selectedBranchId = useAppSelector((state) => state.selectedBranch.branchId);
   return useQuery(GET_EXPENSE_CLAIMS, {
@@ -28,8 +27,7 @@ export const useDeletedExpenseClaimsQuery = () => {
   });
 };
 
-// Approving posts an Expense Note + its journal on the server, so the notes,
-// payments and transactions lists must refetch too.
+// Approving posts an Expense Note + journal, so refetch those lists too.
 const AFTER_APPROVE = ["GetExpenseClaims", "GetExpenseNotes", "GetExpenseNotesList", "GetExpenseNotesPage", ...PAYMENT_SIDE_EFFECT_QUERIES];
 
 export const useExpenseClaimMutations = () => {

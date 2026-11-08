@@ -19,9 +19,7 @@ const SalesmanReports: React.FC = () => {
   const branchid = type === 'admin' ? selectedBranchId : type === 'branch' ? branch?.id : type === 'staff' ? authStaff?.branchid?.id : undefined;
   const { data: salesData } = useQuery(SALESMAN_REPORT_SALES_INVOICES, {
     variables: {
-      // Server now ranges invoices by billdate (text compare, whole To day
-      // included), so only the chosen period is downloaded. The client-side
-      // date filter below stays as a safety net.
+      // Server ranges invoices by billdate; the client date filter is a safety net.
       filter: {
         adminid,
         branchid,

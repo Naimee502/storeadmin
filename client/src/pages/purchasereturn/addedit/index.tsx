@@ -1,5 +1,4 @@
-// Add / Edit a Purchase Return (Debit Note).
-// Same structure as Sales Return — see salesreturn/addedit for line comments.
+// Add / Edit a Purchase Return; same structure as Sales Return.
 
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams, useLocation } from "react-router";
@@ -334,8 +333,7 @@ const AddEditPurchaseReturn: React.FC = () => {
 
 
 
-  // Set the return qty of several lines in one go (row tick, header tick,
-  // or typing a qty) and recompute each one's amount.
+  // Set return qty on several lines at once and recompute amounts.
   const setQtys = (updates: Record<number, number>) => {
     setLines((prev) =>
       prev.map((line, idx) => {

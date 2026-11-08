@@ -180,8 +180,7 @@ export const RESET_PURCHASE_INVOICE = gql`
   }
 `;
 
-// Cancel reverses the bill's stock, its journal and the receipt it raised
-// the document itself stays, so the bill-number series keeps no gaps.
+// Cancel reverses stock, journal and payment but keeps the document, so numbering has no gaps.
 export const CANCEL_PURCHASE_INVOICE = gql`
   mutation CancelPurchaseInvoice($id: ID!, $reason: String) {
     cancelPurchaseInvoice(id: $id, reason: $reason) {

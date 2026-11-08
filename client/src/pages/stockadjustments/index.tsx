@@ -52,8 +52,7 @@ const StockAdjustmentsList: React.FC = () => {
 
   useEffect(() => {
     const fetchData = async () => {
-      // Already have rows from the cache → refresh quietly in the background
-      // instead of covering the table with the full-screen loader.
+      // Cached rows: refresh in the background without the full-screen loader.
       const blocking = !adjustmentList.length;
       if (blocking) dispatch(showLoading());
       try {

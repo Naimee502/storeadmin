@@ -28,15 +28,7 @@ const toServerFilters = (filters: Record<string, string>): ColumnFilter[] =>
     .filter(([, value]) => String(value || "").trim())
     .map(([key, value]) => ({ key, value: String(value).trim() }));
 
-/**
- * State for a server-paged DataTable: page, size, search and column filters,
- * remembered per tab. Search and filters reach the server after a 300ms pause.
- *
- *   const table = useServerTable("salesorder", SERVER_FILTER_KEYS);
- *   const { items, total, loading } = useSalesOrdersPageQuery(table.variables);
- *   const serverPaging = useServerPaging(table, total, loading);
- *   <DataTable serverPaging={serverPaging} ... />
- */
+/** Server-paged DataTable state, remembered per tab; search/filters debounced 300ms. */
 export function useServerTable(key: string, filterKeys?: string[], defaultPageSize = 10) {
   const [page, setPage] = useSessionState(`${key}:page`, 1);
   const [pageSize, setPageSize] = useSessionState(`${key}:pageSize`, defaultPageSize);

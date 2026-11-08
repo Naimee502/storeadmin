@@ -18,10 +18,7 @@ export const GET_CATEGORIES = gql`
   }
 `;
 
-// Categories list page (and the Sub Categories page's category picker /
-// grouping order): grid columns plus what the inline edit form reads from a
-// row (image). Same root field/args as GET_CATEGORIES, so both share the
-// normalized cache list.
+// Categories list page: grid + inline-form fields; shares the cache with GET_CATEGORIES.
 export const GET_CATEGORIES_LIST = gql`
   query GetCategoriesList($adminId: ID) {
     getCategories(adminId: $adminId) {

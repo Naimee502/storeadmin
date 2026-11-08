@@ -27,9 +27,7 @@ import { selectIsModuleAllowed, selectIsFormFieldEnabled } from "../../../redux/
 const TYPE_GROUP_MAP: Record<string, { names: string[]; category: string }> = {
   customer: { names: ["sundry debtor", "debtor", "trade receivable", "receivable"], category: "assets" },
   vendor:   { names: ["sundry creditor", "creditor", "trade payable", "payable"],   category: "liabilities" },
-  // Both sides on ONE ledger, filed with the debtors. The group only decides
-  // where the party is listed; which way the balance actually leans is decided
-  // by the bills, and a both-party can end up on either side.
+  // Both-type parties: one ledger, filed under debtors.
   both:     { names: ["sundry debtor", "debtor", "trade receivable", "receivable"], category: "assets" },
   bank:     { names: ["bank account", "bank", "cash"],                               category: "assets" },
   expense:  { names: ["direct expense", "indirect expense", "expense"],              category: "expenses" },
@@ -108,8 +106,7 @@ const ShopPhotoField = ({ value, onChange }: { value: string; onChange: (url: st
   );
 };
 
-// One "Shop Location (GPS)" field, same as the app: tap the target to capture
-// the current position, or paste "lat, lng" / a Google Maps link.
+// Shop location: capture current position or paste "lat, lng" / a Maps link.
 const ShopLocationField = ({ latitude, longitude, onChange }: {
   latitude: any; longitude: any;
   onChange: (lat: string, lng: string) => void;
@@ -195,9 +192,7 @@ const AddEditAccount = () => {
   const dispatch = useAppDispatch();
   const { admin } = useAppSelector((state: any) => state.auth);
   const adminId = admin?.id;
-  // Channel & Region (and Assigned Salesman) only when the channels module is
-  // enabled — salesmen are channel-based; sales routes are optional, so the
-  // salesman assignment is gated by channel, not by the routes module.
+  // Channel, Region and Salesman only when the channels module is on.
   const channelAllowed = useAppSelector((s: any) => selectIsModuleAllowed(s, "channels"));
   // "Assign parent party" only when downline management is on.
   const partyManagesDownline = useAppSelector((s: any) => !!s.adminsettings?.settings?.partyManagesDownline);
@@ -258,16 +253,7 @@ const AddEditAccount = () => {
     const rule = TYPE_GROUP_MAP[partyType];
     if (!rule) return "";
 
-    // 1. Name match, walking the patterns in PRIORITY order and preferring a
-    //    group whose category also fits.
-    //
-    //    Scanning groups first and asking "does any pattern match?" picked
-    //    whichever group the DB happened to return first, so the loose
-    //    catch-all pattern beat the specific one: "Expense Account" landed on
-    //    "Prepaid Expenses" (an ASSET group) because it contains "expense",
-    //    and "Bank / Cash" could land on "Bank OD A/c" (a LIABILITY) because
-    //    it contains "bank". The party then sat on the wrong side of the
-    //    balance sheet unless someone spotted it and changed it by hand.
+    // 1. Name match, patterns in priority order, preferring a group whose category fits.
     for (const n of rule.names) {
       const matches = groups.filter((g: any) =>
         g.accountgroupname.toLowerCase().includes(n)
@@ -335,9 +321,7 @@ const AddEditAccount = () => {
     setFormErrors(prev => ({ ...prev, [name]: "" }));
   };
 
-  // Shop location set (captured or pasted) → Address / City / State / Pincode
-  // filled from it, same as the app's Add New Party. Only EMPTY fields are
-  // filled, so nothing already typed is overwritten; all stay editable.
+  // Fill empty address fields from the shop location; typed values are kept.
   const [reverseGeocode] = useLazyQuery(REVERSE_GEOCODE, { fetchPolicy: "network-only" });
   const [fillingAddress, setFillingAddress] = useState(false);
   const normState = (v: string) => String(v || "").toLowerCase().replace(/[^a-z]/g, "");
@@ -367,10 +351,7 @@ const AddEditAccount = () => {
     }
   };
 
-  // Parent (upline) party options for downline hierarchy. When a channel is
-  // selected, only parties whose channel HANDLES the selected channel show
-  // (e.g. selecting "Retailer" → parent options = Wholesaler/Superstockist
-  // parties). If no channel selected, all parties are eligible.
+  // Parent party options: only parties whose channel handles the selected one.
   const parentPartyOptions = useMemo(() => {
     const sel = formValues.channel;
     // Load parent options only AFTER a channel is selected.
@@ -390,10 +371,7 @@ const AddEditAccount = () => {
   // When type changes: update field and auto-resolve account group
   const handleTypeChange = (value: string) => {
     const resolved = resolveAccountGroup(value);
-    // Accounting convention: customer = receivable (debit), vendor = payable (credit).
-    // A both-party starts on the debit side, but it is only a starting point
-    // which way they actually stand is whatever their bills add up to, and the
-    // user can flip it here if the opening balance says otherwise.
+    // Customer = debit (receivable), vendor = credit (payable); both starts as debit.
     const autoBalType =
       value === "customer" || value === "both"
         ? "debit"
@@ -676,7 +654,6 @@ const AddEditAccount = () => {
               <fieldset className="border rounded-xl p-4 flex flex-col">
                 <legend className="text-sm sm:text-base font-medium px-2">Address Info</legend>
                 <div className="grid grid-cols-1 gap-4 mb-4">
-                {/* Address Info is not rendered directly here anymore since the fields are broken out. Wait, Mobile and Email were duplicated here earlier by me? Actually let's just remove them from Address Info because they belong in Account Info. */}
                 {isFieldEnabled("address") && <FormField label="Address" name="address" value={formValues.address} onChange={(e) => handleChange("address", e.target.value)} icon={<FaLocationArrow />} placeholder="Enter address" />}
                 {isFieldEnabled("city") && <FormField label="City" name="city" value={formValues.city} onChange={(e) => handleChange("city", e.target.value)} icon={<FaCity />} placeholder="Enter city" />}
                 {isFieldEnabled("state") && <FormField
@@ -705,8 +682,7 @@ const AddEditAccount = () => {
                 {fillingAddress && <p className="-mt-3 text-xs text-blue-600">Filling address from location…</p>}
                 <ShopPhotoField value={formValues.shopimage || ""} onChange={(url) => handleChange("shopimage", url)} />
               </div>
-              {/* Map of the saved shop location, in the empty space left below
-                  the fields. It fills that space and never grows the card. */}
+              {/* Map of the saved shop location in the space below the fields. */}
               {(isFieldEnabled("latitude") || isFieldEnabled("longitude")) && (
                 <LocationPreviewMap latitude={formValues.latitude} longitude={formValues.longitude} />
               )}
@@ -731,12 +707,7 @@ const AddEditAccount = () => {
                   />
                 )}
                 {isFieldEnabled("openingbalancetype") && (
-                  /* Debit or credit only. Whether the opening can be settled
-                     from BOTH payment screens follows the PARTY type — a
-                     Customer & Vendor party's opening is offered on each — so
-                     there is nothing to pick here for it. A "Debit & Credit"
-                     option was tried and removed: it read as though the money
-                     sat on both sides of the books at once. */
+                  // Debit or credit only; which payment screens can settle it follows the party type.
                   <FormField label="Balance Type" name="openingbalancetype" type="select" value={formValues.openingbalancetype} onChange={(e) => handleChange("openingbalancetype", e.target.value)} options={[{ label: "Debit", value: "debit" }, { label: "Credit", value: "credit" }]} placeholder="Select balance type" />
                 )}
                 {isFieldEnabled("creditlimit") && (

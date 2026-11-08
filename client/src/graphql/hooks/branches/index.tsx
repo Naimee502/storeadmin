@@ -57,10 +57,7 @@ export const useBranchesListQuery = () => {
   return { data, loading, error, refetch };
 };
 
-/**
- * Branches list page: one page from the server, same scope as useBranchesListQuery.
- * `listVariables` lets Export fetch the full list.
- */
+/** Branches list page: one server page; `listVariables` lets Export fetch all rows. */
 export const useBranchesPageQuery = ({
   page,
   pageSize,

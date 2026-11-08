@@ -22,8 +22,7 @@ import { useInvoicePdf } from "../../components/invoicepdf";
 import { stateOptions } from "../../utils/constants";
 import { partyLabel } from "../../utils/partylabel";
 
-// Party's `state` is stored as a slug (e.g. "gujarat") — map it to the
-// proper display label for the printed document's Place of Supply.
+// Party state is a slug; map it to the label for Place of Supply.
 const stateLabel = (slug?: string) =>
   stateOptions.find((s) => s.value === slug)?.label || "";
 
@@ -36,18 +35,13 @@ const SERVER_FILTER_KEYS = [
 const SalesOrders = () => {
   const navigate = useNavigate();
   const actions = useAppSelector(state => selectModuleActions(state, "salesorder"));
-  // When invoicing is enabled, an order is "confirmed" by converting it to an
-  // invoice — so the status dropdown offers "Convert to Invoice" instead of a
-  // separate "Confirmed". Order-only businesses keep plain "Confirmed".
-  // Business-level check (not staff-restricted) so every role at a branch
-  // staff included — sees the same order→invoice workflow as the branch does.
+  // With invoicing on, confirming means "Convert to Invoice" (business-level, same for all roles).
   const salesInvoiceEnabled = useAppSelector(state => selectIsModuleBusinessEnabled(state, "salesinvoice"));
   const dispatch = useAppDispatch();
 
   const apolloClient = useApolloClient();
 
-  // Lite listing query — only the table columns. The full order is fetched by
-  // id on Print / WhatsApp (see loadPrintable).
+  // Lite listing query; the full order is fetched by id on Print / WhatsApp.
   const table = useServerTable("salesorder", SERVER_FILTER_KEYS);
   const {
     items: orderList,
@@ -65,14 +59,9 @@ const SalesOrders = () => {
     reopenSalesOrderMutation,
   } = useSalesOrderMutations();
 
-  // Drive the order through its lifecycle from the listing dropdown.
-  // Options depend on whether invoicing is enabled, and whether THIS order is
-  // already converted (a converted order is never re-offered "convert").
+  // Status options depend on invoicing and whether this order is already converted.
   const optionsFor = (order: any) => {
-    // "Pending" reopens a CANCELLED order. Once an order is converted — which
-    // in order-only mode happens silently on Confirm — stock and the ledger
-    // have been posted and there is no safe way back, so don't offer a path
-    // that can only fail.
+    // "Pending" only reopens a cancelled order; a converted one has posted stock and ledger.
     const opts: { label: string; value: string }[] = order.isConverted
       ? []
       : [{ label: "Pending", value: "pending" }];
@@ -124,10 +113,7 @@ const SalesOrders = () => {
           ? auth.staff?.admin?.companyName
           : "";
 
-  /* ---------- Print ----------
-     Same two-step mount-then-print dance the invoice pages use: the printable
-     node has to exist in the DOM before react-to-print can read it, so the row
-     is put into state first and the print is fired once the ref is populated. */
+  // Print: put the row in state first, print once the ref is set.
   const componentRef = useRef<HTMLDivElement>(null);
   const [printOrder, setPrintOrder] = useState<any>(null);
   const [readyToPrint, setReadyToPrint] = useState(false);
@@ -150,9 +136,7 @@ const SalesOrders = () => {
     if (readyToPrint && componentRef.current) handlePrint?.();
   }, [readyToPrint, handlePrint]);
 
-  /* ---------- WhatsApp share ----------
-     Shares the very same printable layout as a PDF, so what the party receives
-     on WhatsApp is byte-for-byte what Print produces. */
+  // WhatsApp share: same printable layout as a PDF.
   const makeInvoicePdf = useInvoicePdf();
   const [waOrder, setWaOrder] = useState<any>(null);
   const waMeta = useRef<{ phone: string; message: string; fileName: string } | null>(null);
@@ -161,13 +145,7 @@ const SalesOrders = () => {
     const orig = orderList.find((o: any) => o.id === row.id);
     if (!orig) return;
 
-    // Nothing a browser can do names the recipient for WhatsApp — the share
-    // sheet carries the file and nothing else, so its "Send message to" list
-    // always follows. The number goes on the clipboard so that list becomes
-    // a paste instead of a search, and the message below says so, because a
-    // clipboard nobody was told about helps nobody. It is held on screen far
-    // longer than a normal toast: by the time WhatsApp's picker is actually
-    // open, three seconds are long gone.
+    // Copy the party's number for WhatsApp's picker; keep the toast up long enough.
     const copiedNumber = copyPartyNumberForPicker(orig.partyacc?.mobile);
     if (copiedNumber) {
       dispatch(showMessage({
@@ -178,9 +156,7 @@ const SalesOrders = () => {
       }));
     }
 
-    // Business Settings -> Invoice Print -> "Show company name in signature"
-    // governs the chat sign-off too, so the company name never leaks into a
-    // message when the admin has chosen to keep it off the document.
+    // "Show company name in signature" setting also governs the chat sign-off.
     const showSignatureCompanyName = settings?.printShowCompanyNameInSignature !== false;
     const mobile = (orig.partyacc?.mobile || "").replace(/\D/g, "");
     const message =
@@ -224,17 +200,13 @@ const SalesOrders = () => {
         if (result === "downloaded") {
           dispatch(showMessage({
             message: "Order PDF downloaded — attach it in the WhatsApp chat that just opened.",
-            // The message slice only types 'success' | 'error'; this is an
-            // informational note, and 'success' is the truthful one of the two
-            // (the PDF really was produced and downloaded).
+            // Informational note; 'success' since the PDF was downloaded.
             type: "success",
           }));
         }
       } catch (e) {
         console.error("WhatsApp PDF share error:", e);
-        // The reason is spelled out rather than swallowed: this path can fail
-        // for several unrelated causes (the PDF module not loading, bad data
-        // on the document), and "it failed" leaves nobody anything to act on.
+        // Show the actual failure reason.
         dispatch(showMessage({
           message: `Failed to share order PDF: ${(e as any)?.message || e}`,
           type: "error",
@@ -251,8 +223,7 @@ const SalesOrders = () => {
 
   useEffect(() => {
     const fetchOrders = async () => {
-      // Already have rows from the cache → refresh quietly in the background
-      // instead of covering the table with the full-screen loader.
+      // Cached rows: refresh in the background without the full-screen loader.
       const blocking = !orderList.length;
       if (blocking) dispatch(showLoading());
       try {
@@ -300,8 +271,7 @@ const SalesOrders = () => {
     return {
       ...order,
       seqNo: index + 1,
-      // Flattened for the printable document — it expects these ready-made
-      // rather than digging into the partyacc object itself.
+      // Flattened fields for the printable document.
       partyname: order.partyacc?.accountname || "",
       gstin: order.partyacc?.gstnumber || "",
       placeofsupply: [order.partyacc?.city, stateLabel(order.partyacc?.state)].filter(Boolean).join(" - "),
@@ -328,8 +298,7 @@ const SalesOrders = () => {
 
   const tableData = orderList.map((order: any, i: number) => buildRow(order, table.offset + i));
 
-  // Print / WhatsApp need the whole order (lines, charges, transport…), which
-  // the lite listing doesn't carry — fetch it by id at click time.
+  // Print / WhatsApp need the full order; fetch it by id.
   const loadPrintable = async (row: any) => {
     const { data: full } = await apolloClient.query({
       query: GET_SALES_ORDER_PRINT,

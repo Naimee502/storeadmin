@@ -22,8 +22,7 @@ import { useInvoicePdf } from "../../components/invoicepdf";
 import { stateOptions } from "../../utils/constants";
 import { partyLabel } from "../../utils/partylabel";
 
-// Party's `state` is stored as a slug (e.g. "gujarat") — map it to the
-// proper display label (e.g. "Gujarat") for the printed invoice.
+// Party state is a slug; map it to its label for print.
 const stateLabel = (slug?: string) =>
   stateOptions.find((s) => s.value === slug)?.label || "";
 
@@ -38,8 +37,7 @@ const PurchaseInvoices = () => {
   const actions = useAppSelector(state => selectModuleActions(state, "purchaseinvoice"));
   const dispatch = useAppDispatch();
 
-  // Lite listing query — only the table columns. The full bill is fetched by
-  // id on Print / WhatsApp (see loadPrintable).
+  // Lite listing; the full bill is fetched on Print / WhatsApp (see loadPrintable).
   const table = useServerTable("purchaseinvoice", SERVER_FILTER_KEYS);
   const {
     items: invoiceList,
@@ -86,8 +84,7 @@ const PurchaseInvoices = () => {
           ? auth.staff?.admin?.companyName
           : "";
 
-  // Share the purchase invoice on WhatsApp as a PDF (same printable
-  // layout as Print). Hidden mount below; effect converts + shares.
+  // Share as PDF on WhatsApp via the hidden printable.
   const makeInvoicePdf = useInvoicePdf();
   const [waInvoice, setWaInvoice] = useState<any>(null);
   const waMeta = useRef<{ phone: string; message: string; fileName: string } | null>(null);
@@ -96,13 +93,7 @@ const PurchaseInvoices = () => {
     const orig = invoiceList.find((inv: any) => inv.id === row.id);
     if (!orig) return;
 
-    // Nothing a browser can do names the recipient for WhatsApp — the share
-    // sheet carries the file and nothing else, so its "Send message to" list
-    // always follows. The number goes on the clipboard so that list becomes
-    // a paste instead of a search, and the message below says so, because a
-    // clipboard nobody was told about helps nobody. It is held on screen far
-    // longer than a normal toast: by the time WhatsApp's picker is actually
-    // open, three seconds are long gone.
+    // WhatsApp can't preselect a recipient, so copy the number and keep the toast up longer.
     const copiedNumber = copyPartyNumberForPicker(orig.partyacc?.mobile);
     if (copiedNumber) {
       dispatch(showMessage({
@@ -125,8 +116,7 @@ const PurchaseInvoices = () => {
       message,
       fileName: `Purchase-Invoice-INV-${orig.billnumber}.pdf`,
     };
-    // The list holds only the table columns — load the full bill (and the
-    // party balance when enabled) for the PDF.
+    // Load the full bill (and party balance if enabled) for the PDF.
     dispatch(showLoading());
     try {
       setWaInvoice(await loadPrintable(row));
@@ -153,18 +143,14 @@ const PurchaseInvoices = () => {
           dispatch(
             showMessage({
               message: "Invoice PDF downloaded — attach it in the WhatsApp chat that just opened.",
-              // The message slice only types 'success' | 'error'; this is an
-              // informational note, and 'success' is the truthful one of the two
-              // (the PDF really was produced and downloaded).
+              // Only 'success' | 'error' exist; the PDF was produced, so 'success'.
               type: "success",
             })
           );
         }
       } catch (e) {
         console.error("WhatsApp PDF share error:", e);
-        // The reason is spelled out rather than swallowed: this path can fail
-        // for several unrelated causes (the PDF module not loading, bad data
-        // on the document), and "it failed" leaves nobody anything to act on.
+        // Show the reason; this can fail for several unrelated causes.
         dispatch(showMessage({
           message: `Failed to share invoice PDF: ${(e as any)?.message || e}`,
           type: "error",
@@ -197,8 +183,7 @@ const PurchaseInvoices = () => {
 
   useEffect(() => {
     const fetchInvoices = async () => {
-      // Already have rows from the cache → refresh quietly in the background
-      // instead of covering the table with the full-screen loader.
+      // Rows already cached: refresh quietly without the full-screen loader.
       const blocking = !invoiceList.length;
       if (blocking) dispatch(showLoading());
       try {
@@ -250,10 +235,7 @@ const PurchaseInvoices = () => {
     return {
       ...invoice,
       seqNo: index + 1,
-      // Kept for the printable invoice — Party name & GSTIN come from the
-      // Party Account record and are only shown on print if actually set
-      // there (no static/default GSTIN). Place of Supply = City - State
-      // (GST jurisdiction), not the street address.
+      // Party name/GSTIN print only if set; Place of Supply = City - State.
       partyname: invoice.partyacc?.accountname || "",
       gstin: invoice.partyacc?.gstnumber || "",
       placeofsupply: [invoice.partyacc?.city, stateLabel(invoice.partyacc?.state)].filter(Boolean).join(" - "),
@@ -262,15 +244,12 @@ const PurchaseInvoices = () => {
       totalqty,
       billdate: formatDateDMY(invoice.billdate),
       billdateRaw: invoice.billdate,
-      // Same "INV-000001" style as Sales Invoice (and what the WhatsApp
-      // share message / PDF filename below already use) instead of the
-      // raw billtype ("Taxinvoice-000001").
+      // "INV-000001" style, same as Sales Invoice.
       billtype_billnumber: `INV-${invoice.billnumber}`,
       paymenttype: capitalizeFirst(invoice.paymenttype),
       createdByDisplay: invoice.createdby_name || "N/A",
       isCancelled: invoice.cancelStatus === "cancelled",
-      // A cancelled bill is still "Active" in the not-deleted sense, so the
-      // cancellation has to be what the eye lands on.
+      // Highlight cancellation; the bill is still "Active" (not deleted).
       status: invoice.cancelStatus === "cancelled"
         ? "Cancelled"
         : invoice.status ? "Active" : "Inactive",
@@ -279,9 +258,7 @@ const PurchaseInvoices = () => {
 
   const tableData = invoiceList.map((inv: any, i: number) => buildRow(inv, table.offset + i));
 
-  // Print / WhatsApp need the whole bill (lines, charges, transport…), which
-  // the lite listing doesn't carry — fetch it by id, plus the party balance
-  // when Business Settings → Invoice Print asks for it.
+  // Fetch the full bill (and party balance if enabled) for Print / WhatsApp.
   const loadPrintable = async (row: any) => {
     const [full, bal] = await Promise.all([
       apolloClient.query({
@@ -323,11 +300,7 @@ const PurchaseInvoices = () => {
           data={tableData}
           serverPaging={serverPaging}
           onWhatsApp={handleWhatsAppShare}
-          // Combine the "no duplicate return" rule with the user's
-          // permission to perform a return at all (Business Permissions →
-          // Purchase Invoices → Return). Print / WhatsApp come from
-          // {...actions} above — never hard-code them to true here, or the
-          // permission checkboxes stop working.
+          // No duplicate return plus Return permission; Print/WhatsApp come from actions.
           showReturn={(row: any) =>
             actions.showReturn && !returnedInvoiceIds.has(String(row.id)) && !row.isCancelled
           }
@@ -346,8 +319,7 @@ const PurchaseInvoices = () => {
               await refetch();
               dispatch(showMessage({ message: "Purchase invoice cancelled. Stock has been reversed.", type: "success" }));
             } catch (e: any) {
-              // The server refuses with a specific reason — show that, never a
-              // generic failure.
+              // Show the server's specific reason.
               dispatch(showMessage({ message: e?.message || "Failed to cancel invoice.", type: "error" }));
             }
           }}
@@ -364,8 +336,7 @@ const PurchaseInvoices = () => {
           onReturn={(row) => navigate(`/purchasereturn/addedit?fromInvoice=${row.id}`)}
           onView={(row) => navigate(`/purchaseinvoice/view/${row.id}`)}
           onEdit={(row) => navigate(`/purchaseinvoice/addedit/${row.id}`)}
-          // Business Settings → "Delete … only from inside the invoice": the
-          // trash icon moves to the invoice's edit page instead.
+          // Delete-only-inside-invoice setting moves the trash icon to the edit page.
           showDelete={actions.showDelete && !settings?.deleteInvoiceFromInsideOnly}
           onDelete={async (row) => {
             if (
@@ -398,8 +369,7 @@ const PurchaseInvoices = () => {
           onAdd={() => navigate("/purchaseinvoice/addedit")}
           onShowDeleted={() => navigate("/purchaseinvoice/deletedentries")}
           onPrint={async (row) => {
-            // Full bill + (optional) party balance are fetched only on Print
-            // click — the listing query carries just the table columns.
+            // Full bill fetched only on Print.
             dispatch(showLoading());
             try {
               setPrintInvoice(await loadPrintable(row));

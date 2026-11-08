@@ -29,11 +29,7 @@ import {
 } from "../../config/modules";
 import FormPermissionsTab from "./formpermissionstab";
 
-// Strips Apollo's injected __typename from every nested object/array before
-// sending a query result back as a mutation input — the settings draft here
-// includes nested arrays (heroBannerSlides, dealOfDayItems, etc.) fetched by
-// the same query, and GraphQL input types reject any field they don't
-// declare, __typename included.
+// Strip Apollo's __typename before sending query data back as mutation input.
 const deepStripTypename = (value: any): any =>
   JSON.parse(JSON.stringify(value), (key, val) => (key === "__typename" ? undefined : val));
 
@@ -128,8 +124,7 @@ const BusinessSettings = () => {
                 title="Admin defaults — apply to all branches/staff unless overridden"
                 dispatch={dispatch}
                 parentAllowed={
-                  // Use the TARGET admin's allowedmodules so we only show
-                  // modules that are actually enabled for this admin.
+                  // Use the target admin's allowedmodules.
                   adminsData?.getAdmins?.find((a: any) => a.id === selectedAdminId)?.allowedmodules
                   ?? admin?.allowedmodules
                 }
@@ -161,9 +156,7 @@ export { GeneralTab as BusinessGeneralTab };
 export { ModulesTab as BusinessModulesTab };
 export { PermissionsTab as BusinessPermissionsTab };
 
-/* =====================================================================
-   GENERAL TAB
-   ===================================================================== */
+// General tab
 
 
 // Usual SSL/TLS port per provider; 465 (implicit SSL) is the safe default.
@@ -184,8 +177,7 @@ const GeneralTab: React.FC<{ adminId?: string; dispatch: any }> = ({
   const [draft, setDraft] = useState<any>(null);
   const [smtpTestTo, setSmtpTestTo] = useState("");
 
-  // Switching business: drop the previous one's draft at once so its values
-  // (mailbox, password, domain…) are never shown — or saved — under the new one.
+  // Switching business: drop the previous draft so its values aren't shown or saved.
   useEffect(() => { setDraft(null); setSmtpTestTo(""); }, [adminId]);
   useEffect(() => {
     if (settings && (!adminId || settings.adminid === adminId || !settings.adminid)) {
@@ -227,8 +219,7 @@ const GeneralTab: React.FC<{ adminId?: string; dispatch: any }> = ({
 
   return (
     <div className="space-y-3">
-      {/* Grouped by area, 4 switches per row. The longer explanation of each
-          switch is on hover (the ⓘ next to its name), not printed below it. */}
+      {/* Grouped by area, 4 per row; details on hover. */}
       <Section title="Stock & Inventory">
         <Grid>
           <Toggle label="Auto-deduct stock on Sales Invoice" checked={draft.autoCreateStockOnSalesInvoice} onChange={(v) => set("autoCreateStockOnSalesInvoice", v)} />
@@ -399,7 +390,7 @@ const GeneralTab: React.FC<{ adminId?: string; dispatch: any }> = ({
             onChange={(e) => {
               const mode = e.target.value;
               set("websitePaymentMode", mode);
-              // Kept in step for anything still reading the old switch.
+              // Kept in sync for code reading the old switch.
               set("websiteCodOnly", mode === "cod_only");
             }}
           >
@@ -411,8 +402,7 @@ const GeneralTab: React.FC<{ adminId?: string; dispatch: any }> = ({
         </div>
       </Section>
 
-      {/* The business's own mailbox for OTP mails. Blank = the platform
-          mailbox sends them (with the business name as sender name). */}
+      {/* Business mailbox for OTP mails; blank uses the platform mailbox. */}
       <Section title="Email (SMTP) — OTP mails from your own email">
         <div className="text-[11px] leading-snug text-slate-400">
           Registration and login OTP mails for this business are sent from this mailbox (e.g.
@@ -503,9 +493,7 @@ const GeneralTab: React.FC<{ adminId?: string; dispatch: any }> = ({
         <p className="mt-1 text-[11px] leading-snug text-slate-400">Save the settings first — the test uses the saved mailbox.</p>
       </Section>
 
-      {/* What each toggle can ACTUALLY enforce differs a lot by platform, and
-          quietly implying "on = safe" would be worse than no feature at all.
-          So each row states its own real limit inline. */}
+      {/* Each row states what it can really enforce on that platform. */}
       <Section title="Screen Capture Protection">
         <div className="text-[11px] leading-snug text-slate-400">
           Stops someone screen-sharing or recording your product to give an unauthorised demo.
@@ -682,9 +670,7 @@ const PermissionsTab: React.FC<{
   dispatch: any;
   parentAllowed?: string[];
 }> = ({ scope, scopeid, title, dispatch, parentAllowed }) => {
-  // Always read the stored document fresh: Access and Form Permissions save
-  // the same document, so a cached copy from the other tab would write the
-  // other tab's changes back over themselves.
+  // Read fresh: Access and Form Permissions save the same document.
   const [load, { data, loading }] = usePermissionsLazy({ fetchPolicy: "network-only" });
   const { setPermissions } = usePermissionsMutations();
   const [draft, setDraft] = useState<any>(null);
@@ -693,13 +679,7 @@ const PermissionsTab: React.FC<{
     if (scopeid) load({ variables: { scope, scopeid } });
   }, [scope, scopeid, load]);
 
-  // Draw the matrix from the SAME rule the app enforces (resolveAction), not
-  // from the raw record. A module with no record at all is unconfigured and
-  // therefore allowed, so its boxes must start ticked; a module that HAS a
-  // record shows exactly what that record grants, and any action missing from
-  // it — a capability added in a later release — starts unticked because that
-  // is how it now behaves. Saving then writes every box explicitly, so the
-  // record can never fall behind the module definition again.
+  // Build the matrix with resolveAction: no record means allowed, missing actions unticked.
   const seedDraft = (saved: Record<string, any>) => {
     const next: Record<string, any> = { ...(saved || {}) };
     MODULES.forEach((m) => {
@@ -735,15 +715,7 @@ const PermissionsTab: React.FC<{
 
   const handleSave = async () => {
     try {
-      // CRITICAL: write an explicit true/false for every visible module's every
-      // action. A key left out is a key that behaves differently from the box
-      // that was drawn for it, which is how Print / WhatsApp ended up showing on
-      // orders nobody had granted them to.
-      //
-      // Start from what is already stored so this save only rewrites the matrix
-      // on screen: the same document also holds `formPermissions` and any module
-      // hidden by the business's allowed-modules list, and building a fresh
-      // object from scratch silently wiped both.
+      // Write explicit true/false for every action, keeping other stored fields.
       const stored = data?.getPermissions?.permissions || {};
       const completePerms: Record<string, any> = { ...stored };
       visibleModules.forEach((m) => {
@@ -884,11 +856,7 @@ const Grid: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-1.5">{children}</div>
 );
 
-/**
- * One switch as a compact tile: the name on the left (ⓘ shows the details on
- * hover) and a small switch on the right — no "Active / Inactive" text, the
- * switch colour says it.
- */
+/** One switch as a compact tile; details on hover. */
 const Toggle: React.FC<{ label: string; hint?: string; checked: boolean; onChange: (v: boolean) => void }> = ({ label, hint, checked, onChange }) => (
   <label
     className={`flex h-8 cursor-pointer items-center justify-between gap-2 rounded-md border px-2.5 text-[12.5px] ${checked ? "border-green-200 bg-green-50/50" : "border-slate-200"}`}

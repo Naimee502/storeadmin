@@ -78,8 +78,7 @@ export const RESET_PAYMENT = gql`
   }
 `;
 
-// Re-spread an existing payment over different bills. Allocation only — the
-// journal is untouched, so this can never unbalance the books.
+// Re-allocate an existing payment over different bills; the journal is untouched.
 export const REALLOCATE_PAYMENT = gql`
   mutation ReallocatePayment($id: ID!, $invoices: [PaymentInvoiceInput!]!) {
     reallocatePayment(id: $id, invoices: $invoices) {

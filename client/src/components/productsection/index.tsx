@@ -42,14 +42,7 @@ type ProductSectionProps = {
   invoiceHistory?: any[];
   /** Optional override for which module's permissions to check (e.g., salesorder instead of salesinvoice) */
   permissionModuleId?: string;
-  /**
-   * The SAVED lines of the invoice being edited, on an edit screen.
-   *
-   * Their stock is already out of the branch, and the stock hook puts it back
-   * before re-deducting, so those units still belong to this bill: a bill that
-   * took the last 3 pieces must stay editable even though stock now reads 0.
-   * Left undefined on a new invoice, where nothing is reserved yet.
-   */
+  /** Saved lines of the invoice being edited; their stock still counts as this bill's. */
   originalProducts?: InvoiceProduct[];
 };
 
@@ -111,11 +104,7 @@ const ProductSection: React.FC<ProductSectionProps> = ({
 }) => {
   const normalizedProducts = productData.map(normalizeProduct);
 
-  // Short-stock flags for lines that never passed through the Add box — an
-  // order punched on the app/website is pre-filled straight into the list, and
-  // its catalogue only gates on "in stock", not on the number. Shown inline on
-  // the row itself rather than as a banner, so a 100-line invoice stays
-  // readable and each problem sits next to the quantity that caused it.
+  // Short-stock flags for pre-filled lines (app/website orders), shown inline on each row.
   const shortfallByLine = useMemo(() => {
     const map = new Map<number, { required: number; available: number }>();
     if (type !== "sales" || iservice) return map;
@@ -129,9 +118,7 @@ const ProductSection: React.FC<ProductSectionProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [products, productData, type, iservice, originalProducts]);
 
-  // Lines priced below cost — whether they got there through an inline Rate
-  // edit, a unit change re-pricing the row, or an order loaded for editing.
-  // Sales only; on purchase lines the rate IS the cost.
+  // Sales lines priced below cost (purchase rate is the cost itself).
   const belowCostByLine = useMemo(() => {
     if (type !== "sales" || iservice) return new Map<number, string>();
     return getBelowCostLines(products, normalizedProducts);
@@ -147,15 +134,7 @@ const ProductSection: React.FC<ProductSectionProps> = ({
 
   const [selectedProduct, setSelectedProduct] = useState<Partial<InvoiceProduct>>({});
 
-  /**
-   * Base units of the product currently in the Add box that the SAVED version
-   * of this invoice already holds.
-   *
-   * Added to the branch stock before every sales quantity check below, so
-   * re-opening a bill to change a rate does not hit "exceeds available stock"
-   * on stock the bill itself took out. Uses the same arithmetic as usedBaseQty
-   * so the two can be compared. Always 0 on a new invoice.
-   */
+  /** Base units of the Add-box product this saved invoice already holds (0 on a new invoice). */
   const reservedBaseQtyFor = (variant: any): number => {
     if (type !== "sales" || !originalProducts?.length || !variant) return 0;
     return originalProducts
@@ -207,9 +186,7 @@ const ProductSection: React.FC<ProductSectionProps> = ({
   const getProductHistory = useMemo(() => {
     return (productId: string, variantId?: string) => {
       if (!productId || !invoiceHistory.length) return [];
-      // Same rule as the Add-Products panel: with a party selected, only that
-      // party's past bills count — otherwise the row panel would quote rates
-      // from a different supplier/customer than the invoice being written.
+      // With a party selected, only that party's past bills count.
       const selectedPartyId = partyAccount?.id;
       const rows: { time: number; cells: string[] }[] = [];
       invoiceHistory.forEach((inv: any) => {
@@ -248,10 +225,7 @@ const ProductSection: React.FC<ProductSectionProps> = ({
 
   const [qtyError, setQtyError] = useState<string | null>(null);
 
-  // Selling below cost is blocked on sales lines. Purchase lines are exempt
-  // there the entered rate IS the purchase rate, so there is nothing to
-  // compare it against. Rates are normalised per base unit before comparing,
-  // so a Piece line and a Dozen line are both judged correctly.
+  // Selling below cost is blocked on sales lines; rates compared per base unit.
   const rateError = useMemo(() => {
     if (type !== "sales" || iservice) return null;
     if (!selectedProduct?.productserviceid) return null;
@@ -304,13 +278,7 @@ const ProductSection: React.FC<ProductSectionProps> = ({
     return subtotal + gstAmount;
   };
 
-  // Handle auto-save on blur for inline editing
-  // Changing a row's unit re-prices that row: a different pack size carries its
-  // own rate and discount, so keeping the old ones would leave the line showing
-  // a price that belongs to a unit it no longer uses.
-  //
-  // This reads the product's embedded unitprices, the same fallback the Add
-  // Products panel uses when no price list applies.
+  // Changing a row's unit re-prices it from that unit's own rate and discount.
   const handleUnitChange = (rowIndex: number, value: string, variant: any) => {
     const [unitid, rawQty] = String(value).split("--");
     const unitQty = Number(rawQty);
@@ -346,8 +314,7 @@ const ProductSection: React.FC<ProductSectionProps> = ({
     const numValue = parseFloat(newValue);
     if (isNaN(numValue)) return;
 
-    // Same below-cost rule as the Add Products box. The cell stays open with
-    // the message under it — Esc cancels back to the saved rate.
+    // Same below-cost rule as the Add Products box; Esc cancels.
     if (
       field === "rate" &&
       type === "sales" &&
@@ -363,8 +330,7 @@ const ProductSection: React.FC<ProductSectionProps> = ({
 
         const updatedProduct = { ...p };
 
-        // Quantities are whole units — the spinner, a paste or a stray
-        // keystroke can still deliver a fraction, so it is cut here too.
+        // Quantities are whole units only.
         if (field === "quantity") updatedProduct.quantity = Math.max(1, Math.floor(numValue));
         else if (field === "rate") updatedProduct.rate = numValue;
         else if (field === "discount") updatedProduct.discount = numValue;
@@ -413,10 +379,7 @@ const ProductSection: React.FC<ProductSectionProps> = ({
   // Standalone history panel state for inline product editing
   const [inlineHistoryOpen, setInlineHistoryOpen] = useState(false);
   const [historyProductInfo, setHistoryProductInfo] = useState<{ productId: string; variantId?: string; rowIndex: number } | null>(null);
-  // Screen position of the select control the panel hangs under. The Products
-  // List scrolls inside an overflow-x-auto wrapper, which would clip a plain
-  // absolute panel — so it is portalled to <body> and pinned to that rect,
-  // which looks identical to the panel under the Add-Products select.
+  // Panel is portalled to <body> so the table's overflow wrapper can't clip it.
   const [historyAnchor, setHistoryAnchor] = useState<{ top: number; left: number; width: number } | null>(null);
   const inlineHistoryRef = React.useRef<HTMLDivElement>(null);
 
@@ -444,8 +407,7 @@ const ProductSection: React.FC<ProductSectionProps> = ({
       if ((t as HTMLElement)?.closest?.(".inline-product-select")) return;
       closeInlineHistory();
     };
-    // Scrolling the panel's own list must not dismiss it — only scrolling
-    // something behind it, which would leave the pinned rect stale.
+    // Scrolling the panel's own list must not dismiss it.
     const onScroll = (ev: Event) => {
       if (inlineHistoryRef.current?.contains(ev.target as Node)) return;
       closeInlineHistory();
@@ -501,9 +463,7 @@ const ProductSection: React.FC<ProductSectionProps> = ({
   /* * Add or update product line */
   const handleAddOrUpdateProduct = () => {
     if (!selectedProduct.productserviceid) return alert("Please select a product");
-    // A line without a unit cannot be priced or converted to base quantity, so
-    // it must be picked before the row is allowed in. Sales lines carry the unit
-    // in selectedUnitValue ("<unitId>--<qty>"); purchase lines use their own.
+    // A line needs a unit before it can be added.
     if (type === "sales" && !selectedProduct.selectedUnitValue) {
       return alert("Please select a unit for this product");
     }
@@ -511,8 +471,7 @@ const ProductSection: React.FC<ProductSectionProps> = ({
       return alert("Please select a unit for this product");
     }
     if (!selectedProduct.quantity || !selectedProduct.rate) return alert("Enter qty & rate");
-    // The button is already disabled in this case; this guards any other path
-    // into the handler (keyboard submit, future callers).
+    // Guards paths other than the (disabled) button.
     if (rateError) return;
 
      const product = normalizedProducts.find(
@@ -539,8 +498,7 @@ const ProductSection: React.FC<ProductSectionProps> = ({
         .filter(p => p.variantid === selectedProduct.variantid)
         .reduce((sum, p) => sum + getInvoiceLineBaseQty(p, variant), 0);
 
-      // What this bill already had reserved is still its own to spend — see
-      // originalProducts. On a new invoice this is 0 and nothing changes.
+      // Stock this bill already reserved is still its own to spend.
       const effectiveStock = currentStock + reservedBaseQtyFor(variant);
 
       // FINAL SALES VALIDATION
@@ -788,8 +746,7 @@ const ProductSection: React.FC<ProductSectionProps> = ({
             type="number"
             value={selectedProduct.quantity ?? ""}
             onChange={(e) => {
-              // Whole units only, enforced as it is typed so "1.5" can never
-              // reach the row in the first place.
+              // Whole units only.
               const raw = parseFloat(e.target.value);
               const qty = isNaN(raw) ? NaN : Math.max(0, Math.floor(raw));
 
@@ -1032,9 +989,7 @@ const ProductSection: React.FC<ProductSectionProps> = ({
                         {editingCell?.rowIndex === i && editingCell?.field === "unit" ? (
                           <select
                             autoFocus
-                            // Driven by the row itself rather than by editingValue. The
-                            // row is what gets saved, so the box can never show one unit
-                            // while the line carries another.
+                            // Driven by the row itself, so box and saved line always match.
                             value={`${p.salesunitid ?? ""}--${p.unitquantity ?? ""}`}
                             onChange={(e) => {
                               handleUnitChange(i, e.target.value, variant);
@@ -1063,16 +1018,10 @@ const ProductSection: React.FC<ProductSectionProps> = ({
                               ) as any[];
                               const current = `${p.salesunitid ?? ""}--${p.unitquantity ?? ""}`;
                               if (!p.salesunitid) {
-                                // Bills saved before the unit was compulsory have no unit at
-                                // all. With nothing matching, the browser shows the first
-                                // option as if it were chosen — and picking that same option
-                                // fires no change, so the line could never be repaired and
-                                // the save stayed blocked. A real empty option keeps the box
-                                // honest and lets any pick register.
+                                // Old bills may have no unit; a real empty option lets any pick register.
                                 unique.unshift({ value: "--", label: "— Select unit —" });
                               } else if (!unique.some((o) => o.value === current)) {
-                                // The line's unit may not be among the variant's current
-                                // price rows — an older bill, or a price row since removed.
+                                // The line's unit may no longer be among the current price rows.
                                 unique.unshift({
                                   value: current,
                                   label: `${p.unitquantity ?? ""} ${unitNameFor(variant, p.salesunitid)}`.trim(),
@@ -1084,9 +1033,7 @@ const ProductSection: React.FC<ProductSectionProps> = ({
                             })()}
                           </select>
                         ) : (
-                          // The handler sits on the content, not on the <td>: on the cell
-                          // it stayed live underneath the open select, and any further
-                          // click inside the cell reset the editor to the row's old value.
+                          // Handler on the content, not the <td>, so clicks inside don't reset the editor.
                           <div
                             className="cursor-pointer hover:bg-gray-100"
                             onDoubleClick={() => {
@@ -1126,9 +1073,7 @@ const ProductSection: React.FC<ProductSectionProps> = ({
                             step="1"
                             min="1"
                             onKeyDown={(e) => {
-                              // Block the decimal point outright rather than
-                              // rounding after the fact — a silently changed
-                              // quantity is worse than a key that does nothing.
+                              // Block the decimal point instead of silently rounding.
                               if ([".", ",", "e", "E", "+", "-"].includes(e.key)) e.preventDefault();
                               if (e.key === "Enter") handleCellBlur(i, "quantity", editingValue);
                               if (e.key === "Escape") {
@@ -1282,8 +1227,7 @@ const ProductSection: React.FC<ProductSectionProps> = ({
               })}
             </tbody>
 
-            {/* Totals. Quantity, rate, discount and line totals add up; GST% does
-                not — a sum of percentages means nothing, so it stays a dash. */}
+            {/* Totals; GST% is not summed. */}
             {products.length > 0 && (
               <tfoot>
                 <tr className="bg-indigo-50/60 font-semibold">
@@ -1316,8 +1260,7 @@ const ProductSection: React.FC<ProductSectionProps> = ({
           </div>
         )}
 
-        {/* Last 5 rates — hangs under the row's select, same panel as Add Products.
-            Portalled to <body> only so the table's overflow-x-auto cannot clip it. */}
+        {/* Last 5 rates panel, portalled so overflow can't clip it. */}
         {inlineHistoryOpen && historyProductInfo && historyAnchor && typeof document !== "undefined" &&
           createPortal(
             (() => {

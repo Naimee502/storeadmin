@@ -16,9 +16,7 @@ export const GET_BRANDS = gql`
   }
 `;
 
-// Brands list page: grid columns plus what the inline edit form reads from a
-// row (no admin ref). Same root field/args as GET_BRANDS, so both share the
-// normalized cache list.
+// Brands list page: grid + inline-form fields; shares the cache with GET_BRANDS.
 export const GET_BRANDS_LIST = gql`
   query GetBrandsList($adminId: ID) {
     getBrands(adminId: $adminId) {

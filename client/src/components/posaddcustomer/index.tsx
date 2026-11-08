@@ -83,9 +83,7 @@ export default function PosAddCustomer({
     const [errors, setErrors] = useState<ErrorState>({});
     const [loading, setLoading] = useState(false);
 
-    /* -----------------------------------------
-       AUTO-FIND "SUNDRY DEBTORS" ACCOUNT GROUP
-    ------------------------------------------ */
+    // Auto-find the "Sundry Debtors" account group
     const accountGroupId = useMemo(() => {
         if (!accountGroupData?.getAccountGroups) return "";
 

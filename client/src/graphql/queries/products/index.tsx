@@ -101,10 +101,7 @@ export const GET_PRODUCT_SERVICES = gql`
   }
 `;
 
-// Lite list query for the Products list page (/products). Same root field and
-// arguments as GET_PRODUCT_SERVICES but only what the table, the low-stock
-// filter and the barcode action read. Export fetches GET_PRODUCT_SERVICES on
-// click. Forms, POS, reports and the apps keep using the full query.
+// Lite list for the Products page; Export and forms use the full query.
 export const GET_PRODUCT_SERVICES_LIST = gql`
   query GetProductServicesList($filter: ProductServiceFilterInput, $limit: Int, $offset: Int) {
     getProductServices(filter: $filter, limit: $limit, offset: $offset) {
@@ -297,8 +294,7 @@ export const GET_PRODUCT_SERVICE_BY_ID = gql`
   }
 `;
 
-// Every dropdown list the import/export template needs, in one round trip.
-// Generating the template used to mean nine separate master queries.
+// All import/export template dropdown lists in one round trip.
 export const GET_PRODUCT_IMPORT_MASTERS = gql`
   query GetProductImportMasters {
     getProductImportMasters {

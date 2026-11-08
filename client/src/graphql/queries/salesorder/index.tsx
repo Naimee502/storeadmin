@@ -81,11 +81,7 @@ export const GET_SALES_ORDERS = gql`
 }
 `;
 
-// Listing-only query: just the columns the Sales Orders table (and its status
-// dropdown / WhatsApp message) reads. Print / WhatsApp PDF fetch the full order
-// by id (GET_SALES_ORDER_PRINT), so the list no longer drags every line item,
-// ledger and transport field — nor the per-row invoicenumber lookup — over the
-// wire on every visit.
+// Listing-only columns; Print/WhatsApp use GET_SALES_ORDER_PRINT.
 export const GET_SALES_ORDERS_LIST = gql`
   query GetSalesOrdersList($filter: SalesOrderFilterInput) {
     getSalesOrders(filter: $filter) {
@@ -117,9 +113,7 @@ export const GET_SALES_ORDERS_LIST = gql`
   }
 `;
 
-// Full order for Print / WhatsApp from the Sales Orders list. Same fields as
-// GET_SALES_ORDERS (GET_SALES_ORDER_BY_ID lacks the party's state / GSTIN /
-// address the printable needs), fetched for ONE order at click time.
+// Full order for Print/WhatsApp, with party state/GSTIN/address.
 export const GET_SALES_ORDER_PRINT = gql`
   query GetSalesOrderPrint($id: ID!) {
     getSalesOrderById(id: $id) {

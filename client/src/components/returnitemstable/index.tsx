@@ -22,17 +22,7 @@ type Props = {
   rowKey: (line: any, index: number) => string;
 };
 
-/**
- * "Pick what came back" table for Sales / Purchase Returns.
- *
- * Loading an invoice used to drop every line in at full quantity, so a return
- * of 2 items out of 50 meant clearing 48 rows by hand. Now nothing is selected
- * until the user ticks it — the way Zoho / Tally credit notes work:
- *   - tick a row → its full returnable qty; untick → 0 (left off the return)
- *   - the header box ticks / clears every visible row
- *   - typing a qty ticks the row, 0 unticks it (a row is "selected" when qty > 0)
- *   - search narrows long invoices; a summary shows what is being returned.
- */
+/** Return item picker: nothing selected until ticked; qty > 0 means selected. */
 export default function ReturnItemsTable({ lines, errors, onSetQtys, emptyText, rowKey }: Props) {
   const [search, setSearch] = useState("");
   const [selectedOnly, setSelectedOnly] = useState(false);

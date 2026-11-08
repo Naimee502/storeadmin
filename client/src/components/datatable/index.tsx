@@ -28,15 +28,7 @@ import FormSwitch from "../formswitch";
 import Button from "../button";
 import { splitPartyLabel } from "../../utils/partylabel";
 
-/**
- * Listing state that survives leaving the page.
- *
- * Going into an edit form unmounts the table, so search, column filters, page
- * size and page number were gone by the time the user came back and had to be
- * re-entered every single time. They are kept per listing in sessionStorage:
- * per tab, so a fresh tab starts clean, and per table, so two listings never
- * read each other's filters.
- */
+/** Listing state (search, filters, page) kept per tab and per table in sessionStorage. */
 const tableStateKey = (title: string) =>
   `datatable:${typeof window !== "undefined" ? window.location.pathname : ""}:${title}`;
 
@@ -63,8 +55,7 @@ function useStickyTableState<T>(title: string, field: string, initial: T) {
   const key = `${tableStateKey(title)}:${field}`;
 
   const [value, setValue] = useState<T>(() => {
-    // Storage can be unavailable (private mode, blocked site data) and the
-    // stored shape can be stale after a release — neither is worth a crash.
+    // Storage may be unavailable or stale; never crash on it.
     try {
       const raw = sessionStorage.getItem(key);
       return raw === null ? initial : (JSON.parse(raw) as T);
@@ -84,12 +75,7 @@ function useStickyTableState<T>(title: string, field: string, initial: T) {
   return [value, setValue] as const;
 }
 
-/**
- * Several listings can sit on one page (e.g. Expense Notes). Only one of them
- * may answer the keyboard, or Alt+N would open two forms and ↑/↓ would move
- * two highlights. The table the user last clicked or tabbed into owns the
- * keys; until then, the first one on the page does.
- */
+/** Only one table per page handles the keyboard: the last one focused, else the first. */
 const mountedTables: string[] = [];
 let activeTable: string | null = null;
 
@@ -123,13 +109,11 @@ interface DataTableProps {
     showAdd?: boolean;
     showReset?: boolean | ((row: any) => boolean);
     showPrint?: boolean;
-    // Per-row WhatsApp share. Hidden by default. Passed-in handler decides
-    // what content to share (text summary, link to PDF, etc).
+    // Optional per-row WhatsApp share.
     showWhatsApp?: boolean | ((row: any) => boolean);
     showBarcode?: boolean | ((row: any) => boolean);
     showConvert?: boolean;
-    // Per-row action: create a Return doc (Sales/Purchase Return) from this invoice.
-    // Hidden by default. May be a function for conditional visibility per row.
+    // Optional per-row "create Return" action; may be a per-row function.
     showReturn?: boolean | ((row: any) => boolean);
     // Per-row action: cancel an order (Sales Order / Purchase Order).
     showCancel?: boolean | ((row: any) => boolean);
@@ -184,12 +168,7 @@ interface DataTableProps {
     requireBranchForAdd?: boolean;
     // Extra page-specific buttons, shown first in the toolbar button row.
     toolbarActions?: React.ReactNode;
-    /**
-     * Desktop layout: one-line toolbar, dense rows, sticky header and Actions
-     * column (no sideways scrolling to reach Edit), and keyboard control —
-     * ↑/↓ select a row, Enter edit, Delete delete, ←/→ page, / search,
-     * Alt+N add new. Opt-in per screen while screens move over.
-     */
+    /** Opt-in desktop layout: dense rows, sticky header/actions and keyboard control. */
     compact?: boolean;
 }
 
@@ -313,9 +292,7 @@ const DataTable: React.FC<DataTableProps> = ({
         ? data
         : localFiltered.slice((currentPage - 1) * entriesPerPage, currentPage * entriesPerPage);
 
-    // A remembered page can point past the end of a list that has since shrunk
-    // deleted rows, or a filter typed before leaving. Showing an empty table in
-    // that case looks like the data is gone, so fall back to the last real page.
+    // If the remembered page is past the end, fall back to the last real page.
     useEffect(() => {
         if (!serverPaging && totalPages > 0 && currentPage > totalPages) setCurrentPage(totalPages);
     }, [totalPages, currentPage, setCurrentPage]);
@@ -465,9 +442,7 @@ const DataTable: React.FC<DataTableProps> = ({
                                             alt="Preview"
                                             className="h-10 w-10 rounded-lg border border-gray-200 object-cover"
                                         />
-                                        {/* There was no way to take a picture off again — only to
-                                            replace it with another one. Clearing the value here is
-                                            what lets the page drop the old file on Save. */}
+                                        {/* Clearing the value lets the page drop the old file on Save. */}
                                         <button
                                             type="button"
                                             title="Remove image"
@@ -501,8 +476,7 @@ const DataTable: React.FC<DataTableProps> = ({
                     </div>
                 );
 
-    // Quick-add row for small masters (Units, Brands, Sizes…): compact fields,
-    // Enter in any box saves — like typing a line in Tally.
+    // Quick-add row for small masters; Enter saves.
     const compactInlineForm = !showAdd && formFields && formValues && onFormChange && onFormSubmit && (
         <FormDensityContext.Provider value="compact">
             <div
@@ -786,9 +760,7 @@ const DataTable: React.FC<DataTableProps> = ({
                                                 const v = row[col.key];
                                                 const isStatus = col.key === "status" && (v === "Active" || v === "Inactive");
                                                 const isText = typeof v === "string" || typeof v === "number";
-                                                // Party columns carry "Name - Mobile - City". Squeezed into one
-                                                // truncated line the city was always the part cut off, so lay it
-                                                // out on two lines: name on top, mobile · city underneath.
+                                                // Party: name on top, mobile · city underneath.
                                                 if (PARTY_COLUMN_KEYS.has(col.key) && typeof v === "string") {
                                                     const { name, mobile, city } = splitPartyLabel(v);
                                                     const sub = [mobile, city].filter(Boolean).join(" · ");

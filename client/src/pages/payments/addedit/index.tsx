@@ -67,12 +67,7 @@ type Proposal = {
 const fmt = (n: number) => n.toFixed(2);
 const round2 = (n: number) => parseFloat((Number(n) || 0).toFixed(2));
 
-/**
- * A concession has to reduce a DEBT. Open bills and the carried-forward opening
- * balance both qualify — the opening balance is money this party owes just the
- * same, and a receipt clears it before any bill. Money left On Account does not:
- * it is sitting with us against nothing, so there is nothing to discount yet.
- */
+/** A concession must reduce a debt: open bills or the opening balance, not On Account money. */
 const noBillForConcession = (onaccount = 0) =>
   `${
     onaccount > 0
@@ -86,17 +81,13 @@ const AddEditPayment = () => {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
 
-  // Order-only businesses run with the Sales Invoice module switched off: the
-  // invoice behind a confirmed order is created silently and they never see its
-  // number. Labelling their bills "INV-000012" would be a number they have
-  // never met, so we show the Sales Order number they actually confirmed.
+  // Order-only businesses never see invoice numbers, so show the Sales Order number.
   const salesInvoiceEnabled = useAppSelector(state =>
     selectIsModuleBusinessEnabled(state, "salesinvoice"));
   const purchaseInvoiceEnabled = useAppSelector(state =>
     selectIsModuleBusinessEnabled(state, "purchaseinvoice"));
 
-  /** How a bill is named on screen: expense notes carry their own number,
-   *  order-only sales bills show "SO-<order no>", everything else "INV-<no>". */
+  /** Bill label: expense number, "SO-<order no>" for order-only sales, else "INV-<no>". */
   const billLabel = (b: { invoicemodel?: string; billnumber?: string; sourceref?: string | null; sourceorderno?: string | null }) => {
     if (b?.invoicemodel === "ExpenseNote") return b.billnumber || "";
     const orderNo = b?.sourceref || (b as any)?.sourceorderno;
@@ -134,41 +125,30 @@ const AddEditPayment = () => {
   const isFieldEnabled = (fieldId: string) => paymentFormPermissions[fieldId] !== false;
 
   const { data: existingData } = usePaymentByIDQuery(id || "");
-  // A ledger or party is very often created seconds before landing here — open
-  // Account Ledgers in another tab, add "Ramesh Angadia", come back. Cache-first
-  // kept them out of the pickers until a full page reload, so revalidate.
+  // Ledgers/parties are often created just before landing here, so revalidate.
   const { data: ledgerData, refetch: refetchLedgers } =
     useAccountLedgersQuery("cache-and-network");
   const { data: accountsData, refetch: refetchAccounts } =
     useAccountsLiteQuery(true, "cache-and-network");
-  // These sources can be created right before opening this page (e.g. "Convert
-  // to Invoice"). Use cache-and-network so the settle-able lists always
-  // revalidate from the server on mount instead of showing stale cache.
-  // Settlement-lite: bill totals + labels only, no line items.
+  // Sources may be created just before this page, so revalidate (settlement-lite query).
   const { data: salesInvData, refetch: refetchSalesInv } = useSalesInvoicesSettleQuery("cache-and-network");
   const { data: purchaseInvData, refetch: refetchPurchaseInv } = usePurchaseInvoicesSettleQuery("cache-and-network");
-  // Payment allocations + journal ("Agst Ref") settlements + un-refunded
-  // returns, all derived in one shared hook so this page and the Transaction
-  // page can never disagree about what a party still owes.
+  // Shared hook so this page and Transaction agree on what a party owes.
   const { outstandingOf } = useOutstanding({ excludePaymentId: id || undefined });
   const { data: expenseNotesData, refetch: refetchExpenseNotes } = useExpenseNotesQuery("cache-and-network");
 
-  // Invoices/expense notes can be created right before opening this page (e.g.
-  // "Convert to Invoice"). The default cache-first policy would show a stale
-  // list, so refetch the settle-able sources once when the page mounts.
+  // Refetch settle-able sources on mount; they may have just been created.
   useEffect(() => {
     refetchSalesInv?.();
     refetchPurchaseInv?.();
     refetchExpenseNotes?.();
-    // Same for the two pickers — a ledger or party added a moment ago must be
-    // selectable without reloading the page.
+    // Refetch pickers too so a just-added ledger or party is selectable.
     refetchLedgers?.();
     refetchAccounts?.();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Coming back to this tab is the moment a just-created ledger or party is
-  // expected to be there, so refresh both then too.
+  // Refresh pickers when the tab regains focus.
   useEffect(() => {
     const onFocus = () => {
       refetchLedgers?.();
@@ -183,8 +163,7 @@ const AddEditPayment = () => {
 
   // Feature flag (per business): allow Discount & Commission while settling a bill.
   const dcEnabled = !!adminSettingsData?.getAdminSettings?.enablePaymentDiscountCommission;
-  // off | ask | always — "ask" is the default because Tally never allocates
-  // a rupee the user hasn't seen.
+  // off | ask | always; "ask" is default so nothing is allocated unseen.
   const autoSettlement: "off" | "ask" | "always" =
     adminSettingsData?.getAdminSettings?.paymentAutoSettlement || "ask";
   const runPreview = usePreviewAllocationLazy();
@@ -196,15 +175,7 @@ const AddEditPayment = () => {
   const [mode, setMode] = useState("cash");
   const [ledgerid, setLedgerid] = useState("");
   const [partyid, setPartyid] = useState("");
-  /**
-   * Which side of the voucher faces the cash — Tally's model, where a Receipt /
-   * Payment can post against ANY ledger, not only a customer or vendor.
-   *
-   *  "party"  → the party's own ledger; money can settle their bills.
-   *  "ledger" → any ledger at all: Capital introduced, a loan taken or repaid,
-   *             rent, salary, interest received, a bank charge, cash to bank.
-   *             No party, so no bills, no discount and no commission.
-   */
+  /** "party": party ledger, can settle bills. "ledger": any ledger, no bills or concessions. */
   const [against, setAgainst] = useState<"party" | "ledger">("party");
   const [counterledgerid, setCounterledgerid] = useState("");
   const [reference, setReference] = useState("");
@@ -213,43 +184,18 @@ const AddEditPayment = () => {
   const [settledInvoices, setSettledInvoices] = useState<SettledInvoice[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  // "invoice" → tick each bill (classic). "direct" → type one amount and let
-  // FIFO spread it, Tally's On-Account/Agst-Ref flow in a single screen.
+  // "invoice": tick each bill. "direct": one amount spread FIFO (On Account / Agst Ref).
   const [settlementMode, setSettlementMode] = useState<"invoice" | "direct">("invoice");
-  // Direct mode has no per-bill rows to type a concession into, so the discount
-  // and commission are entered once for the whole receipt and then spread over
-  // whatever bills the FIFO proposal actually clears.
+  // Direct mode: one discount/commission for the receipt, spread over the bills FIFO clears.
   const [directDiscount, setDirectDiscount] = useState<string>("");
   const [directCommission, setDirectCommission] = useState<string>("");
-  // Opening balance this party still carries, as the server last reported it.
-  // Null until a preview has run — we never guess it client-side.
+  // Party opening balance as last reported by the server; null until a preview runs.
   const [openingDue, setOpeningDue] = useState<number | null>(null);
-  /**
-   * That preview is a server round-trip, so there is a gap between picking the
-   * party and knowing what they carry. The panel used to fill that gap with
-   * "this party has nothing outstanding" and no concession fields — a definite
-   * answer it did not have yet — and then flip once the reply landed, which
-   * read as the fields switching themselves on late. Tracked so the wait can
-   * say it is waiting.
-   */
+  /** True while the opening-balance preview is loading, so the panel can show it is waiting. */
   const [openingLoading, setOpeningLoading] = useState(false);
-  /**
-   * The party's CURRENT balance as the server last totalled it — the same
-   * closing figure the Party Statement prints, and the number this voucher is
-   * about to move. Null until the preview has answered; the account master's
-   * frozen opening stands in until then.
-   *
-   * It has to come from the server because the master's `openingbalance` never
-   * changes: pay a vendor ₹50,000 against a ₹7,44,860 debit opening and the
-   * statement moves to ₹7,94,860 Dr while the master still says ₹7,44,860 — so
-   * every payment after the first was being entered against a stale figure.
-   */
+  /** Party's current balance from the server; the master opening never changes after vouchers. */
   const [partyBalanceLive, setPartyBalanceLive] = useState<number | null>(null);
-  /**
-   * Ledger mode's equivalent: what the SELECTED ledger currently carries, as
-   * the server last totalled it. A ledger has no bills, so this one figure is
-   * its whole outstanding — the counterpart of openingDue above.
-   */
+  /** Ledger mode: the selected ledger's current balance from the server. */
   const [ledgerDue, setLedgerDue] = useState<{
     openingbalance: number;
     movement: number;
@@ -257,12 +203,9 @@ const AddEditPayment = () => {
     outstanding: number;
   } | null>(null);
   const [proposal, setProposal] = useState<Proposal | null>(null);
-  // What the confirm dialog should do on approval: create/update the payment,
-  // or just re-spread an existing one (which never touches the journal).
+  // Confirm action: save the payment, or only re-spread an existing one (no journal change).
   const [proposalIntent, setProposalIntent] = useState<"save" | "reallocate">("save");
-  // Result of the last "Allocate now" attempt. Shown inline under the On Account
-  // banner rather than as a red toast — "nothing open to apply it to" is a normal
-  // state for an advance, not a failure.
+  // Last "Allocate now" result, shown inline; nothing to apply to is normal, not an error.
   const [allocateNote, setAllocateNote] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -270,22 +213,14 @@ const AddEditPayment = () => {
   const totalSettled = parseFloat(
     settledInvoices.reduce((s, i) => s + (i.settledamount || 0), 0).toFixed(2)
   );
-  // Is the Direct / On Account flow actually driving this screen? (Expense
-  // notes are always settled note-wise, and without a party there is nothing
-  // to spread an amount over.)
-  // ── Outstanding invoices for the selected party
-  // Show ALL invoices for this party (any payment type) that still have
-  // outstanding balance — Tally allows settling any invoice regardless of
-  // how it was originally recorded (cash, credit, bank).
+  // All the party's invoices with an outstanding balance, any payment type.
   const outstandingInvoices = useMemo(() => {
-    // Expense settles a credit expense note directly — no party needs to be picked
-    // first; we derive the payable party from the note's ledger when it's selected.
+    // Expense mode needs no party; it comes from the note's ledger.
     if (!partyid && payType !== "expense") return [];
 
     let source: any[];
     if (payType === "expense") {
-      // ALL outstanding CREDIT expense notes (across parties). Selecting one sets
-      // the payable party automatically from its ledger.
+      // All outstanding credit expense notes; picking one sets the payable party.
       const accounts = accountsData?.getAccounts || [];
       source = (expenseNotesData?.getExpenseNotes || [])
         // Expense notes are notes-only: every unpaid note is a payable settled here.
@@ -321,51 +256,24 @@ const AddEditPayment = () => {
       .filter((inv: any) => inv.outstanding > 0);
   }, [partyid, payType, salesInvData, purchaseInvData, expenseNotesData, accountsData, outstandingOf]);
 
-  /**
-   * Ledger mode: the other leg is a plain ledger, so there is no party, no bill
-   * settlement and no concession — just Dr/Cr between that ledger and cash.
-   * Expense mode keeps its own note-wise flow.
-   */
+  /** Ledger mode: no party, no bills, no concession; just Dr/Cr against cash. */
   const isLedgerMode = against === "ledger" && payType !== "expense";
 
   const isDirectSettle =
     !isLedgerMode && settlementMode === "direct" && payType !== "expense" && !!partyid;
   /** Open bills on screen — the rows of the Invoice-wise table. */
   const hasOpenBills = outstandingInvoices.length > 0;
-  /**
-   * Opening balance the party carried in and still owes, as the server last
-   * reported it. It is not an invoice, so it never shows up in
-   * outstandingInvoices — but it IS a debt this receipt settles (before any
-   * bill), so a discount or commission can ride on it exactly like on a bill.
-   * A party whose whole balance is an opening figure used to get no concession
-   * fields at all.
-   */
+  /** Opening balance still owed; settled before bills and can carry a concession. */
   const openingDueValue = Math.max(0, openingDue || 0);
   /** Is there actually a debt for the money — and a concession — to reduce? */
   const hasSomethingToSettle = hasOpenBills || openingDueValue > 0;
-  /**
-   * Ledger mode's equivalent of openingDueValue: what the selected ledger still
-   * carries in the direction THIS voucher settles. A receipt collects a debit
-   * balance, a payment clears a credit one; the other direction is 0, because
-   * there is nothing for this voucher to settle.
-   */
+  /** Ledger balance this voucher can settle: debit for a receipt, credit for a payment. */
   const ledgerDueValue = Math.max(0, ledgerDue?.outstanding || 0);
 
-  // Concessions can be captured in Direct mode too, but only when there is an
-  // allocation to attach them to — with auto-settlement off the money just sits
-  // On Account and a discount would have nothing to reduce.
-  /**
-   * Does the party carry an opening at all — whichever side it sits on?
-   *
-   * `openingDueValue` answers a narrower question: how much of it THIS screen
-   * can clear, which is 0 for a payment-out against a debit opening because
-   * that payment adds to the opening instead of clearing it. The commission on
-   * such a payout is still real, so the concession gate asks this instead.
-   * Ledger first, account as fallback — same order the server uses.
-   */
+  // Direct-mode concessions need an allocation; On Account money has nothing to reduce.
+  /** Whether the party carries an opening on either side (ledger first, then account). */
   const partyOpening = useMemo(() => {
-    // Live balance wins whenever the server has answered — the master opening
-    // below is only the day-one figure and does not move with the vouchers.
+    // Prefer the live server balance; the master opening does not move with vouchers.
     if (partyBalanceLive !== null) return partyBalanceLive;
     const acc = (accountsData?.getAccounts || []).find((a: any) => a.id === partyid);
     if (!acc) return 0;
@@ -380,15 +288,7 @@ const AddEditPayment = () => {
   const partyHasOpening = partyOpening !== 0;
   /** Party carries an opening, but this voucher moves it instead of clearing it. */
   const openingMovesNotClears = partyHasOpening && !hasSomethingToSettle;
-  /**
-   * The carried-forward figure the server reports is the opening MINUS whatever
-   * earlier vouchers already settled against it — i.e. what the party carries
-   * today, not what they opened with. With no bills beside it that figure IS
-   * their current balance, so "Opening Balance" made a ₹50,000 opening read as
-   * ₹50,000, then ₹25,000 after the first ₹25,000 went out, as if the master
-   * had changed. Only when bills sit next to it is it one component of the
-   * total, and the carried-forward name earns its place again.
-   */
+  /** Label as carried-forward only when bills sit beside it; otherwise it is the current balance. */
   const openingIsWholeBalance = openingDueValue > 0 && !hasOpenBills;
 
   const directConcessionsAllowed =
@@ -396,20 +296,13 @@ const AddEditPayment = () => {
     isDirectSettle &&
     autoSettlement !== "off" &&
     (hasSomethingToSettle || partyHasOpening);
-  /**
-   * Ledger mode takes the same pair. Settling a running ledger — the angadia,
-   * a transporter, a labour contractor — works exactly like settling a party:
-   * you knock ₹500 off what they carry, allow ₹20 discount, and ₹480 leaves the
-   * drawer. There is no bill, so the figures ride on the payment itself.
-   */
+  /** Ledger mode takes the same discount/commission pair, applied to the payment itself. */
   const ledgerConcessionsAllowed = dcEnabled && isLedgerMode;
   /** Either flavour of "one concession figure for the whole voucher". */
   const singleConcession = isDirectSettle || isLedgerMode;
   const concessionsAllowed = directConcessionsAllowed || ledgerConcessionsAllowed;
 
-  // Concessions (only when the feature flag is on). Invoice-wise they come from
-  // the ticked rows; Direct and Ledger mode each have one figure for the whole
-  // voucher.
+  // Concessions: from ticked rows invoice-wise, one figure in Direct and Ledger mode.
   const totalDiscount = !dcEnabled
     ? 0
     : singleConcession
@@ -421,36 +314,11 @@ const AddEditPayment = () => {
     ? (concessionsAllowed ? parseFloat(directCommission) || 0 : 0)
     : parseFloat(settledInvoices.reduce((s, i) => s + (i.commission || 0), 0).toFixed(2));
 
-  // The box holds the value being SETTLED — exactly what "Settle Now" is on a
-  // bill row. Direct mode spreads it over open bills via FIFO; Ledger mode
-  // knocks it straight off the chosen ledger.
+  // The box holds the value settled; Direct spreads it FIFO, Ledger applies it to the ledger.
   const directBillValue = singleConcession ? parseFloat(manualAmount) || 0 : 0;
 
-  // Cash actually moved = bills cleared, LESS discount (concession given), PLUS
-  // commission (extra charged on top). This is the payment "amount". When no
-  // invoices are linked, the manual amount is the cash.
-  // How much cash this payment represents.
-  //
-  //  • New + Invoice-wise → the ticked rows ARE the amount (tick ₹100, receive ₹100).
-  // • Direct → same formula, one figure instead of many rows
-  //                         settle ₹100 with ₹5 discount and ₹20 commission and
-  //                         ₹115 is the cash — identical to ticking that bill.
-  // • Editing → the amount is a FACT that already happened. Un-ticking a
-  //                         bill re-allocates it; it does not mean the party handed
-  //                         over less money. Deriving it from rows here rewrote a
-  //                         ₹250 receipt as ₹100 the moment you opened it invoice-wise.
-  /**
-   * Invoice-wise, with the mode radios on screen: the ticked bills ARE the
-   * amount — when adding AND when editing.
-   *
-   * `isEdit` used to short-circuit straight to the manual box on the reasoning
-   * that a saved amount is a fact. True for Direct and Ledger mode, where that
-   * box is what was typed. Wrong here: an invoice-wise receipt never seeds the
-   * box (the rows carry the figure), so reopening the ₹65 receipt an invoice
-   * created read the EMPTY box instead of the row — the summary printed
-   * "Total: ₹0.00" beside a ₹65 line, and saving failed the "amount must be
-   * greater than zero" check on a receipt that plainly had one.
-   */
+  // Cash = bills cleared - discount + commission.
+  /** Invoice-wise: the ticked bills are the amount, both when adding and editing. */
   const rowsDriveAmount =
     !isLedgerMode && payType !== "expense" && !!partyid && settlementMode === "invoice";
 
@@ -464,31 +332,18 @@ const AddEditPayment = () => {
     ? parseFloat((totalSettled - totalDiscount + totalCommission).toFixed(2))
     : parseFloat(manualAmount) || 0;
 
-  /**
-   * Is the Invoice-wise / Direct choice on screen? (Same condition the radios
-   * render under.) When it is, Invoice-wise means "the ticked bills ARE the
-   * amount" — so a free amount box next to it is misleading: whatever was typed
-   * there vanished the moment a bill was ticked. Direct / On Account is the
-   * mode for typing one amount, and that is where its box lives.
-   */
+  /** Invoice-wise/Direct choice is shown (same condition as the radios). */
   const settlementModeAvailable =
     !isLedgerMode && payType !== "expense" && !!partyid;
 
-  // A party with no open BILLS has nothing to tick, so Invoice-wise would show
-  // an empty table and no way to enter the amount. Drop straight into Direct /
-  // On Account — the one panel that takes an amount for a party. (An opening
-  // balance is settled from that panel too, so it does not change this.)
+  // No open bills to tick, so default to Direct / On Account.
   useEffect(() => {
     if (isEdit || isLedgerMode || payType === "expense") return;
     if (partyid && !hasOpenBills) setSettlementMode("direct");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [partyid, hasOpenBills, isLedgerMode, payType]);
 
-  // The opening balance is cleared BEFORE any bill, so a party with no open
-  // invoices can still have a large amount to collect. Ask the server for it as
-  // soon as a party is picked, instead of waiting for the preview that only runs
-  // on save — otherwise the panel tells a party who owes ₹1,46,095 of brought
-  // forward balance that nothing is open, and hides the concession fields with it.
+  // Fetch the opening balance as soon as a party is picked; it is cleared before bills.
   useEffect(() => {
     if (!partyid || isLedgerMode || payType === "expense") {
       setOpeningDue(null);
@@ -508,8 +363,7 @@ const AddEditPayment = () => {
             branchid: branchId,
             // Nothing is being allocated — we only want what is carried forward.
             amount: 0,
-            // Editing: what this payment already cleared must not count as paid,
-            // or its own opening leg would vanish from the screen.
+            // Editing: exclude this payment's own settlement so its opening leg stays visible.
             excludePaymentId: id || undefined,
           },
         });
@@ -533,16 +387,7 @@ const AddEditPayment = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [partyid, payType, isLedgerMode, adminId, branchId, id]);
 
-  // Ledger mode gets the same treatment as a party: work out what the selected
-  // ledger carries the moment it is picked. Without this the panel showed only
-  // an empty amount box, so a ledger with a ₹5,000 opening balance looked like
-  // it had nothing to settle — the party side has shown its opening balance all
-  // along, and this is that same figure for a ledger.
-  //
-  // A ledger has no bills, so its balance is just the opening figure plus every
-  // journal posted to it since. The opening comes from the ledger list this
-  // page already loads; the movements are asked for with the ledger filtered
-  // server-side, so this is a few rows and not the whole book.
+  // Ledger balance = opening + journals posted to it since (fetched filtered server-side).
   useEffect(() => {
     const led = ledgerData?.getAccountLedgers?.find((l: any) => l.id === counterledgerid);
     if (!isLedgerMode || !counterledgerid || !adminId || !led) {
@@ -551,8 +396,7 @@ const AddEditPayment = () => {
     }
     let cancelled = false;
     (async () => {
-      // Same sign convention as the party report and getPartyOpeningDue: a
-      // DEBIT balance means they owe us, a credit one that we owe them.
+      // Debit balance: they owe us; credit: we owe them.
       const openingbalance = round2(
         String(led.openingbalancetype).toLowerCase() === "credit"
           ? -(Number(led.openingbalance) || 0)
@@ -566,11 +410,9 @@ const AddEditPayment = () => {
         const txs = res?.data?.getTransactions || [];
         movement = round2(
           txs.reduce((sum: number, t: any) => {
-            // Editing: this payment's own journal is about to be rewritten, so
-            // counting it would hide the balance it has already settled.
+            // Editing: skip this payment's own journal, it is about to be rewritten.
             if (id && String(t?.source?.docid || "") === String(id)) return sum;
-            // Each journal carries its counter-leg too — only this ledger's
-            // own entries move its balance.
+            // Only this ledger's own entries move its balance.
             return (
               sum +
               (t.entries || []).reduce(
@@ -584,14 +426,12 @@ const AddEditPayment = () => {
           }, 0)
         );
       } catch {
-        // The opening balance alone is still worth showing — it is the figure
-        // the user just entered on the party, and the reason they are here.
+        // Show the opening balance even with no journals.
         movement = 0;
       }
       if (cancelled) return;
       const balance = round2(openingbalance + movement);
-      // Money in collects a debit balance; money out clears a credit one. The
-      // other direction has nothing for THIS voucher to settle.
+      // Receipts collect a debit balance; payments clear a credit one.
       const outstanding =
         payType === "payment" ? Math.max(0, round2(-balance)) : Math.max(0, balance);
       setLedgerDue({ openingbalance, movement, balance, outstanding });
@@ -607,16 +447,13 @@ const AddEditPayment = () => {
     if (!isEdit || !existingData?.getPaymentById) return;
     const p = existingData.getPaymentById;
     setPaymentdate(formatDate(p.paymentdate));
-    // "expense" is a UI-only mode stored on the server as type "payment", so we
-    // can't tell it apart by type alone. Detect it from the settled lines: an
-    // expense settlement references an ExpenseNote.
+    // "expense" is stored as type "payment"; detect it by an ExpenseNote line.
     const isExpense = (p.invoices || []).some((ei: any) => ei.invoicemodel === "ExpenseNote");
     setPayType(isExpense ? "expense" : p.type === "payment" ? "payment" : "receipt");
     setMode(p.mode || "cash");
     setLedgerid(typeof p.ledgerid === "string" ? p.ledgerid : p.ledgerid?.id || "");
     setPartyid(typeof p.partyid === "string" ? p.partyid : p.partyid?.id || "");
-    // Saved against a plain ledger → re-open in that mode, not as a party
-    // payment with an empty party box.
+    // Saved against a plain ledger: reopen in ledger mode.
     const savedCounter =
       typeof p.counterledgerid === "string" ? p.counterledgerid : p.counterledgerid?.id || "";
     setCounterledgerid(savedCounter);
@@ -624,9 +461,7 @@ const AddEditPayment = () => {
     setReference(p.reference || "");
     setRemarks(p.remarks || "");
 
-    // Re-open the payment in the mode it was created in. A receipt entered as
-    // Direct / On Account should not come back as Invoice-wise — the two modes
-    // behave differently on save, so showing the wrong one is misleading.
+    // Reopen in the settlement mode the payment was created in.
     const savedDirect =
       p.allocationmode === "auto_fifo" || p.allocationmode === "on_account";
     setSettlementMode(savedDirect && !isExpense ? "direct" : "invoice");
@@ -636,9 +471,7 @@ const AddEditPayment = () => {
       setManualAmount(String(p.amount || ""));
     }
 
-    // Concessions ride on the bill lines for a party payment and on the payment
-    // itself in Ledger mode; both are edited as ONE figure here, so read
-    // whichever the record carries.
+    // Concessions live on bill lines (party) or the payment (ledger); edited as one figure.
     if ((savedDirect || savedCounter) && !isExpense) {
       const lineD = (p.invoices || []).reduce((t: number, i: any) => t + (Number(i.discount) || 0), 0);
       const lineC = (p.invoices || []).reduce((t: number, i: any) => t + (Number(i.commission) || 0), 0);
@@ -646,9 +479,7 @@ const AddEditPayment = () => {
       const c = lineC || Number(p.commission) || 0;
       setDirectDiscount(d ? String(parseFloat(d.toFixed(2))) : "");
       setDirectCommission(c ? String(parseFloat(c.toFixed(2))) : "");
-      // The box holds the SETTLE value, not the cash — reverse the formula so
-      // re-opening a ₹115 receipt with ₹5 discount and ₹20 commission shows the
-      // ₹100 it actually settled.
+      // The box holds the settle value, not the cash, so reverse the formula.
       if (d || c) {
         setManualAmount(String(parseFloat(((Number(p.amount) || 0) + d - c).toFixed(2))));
       } else if (savedCounter) {
@@ -668,8 +499,7 @@ const AddEditPayment = () => {
       if (!expenseNotesData) return;
     } else if (!salesInvData && !purchaseInvData) return;
 
-    // Look up full invoice data from all invoices (not just outstanding),
-    // so we get billnumber and othercharges even for fully-settled invoices.
+    // Look up all invoices so settled ones still have billnumber and othercharges.
     const allSales = salesInvData?.getSalesInvoices || [];
     const allPurchase = purchaseInvData?.getPurchaseInvoices || [];
     const allExpense = expenseNotesData?.getExpenseNotes || [];
@@ -715,9 +545,7 @@ const AddEditPayment = () => {
     editLoaded.current = true;
   }, [isEdit, existingData, outstandingInvoices, salesInvData, purchaseInvData, expenseNotesData]);
 
-  // normalizeToYMD already handles a Date, an ISO string and the epoch-ms
-  // string GraphQL sends for Mongo dates — and reads the LOCAL calendar day,
-  // which toISOString() did not.
+  // normalizeToYMD handles Date, ISO and epoch-ms strings using the local day.
   const formatDate = (date: any) => normalizeToYMD(date) || todayYMD();
 
   // ── Dropdown options
@@ -725,8 +553,7 @@ const AddEditPayment = () => {
     const accounts = accountsData?.getAccounts || [];
 
     if (payType === "expense") {
-      // Show only parties (any type) whose ledger has an outstanding CREDIT
-      // expense note — matches expense.ledgerid account.ledgerid.
+      // Only parties whose ledger has an outstanding credit expense note.
       const expenseLedgerIds = new Set(
         (expenseNotesData?.getExpenseNotes || [])
           .filter((e: any) => e.status && e.paymenttype === "credit" && e.ledgerid?.id)
@@ -741,8 +568,7 @@ const AddEditPayment = () => {
     }
 
     return accounts
-      // A party we both sell to and buy from belongs on BOTH lists — money can
-      // come in from them and go out to them.
+      // A party we both sell to and buy from appears on both lists.
       .filter((a: any) =>
         payType === "receipt"
           ? isCustomerParty(a.type)
@@ -772,9 +598,7 @@ const AddEditPayment = () => {
     ? "Party Account (Debtor)"
     : "Party Account (Creditor)";
 
-  // Auto-default the Cash/Bank ledger once a party is chosen (matches the
-  // Transaction page's counter-ledger auto-pick), so the Dr (Cash/Bank) and Cr
-  // (Party) sides are both set automatically when you start settling invoices.
+  // Auto-pick the Cash/Bank ledger once a party is chosen, like the Transaction page.
   useEffect(() => {
     if (ledgerid || !partyid) return;
     const ledgers = ledgerData?.getAccountLedgers || [];
@@ -795,8 +619,7 @@ const AddEditPayment = () => {
     if (isSelected(inv.id)) {
       setSettledInvoices(prev => prev.filter(s => s.invoiceid !== inv.id));
     } else {
-      // Expense note: derive the payable party from its ledger so the journal
-      // posts Dr <party-payable> / Cr Cash.
+      // Payable party comes from the expense note's ledger (Dr party / Cr Cash).
       if (payType === "expense" && inv.payablePartyId && !partyid) {
         setPartyid(inv.payablePartyId);
       }
@@ -819,9 +642,7 @@ const AddEditPayment = () => {
     }
   };
 
-  // "Pay" on an approved Expense Claim lands here with ?expensenote=<id>
-  // open in Expense mode with that note already ticked. Done once, and only
-  // for a new payment, so the user can still untick it or change anything.
+  // ?expensenote=<id> from an approved claim: preselect it once, new payments only.
   const location = useLocation();
   const prefillNoteId = !isEdit ? new URLSearchParams(location.search).get("expensenote") : null;
   const prefillDone = useRef(false);
@@ -855,22 +676,19 @@ const AddEditPayment = () => {
     const e: Record<string, string> = {};
     if (!ledgerid) e.ledgerid = "Select a cash / bank ledger";
     if (totalAmount <= 0) e.amount = "Amount must be greater than zero";
-    // Every payment needs a second leg. Without one nothing posts: the journal
-    // builders all bail out and the payment saves with no Transaction at all.
+    // Every payment needs a second leg or no journal is posted.
     if (!isLedgerMode && payType !== "expense" && !partyid) {
       e.counterledgerid =
         "Pick a party, or switch to Ledger — a payment needs the other side to post.";
       return e;
     }
-    // Ledger mode has no party to fall back on, so the counter leg is required
-    // without it the voucher would have only one side.
+    // Ledger mode needs the counter ledger; there is no party fallback.
     if (isLedgerMode) {
       if (!counterledgerid) e.counterledgerid = "Select the ledger this is against";
       if (counterledgerid && counterledgerid === ledgerid) {
         e.counterledgerid = "This is the same as the Cash / Bank ledger — pick the other side.";
       }
-      // No bill here, so the settle amount itself is the ceiling: you cannot
-      // allow more concession than the balance you are knocking off.
+      // No bill here, so concession cannot exceed the settle amount.
       if (ledgerConcessionsAllowed && (totalDiscount > 0 || totalCommission > 0)) {
         if (totalDiscount < 0 || totalCommission < 0) {
           e.amount = "Discount and commission can't be negative";
@@ -887,8 +705,7 @@ const AddEditPayment = () => {
       );
       if (bad) e.amount = `Discount can't exceed the settle amount for INV-${bad.billnumber}`;
     }
-    // Direct mode: which bills get cleared is only known after the FIFO preview
-    // (checkConcessionFits handles that), but these are wrong on their face.
+    // Direct mode: bills are known only after the FIFO preview; catch obvious errors here.
     if (directConcessionsAllowed && (totalDiscount > 0 || totalCommission > 0)) {
       if (totalDiscount < 0 || totalCommission < 0) {
         e.amount = "Discount and commission can't be negative";
@@ -898,8 +715,7 @@ const AddEditPayment = () => {
         e.amount = `Discount ₹${fmt(totalDiscount)} is more than the ₹${fmt(totalOutstanding)} this party owes.`;
       }
     }
-    // While editing, the rows allocate the amount rather than define it, so they
-    // must fit inside it — including whatever already went to the opening balance.
+    // When editing, rows must fit inside the amount, including any opening-balance share.
     if (isEdit && settlementMode !== "direct") {
       const applied = parseFloat(
         (totalSettled - totalDiscount + totalCommission + savedOpeningSettled).toFixed(2)
@@ -911,12 +727,7 @@ const AddEditPayment = () => {
     return e;
   };
 
-  /**
-   * Bills this party has at all (before subtracting anything). Lets the empty
-   * state say "everything is settled" instead of the misleading "no invoices
-   * found" — the difference matters now that already-paid bills are correctly
-   * hidden.
-   */
+  /** Bills before subtraction, so the empty state can say "everything is settled". */
   const partyBillCount = useMemo(() => {
     if (!partyid || payType === "expense") return 0;
     const src =
@@ -930,26 +741,10 @@ const AddEditPayment = () => {
   const billsOutstanding = parseFloat(
     outstandingInvoices.reduce((t: number, i: any) => t + (i.outstanding || 0), 0).toFixed(2)
   );
-  /**
-   * Everything this party still owes, on the same basis the money is applied:
-   * the brought-forward opening balance is cleared first, then the bills. This
-   * is what a concession is measured against — the bills alone would reject a
-   * discount on a party whose whole balance is an opening figure.
-   */
+  /** Total owed: opening balance first, then bills. Concessions are checked against this. */
   const totalOutstanding = parseFloat((billsOutstanding + openingDueValue).toFixed(2));
 
-  /**
-   * The selected ledger's balance, laid out with the same row, divider and
-   * orange total as the party panel's outstanding block — so a Ledger-mode
-   * receipt reads exactly the way a party receipt already does. Null until the
-   * server has reported a balance, and for a ledger that carries nothing.
-   *
-   * It used to split into "Opening Balance" + "Posted Since", which read as a
-   * different screen from the party panel next door and, worse, put the day-one
-   * figure on the line the eye lands on first — the party panel names the ONE
-   * number this voucher is about to move. The split is now in the hint under
-   * the figure, where it explains the total instead of competing with it.
-   */
+  /** Selected ledger's balance, laid out like the party panel; null when nothing is carried. */
   const ledgerBalanceRows =
     ledgerDue && (ledgerDue.openingbalance !== 0 || ledgerDue.movement !== 0) ? (
       <div className="space-y-1">
@@ -969,13 +764,7 @@ const AddEditPayment = () => {
             {ledgerDue.balance !== 0 ? ` (${ledgerDue.balance > 0 ? "Dr" : "Cr"})` : ""}
           </span>
         </div>
-        {/* A balance running the other way is not a bug — it is simply not
-            settleable by THIS voucher, and the money will sit on account. The
-            panel used to carry a "Total Outstanding" figure that said the same
-            thing in numbers, but it read as the ledger's balance and so looked
-            wrong beside the balance above: the same ₹8,62,500 Cr ledger showed
-            ₹8,62,500 against a payment and ₹0.00 against a receipt. The balance
-            is the figure; this sentence covers the rest. */}
+        {/* A reverse-direction balance can't be settled by this voucher; it stays on account. */}
         {ledgerDueValue === 0 && ledgerDue.balance !== 0 && (
           <p className="text-[11px] text-gray-500">
             This ledger carries ₹{fmt(Math.abs(ledgerDue.balance))}{" "}
@@ -987,11 +776,7 @@ const AddEditPayment = () => {
       </div>
     ) : null;
 
-  /**
-   * Split one figure across the proposal lines in proportion to what each line
-   * clears, with the last line absorbing the rounding so the parts always add
-   * back up to the whole. (₹10 over ₹70 + ₹30 → ₹7.00 + ₹3.00, never ₹9.99.)
-   */
+  /** Split a figure across lines pro rata; the last line absorbs rounding. */
   const spread = (total: number, lines: ProposalLine[]): number[] => {
     const base = lines.reduce((s, l) => s + (l.settledamount || 0), 0);
     if (!total || base <= 0) return lines.map(() => 0);
@@ -1004,13 +789,7 @@ const AddEditPayment = () => {
     });
   };
 
-  /**
-   * Turn a server FIFO proposal into rows this page can render/submit.
-   *
-   * In Direct mode the discount / commission is entered once for the receipt,
-   * so it is spread over the bills the proposal actually clears — the server
-   * stores and journalises concessions per line, exactly as invoice-wise does.
-   */
+  /** Convert a server FIFO proposal to rows; Direct concessions are spread per line. */
   const linesFromProposal = (p: Proposal, withConcessions = false): SettledInvoice[] => {
     const split = withConcessions ? concessionSplit(p) : null;
     const discounts = split ? split.discounts : [];
@@ -1038,18 +817,7 @@ const AddEditPayment = () => {
   const billsAllocated = (p: Proposal) =>
     parseFloat(((p.allocated || 0) - (p.openingsettled || 0)).toFixed(2));
 
-  /**
-   * How the receipt's single discount / commission figure is divided.
-   *
-   * Both the opening balance and the bills are debts this money clears, so both
-   * can carry a concession — but only a bill has a line to store it on. Split it
-   * in proportion to what each leg clears: the bills' share is spread across the
-   * bill lines, and the opening leg's share rides on the payment itself (the
-   * server keeps the payment-level total, so the journal is complete either way).
-   *
-   * Without this, a ₹300 discount on a receipt that mostly cleared an opening
-   * balance was dumped onto whichever small bill happened to be open.
-   */
+  /** Split the concession pro rata between bills and opening; opening share stays on the payment. */
   const concessionSplit = (p: Proposal) => {
     const onBills = billsAllocated(p);
     const cleared = parseFloat((onBills + (p.openingsettled || 0)).toFixed(2));
@@ -1065,12 +833,7 @@ const AddEditPayment = () => {
     };
   };
 
-  /**
-   * A concession reduces a DEBT, so this receipt has to be clearing one. The
-   * open bills and the brought-forward opening balance both count — only the On
-   * Account remainder does not, because it settles nothing. Returns an error
-   * message when the concession has nowhere to sit, else "".
-   */
+  /** Return an error when the concession has no debt to reduce, else "". */
   const checkConcessionFits = (p: Proposal): string => {
     if (totalDiscount <= 0 && totalCommission <= 0) return "";
     const cleared = parseFloat((billsAllocated(p) + (p.openingsettled || 0)).toFixed(2));
@@ -1087,8 +850,7 @@ const AddEditPayment = () => {
   };
 
   const persist = async (lines: SettledInvoice[], amount: number, openingsettled = 0) => {
-    // Every save path (plain, auto-settle, re-allocate) funnels through here,
-    // so one check covers them all.
+    // Every save path goes through here.
     if (!branchId) {
       dispatch(showMessage({ message: BRANCH_REQUIRED, type: "error" }));
       return;
@@ -1097,13 +859,11 @@ const AddEditPayment = () => {
       adminid: adminId,
       branchid: branchId,
       paymentdate,
-      // "expense" is a UI-only mode (settle a credit expense note); on the
-      // server it's a money-out payment (Dr party-payable / Cr cash).
+      // "expense" is saved as a money-out payment (Dr party-payable / Cr cash).
       type: payType === "expense" ? "payment" : payType,
       mode,
       ledgerid,
-      // Exactly one of these carries the non-cash leg. Ledger mode has no party
-      // and no bills; party mode never sends a counter ledger.
+      // Exactly one of these is the non-cash leg.
       partyid: isLedgerMode ? null : partyid || null,
       counterledgerid: isLedgerMode ? counterledgerid : null,
       invoices: (isLedgerMode ? [] : lines)
@@ -1117,13 +877,10 @@ const AddEditPayment = () => {
           allocatedmode: s.allocatedmode || "manual",
         })),
       amount,
-      // Payment-level concession totals. In Ledger mode there is no bill line
-      // to carry them, and for every other mode these are simply the sum of the
-      // lines — denormalised so a report never has to walk invoices[].
+      // Payment-level concession totals (denormalised sum of lines; only source in Ledger mode).
       discount: dcEnabled ? totalDiscount : 0,
       commission: dcEnabled ? totalCommission : 0,
-      // Part of this receipt that cleared the party's opening balance. Not a
-      // bill, so it can't live in invoices[] — see the note on the model.
+      // Part of this receipt that cleared the opening balance; not a bill line.
       openingsettled,
       reference: reference || undefined,
       remarks: remarks || undefined,
@@ -1141,9 +898,7 @@ const AddEditPayment = () => {
       } else {
         await addPaymentMutation({ variables: { input } });
         dispatch(showMessage({ message: "Payment saved", type: "success" }));
-        // The list remembers its page across visits. A new entry always lands
-        // on page 1 (newest first), so going back to, say, page 4 made it look
-        // as if the save hadn't worked.
+        // New entries land on page 1, so reset the remembered list page.
         try {
           sessionStorage.removeItem("datatable:/payments:Manage Payments:currentPage");
         } catch {
@@ -1152,8 +907,7 @@ const AddEditPayment = () => {
       }
       navigate("/payments");
     } catch (err: any) {
-      // The server rejects over-settlement (two users clearing the same bill),
-      // so surface its message rather than a generic one.
+      // Show the server's over-settlement message.
       dispatch(showMessage({ message: err?.message || "Error saving payment", type: "error" }));
     } finally {
       setSaving(false);
@@ -1163,11 +917,7 @@ const AddEditPayment = () => {
 
   /** Amount on THIS payment that is still unallocated (edit mode only). */
   const savedUnallocated = Number(existingData?.getPaymentById?.unallocatedamount) || 0;
-  /**
-   * Opening balance this receipt already cleared. Carried through on a plain
-   * edit — otherwise re-saving the payment would silently drop the opening leg
-   * and the party would look like they still owe it.
-   */
+  /** Keep the opening balance already cleared so an edit doesn't drop it. */
   const savedOpeningSettled = Number(existingData?.getPaymentById?.openingsettled) || 0;
 
   /** Propose a FIFO spread for the floating part of an already-saved payment. */
@@ -1180,9 +930,7 @@ const AddEditPayment = () => {
           adminid: adminId,
           branchid: branchId,
           amount: savedUnallocated,
-          // NOT excluded on purpose: we want what is still open GIVEN this
-          // payment's existing allocations. Excluding it would re-offer the very
-          // bills this payment has already cleared.
+          // Not excluded: we want what is still open given this payment's allocations.
         },
       });
       const p: Proposal | null = res?.data?.previewAllocation || null;
@@ -1243,8 +991,7 @@ const AddEditPayment = () => {
       return persist([], totalAmount, 0);
     }
 
-    // Invoice-wise, or auto-settlement switched off → save exactly what the
-    // user built. In "off" mode a direct amount simply stays On Account.
+    // Invoice-wise or auto-settle off: save as built; a direct amount stays On Account.
     if (!isDirectSettle || autoSettlement === "off") {
       return persist(settledInvoices, totalAmount, savedOpeningSettled);
     }
@@ -1257,25 +1004,20 @@ const AddEditPayment = () => {
           invoicemodel: payType === "receipt" ? "SalesInvoice" : "PurchaseInvoice",
           adminid: adminId,
           branchid: branchId,
-          // Bill value, not cash — a discount clears more bill than the money
-          // received, a commission clears less. See directBillValue.
+          // Bill value, not cash; see directBillValue.
           amount: directBillValue,
           excludePaymentId: id || undefined,
         },
       });
       p = res?.data?.previewAllocation || null;
-      // Remember what the server says is carried forward. The panel shows open
-      // BILLS only, but the opening balance is cleared before any of them — so
-      // without this the user can't see why their amount never reached a bill.
+      // Keep the carried-forward opening balance; it is cleared before bills.
       setOpeningDue(p ? Number(p.openingdue) || 0 : 0);
     } catch (err: any) {
       dispatch(showMessage({ message: err?.message || "Could not work out the settlement", type: "error" }));
       return;
     }
 
-    // Nothing open to settle → the whole amount is On Account. Saving it is
-    // still correct: the party ledger is posted in full either way.
-    // No open bills, but the opening balance may still soak up part of it.
+    // No open bills: the amount goes to the opening balance, then On Account.
     if (!p || (!p.lines.length && !p.openingsettled)) {
       if (!partyHasOpening && (totalDiscount > 0 || totalCommission > 0)) {
         setErrors({ amount: noBillForConcession(totalAmount) });
@@ -1284,8 +1026,7 @@ const AddEditPayment = () => {
       return persist([], totalAmount, 0);
     }
 
-    // A concession is a reduction OF A BILL, so it has to live on a bill line.
-    // The opening balance is not one, and neither is an On Account remainder.
+    // A concession needs a bill line; opening balance and On Account don't count.
     const concessionError = checkConcessionFits(p);
     if (concessionError) {
       setErrors({ amount: concessionError });
@@ -1300,9 +1041,7 @@ const AddEditPayment = () => {
     setProposal(p);
   };
 
-  // ── Render
-  // Direct-mode concessions are spread across the proposed bills; show that
-  // split in the confirm dialog so nobody has to trust it blind.
+  // Direct-mode concession split shown in the confirm dialog.
   const showConcessionSplit =
     !!proposal &&
     proposalIntent === "save" &&
@@ -1351,10 +1090,7 @@ const AddEditPayment = () => {
                   if (!isEdit) setManualAmount("");
                   editLoaded.current = false;
                 }}
-                /* Direction only. These used to read "from Customer" / "to
-                   Vendor", which stopped being true the moment the other side
-                   could be a plain ledger — capital, a loan, rent, interest.
-                   Who or what it is against is the next field's job. */
+                // Direction only; the next field picks the account.
                 options={[
                   { label: "Payment In  (Receipt)", value: "receipt" },
                   { label: "Payment Out  (Payment)", value: "payment" },
@@ -1377,10 +1113,7 @@ const AddEditPayment = () => {
                 ]}
               />)}
               {payType !== "expense" ? (
-                /* Tally's Receipt / Payment: the other side of the voucher is a
-                   ledger. Usually that ledger belongs to a party, but plenty of
-                   real entries have no party at all — capital, a loan, rent,
-                   salary, interest, a bank charge, cash moved to the bank. */
+                // The other side of the voucher is a ledger, which may or may not be a party's.
                 isFieldEnabled("party") && (
                   <div className="flex flex-col">
                     <div className="flex flex-wrap items-center gap-3 mb-1">
@@ -1410,8 +1143,7 @@ const AddEditPayment = () => {
                             className="w-3.5 h-3.5"
                             checked={against === "ledger"}
                             onChange={() => {
-                              // No party ⇒ no bills, no concession. Drop them
-                              // rather than leave them set but unreachable.
+                              // No party means no bills or concession; clear them.
                               setAgainst("ledger");
                               setPartyid("");
                               setSettledInvoices([]);
@@ -1452,16 +1184,13 @@ const AddEditPayment = () => {
                         onChange={e => {
                           setPartyid(e.target.value);
                           setSettledInvoices([]);
-                          // A concession belongs to the party it was agreed with, and
-                          // the amount box may be hidden for the new party — don't let
-                          // either linger unseen.
+                          // Clear concessions when the party changes.
                           setDirectDiscount("");
                           setDirectCommission("");
                           if (!isEdit) setManualAmount("");
                         }}
                         options={partyOptions}
-                        /* Not optional any more: in Party mode this IS the other
-                           leg, and without it nothing posts. */
+                        // Required in Party mode: this is the other leg.
                         placeholder={payType === "receipt" ? "Select customer" : "Select vendor"}
                         searchable
                       />
@@ -1511,9 +1240,7 @@ const AddEditPayment = () => {
                   : "Bill Settlement (Against Invoices) — optional"}
               </legend>
 
-              {/* An already-saved payment with money still floating. Re-allocating
-                  moves attribution only — the party ledger was posted in full
-                  when the cash arrived, so no journal entry is created. */}
+              {/* Re-allocating moves attribution only; no journal entry is created. */}
               {isEdit && savedUnallocated > 0 && payType !== "expense" && (
                 <div className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 flex flex-wrap items-center justify-between gap-3">
                   <div className="text-sm">
@@ -1541,9 +1268,7 @@ const AddEditPayment = () => {
                 </div>
               )}
 
-              {/* Invoice-wise vs Direct. Direct is Tally's On-Account entry: one
-                  amount, spread over the open bills oldest-first, shown for
-                  confirmation before anything is written. */}
+              {/* Invoice-wise vs Direct (one amount spread oldest-first, confirmed before saving). */}
               {settlementModeAvailable && (
                 <div className="flex flex-wrap items-center gap-4 text-sm border-b pb-3">
                   <span className="font-medium">Settlement Mode:</span>
@@ -1553,9 +1278,7 @@ const AddEditPayment = () => {
                       className="w-4 h-4"
                       checked={settlementMode === "invoice"}
                       onChange={() => {
-                        // Invoice-wise takes its amount from the ticked rows and
-                        // hides the amount box, so an amount typed in Direct must
-                        // not stay behind invisibly and get saved.
+                        // Invoice-wise hides the amount box, so clear it.
                         if (!isEdit) setManualAmount("");
                         setSettlementMode("invoice");
                       }}
@@ -1568,19 +1291,13 @@ const AddEditPayment = () => {
                       className="w-4 h-4"
                       checked={settlementMode === "direct"}
                       onChange={() => {
-                        // Switching is only a change of view — the ticked rows
-                        // are kept, so flipping back and forth loses nothing.
-                        // Direct mode is amount-driven, so carry the current
-                        // total across as the starting amount.
-                        // The Direct box is a bill figure, so carry the bills
-                        // cleared across — not the cash they added up to.
+                        // Seed Direct with the bills cleared (bill figure, not cash).
                         const seed =
                           settledInvoices.length > 0 ? totalSettled : totalAmount;
                         if (!manualAmount && seed > 0) {
                           setManualAmount(String(seed));
                         }
-                        // Carry any concession typed on the rows across as the
-                        // receipt-level figure, so switching view loses nothing.
+                        // Carry row concessions across as the receipt-level figure.
                         if (dcEnabled && !directDiscount && totalDiscount > 0) {
                           setDirectDiscount(String(totalDiscount));
                         }
@@ -1601,11 +1318,7 @@ const AddEditPayment = () => {
               )}
 
               {isDirectSettle ? (
-                /* Read top to bottom the way the entry is actually made: what
-                   this party owes → the money that moved → any concession on it
-                   → what that adds up to on the bills. The amount box lives here
-                   rather than in the Amount section below, so the total is never
-                   shown above the figures it is made of. */
+                // Ordered as the entry is made: owed, amount, concession, total.
                 <div className="rounded-lg bg-gray-50 border p-4 space-y-4 text-sm">
                   <div className="space-y-1">
                     <div className="flex justify-between">
@@ -1618,11 +1331,7 @@ const AddEditPayment = () => {
                         <span className="font-medium">₹{fmt(billsOutstanding)}</span>
                       </div>
                     )}
-                    {/* Cleared BEFORE any bill, so it has to be on screen —
-                        otherwise an amount smaller than this never reaches a
-                        bill and there is nothing to explain why. It is a debt
-                        like any other: the money settles it, and a discount or
-                        commission can be given on it. */}
+                    {/* Opening balance is cleared before bills and can take a concession. */}
                     {(openingDueValue > 0 || openingMovesNotClears) && (
                       <div className="flex justify-between">
                         <span>
@@ -1642,17 +1351,7 @@ const AddEditPayment = () => {
                           </span>
                         </span>
                         <span className="font-medium whitespace-nowrap">
-                          {/* A row called Current Balance must print the
-                              balance, not the settleable part of it. They are
-                              usually the same figure, but not always: pay a
-                              ₹7,44,860 Dr party ₹760 and the statement reads
-                              ₹7,44,760 Dr, while only ₹7,44,000 of the OPENING
-                              is still collectable — the ₹760 went out as an
-                              advance, which is not opening and cannot be
-                              un-settled by a receipt. Quoting the settleable
-                              figure here made the panel disagree with the
-                              party's own statement, which is the one number the
-                              person checks it against. */}
+                          {/* Show the full balance (matches the party statement), not just the settleable part. */}
                           {openingMovesNotClears || openingIsWholeBalance
                             ? `₹${fmt(Math.abs(partyOpening))} (${partyOpening > 0 ? "Dr" : "Cr"})`
                             : `₹${fmt(openingDueValue)}`}
@@ -1661,10 +1360,7 @@ const AddEditPayment = () => {
                     )}
                   </div>
 
-                  {/* The three inputs stack in the order the entry is made —
-                      amount, then discount, then commission — with the boxes in
-                      the same right-hand column as the figures above and the
-                      totals below, so one line of numbers runs down the panel. */}
+                  {/* Inputs in entry order: amount, discount, commission. */}
                   <div className="pt-3 border-t space-y-3">
                     {isFieldEnabled("amount") && (
                       <label className="flex items-start justify-between gap-4">
@@ -1704,9 +1400,7 @@ const AddEditPayment = () => {
                       </label>
                     )}
 
-                    {/* Same pair as the invoice-wise table, entered once because
-                        Direct mode picks the bills itself; they are spread across
-                        those bills on save. */}
+                    {/* Entered once in Direct mode and spread across the chosen bills on save. */}
                     {directConcessionsAllowed && (
                       <>
                         <label className="flex items-start justify-between gap-4">
@@ -1752,9 +1446,7 @@ const AddEditPayment = () => {
                     )}
                   </div>
 
-                  {/* Step 3 — the result. Same arithmetic, same wording, same
-                      order as the invoice-wise summary box: bills cleared, less
-                      the discount, plus the commission, equals the cash. */}
+                  {/* Result: bills cleared - discount + commission = cash. */}
                   {directBillValue > 0 && (totalDiscount > 0 || totalCommission > 0) && (
                     <div className="rounded-md bg-white border px-3 py-2 space-y-1">
                       <div className="flex justify-between text-gray-600">
@@ -1959,9 +1651,7 @@ const AddEditPayment = () => {
                 </div>
               )}
 
-              {/* Invoice-wise with nothing ticked: say where the amount comes
-                  from, and point at the mode that takes a typed one. This is
-                  where the free amount box used to sit. */}
+              {/* Invoice-wise with nothing ticked: point to Direct for a typed amount. */}
               {settlementModeAvailable &&
                 settlementMode === "invoice" &&
                 settledInvoices.length === 0 &&
@@ -1985,8 +1675,7 @@ const AddEditPayment = () => {
                   </div>
                 )}
 
-              {/* Expense mode: same rule — the ticked notes are the amount.
-                  There is nothing to type, so there is no amount box. */}
+              {/* Expense mode: the ticked notes are the amount. */}
               {payType === "expense" &&
                 !isEdit &&
                 outstandingInvoices.length > 0 &&
@@ -2002,9 +1691,7 @@ const AddEditPayment = () => {
             </fieldset>
           )}
 
-          {/* Party mode with no party picked: there is no second leg yet, so
-              there is nothing to type an amount against. Point at the two real
-              ways forward instead of showing a box that cannot post. */}
+          {/* No party picked yet, so there is no second leg to post against. */}
           {!isEdit && !isLedgerMode && payType !== "expense" && !partyid && (
             <div className="rounded-lg border border-dashed bg-gray-50 px-4 py-3 text-xs text-gray-600">
               Pick the {payType === "receipt" ? "customer" : "vendor"} this money is
@@ -2029,30 +1716,13 @@ const AddEditPayment = () => {
             </div>
           )}
 
-          {/* ── Section 3: Manual Amount ───────────────────────────────
-              A payment always needs a second leg — a party, a ledger, or an
-              expense note. The box only appears where typing the amount is
-              genuinely the way in:
-                • Ledger mode → here (with the concession rows when enabled).
-                • A party with nothing open → here; it goes On Account.
-                • Direct / On Account → its own box, inline in that panel.
-                • Invoice-wise with the mode choice on screen, or an expense
-                  note → the ticked rows ARE the amount, so no box.
-                • No party picked at all → no box either. An amount typed there
-                  had no second leg, so it saved without ever reaching the
-                  ledger; a hint now points at the two real choices.
-                • Editing → still not on an invoice-wise screen. The amount is
-                  a fact there too, but the ROWS are where that fact lives; a
-                  second empty box beside them only contradicted it. */}
+          {/* Manual amount: only for Ledger mode or a party with nothing open (goes On Account). */}
           {!isDirectSettle && !rowsDriveAmount && (isEdit || isLedgerMode) && (
             <fieldset className="border rounded-xl p-4">
               <legend className="text-sm font-medium px-2">Amount</legend>
 
               {ledgerConcessionsAllowed ? (
-                /* Settling a running ledger reads exactly like settling a bill:
-                   knock ₹500 off what they carry, allow ₹20, ₹480 leaves the
-                   drawer. Same three rows, same order, same wording as the
-                   Direct / On Account panel. */
+                // Ledger settlement uses the same rows as the Direct panel.
                 <div className="rounded-lg bg-gray-50 border p-4 space-y-4 text-sm">
                   {ledgerBalanceRows}
 
@@ -2152,9 +1822,7 @@ const AddEditPayment = () => {
                   </div>
                 </div>
               ) : (
-                /* Discount / Commission turned off for this business — the
-                   ledger's balance is still the figure the amount is being
-                   typed against, so it stays on screen. */
+                // Concessions off: still show the ledger's balance.
                 <div className="space-y-4">
                   {ledgerBalanceRows && (
                     <div className="rounded-lg bg-gray-50 border p-4 text-sm">
@@ -2270,20 +1938,13 @@ const AddEditPayment = () => {
         </div>
       </FormPage>
 
-      {/* ── Confirm Auto Settlement ────────────────────────────────────────
-          Nothing is written until this is approved. It exists so no one can
-          ever say "I never picked these invoices — how did they get cleared?"
-          "Change Manually" drops the same proposal into the invoice-wise
-          table, pre-filled, for the user to adjust. */}
+      {/* Confirm auto settlement; nothing is saved until approved. */}
       {proposal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[85vh] flex flex-col">
             <div className="px-5 py-4 border-b">
               <h3 className="text-base font-semibold">Confirm Auto Settlement</h3>
-              {/* Quote what actually LANDS on bills. The typed figure is not all
-                  going onto bills once part of it clears an opening balance or
-                  stays on account — saying "₹125 of bills … applied to 1 bill"
-                  when only ₹100 reaches that bill reads as a mistake. */}
+              {/* Show only what lands on bills (excludes opening balance and On Account). */}
               <p className="text-xs text-gray-500 mt-1">
                 ₹{fmt(proposal.allocated)} will be applied
                 {proposal.openingsettled > 0 ? " to the opening balance" : ""}
@@ -2444,8 +2105,7 @@ const AddEditPayment = () => {
                 <Button
                   variant="outline"
                   onClick={() => {
-                    // Carry the concession into the rows so switching views
-                    // never silently drops it.
+                    // Keep the concession when switching views.
                     setSettledInvoices(linesFromProposal(proposal, showConcessionSplit));
                     setSettlementMode("invoice");
                     setDirectDiscount("");

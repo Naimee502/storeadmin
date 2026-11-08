@@ -29,9 +29,7 @@ const AddEditPurchaseInvoice = () => {
   const dispatch = useAppDispatch();
   const { addPurchaseInvoiceMutation, editPurchaseInvoiceMutation, deletePurchaseInvoiceMutation } = usePurchaseInvoiceMutations();
 
-  // Business Settings → "Delete Sales / Purchase Invoices only from inside the
-  // invoice". On → the list hides its trash icon and this page carries the
-  // Delete button instead. Still needs the user's own Delete permission.
+  // Business setting: delete invoices only from inside the invoice (still needs Delete permission).
   const deleteInsideOnly = useAppSelector((state: any) => !!state.adminsettings.settings?.deleteInvoiceFromInsideOnly);
   const canDeleteInvoice = useAppSelector(state => selectModuleActions(state, "purchaseinvoice")).showDelete;
   const [deletingInvoice, setDeletingInvoice] = useState(false);
@@ -47,12 +45,7 @@ const AddEditPurchaseInvoice = () => {
 
   // Fetch branches to auto-detect when staff has no branch assigned
   const { data: branchesData } = useBranchesQuery();
-  // firstBranchId is the rescue for a STAFF account with no branch assigned
-  // that is all it was ever meant for. It used to sit on the admin arm too,
-  // which meant an admin on "All Branches" silently filed the document under
-  // whichever branch happened to come back first: no error, wrong branch, and
-  // nothing on screen to say so. Admin now resolves to the chosen branch or to
-  // nothing, and the save path says so out loud.
+  // firstBranchId is only a fallback for staff with no branch; admin uses the chosen branch.
   const firstBranchId = branchesData?.getBranches?.[0]?.id || "";
 
   const adminId = type === 'admin' ? admin?.id
@@ -100,20 +93,16 @@ const AddEditPurchaseInvoice = () => {
   const [taxAmount, setTaxAmount] = useState(0.0);
   const [grandTotal, setGrandTotal] = useState(0.0);
 
-  // How much of this bill was settled on the spot. 0 is a pure credit bill, the
-  // full grand total is a fully settled one, and anything between leaves the
-  // remainder outstanding for a later Payment-Out. Payment Type only says HOW the
-  // money moved, never how much.
+  // Amount settled now: 0 = credit, grand total = fully paid, between = rest outstanding.
   const [paid, setPaid] = useState<string | number>("");
 
-  // "Credit" is just paid = 0 said in words, so the box locks there. Clamping
-  // here as well as on the server keeps the Balance line honest while typing.
+  // Credit means paid = 0; clamp here too so Balance stays right.
   const isCreditBill = String(paymentType).toLowerCase() === "credit";
   const paidNum = isCreditBill
     ? 0
     : Math.min(Math.max(Number(paid) || 0, 0), grandTotal);
   const balanceDue = parseFloat((grandTotal - paidNum).toFixed(2));
-  // Bill numbers come from the same list (cancelled included) the old redux copy held.
+  // Bill numbers come from the full list, cancelled included.
   const { data: numberSource } = usePurchaseInvoicesListQuery("cache-and-network", { includeCancelled: true });
   const purchaseInvoices: any[] = useMemo(() => numberSource?.getPurchaseInvoices || [], [numberSource]);
 
@@ -156,17 +145,13 @@ const AddEditPurchaseInvoice = () => {
   const { data: productData, refetch } = useProductServicesQuery();
   const purchaseProductData = productData?.getProductServices ?? [];
 
-  // Refresh the party list once when the form opens (a party added elsewhere
-  // shows up). It used to re-run on every accountData change — i.e. each
-  // refetch triggered another one.
+  // Refresh the party list once on open.
   useEffect(() => {
     accountRefetch().catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // A cancelled bill is still worth opening — it is the only way to see what was
-  // on it — but nothing about it may be changed until it is re-opened from the
-  // list. So the form loads normally and is sealed instead of being withheld.
+  // A cancelled bill opens read-only until re-opened from the list.
   const isCancelledBill = data?.getPurchaseInvoiceById?.cancelStatus === "cancelled";
   const cancelledInfo = data?.getPurchaseInvoiceById;
 
@@ -380,10 +365,7 @@ const AddEditPurchaseInvoice = () => {
 
     setErrors({});
 
-    // The header can sit on "All Branches" (value ""), but this document must
-    // belong to one real branch — the server requires it. Said as a toast so
-    // the form stays usable; sealing the button would only leave the user
-    // staring at a dead control.
+    // Document needs a real branch, not "All Branches"; warn with a toast.
     if (!branchId) {
       dispatch(showMessage({ message: BRANCH_REQUIRED, type: "error" }));
       return;
@@ -448,9 +430,7 @@ const AddEditPurchaseInvoice = () => {
       status,
     };
 
-    // Converting an order → invoice: keep the back-link so the bill can be
-    // labelled with the PO number a purchase-order-only business recognises,
-    // and so the server can confirm the source order.
+    // Order to invoice: keep the source order link (PO number label, server check).
     if (orderId && orderData?.getPurchaseOrderById) {
       (input as any).sourceorderid = orderId;
     }
@@ -501,8 +481,7 @@ const AddEditPurchaseInvoice = () => {
         }
         dispatch(showMessage({ message: "Purchase Invoice added successfully", type: "success" }));
       }
-      // Refresh product stock in the background — the products query is
-      // cache-and-network, so every screen showing stock re-reads it on mount.
+      // Refresh product stock in the background; don't await it.
       refetch().catch(() => {});
       navigate(-1);
     } catch (error: any) {
@@ -565,10 +544,8 @@ const AddEditPurchaseInvoice = () => {
           </div>
         )}
 
-        {/* fieldset disabled seals every input at once — no field can be missed,
-            and no edit can be typed that the server would then refuse. */}
+        {/* fieldset disabled seals every input at once. */}
         <form onSubmit={(e) => e.preventDefault()} className="space-y-6">
-        {/* space-y-6: one even gap between every section (the children used to carry their own mixed mt-4 / mt-6 / none). */}
         <fieldset disabled={isCancelledBill} className={`space-y-6 ${isCancelledBill ? "opacity-90" : ""}`}>
           {/* ===== Main Details ===== */}
           {(isFieldEnabled("partyacc") || isFieldEnabled("billdate") || isFieldEnabled("billnumber") || isFieldEnabled("paymenttype") || isFieldEnabled("placeofsupply") || isFieldEnabled("billtype") || isFieldEnabled("notes") || isFieldEnabled("status")) && (

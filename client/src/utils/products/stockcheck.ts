@@ -1,16 +1,6 @@
 import type { InvoiceProduct } from "../../components/productsection";
 
-/**
- * Sales stock shortfall check for a whole invoice line list.
- *
- * The Add Products box already blocks a hand-typed quantity that exceeds
- * stock, but lines that arrive PRE-FILLED never pass through it — Convert to
- * Invoice from a Sales Order punched on the app or the website, where the
- * catalogue only shows "in stock / out of stock" and never caps the number.
- * This runs over the finished list instead, so those lines are caught too, and
- * it mirrors the server guard (server utils/stockguard) line for line:
- * quantity x unit-quantity, converted to base units, summed per variant.
- */
+// Stock shortfall check over the whole invoice list (catches pre-filled lines); mirrors server stockguard.
 
 export interface StockShortfall {
   productname: string;
@@ -38,17 +28,7 @@ export const lineBaseQty = (line: InvoiceProduct, variant: any): number => {
   return qty * Number(conversion?.factor ?? 1);
 };
 
-/**
- * Base-unit quantity this variant already holds on the SAVED version of the
- * invoice being edited.
- *
- * On an edit the stock hook puts the old lines back before deducting the new
- * ones, so an invoice that already took 3 pieces out is still entitled to
- * those 3 even though `currentstock` now reads 0. Without this, opening a
- * saved bill just to change a rate would flag every line red and seal the
- * Update button — the server nets it off exactly this way
- * (server utils/stockguard), so the panel has to as well.
- */
+/** Base qty this variant already holds on the saved invoice being edited (credited back, as the server does). */
 export const getReservedBaseQty = (
   originalProducts: InvoiceProduct[] | undefined,
   productId: string,
@@ -63,20 +43,13 @@ export const getReservedBaseQty = (
   }, 0);
 };
 
-/**
- * Returns one entry per variant whose total quantity on this invoice exceeds
- * the branch stock. Empty array = nothing to warn about.
- */
+/** One entry per variant whose invoice total exceeds branch stock. */
 export const getStockShortfalls = (
   products: InvoiceProduct[],
   productData: any[],
   opts: {
     isService?: boolean;
-    /**
-     * The invoice's own SAVED lines, when an existing bill is being edited.
-     * Their quantity is credited back before the comparison, mirroring the
-     * server guard — see getReservedBaseQty above.
-     */
+    /** Saved lines of the bill being edited; credited back before comparing. */
     originalProducts?: InvoiceProduct[];
   } = {}
 ): StockShortfall[] => {
@@ -94,8 +67,7 @@ export const getStockShortfalls = (
     const variant = (product.productvariants || []).find(
       (v: any) => String(v.id ?? v._id) === idOf(line.variantid)
     );
-    // No variant record means no stock record to compare against — the server
-    // treats it the same way and lets it through.
+    // No variant record: nothing to compare, the server lets it through too.
     if (!variant) return;
 
     const key = `${product.id}:${variant.id ?? variant._id}`;
@@ -111,8 +83,7 @@ export const getStockShortfalls = (
 
   const shortfalls: StockShortfall[] = [];
   byVariant.forEach(({ product, variant, qty, lineIndexes }) => {
-    // What this invoice already had reserved counts as available to it, so an
-    // untouched (or reduced) line on a saved bill never reads as short.
+    // Quantity already reserved by this invoice counts as available.
     const reserved = getReservedBaseQty(
       opts.originalProducts,
       String(product.id ?? product._id ?? ""),

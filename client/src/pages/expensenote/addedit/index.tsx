@@ -1,19 +1,4 @@
-// Add / Edit an Expense Note (voucher).
-//
-// Tally-style multi-line journal voucher with three smart presets
-// "general" — ad-hoc expenses (existing behaviour)
-// "tada" — Travelling/Daily Allowance for a salesman or staff
-// "salary" — monthly salary entry for a staff member
-//
-// When the user picks "tada" or "salary"
-//   1. We lazy-fetch (and create-if-missing) the canonical expense ledger
-//      ("TA/DA Expense" or "Staff Salary") and pin it into line 1.
-// 2. A staff selector appears. Selecting a staff
-// For salary: pre-fills line 1 amount from staff.salary
-// For credit payment type: pins the staff's personal ledger as
-//          the party ledger (the credit side of the voucher).
-//   3. A salary-period field shows up for category=salary so the server
-//      can prevent paying the same staff twice for the same month.
+// Expense Note voucher with presets: general, tada (TA/DA) and salary.
 
 import { useState, useEffect, useMemo } from "react";
 import { useParams, useNavigate } from "react-router";
@@ -79,8 +64,7 @@ const AddEditExpenseNote = () => {
   const ledgerList = ledgerData?.getAccountLedgers || [];
   const staffList = staffData?.getStaffAccounts || [];
 
-  // For TA/DA, restrict the staff dropdown to roles that travel; for
-  // salary, every staff role is paid. Pure cosmetic — server doesn't enforce.
+  // TA/DA: only travelling roles; salary: all staff. UI only, not enforced by the server.
   const filteredStaffOptions = useMemo(
     () => (category: string) => {
       const filtered =
@@ -123,19 +107,14 @@ const AddEditExpenseNote = () => {
     editExpenseNoteMutation,
   } = useExpenseNoteMutations();
 
-  // Keep the (new) voucher's branch in sync if the admin switches branches
-  // in the header dropdown while this page is open — otherwise formValues
-  // would keep whatever branchid was set on mount (possibly "" for "All
-  // Branches", which the server rejects).
+  // Keep a new voucher's branch in sync with the header dropdown.
   useEffect(() => {
     if (!isEdit) {
       setFormValues((prev) => ({ ...prev, branchid: branchId || "" }));
     }
   }, [branchId, isEdit]);
 
-  /* =========================
-     LOAD EDIT DATA
-     ========================= */
+  // Load edit data
 
   useEffect(() => {
     if (isEdit && existingData?.getExpenseNoteById) {
@@ -171,18 +150,14 @@ const AddEditExpenseNote = () => {
     return normalizeToYMD(date) || "";
   };
 
-  /* =========================
-     HANDLERS
-     ========================= */
+  // Handlers
 
   const handleChange = (name: string, value: any) => {
     setFormValues((prev) => ({ ...prev, [name]: value }));
     setFormErrors((prev) => ({ ...prev, [name]: "" }));
   };
 
-  // When the user picks TA/DA or Salary, fetch (and lazily create) the
-  // canonical expense ledger and pin it as the first expense line. We only
-  // touch line 1 — additional lines stay untouched if the user added them.
+  // TA/DA or Salary: fetch/create the expense ledger and pin it to line 1.
   const handleCategoryChange = async (category: string) => {
     setFormValues((prev) => ({
       ...prev,
@@ -229,8 +204,7 @@ const AddEditExpenseNote = () => {
     setFormValues((prev) => {
       const next = { ...prev, staffid };
 
-      // For credit payments, pin the staff's personal ledger as the
-      // party (credit-side) ledger. Cash/bank doesn't need this.
+      // Credit payment: the staff's ledger is the credit side.
       if (next.paymenttype === "credit" && staff?.ledgerid?.id) {
         next.ledgerid = staff.ledgerid.id;
       }
@@ -287,9 +261,7 @@ const AddEditExpenseNote = () => {
     calculateTotals(updated);
   };
 
-  /* =========================
-     TOTAL CALCULATION
-     ========================= */
+  // Total calculation
 
   const calculateTotals = (rows: any[]) => {
     let total = 0;
@@ -309,8 +281,7 @@ const AddEditExpenseNote = () => {
     }));
   };
 
-  // Mutates `obj.totalamount` / `obj.totalgst` in place. Used inside
-  // `setFormValues` callbacks where we already hold a fresh draft.
+  // Mutates obj totals in place; used inside setFormValues callbacks.
   const recomputeTotals = (obj: any) => {
     let total = 0;
     let gst = 0;
@@ -324,17 +295,12 @@ const AddEditExpenseNote = () => {
     obj.totalgst = gst;
   };
 
-  /* =========================
-     VALIDATION
-     ========================= */
+  // Validation
 
   const validate = () => {
     const errors: { [key: string]: string } = {};
 
-    // The header's branch dropdown includes "All Branches" (value "") for
-    // filtering lists — but an Expense Note must belong to one real branch
-    // (server requires it). Catch that here instead of letting an empty
-    // string reach the server as a raw ObjectId cast error.
+    // An Expense Note needs a real branch, not "All Branches".
     if (!formValues.branchid) {
       errors.branchid =
         "Select a specific branch from the dropdown in the top-right (not \"All Branches\") before adding an expense.";
@@ -369,9 +335,7 @@ const AddEditExpenseNote = () => {
     return errors;
   };
 
-  /* =========================
-     SUBMIT
-     ========================= */
+  // Submit
 
   const handleSubmit = async () => {
     const errors = validate();
@@ -379,10 +343,7 @@ const AddEditExpenseNote = () => {
       setFormErrors(errors);
       dispatch(
         showMessage({
-          // branchid has no dedicated field on this form (it comes from the
-          // header dropdown), so surface its message directly rather than
-          // the generic "fix highlighted fields" — there's nothing on this
-          // screen for the user to see highlighted.
+          // branchid has no field here, so show its message directly.
           message: errors.branchid || "Please fix highlighted fields",
           type: "error",
         })
@@ -445,9 +406,7 @@ const AddEditExpenseNote = () => {
     }
   };
 
-  /* =========================
-     UI
-     ========================= */
+  // UI
 
   const showStaff =
     formValues.category === "tada" || formValues.category === "salary";

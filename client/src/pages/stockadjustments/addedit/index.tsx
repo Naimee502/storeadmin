@@ -16,10 +16,7 @@ import { FaTrash } from "react-icons/fa";
 import { todayYMD, normalizeToYMD } from "../../../utils/helper";
 import { BRANCH_REQUIRED } from "../../../utils/branch";
 
-// Layout
-// Header and every row share this template so the columns stay aligned.
-// Boxes match the compact FormField controls used inside FormPage (32px).
-// Written out in full (not built at runtime) so Tailwind generates the class.
+// Shared row template so columns align; written in full so Tailwind generates it.
 const ROW_GRID_SM =
   "sm:grid-cols-[minmax(0,2.2fr)_minmax(0,1fr)_88px_120px_120px_120px_32px]";
 const BOX = "flex items-center h-8 rounded-md border bg-white px-2.5 text-[13px]";
@@ -37,10 +34,7 @@ interface Variant {
   unitconversions?: { unitid?: { id: string } | null; factor?: number }[];
 }
 
-// Adjusted qty is in the BASE unit (the server moves stock by base units), so
-// the default rate must be per base unit too. purchaserate is per PURCHASE
-// unit — e.g. ₹120 per box of 12 → ₹10 per piece. Without this, Amount was
-// overstated by the conversion factor.
+// Default rate per base unit (stock moves in base units): purchaserate ÷ conversion factor.
 const baseUnitRate = (v?: Variant): number => {
   const rate = Number(v?.purchaserate) || 0;
   const pu = v?.purchaseunitid?.id;
@@ -93,12 +87,7 @@ const StockAdjustmentAddEdit: React.FC = () => {
   const storedBranchId = localStorage.getItem("branchid") || "";
   const storedAdminId = localStorage.getItem("adminid") || "";
   const { data: branchesData } = useBranchesQuery();
-  // firstBranchId is the rescue for a STAFF account with no branch assigned
-  // that is all it was ever meant for. It used to sit on the admin arm too,
-  // which meant an admin on "All Branches" silently filed the document under
-  // whichever branch happened to come back first: no error, wrong branch, and
-  // nothing on screen to say so. Admin now resolves to the chosen branch or to
-  // nothing, and the save path says so out loud.
+  // firstBranchId fallback is for staff without a branch only; admin uses the chosen branch.
   const firstBranchId = branchesData?.getBranches?.[0]?.id || "";
 
   const adminId =
@@ -249,10 +238,7 @@ const StockAdjustmentAddEdit: React.FC = () => {
       return;
     }
 
-    // The header can sit on "All Branches" (value ""), but this document must
-    // belong to one real branch — the server requires it. Said as a toast so
-    // the form stays usable; sealing the button would only leave the user
-    // staring at a dead control.
+    // The document needs a real branch; toast instead of disabling the button.
     if (!branchId) {
       dispatch(showMessage({ message: BRANCH_REQUIRED, type: "error" }));
       return;
@@ -393,8 +379,7 @@ const StockAdjustmentAddEdit: React.FC = () => {
                 label: v.name || "Default",
                 value: v.id,
               }));
-              // Shortage larger than what is on hand — flag it before the
-              // server refuses the save.
+              // Shortage exceeds stock on hand.
               const overShort =
                 adjType === "Shortage" && !!item.productid && item.quantity > (Number(item.systemstock) || 0);
 

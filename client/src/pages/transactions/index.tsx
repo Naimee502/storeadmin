@@ -32,8 +32,7 @@ const Transaction = () => {
 
   useEffect(() => {
     const fetchTransactions = async () => {
-      // Already have rows from the cache → refresh quietly in the background
-      // instead of covering the table with the full-screen loader.
+      // Cached rows: refresh in the background without the full-screen loader.
       const blocking = !transactionList.length;
       if (blocking) dispatch(showLoading());
       try {

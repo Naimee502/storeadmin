@@ -1,8 +1,6 @@
 import type { InvoiceProduct } from "../components/productsection";
 
-// Parse a value that may be a Date, an ISO string, OR an epoch-millisecond
-// string (GraphQL serializes Mongo Date fields like `paymentdate` as epoch ms).
-// `new Date("1751713200000")` is Invalid, so numeric strings must go through Number().
+// Accepts a Date, ISO string or epoch-ms string (GraphQL sends dates as epoch ms).
 const toDate = (date: Date | string | number | null | undefined): Date => {
   if (date instanceof Date) return date;
   const s = String(date).trim();
@@ -26,18 +24,7 @@ export const normalizeToYMD = (date: Date | string | null | undefined): string |
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 };
 
-/**
- * Today, as the user's calendar sees it — "YYYY-MM-DD" for a date input or a
- * date-range filter.
- *
- * NEVER use `new Date().toISOString().slice(0, 10)` for this. toISOString()
- * converts to UTC, and India runs at UTC+5:30, so between midnight and 5:30am
- * it hands back YESTERDAY. That is what made a report default its "To Date" to
- * the previous day and hide an order entered just after midnight, and what made
- * a payment entered at 1am get stamped with yesterday's date and post into the
- * wrong day's books. This builds the string from the LOCAL date parts, exactly
- * the way normalizeToYMD reads a stored date back, so the two always agree.
- */
+// Today as local "YYYY-MM-DD"; toISOString() would give yesterday before 5:30am IST.
 export const todayYMD = (): string => normalizeToYMD(new Date())!;
 
 /** Today shifted by N days (negative = past), still on the local calendar. */
@@ -46,8 +33,7 @@ export const shiftDaysYMD = (days: number, from: Date = new Date()): string =>
     new Date(from.getFullYear(), from.getMonth(), from.getDate() + days)
   )!;
 
-// converts Date or string to DD-MM-YYYY (display format used in listings & prints)
-// Also safely accepts an already-formatted "DD-MM-YYYY" string (returned as-is).
+// Date or string → DD-MM-YYYY; an already formatted string is returned as-is.
 export const formatDateDMY = (date: Date | string | number | null | undefined): string => {
   if (!date) return "-";
   const s = typeof date === "string" ? date.trim() : "";
@@ -58,8 +44,7 @@ export const formatDateDMY = (date: Date | string | number | null | undefined): 
   return `${String(d.getDate()).padStart(2, "0")}-${String(d.getMonth() + 1).padStart(2, "0")}-${d.getFullYear()}`;
 };
 
-// DD-MM-YYYY hh:mm AM/PM — date comes from `date`; the time-of-day comes from
-// `timeSource` (e.g. createdAt) because bill dates are stored without a time.
+// Date from `date`, time from `timeSource` since bill dates have no time.
 export const formatDateTimeDMY = (
   date: Date | string | number | null | undefined,
   timeSource?: Date | string | number | null
@@ -105,8 +90,7 @@ export const applyDateShortcut = (
   return { from, to };
 };
 
-// Last 5 documents (orders/invoices) of a party as history rows
-// [DocNo, Date, Qty, Disc, Total] — used by the dropdown history feature
+// Last 5 documents of a party as dropdown history rows.
 export const getLastPartyDocRows = (
   docs: any[],
   partyId?: string,
@@ -194,34 +178,20 @@ export const getInvoiceLineBaseQty = (line: InvoiceProduct, variant: any) => {
   );
 };
 
-/**
- * Rupee amount with Indian digit grouping — 121192 → "₹1,21,192.00".
- * Shared so the party list and its Deleted Entries twin print the same shape.
- */
+/** Rupee amount with Indian grouping: 121192 → "₹1,21,192.00". */
 export const formatINR = (n: number | null | undefined): string =>
   `₹${(Number(n) || 0).toLocaleString("en-IN", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })}`;
 
-/**
- * "BHIWADI" → "Bhiwadi", "new delhi" → "New Delhi".
- *
- * Party masters are typed in ALL CAPS as often as not, which makes a column of
- * city names shout. Capitalising each word (rather than only the very first
- * letter of the string) is what keeps two-word names like "New Delhi" reading
- * correctly.
- */
+// Title-case each word: "new delhi" → "New Delhi".
 export const toTitleCase = (value: string | null | undefined): string =>
   String(value ?? "")
     .toLowerCase()
     .replace(/(^|[\s/-])([a-z])/g, (_m, sep: string, ch: string) => sep + ch.toUpperCase());
 
-/**
- * A date as a sortable number, whichever shape it arrives in — an epoch-ms
- * string ("1758153600000"), an ISO string, a Date. NaN for anything unusable,
- * so the caller can drop the row instead of sorting it to the top.
- */
+// Date as a sortable number; NaN if unusable so the caller can drop the row.
 export const timestampOf = (d: any): number => {
   if (d === null || d === undefined || d === "") return NaN;
   const str = String(d).trim();
@@ -238,22 +208,7 @@ export type StatementSortable = {
   ref?: string;
 };
 
-/**
- * The order a running statement is read in — Party Statement, Ledger Statement,
- * and anything else that carries a running balance down the page.
- *
- * Sorting on the voucher DATE alone leaves every same-day row tied, and the
- * payments query has no sort of its own, so those rows landed in whatever order
- * Mongo happened to hand back: a Payment-In entered first could print below the
- * Payment-Out that followed it, and the running balance beside them then told a
- * story that never happened. Worse, two sheets built from the same data
- * disagreed — the party's read correctly while the ledger's did not.
- *
- * So the date decides first, then the entry order (`seq`, the row's createdAt),
- * then the document number. Rows that cannot offer a `seq` — an invoice or a
- * return, which carry no such field here — are left where they are, because
- * Array#sort is stable, so this never reshuffles what it cannot rank.
- */
+// Running-statement order: date, then entry order (seq), then document number.
 export const compareStatementRows = (
   x: StatementSortable,
   y: StatementSortable

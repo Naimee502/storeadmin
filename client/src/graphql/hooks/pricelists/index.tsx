@@ -113,8 +113,7 @@ export const usePriceResolvers = () => {
   const [resolvePriceQuery] = useLazyQuery(RESOLVE_PRICE);
 
   const resolvePrice = async (variables: any) => {
-    // Scope to the tenant (matches the salesman app) and always hit the network
-    // so a customer change re-evaluates the assigned price list.
+    // Tenant-scoped and network-only so a customer change re-evaluates the price list.
     const { data } = await resolvePriceQuery({
       variables: { adminid, ...variables },
       fetchPolicy: "network-only",

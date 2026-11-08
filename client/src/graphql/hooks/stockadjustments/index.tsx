@@ -32,11 +32,7 @@ export const useActiveStockAdjustments = (filter: any = {}) =>
 export const useDeletedStockAdjustments = (filter: any = {}) =>
   useGetStockAdjustments({ ...filter, status: false });
 
-// Stock Adjustments LIST (lite)
-// Active entries for the list page only — same filter as
-// useActiveStockAdjustments, but the GET_STOCK_ADJUSTMENTS_LIST selection and
-// the default (cache-first) policy so a return visit paints from cache while
-// the page refreshes in the background.
+// Stock Adjustments list (lite), list page only, cache-first
 export const useStockAdjustmentsListQuery = (
   filter: any = {},
   fetchPolicy?: WatchQueryFetchPolicy
@@ -48,9 +44,7 @@ export const useStockAdjustmentsListQuery = (
   return { data, loading, error, refetch };
 };
 
-// Product picker for the add/edit form
-// Same scope/variables as useProductServicesQuery (products hook), lite
-// GET_STOCK_ADJUSTMENT_PRODUCTS selection. Result is under getProductServices.
+// Product picker for the add/edit form (lite; result under getProductServices).
 export const useStockAdjustmentProductsQuery = (
   status: boolean = true,
   limit: number = 0,
@@ -81,9 +75,7 @@ export const useGetStockAdjustmentById = (id: string, adminId?: string, branchId
   return { data, loading, error, refetch };
 };
 
-// Refetch whichever stock-adjustment lists are mounted, with their own
-// variables. `{ query: GET_STOCK_ADJUSTMENTS }` without variables fired an
-// extra request for every adjustment of every admin/branch.
+// Refetch mounted stock-adjustment lists with their own variables.
 const STOCK_ADJUSTMENT_LIST_QUERIES = ["GetStockAdjustments", "GetStockAdjustmentsList", "GetStockAdjustmentsPage"];
 
 export const useCreateStockAdjustment = () => {

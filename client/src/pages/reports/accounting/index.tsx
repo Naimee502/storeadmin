@@ -16,7 +16,7 @@ import { useAdminSettingsQuery } from "../../../graphql/hooks/adminsettings";
 import { normalizeToYMD, formatDateDMY, todayYMD, shiftDaysYMD, timestampOf, compareStatementRows } from "../../../utils/helper";
 
 const reportTabsObj = [
-    // Ledger Statement first. The old "Ledger" tab showed the same thing, so it was removed.
+    // Ledger Statement first.
     { id: "Ledger Statement", label: "Ledger Statement", icon: <FaBookOpen className="text-[12px] text-blue-600" /> },
     { id: "Profit & Loss", label: "Profit & Loss", icon: <FaChartPie className="text-[12px] text-emerald-600" /> },
     { id: "Balance Sheet", label: "Balance Sheet", icon: <FaBalanceScale className="text-[12px] text-purple-600" /> },
@@ -36,19 +36,13 @@ const AccountingFinanceReports: React.FC = () => {
     const { data: accountsData } = useAccountsQuery();
     const { data: accountsGroupData } = useAccountGroupsQuery();
     const { data: accountLedgerData } = useAccountLedgersQuery();
-    // The heavy collections are fetched only for the tabs that read them.
-    // Same query documents + variables as useTransactionsQuery /
-    // usePaymentsQuery / useExpenseNotesQuery / useStaffQuery, so the cache is
-    // shared with the rest of the app.
+    // Heavy collections load only for tabs that use them; same queries as the app hooks, so cache is shared.
     const { type, admin, branch, staff: authStaff } = useAppSelector((state) => state.auth);
     const selectedBranchId = useAppSelector((state) => state.selectedBranch.branchId);
     const adminid = type === "admin" ? admin?.id : type === "branch" ? branch?.admin?.id : type === "staff" ? authStaff?.admin?.id : undefined;
     const branchid = type === "admin" ? selectedBranchId : type === "branch" ? branch?.id : type === "staff" ? authStaff?.branchid?.id : undefined;
 
-    // Ledger: transactions + payments/expense notes (source remarks).
-    // P&L / Balance Sheet / Transactions Summary: transactions only.
-    // Ledger Statement / Cash Flow / Payments: payments only.
-    // Expense Notes: expense notes + staff picker.
+    // Which tabs read transactions, payments and expense notes.
     const needTransactions = ["Ledger", "Profit & Loss", "Balance Sheet", "Transactions Summary"].includes(activeTab);
     const needPayments = ["Ledger", "Ledger Statement", "Cash Flow Statement", "Payments / Receipts"].includes(activeTab);
     const needExpenses = ["Ledger", "Expense Notes"].includes(activeTab);
@@ -82,10 +76,7 @@ const AccountingFinanceReports: React.FC = () => {
     const expenseNotes: any[] = useMemo(() => expenseData?.getExpenseNotes || [], [expenseData]);
     const staff: any[] = staffData?.getStaffAccounts || [];
 
-    // Per-business feature flag: "Discount & Commission on Payment settlement".
-    // Off means the business never collects a concession, so the four-column
-    // Settled / Discount / Commission / Cash split is noise -- the sheet goes
-    // back to the single Amount column it always had.
+    // Flag "Discount & Commission on Payment settlement"; off shows a single Amount column.
     const dcEnabled = !!adminSettingsData?.getAdminSettings?.enablePaymentDiscountCommission;
 
     // Default date filter = last 30 days
@@ -109,7 +100,7 @@ const AccountingFinanceReports: React.FC = () => {
         return { fromTimestamp, toTimestamp };
     };
 
-    // Ledger Data (FIXED)
+    // Ledger data
 
     const ledgerData = useMemo(() => {
         const { fromTimestamp, toTimestamp } = getFilterTimestamps();
@@ -119,10 +110,7 @@ const AccountingFinanceReports: React.FC = () => {
             if (acc.ledgerid?.id) ledgerMap[acc.ledgerid.id] = acc;
         });
 
-        // Remarks column ma user e jate lakhelu remark j dekhavu joie.
-        // Payment / Expense Note mathi bane te journal na entry remarks auto
-        // generate thay che ("Receipt from X"), etle source document nu asal
-        // remark map kari ne pehla e batavie; na hoy to j auto text.
+        // Show the source document's own remark; fall back to the auto-generated journal text.
         const sourceRemarkMap: Record<string, string> = {};
         payments.forEach((p: any) => {
             const r = (p.remarks || "").trim();
@@ -166,24 +154,7 @@ const AccountingFinanceReports: React.FC = () => {
 
     // Ledger Statement (built from PAYMENTS, not Transactions)
 
-    // One LEDGER read as a running statement — the same shape as the Party
-    // Statement, but for any ledger at all (Cash, Bank, Discount Allowed,
-    // Commission Received, a party's own ledger) and sourced from the payment
-    // documents rather than the posted Transactions.
-    //
-    // Each payment is expanded into its journal legs exactly as the server
-    // posts them (resolvers/payments — buildPaymentEntries / buildLedgerEntries)
-    //
-    //   Receipt : Dr Cash + Dr Discount Allowed
-    //               Cr Party/Ledger + Cr Commission Received
-    //   Payment : Dr Party/Ledger + Dr Commission
-    //               Cr Cash + Cr Discount Received
-    //
-    //   party leg = cash + discount - commission
-    //
-    // A discount lowers the cash without lowering the bill and a commission is
-    // charged on top of it, so the party leg is NOT the cash amount. Treating
-    // it as the cash amount is exactly what makes Customer Outstanding drift.
+    // Ledger statement built from payments; party leg = cash + discount - commission, not the cash.
 
     /** Every ledger that can have a statement, for the picker. */
     const statementLedgerOptions = useMemo(
@@ -213,23 +184,16 @@ const AccountingFinanceReports: React.FC = () => {
         const { fromTimestamp, toTimestamp } = getFilterTimestamps();
         const r2 = (n: any) => parseFloat((Number(n) || 0).toFixed(2));
 
-        // Party account -> the ledger it posts to. The party leg of a payment
-        // names the ACCOUNT, but the statement is keyed by LEDGER, so the two
-        // have to be joined before a party receipt can land on this sheet.
+        // Party account to ledger, since the statement is keyed by ledger.
         const partyLedgerOf: Record<string, { id?: string; name: string }> = {};
         accounts.forEach((a: any) => {
             if (a.id) partyLedgerOf[a.id] = { id: a.ledgerid?.id, name: a.ledgerid?.ledgername || a.name || "-" };
         });
 
-        // Discount / Commission ledgers are created on the server the first time
-        // they are needed, so the payment document never carries their ids.
-        // Resolve them by name or those legs can never be selected here.
+        // Discount/Commission ledgers are created server-side, so resolve them by name.
         const timeOf = timestampOf;
 
-        // One row per payment leg. A party leg's Debit / Credit carry the
-        // amount SETTLED (cash + discount − commission); the cash/bank leg
-        // carries the cash. On the party leg, stepOf then applies commission
-        // + discount in the payment's direction to the running balance.
+        // One row per leg: party leg shows the settled amount, cash/bank leg the cash.
         type Row = { t: number; seq: number; type: string; ref: string; debit: number; credit: number; remarks: string; discount: number; commission: number; conc?: number };
         const rows: Row[] = [];
 
@@ -238,18 +202,14 @@ const AccountingFinanceReports: React.FC = () => {
             .forEach((p: any) => {
                 const invs = Array.isArray(p.invoices) ? p.invoices : [];
 
-                // Concessions can sit on the bill lines OR on the payment itself
-                // (an opening-balance-only receipt has no line to hang them on),
-                // so take the larger of the two — the same rule the server uses.
+                // Concessions may be on bill lines or the payment; take the larger, like the server.
                 const lineDiscount = r2(invs.reduce((sum: number, i: any) => sum + (Number(i.discount) || 0), 0));
                 const lineCommission = r2(invs.reduce((sum: number, i: any) => sum + (Number(i.commission) || 0), 0));
                 const discount = Math.max(lineDiscount, r2(p.discount));
                 const commission = Math.max(lineCommission, r2(p.commission));
 
                 const cash = r2(p.amount);
-                // What the party leg shows: the amount SETTLED
-                // (cash + discount − commission); then stepOf applies
-                // commission + discount in the payment's direction.
+                // Party leg shows the settled amount (cash + discount - commission).
                 const settled = r2(cash + discount - commission);
 
                 const isReceipt = String(p.type || "").toLowerCase() === "receipt";
@@ -260,10 +220,7 @@ const AccountingFinanceReports: React.FC = () => {
                     ? partyLedgerOf[p.partyid.id] || { id: undefined, name: p.partyid?.name || "-" }
                     : { id: p.counterledgerid?.id, name: p.counterledgerid?.ledgername || "-" };
 
-                // Cash/Bank leg moves by the cash. A PARTY leg shows the amount
-                // SETTLED, like the Party Statement; then stepOf applies
-                // commission + discount in the payment's direction.
-                // A plain-ledger voucher has no concessions.
+                // Cash/Bank leg moves by the cash; party leg by the settled amount; plain ledgers have no concessions.
                 const concession = viaParty ? r2(commission + discount) : 0;
                 const legs: any[] = isReceipt
                     ? [
@@ -275,18 +232,14 @@ const AccountingFinanceReports: React.FC = () => {
                         { ...cashLeg, debit: 0, credit: cash },
                     ];
 
-                // Only this ledger's own legs belong on its statement. A payment
-                // can touch it more than once (paying a party out of that same
-                // party's ledger), so every matching leg is kept, not the first.
+                // Keep every leg that hits this ledger; a payment can touch it more than once.
                 legs
                     .filter((l: any) => l.id === target.id)
                     .filter((l: any) => (l.debit || 0) > 0.005 || (l.credit || 0) > 0.005 || Math.abs(l.conc || 0) > 0.005)
                     .forEach((l: any) => {
                         rows.push({
                             t: timeOf(p.paymentdate),
-                            // Two vouchers on the same day are tied on date
-                            // alone; this is what keeps them in the order they
-                            // were actually entered.
+                            // Keeps same-day vouchers in entry order.
                             seq: timeOf(p.createdAt),
                             type: isReceipt ? "Payment-In" : "Payment-Out",
                             ref: String(p.paymentcode ?? "-"),
@@ -301,21 +254,14 @@ const AccountingFinanceReports: React.FC = () => {
             });
 
         const valid = rows.filter((r) => !isNaN(r.t)).sort(compareStatementRows);
-        // After the SETTLED Debit / Credit, commission + discount move it further
-        // in the payment's own direction: Payment-In towards Cr, Payment-Out
-        // towards Dr — so it moves by settled + commission + discount.
-        //   e.g. ₹1541530 Cr, Payment-In 500000, commission 400
-        //        → 1541530 + 500000 + 400 = ₹2041930 Cr
-        //   e.g. ₹508930 Dr, Payment-In 400000, discount 700
-        //        → 508930 − 400000 − 700 = ₹108230 Dr
+        // Commission and discount move the balance further in the payment's direction (In: Cr, Out: Dr).
         const stepOf = (bal: number, r: Row) => {
           const b = bal + r.debit - r.credit;
           const c = r.conc || 0;
           return b + (r.type === "Payment-In" ? -c : c);
         };
 
-        // Everything before the period is folded into one beginning balance, so
-        // the statement opens with what the ledger carried in, not from zero.
+        // Fold everything before the period into the opening balance.
         let balance =
             target.openingbalancetype === "credit"
                 ? -(Number(target.openingbalance) || 0)
@@ -359,10 +305,7 @@ const AccountingFinanceReports: React.FC = () => {
                     remarks: r.remarks,
                     discount: r.discount ? r.discount.toFixed(2) : "-",
                     commission: r.commission ? r.commission.toFixed(2) : "-",
-                    // Hidden (not a column): how far this row's balance moved
-                    // beyond Debit − Credit, i.e. − discount + commission on a
-                    // party leg, 0 elsewhere. The Totals-row net adds it so it
-                    // lands on the closing Running Balance.
+                    // Hidden: balance movement beyond Debit - Credit (- discount + commission), added in Totals.
                     balanceAdjust: r2(balance - prev - (r.debit - r.credit)).toFixed(2),
                 });
             });
@@ -537,16 +480,7 @@ const AccountingFinanceReports: React.FC = () => {
         [ledgers, appliedFilters.paymentledger]
     );
 
-    // Filtered by LEDGER, not by party. A payment keeps its counter leg in one
-    // of two places -- partyid (party mode) or counterledgerid (ledger mode)
-    // and a party filter can only ever see the first, so every ledger-mode
-    // receipt fell out of this report entirely. The ledger is what both modes
-    // have in common: a party posts to its own ledger anyway.
-    //
-    // Concessions are broken out too. The party's own statement can never show
-    // them (a discount / commission posts to its own income ledger, not to the
-    // party), so this is the one sheet that answers "how much commission did we
-    // charge this party, and how much discount did we allow".
+    // Filter by ledger, not party, so ledger-mode receipts are included; concessions shown too.
     const paymentsDataReport = useMemo(() => {
         const { fromTimestamp, toTimestamp } = getFilterTimestamps();
         const r2 = (n: any) => parseFloat((Number(n) || 0).toFixed(2));
@@ -555,13 +489,10 @@ const AccountingFinanceReports: React.FC = () => {
         const capitalize = (str: string = "") =>
             str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
 
-        // paymentdate arrives as an epoch string OR an ISO date. Number() turns
-        // the ISO form into NaN and then every date comparison below silently
-        // passes, which is why a wrong date range never looked wrong.
+        // paymentdate may be epoch or ISO; Number() alone gives NaN for ISO.
         const timeOf = timestampOf;
 
-        // Party account -> the ledger it actually posts to, so a party-mode
-        // receipt is still found by picking that party's ledger in the filter.
+        // Party account to ledger, so party-mode receipts match the ledger filter.
         const partyLedgerOf: Record<string, { id?: string; name: string }> = {};
         accounts.forEach((a: any) => {
             if (a.id)
@@ -576,9 +507,7 @@ const AccountingFinanceReports: React.FC = () => {
             .map((p: any) => {
                 const invs = Array.isArray(p.invoices) ? p.invoices : [];
 
-                // Same rule the server and the Ledger Statement use: a
-                // concession can sit on the bill lines or on the payment itself
-                // (an opening-balance-only receipt has no line to hang it on).
+                // Concessions may be on bill lines or the payment; take the larger.
                 const lineDiscount = r2(invs.reduce((s: number, i: any) => s + (Number(i.discount) || 0), 0));
                 const lineCommission = r2(invs.reduce((s: number, i: any) => s + (Number(i.commission) || 0), 0));
                 const discount = Math.max(lineDiscount, r2(p.discount));
@@ -594,8 +523,7 @@ const AccountingFinanceReports: React.FC = () => {
 
                 return {
                     t: timeOf(p.paymentdate),
-                    // Both legs, so the sheet answers either question: "what did
-                    // this party pay" and "what came through the cash ledger".
+                    // Include both legs: party and cash ledger.
                     ledgerIds: [counter.id, p.ledgerid?.id].filter(Boolean),
 
                     paymentCode: p.paymentcode,
@@ -625,8 +553,7 @@ const AccountingFinanceReports: React.FC = () => {
                     return false;
                 return true;
             })
-            // Keep the row down to what the table shows; t / ledgerIds are join
-            // keys for the filter above and nothing else.
+            // t / ledgerIds are only join keys for the filter.
             .map((row: any) => ({
                 paymentCode: row.paymentCode,
                 paymentDate: row.paymentDate,
@@ -641,7 +568,7 @@ const AccountingFinanceReports: React.FC = () => {
             }));
     }, [payments, accounts, appliedFilters]);
 
-    // Filters + Table Setup (FIXED)
+    // Filters and table setup
 
     const ledgerOptions = ledgers.map(l => ({
         label: l.ledgername,
@@ -725,8 +652,7 @@ const AccountingFinanceReports: React.FC = () => {
             tableData = paymentsDataReport;
             title = "Payments & Receipts Report";
             exportFileName = "PaymentsReceiptsReport";
-            // Same header the Ledger Statement PDF carries -- which ledger this
-            // sheet is for, and over what period.
+            // Header: ledger name and period, like the Ledger Statement PDF.
             pdfSubtitle = [
                 `Ledger name: ${paymentsLedger?.ledgername || "All Ledgers"}`,
                 `Duration: From ${appliedFilters.fromDate ? formatDateDMY(appliedFilters.fromDate) : "-"} to ${appliedFilters.toDate ? formatDateDMY(appliedFilters.toDate) : "-"}`,
@@ -737,10 +663,7 @@ const AccountingFinanceReports: React.FC = () => {
                 { label: "Ledger", key: "ledgerName" },
                 { label: "Type", key: "type" },
                 { label: "Mode", key: "mode" },
-                // With concessions switched on, Settled is what came off the
-                // balance and Cash is what actually moved -- the gap between the
-                // two IS the discount / commission. With the flag off the two are
-                // always equal, so one Amount column says everything.
+                // With concessions on, Settled and Cash differ by discount/commission; otherwise one Amount column.
                 ...(dcEnabled
                     ? [
                         { label: "Settled (₹)", key: "settled", numeric: true },
@@ -854,9 +777,7 @@ const AccountingFinanceReports: React.FC = () => {
                     { label: "Commission (₹)", key: "commission", numeric: true },
                 ] : []),
                 {
-                    // Deliberately not `numeric`: a running balance is a position
-                    // at a point in time, and summing every row of it is
-                    // meaningless. Right-align by hand so it still reads as money.
+                    // Not `numeric`: summing a running balance is meaningless.
                     label: "Running Balance",
                     key: "runningBalance",
                     render: (row: any) => (
@@ -865,19 +786,14 @@ const AccountingFinanceReports: React.FC = () => {
                 },
                 { label: "Remarks", key: "remarks" },
             ];
-            // Totals row: the net prints under Remarks. Debit - Credit, with the
-            // opening row folded in, is this ledger's CLOSING balance -- so it
-            // agrees with the last Running Balance above it and with the Balance
-            // Sheet. The hidden balanceAdjust key folds in each party row's
-            // − discount + commission, so the net matches the closing balance.
+            // Totals net (Debit - Credit + balanceAdjust) equals the closing running balance.
             netTotal = {
                 debitKey: "debit",
                 creditKey: "credit",
                 plusKeys: ["balanceAdjust"],
                 showInKey: "remarks",
             };
-            // A statement is always ONE ledger, so that choice leads the filter
-            // bar rather than trailing the dates.
+            // A statement is one ledger, so that filter comes first.
             filterFields = [
                 {
                     name: "statementledger",

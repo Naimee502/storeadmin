@@ -8,9 +8,7 @@ interface Product {
   productserviceid: { name: string };
   variantid?: { name: string };
   salesunitid?: { unitname: string };
-  // Purchase-side documents (Purchase Order / Purchase Invoice) carry the
-  // unit under `purchaseunitid` instead. Read whichever one is present so a
-  // purchase line never silently loses its unit suffix.
+  // Purchase documents use `purchaseunitid` instead.
   purchaseunitid?: { unitname: string };
   qty: number;
   rate: number;
@@ -39,34 +37,22 @@ interface Invoice {
   roundoff?: number;
   invoicediscount?: number;
   invoicediscounttype?: string;
-  // Party's running-account balance, fetched lazily on Print click — see
-  // Business Settings → Invoice Print → "Show party's Previous/Current Balance".
+  // Party balance, fetched on Print click when enabled in settings.
   partyPreviousBalance?: number;
   partyCurrentBalance?: number;
 }
 
 interface PrintableInvoiceProps {
   invoice: Invoice;
-  /**
-   * Heading printed on the right of the title bar. Defaults to the tax
-   * invoice wording so every existing caller is unchanged; Sales Order and
-   * Purchase Order pass their own ("SALES ORDER", "PURCHASE ORDER"), because
-   * an order is not a tax invoice and must not be printed as one.
-   */
+  /** Title-bar heading; orders pass their own since they are not tax invoices. */
   title?: string;
-  /**
-   * Label of the document-number cell in the meta grid. Defaults to
-   * "Invoice No."; orders pass "Order No.".
-   */
+  /** Document-number label; defaults to "Invoice No.". */
   docNoLabel?: string;
-  /**
-   * Small left-hand caption in the title bar. Defaults to "Online Memo".
-   */
+  /** Title-bar caption; defaults to "Online Memo". */
   memoLabel?: string;
 }
 
-// Fallback shown if the admin hasn't customised Terms & Conditions yet
-// (mirrors AdminSettings.printTermsAndConditions default on the server).
+// Default Terms & Conditions (matches the server default).
 const DEFAULT_TERMS =
   '1. Goods once sold will not be taken back.\n' +
   '2. Interest @18% p.a. will be charged if payment is not made within due date.\n' +
@@ -81,9 +67,7 @@ const PrintableInvoice = forwardRef<HTMLDivElement, PrintableInvoiceProps>(
 
     const auth = useAppSelector((state) => state.auth);
     const branch = auth.branch;
-    // Resolve the owning Admin record regardless of who is logged in
-    // (admin / branch / staff) so the print header can use the admin's
-    // company address & mobile instead of the branch's.
+    // Header uses the owning Admin's details, whoever is logged in.
     const adminInfo: any =
       auth.type === "admin"
         ? auth.admin
@@ -128,8 +112,7 @@ const PrintableInvoice = forwardRef<HTMLDivElement, PrintableInvoiceProps>(
 
     const encrypt = !!settings?.encryptInvoicePrices;
     const mask = (val: number) => encrypt ? val / 10 : val;
-    // Party balance with an explicit sign: "+" = party has to pay (baki),
-    // "−" = advance / excess we hold (payable to the party).
+    // "+" = party owes us, "−" = advance we hold.
     const signedBal = (val: number) => {
       const m = mask(Number(val) || 0);
       if (m > 0) return `+${m.toFixed(2)}`;
@@ -145,9 +128,7 @@ const PrintableInvoice = forwardRef<HTMLDivElement, PrintableInvoiceProps>(
       .map((l: string) => l.trim())
       .filter(Boolean);
 
-    // Party's running balance — only shown when the admin has opted in AND
-    // the caller actually fetched it (Print click), so other invoice/print
-    // flows (e.g. WhatsApp share, Purchase Invoice) are unaffected.
+    // Shown only when enabled and fetched (Print click).
     const showPartyBalance =
       settings?.printShowPartyBalance === true &&
       invoice.partyPreviousBalance !== undefined &&

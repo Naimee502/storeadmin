@@ -4,12 +4,7 @@ import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
 import { selectModuleActions } from "../../../redux/slices/permissions";
 import { showMessage } from "../../../redux/slices/message";
 
-/**
- * Clear props for a Deleted Entries DataTable. Cleared entries stay in the
- * database but never show in deleted lists or reports again.
- * `module` is the server target (usually the permission id); `permission`
- * overrides the permission id when they differ.
- */
+/** Props for clearing entries from a Deleted Entries table. */
 export const useClearDeleted = (
   module: string,
   refetch: () => unknown,

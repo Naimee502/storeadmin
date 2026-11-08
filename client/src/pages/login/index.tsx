@@ -31,9 +31,7 @@ const Login = () => {
   const [invalidCredentialError, setInvalidCredentialError] = useState("");
   const isExpiringSoon = useAppSelector(state => state.auth.admin?.isExpiringSoon);
 
-  // Email-OTP step (Business Settings -> "Billing panel login needs an email
-  // OTP"). The server answers the first login with LOGIN_OTP_REQUIRED after
-  // mailing the OTP; the same login is then repeated with the OTP attached.
+  // Email-OTP step: the server replies LOGIN_OTP_REQUIRED, then login repeats with the OTP.
   const [otpStep, setOtpStep] = useState(false);
   const [otp, setOtp] = useState("");
   const [otpInfo, setOtpInfo] = useState("");
@@ -184,9 +182,7 @@ const Login = () => {
         navigate("/home");
       }
     } catch (err: any) {
-      // The server rejects an unsubscribed admin before returning any data, so
-      // the in-flow `navigate("/subscription")` above never runs. Route on the
-      // error code the resolver attaches instead.
+      // Unsubscribed admin is rejected by the server; route on the error code.
       const gqlError = err?.graphQLErrors?.[0];
       const code = gqlError?.extensions?.code || err?.extensions?.code || "";
       const message = (gqlError?.message || err?.message || "").toLowerCase();
@@ -203,8 +199,7 @@ const Login = () => {
         return;
       }
 
-      // Message fallback: older server builds throw a plain Error with no
-      // extensions.code, so match on the text too.
+      // Older servers send no extensions.code, so match the message too.
       const underReview =
         code === "SUBSCRIPTION_UNDER_REVIEW" || message.includes("under review");
       const rejected =
@@ -309,8 +304,7 @@ const Login = () => {
               error={passwordError}
             />
 
-            {/* OTP field sits right under Password with the same gap as
-                Email -> Password; the sent-to note and Resend sit tight under it. */}
+            {/* OTP field under Password */}
             {otpStep && (
               <div className="space-y-1">
                 <FormField
@@ -338,8 +332,7 @@ const Login = () => {
               </div>
             )}
 
-            {/* Subscription warning for admin — rendered only when there is
-                something to say, so an empty row doesn't add a gap. */}
+            {/* Subscription warning for admin, only when there is one */}
             {isExpiringSoon && email && password && invalidCredentialError === "" && (
               <div className="flex justify-end items-center">
                 <span className="text-xs text-red-600 font-medium">

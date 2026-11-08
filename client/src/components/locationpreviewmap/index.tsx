@@ -3,8 +3,7 @@ import { MapContainer, TileLayer, Marker, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 
-// A plain pin drawn in CSS — avoids Leaflet's default marker images, which
-// need extra bundler setup to load.
+// CSS pin, avoids Leaflet's default marker images.
 const pin = L.divIcon({
   className: "",
   html: `<div style="width:22px;height:22px;border-radius:50% 50% 50% 0;background:#dc2626;transform:rotate(-45deg);border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.4)"></div>`,
@@ -33,14 +32,7 @@ function InvalidateOnResize({ box }: { box: HTMLDivElement | null }) {
   return null;
 }
 
-/**
- * Small read-only map of a saved shop location.
- *
- * Built to FILL the space it is given, never to make room for itself: the map
- * is absolutely positioned inside a flex-1 box, so it takes whatever height is
- * left in the card and adds none. If that leftover space is too small to be
- * useful it simply does not draw.
- */
+/** Small read-only map that fills the space it is given. */
 export default function LocationPreviewMap({ latitude, longitude }: { latitude: any; longitude: any }) {
   const boxRef = useRef<HTMLDivElement>(null);
   const [box, setBox] = useState<HTMLDivElement | null>(null);

@@ -14,8 +14,7 @@ interface CategoryReorderProps {
   onClose: () => void;
   // Active categories in their current storefront order.
   categories: ReorderCategory[];
-  // Called with every id, first to last. Should reject on failure so the
-  // modal stays open with the user's arrangement intact.
+  // Receives all ids in order; reject on failure to keep the modal open.
   onSave: (ids: string[]) => Promise<unknown>;
   saving?: boolean;
   /** Defaults are for Categories; Sub Categories passes its own. */
@@ -37,8 +36,7 @@ const Row: React.FC<{
   total: number;
   move: (from: number, to: number) => void;
 }> = ({ item, index, total, move }) => {
-  // Drag starts only from the grip, so the arrow buttons and text selection
-  // keep working normally on the rest of the row.
+  // Drag only from the grip so buttons and text selection still work.
   const controls = useDragControls();
   const isFirst = index === 0;
   const isLast = index === total - 1;
@@ -85,11 +83,7 @@ const Row: React.FC<{
   );
 };
 
-/**
- * Rearrange categories — the order saved here is the order the client app
- * (Home/Shop category strip) and the website (nav, Home cards, Shop filter)
- * show them in. Nothing is saved until "Save Order".
- */
+/** Rearrange categories; this order is used by the client app and website. */
 const CategoryReorder: React.FC<CategoryReorderProps> = ({
   isOpen,
   onClose,
@@ -125,8 +119,7 @@ const CategoryReorder: React.FC<CategoryReorderProps> = ({
   const handleSave = async () => {
     try {
       await onSave(items.map((c) => c.id));
-      // With a parent picker the admin usually goes on to the next parent,
-      // so stay open; a plain list is done.
+      // With a parent picker, stay open for the next parent.
       if (!header) onClose();
     } catch {
       // Parent shows the error; keep the modal open so nothing is lost.
@@ -145,8 +138,7 @@ const CategoryReorder: React.FC<CategoryReorderProps> = ({
       {items.length === 0 ? (
         <div className="py-10 text-center text-sm text-gray-400">{emptyText}</div>
       ) : (
-        // Own scroll container with layoutScroll so drag positions stay
-        // correct after the list is scrolled.
+        // layoutScroll keeps drag positions correct after scrolling.
         <motion.div layoutScroll className="max-h-[55vh] overflow-y-auto pr-1">
           <Reorder.Group axis="y" values={items} onReorder={setItems} as="div">
             {items.map((item, index) => (

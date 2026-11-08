@@ -1,6 +1,4 @@
-// Party View — left: the party's profile; right: its own Orders and Payments
-// and the sub-parties under it (channel downline). Opened from the View
-// button on Party Accounts (permission: Party Accounts → View).
+// Party View: profile, its orders and payments, and sub-parties.
 import { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router";
 import { gql, useQuery } from "@apollo/client";

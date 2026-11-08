@@ -23,8 +23,7 @@ import { useInvoicePdf } from "../../components/invoicepdf";
 import { stateOptions } from "../../utils/constants";
 import { partyLabel } from "../../utils/partylabel";
 
-// Party's `state` is stored as a slug (e.g. "gujarat") — map it to the
-// proper display label (e.g. "Gujarat") for the printed invoice.
+// Party state is a slug; map it to its label for print.
 const stateLabel = (slug?: string) =>
   stateOptions.find((s) => s.value === slug)?.label || "";
 
@@ -40,8 +39,7 @@ const SalesInvoices = () => {
   const M = "salesinvoice";
   const actions = useAppSelector(state => selectModuleActions(state, M));
 
-  // Lite listing query — only the table columns. The full bill is fetched by
-  // id on Print / WhatsApp (see loadPrintable).
+  // Lite listing; the full bill is fetched on Print / WhatsApp (see loadPrintable).
   const table = useServerTable("salesinvoice", SERVER_FILTER_KEYS);
   const {
     items: invoiceList,
@@ -58,10 +56,7 @@ const SalesInvoices = () => {
     deliverSalesInvoiceMutation,
   } = useSalesInvoiceMutations();
 
-  // Everything that can happen to a bill from the list sits in one dropdown
-  // where it is in delivery, and whether it stands at all. Cancelling is not a
-  // separate little icon — it is a state this bill is in, so it belongs on the
-  // same control that shows the state.
+  // All bill actions, cancel included, live in one status dropdown.
   const statusOptionsFor = (invoice: any, canEdit: boolean) => {
     if (invoice.cancelStatus === "cancelled") {
       return canEdit ? [{ label: "Re-open", value: "reopen" }] : [];
@@ -99,8 +94,7 @@ const SalesInvoices = () => {
       await refetch();
       dispatch(showMessage({ message: "Invoice cancelled. Stock has been returned.", type: "success" }));
     } catch (e: any) {
-      // The server refuses with a specific reason (a return exists, a payment is
-      // allocated) — show that, never a generic failure.
+      // Show the server's specific reason.
       dispatch(showMessage({ message: e?.message || "Failed to cancel invoice.", type: "error" }));
     }
   };
@@ -117,10 +111,7 @@ const SalesInvoices = () => {
   };
   const isLoading = useAppSelector((state) => state.loader.isLoading);
 
-  // Build a Set of source-invoice ids that already have an active Sales
-  // Return. Used to hide the per-row "Return" action so the user cannot
-  // create a duplicate return against the same invoice. (Server still
-  // validates per-line quantities as a safety net.)
+  // Invoices with an active Sales Return, to hide the Return action (server also checks).
   const { data: returnsData } = useSalesReturnsQuery();
   const returnedInvoiceIds = useMemo(() => {
     const set = new Set<string>();
@@ -130,8 +121,7 @@ const SalesInvoices = () => {
     return set;
   }, [returnsData]);
 
-  // Resolve the company name across role types so the WhatsApp share
-  // signs the message off as the company, not the branch.
+  // Company name across roles, for the WhatsApp sign-off.
   const auth = useAppSelector((state) => state.auth);
   const apolloClient = useApolloClient();
   const { settings } = useAppSelector((state: any) => state.adminsettings);
@@ -152,9 +142,7 @@ const SalesInvoices = () => {
           ? auth.staff?.admin?.companyName
           : "";
 
-  // Share the invoice on WhatsApp as a PDF (generated from the same
-  // printable layout used by Print). The hidden PrintableInvoice is
-  // mounted first; the effect below converts it to PDF and shares it.
+  // Share as PDF on WhatsApp: mount the hidden PrintableInvoice, the effect converts it.
   const makeInvoicePdf = useInvoicePdf();
   const [waInvoice, setWaInvoice] = useState<any>(null);
   const waMeta = useRef<{ phone: string; message: string; fileName: string } | null>(null);
@@ -163,13 +151,7 @@ const SalesInvoices = () => {
     const orig = invoiceList.find((inv: any) => inv.id === row.id);
     if (!orig) return;
 
-    // Nothing a browser can do names the recipient for WhatsApp — the share
-    // sheet carries the file and nothing else, so its "Send message to" list
-    // always follows. The number goes on the clipboard so that list becomes
-    // a paste instead of a search, and the message below says so, because a
-    // clipboard nobody was told about helps nobody. It is held on screen far
-    // longer than a normal toast: by the time WhatsApp's picker is actually
-    // open, three seconds are long gone.
+    // WhatsApp can't preselect a recipient, so copy the number and keep the toast up longer.
     const copiedNumber = copyPartyNumberForPicker(orig.partyacc?.mobile);
     if (copiedNumber) {
       dispatch(showMessage({
@@ -180,9 +162,7 @@ const SalesInvoices = () => {
       }));
     }
 
-    // Business Settings → Invoice Print → "Show company name in signature"
-    // also governs the WhatsApp message's sign-off — when disabled, the
-    // company name should not leak into the chat message either.
+    // "Show company name in signature" also controls the WhatsApp sign-off.
     const showSignatureCompanyName = settings?.printShowCompanyNameInSignature !== false;
     const mobile = (orig.partyacc?.mobile || "").replace(/\D/g, "");
     const message =
@@ -197,8 +177,7 @@ const SalesInvoices = () => {
       fileName: `Invoice-INV-${orig.billnumber}.pdf`,
     };
 
-    // The list holds only the table columns — load the full bill (and the
-    // party balance when enabled) for the PDF.
+    // Load the full bill (and party balance if enabled) for the PDF.
     dispatch(showLoading());
     try {
       setWaInvoice(await loadPrintable(row));
@@ -225,18 +204,14 @@ const SalesInvoices = () => {
           dispatch(
             showMessage({
               message: "Invoice PDF downloaded — attach it in the WhatsApp chat that just opened.",
-              // The message slice only types 'success' | 'error'; this is an
-              // informational note, and 'success' is the truthful one of the two
-              // (the PDF really was produced and downloaded).
+              // Only 'success' | 'error' exist; the PDF was produced, so 'success'.
               type: "success",
             })
           );
         }
       } catch (e) {
         console.error("WhatsApp PDF share error:", e);
-        // The reason is spelled out rather than swallowed: this path can fail
-        // for several unrelated causes (the PDF module not loading, bad data
-        // on the document), and "it failed" leaves nobody anything to act on.
+        // Show the reason; this can fail for several unrelated causes.
         dispatch(showMessage({
           message: `Failed to share invoice PDF: ${(e as any)?.message || e}`,
           type: "error",
@@ -314,8 +289,7 @@ const SalesInvoices = () => {
     { label: "Status", key: "status" },
   ];
 
-  // Show the person's NAME (with role); if only an email is stored, fall back
-  // to the role label instead of an ugly email.
+  // Show name with role; fall back to the role label instead of an email.
   const personLabel = (name?: string, type?: string) => {
     const role = type ? capitalizeFirst(type) : "";
     if (name && !name.includes("@")) return role ? `${name} (${role})` : name;
@@ -334,13 +308,10 @@ const SalesInvoices = () => {
     return {
       ...invoice,
       seqNo: index + 1,
-      // Kept for the printable invoice — Party name & GSTIN come from the
-      // Party Account record and are only shown on print if actually set
-      // there (no static/default GSTIN).
+      // Party name and GSTIN only print if set on the party account.
       partyname: invoice.partyacc?.accountname || "",
       gstin: invoice.partyacc?.gstnumber || "",
-      // Place of Supply on the printed bill = the party's City - State
-      // (GST jurisdiction), not the street address.
+      // Place of Supply = party City - State (GST jurisdiction).
       placeofsupply: [invoice.partyacc?.city, stateLabel(invoice.partyacc?.state)].filter(Boolean).join(" - "),
       partyacc: partyLabel(invoice.partyacc) || "N/A",
       totalitem: (invoice.productservice || []).length,
@@ -355,11 +326,7 @@ const SalesInvoices = () => {
       createdByDisplay: personLabel(invoice.createdby_name, invoice.createdby_type),
       deliveryDisplay: (
         <StatusDropdown
-          // An invoice is already a CONFIRMED sale; its delivery lifecycle is
-          // confirmed → dispatched → delivered. So show "Confirmed" until it's
-          // actually dispatched/delivered (instead of a bare "Pending").
-          // A cancelled bill outranks all of that — it was never delivered to
-          // anyone in any meaningful sense.
+          // Invoice is a confirmed sale: Confirmed until dispatched/delivered; Cancelled wins.
           current={
             invoice.cancelStatus === "cancelled"
               ? "cancelled"
@@ -369,14 +336,12 @@ const SalesInvoices = () => {
           }
           options={statusOptionsFor(invoice, Boolean(actions.showEdit))}
           onSelect={(v) => handleDeliveryChange(invoice, v)}
-          // Locked only when there is nothing left to choose — a delivered bill
-          // can still be cancelled, so it must not be frozen outright.
+          // Lock only when nothing is left; a delivered bill can still be cancelled.
           disabled={statusOptionsFor(invoice, Boolean(actions.showEdit)).length === 0}
         />
       ),
       isCancelled: invoice.cancelStatus === "cancelled",
-      // A cancelled bill still says "Active" in the old sense — it has not been
-      // deleted — so the cancellation has to be what the eye lands on.
+      // Highlight cancellation; the bill is still "Active" (not deleted).
       status: invoice.cancelStatus === "cancelled"
         ? "Cancelled"
         : invoice.status ? "Active" : "Inactive",
@@ -385,9 +350,7 @@ const SalesInvoices = () => {
 
   const tableData = invoiceList.map((inv: any, i: number) => buildRow(inv, table.offset + i));
 
-  // Print / WhatsApp need the whole bill (lines, charges, transport…), which
-  // the lite listing doesn't carry — fetch it by id, plus the party balance
-  // when Business Settings → Invoice Print asks for it.
+  // Fetch the full bill (and party balance if enabled) for Print / WhatsApp.
   const loadPrintable = async (row: any) => {
     const [full, bal] = await Promise.all([
       apolloClient.query({
@@ -429,16 +392,14 @@ const SalesInvoices = () => {
           serverPaging={serverPaging}
           {...actions}
           onWhatsApp={handleWhatsAppShare}
-          // Combine the "no duplicate return" rule with the user's
-          // permission to perform a return at all.
+          // No duplicate return, and the user needs Return permission.
           showReturn={(row: any) =>
             actions.showReturn && !returnedInvoiceIds.has(String(row.id)) && !row.isCancelled
           }
           onReturn={(row) => navigate(`/salesreturn/addedit?fromInvoice=${row.id}`)}
           onView={(row) => navigate(`/salesinvoice/view/${row.id}`)}
           onEdit={(row) => navigate(`/salesinvoice/addedit/${row.id}`)}
-          // Business Settings → "Delete … only from inside the invoice": the
-          // trash icon moves to the invoice's edit page instead.
+          // Delete-only-inside-invoice setting moves the trash icon to the edit page.
           showDelete={actions.showDelete && !settings?.deleteInvoiceFromInsideOnly}
           onDelete={async (row) => {
             if (
@@ -471,8 +432,7 @@ const SalesInvoices = () => {
           onAdd={() => navigate("/salesinvoice/addedit")}
           onShowDeleted={() => navigate("/salesinvoice/deletedentries")}
           onPrint={async (row) => {
-            // Full bill + (optional) party balance are fetched only on Print
-            // click — the listing query carries just the table columns.
+            // Full bill fetched only on Print.
             dispatch(showLoading());
             try {
               setPrintInvoice(await loadPrintable(row));

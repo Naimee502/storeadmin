@@ -86,10 +86,7 @@ export const GET_SALES_INVOICES = gql`
 }
 `;
 
-// Listing-only query: just the columns the Sales Invoices table shows.
-// Print / WhatsApp / Edit fetch the full bill by id when they need it, so the
-// list no longer drags every line item, ledger and transport field of ~2000
-// bills over the wire on every visit.
+// Listing-only columns; Print/WhatsApp/Edit load the full bill by id.
 export const GET_SALES_INVOICES_LIST = gql`
   query GetSalesInvoicesList($filter: SalesInvoiceFilterInput) {
     getSalesInvoices(filter: $filter) {
@@ -121,9 +118,7 @@ export const GET_SALES_INVOICES_LIST = gql`
   }
 `;
 
-// Bill-settlement query for the Payment form: what a bill owes and how it is
-// labelled — no line items. The form only ever needs these to list a party's
-// open bills.
+// Bill amounts and labels for the Payment form; no line items.
 export const GET_SALES_INVOICES_SETTLE = gql`
   query GetSalesInvoicesSettle($filter: SalesInvoiceFilterInput) {
     getSalesInvoices(filter: $filter) {
@@ -240,9 +235,7 @@ export const GET_DELETED_SALES_INVOICES = gql`
   }
 `;
 
-// Lightweight, print-only lookup — party's running balance is expensive to
-// compute (sums every unsettled bill for the party), so it's fetched only
-// when the user actually clicks Print, not as part of the list/table query.
+// Party running balance, fetched only on Print (expensive).
 export const GET_SALES_INVOICE_BALANCE = gql`
   query GetSalesInvoiceBalance($id: ID!, $adminid: ID) {
     getSalesInvoiceById(id: $id, adminid: $adminid) {

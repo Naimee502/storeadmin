@@ -45,10 +45,7 @@ export const GET_STAFF = gql`
   }
 `;
 
-// Staff Accounts list page: the grid columns plus everything the inline
-// Add/Edit form loads from a row (branch, account group, image, address,
-// salary/commission/target, role, status, assigned channels). Password hash,
-// allowed modules, ledger and admin are left out — the view page fetches by id.
+// Staff Accounts list page: grid + inline-form fields; view page loads by id.
 export const GET_STAFF_LIST = gql`
   query GetStaffList($filter: StaffFilterInput) {
     getStaffAccounts(filter: $filter) {

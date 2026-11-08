@@ -11,12 +11,7 @@ export interface TrackPoint {
   staffid?: { id?: string; name?: string } | null;
 }
 
-/**
- * The page scrolls past this map, and a wheel turn over it used to zoom the
- * map instead of scrolling the page. Wheel-zoom is now off until the map is
- * clicked, and goes off again as soon as the mouse leaves it. +/- buttons and
- * pinch still work as before.
- */
+/** Wheel-zoom only after the map is clicked, so the page can scroll past it. */
 function ClickToScrollZoom() {
   const map = useMap();
   useEffect(() => {
@@ -41,8 +36,7 @@ interface Props {
   height?: number;
 }
 
-// GraphQL serialises Mongo Date fields as epoch-ms strings ("1751713200000"),
-// which `new Date(str)` can't parse — route numeric values through Number().
+// Mongo dates arrive as epoch-ms strings; convert via Number().
 const fmtTime = (v: TrackPoint["pingedAt"]): string => {
   if (v == null) return "—";
   const s = String(v).trim();
@@ -63,12 +57,7 @@ function ensurePulseCss() {
   document.head.appendChild(s);
 }
 
-// Map-pin (teardrop, pointed at the exact spot — the "arrow") with a white
-// person silhouette in the head, as an inline divIcon (no image assets
-// needed). The tip of the teardrop (bottom point) IS the exact GPS
-// coordinate — `iconAnchor` below matches that tip, not the head. `pulse`
-// adds a small animated dot exactly at that tip (not up in the head) so the
-// "live" highlight never drifts away from the point the pin is pointing at.
+// Teardrop pin as a divIcon; its tip is the exact GPS point.
 const personPinIcon = (color: string, pulse = false) =>
   L.divIcon({
     className: "",
@@ -95,8 +84,7 @@ const personPinIcon = (color: string, pulse = false) =>
 
 const START_ICON = personPinIcon("#16a34a"); // green — punch-in (trail start)
 
-// Reverse-geocoded place names for pin tooltips, cached per rounded lat/long
-// across the whole session so the same spot isn't looked up twice.
+// Reverse-geocoded names, cached per rounded lat/long for the session.
 const geocodeCache: Record<string, string> = {};
 const coordKey = (p: TrackPoint) => `${p.latitude.toFixed(4)},${p.longitude.toFixed(4)}`;
 

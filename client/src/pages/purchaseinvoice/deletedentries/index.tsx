@@ -59,8 +59,7 @@ const DeletedPurchaseInvoices = () => {
       partyacc: partyLabel(invoice.partyacc) || "N/A",
       totalitem: invoice.productservice.length,
       totalqty,
-      // Same "INV-000001" style as Sales Invoice / the active Purchase
-      // Invoice list, instead of the raw billtype ("Taxinvoice-000001").
+      // "INV-000001" style, same as Sales Invoice.
       billtype_billnumber: `INV-${invoice.billnumber}`,
       paymenttype: capitalizeFirst(invoice.paymenttype),
       createdByDisplay: invoice.createdby_name || "N/A",

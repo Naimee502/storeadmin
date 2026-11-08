@@ -22,31 +22,13 @@ import { useAppSelector } from "../../../redux/hooks";
 import { PAYMENT_SIDE_EFFECT_QUERIES } from "../shared/paymentsideeffects";
 
 // Mutations
-// Every payment write refreshes the Payments list BEFORE the mutation resolves.
-//
-// The visible bug: save a payment, land back on Payments, and the new entry
-// isn't there until a manual browser refresh. The list is opened straight
-// after the save with the OLD cached rows (cache-and-network), and on a large
-// business (~2000 payments) the background re-fetch takes long enough that the
-// user decides the entry is missing.
-//
-// Refetching by operation NAME alone isn't enough here: Apollo only refetches
-// ACTIVE queries by name, and the Payments list isn't mounted while the form is
-// open. So the list's exact query (same filter it will use) is refetched by
-// document, and awaited, so the cache is already fresh when the form navigates
-// back. The name-based entries still catch any other mounted GetPayments /
-// GetTransactions watcher (Home activity table, reports, other filters).
 export const usePaymentMutations = () => {
   const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
   const selectedBranchId = useAppSelector((state) => state.selectedBranch.branchId);
   const adminid = type === "admin" ? admin?.id : type === "branch" ? branch?.admin?.id : type === "staff" ? staff?.admin?.id : undefined;
   const branchid = type === "admin" ? selectedBranchId : type === "branch" ? branch?.id : type === "staff" ? staff?.branchid?.id : undefined;
 
-  // Speed: the save no longer WAITS for ~2000 payments + every transaction to
-  // be re-downloaded before it returns. Instead the saved payment is written
-  // straight into the Payments list cache (below), so it is on screen the
-  // moment the form navigates back; any mounted list / outstanding / ledger
-  // watcher still refreshes in the background by name.
+  // Refetch lists in the background; the saved payment is written into the list cache directly.
   const refreshLists = {
     refetchQueries: ["GetPaymentsList", "GetPaymentsPage", ...PAYMENT_SIDE_EFFECT_QUERIES],
     awaitRefetchQueries: false,
@@ -83,9 +65,7 @@ export const usePaymentMutations = () => {
   };
 };
 
-// Allocation preview (lazy)
-// "network-only": the whole point is a fresh, race-free view of what the
-// party still owes at the moment the user presses Save.
+// Allocation preview (lazy), always fresh from the network.
 export const usePreviewAllocationLazy = () => {
   const [run] = useLazyQuery(PREVIEW_ALLOCATION, { fetchPolicy: "network-only" });
   return run;
@@ -96,12 +76,7 @@ export const usePartyOutstandingBillsLazy = () => {
   return run;
 };
 
-// Payments Query
-// Defaults to "cache-and-network": payments are created as a SERVER-side side
-// effect of sales/purchase invoices, returns and expense notes, so Apollo's
-// cache goes stale without the client ever issuing a payment mutation. The
-// outstanding-invoice list is derived from this data, so a stale read shows
-// already-settled invoices as still payable.
+// Payments Query: cache-and-network, since invoices/returns create payments server-side.
 // Lite query for the Payments listing page only.
 export const usePaymentsListQuery = (fetchPolicy: WatchQueryFetchPolicy = "cache-and-network") => {
   const { type, admin, branch, staff } = useAppSelector((state) => state.auth);

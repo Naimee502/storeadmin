@@ -17,9 +17,7 @@ const reportTabsObj = [
   { id: "Live Tracking", label: "Live Tracking", icon: <FaMapMarkedAlt className="text-[12px] text-emerald-500" /> },
 ];
 
-// Reverse-geocoded place names, cached per rounded lat/long across the whole
-// session so re-opening the tab or switching delivery boy doesn't re-fetch a
-// spot that's already been resolved.
+// Reverse-geocoded place names, cached per rounded lat/long for the session.
 const geocodeCache: Record<string, string> = {};
 
 /** "YYYY-MM-DD" shifted by n days (UTC, no timezone drift). */
@@ -30,29 +28,20 @@ const shiftYMD = (ymd: string, n: number) => {
   return d.toISOString().slice(0, 10);
 };
 
-/**
- * Delivery Boy Report — field overview per delivery boy:
- *  • Orders assigned / delivered / pending
- *  • Delivered value + payment collections done on delivery
- *  • Day-wise breakdown
- *  • Live-location / route-trace section (placeholder until app sends GPS)
- */
+/** Delivery Boy report: orders, collections, day-wise breakdown and live location. */
 const DeliveryBoyReport: React.FC = () => {
   const [activeTab, setActiveTab] = useState<string>(reportTabsObj[0].id);
-  // Seeded with the default range on the first render so the date-scoped
-  // queries never fire once unfiltered before the effect below runs.
+  // Seed the default range on first render so date-scoped queries never run unfiltered.
   const [filters, setFilters] = useState<{ [key: string]: any }>(() => ({ fromDate: shiftDaysYMD(-30), toDate: todayYMD() }));
   const [appliedFilters, setAppliedFilters] = useState<{ [key: string]: any }>(() => ({ fromDate: shiftDaysYMD(-30), toDate: todayYMD() }));
 
-  // Live Tracking has its own filter set (single Date instead of a From/To
-  // range) — kept separate from the Summary / Day-wise filters above.
+  // Live Tracking has its own single-date filter.
   const [trackingFilters, setTrackingFilters] = useState<{ [key: string]: any }>({});
   const [trackingAppliedFilters, setTrackingAppliedFilters] = useState<{ [key: string]: any }>({});
 
   const { data: staffData } = useStaffQuery();
 
-  // Same adminid/branchid scoping as useSalesOrdersQuery / usePaymentsQuery /
-  // the locationping hooks (those are admin-scoped only).
+  // Same adminid/branchid scoping as the order/payment/location hooks.
   const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
   const selectedBranchId = useAppSelector((state) => state.selectedBranch.branchId);
   const adminid = type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : type === 'staff' ? staff?.admin?.id : undefined;
@@ -61,12 +50,7 @@ const DeliveryBoyReport: React.FC = () => {
   const isTracking = activeTab === "Live Tracking";
   const isSummaryTab = activeTab === "Summary";
 
-  // includeConverted: once a delivery order is invoiced (isConverted: true),
-  // the default query (isConverted: false) hides it — but it's still a real
-  // delivery that must show up here (deliveryboyid/deliveryStatus carry over
-  // to the invoice via syncInvoiceFromOrder on the server).
-  // Lite + server-side date range (string compare on "YYYY-MM-DD", To day
-  // inclusive); the client-side range check below stays as a safety net.
+  // includeConverted: invoiced delivery orders still count; server date range with client safety net.
   const { data: ordersData } = useQuery(DELIVERYBOY_REPORT_SALES_ORDERS, {
     variables: {
       filter: {
@@ -79,9 +63,7 @@ const DeliveryBoyReport: React.FC = () => {
     },
     skip: isTracking,
   });
-  // Collections only feed the Summary tab. paymentdate is a Date on the
-  // server, so the range is padded a day each side (timezone) and the exact
-  // local-day check below decides.
+  // Collections for Summary only; range padded a day each side for timezone, exact check below.
   const payFrom = appliedFilters.fromDate ? shiftYMD(appliedFilters.fromDate, -1) : undefined;
   const payToDay = appliedFilters.toDate ? shiftYMD(appliedFilters.toDate, 1) : undefined;
   const { data: paymentsData } = useQuery(DELIVERYBOY_REPORT_PAYMENTS, {
@@ -97,16 +79,14 @@ const DeliveryBoyReport: React.FC = () => {
     skip: !isSummaryTab,
   });
 
-  // Live-tracking data honours its own single-date filter, and picking a
-  // delivery boy fetches their ordered trail (punch-in → punch-out) for that day.
+  // Live tracking uses its own date; picking a delivery boy loads their trail for that day.
   const locFilter = useMemo(() => ({
     role: "deliveryboy",
     staffid: trackingAppliedFilters.deliveryboyid || undefined,
     dateFrom: trackingAppliedFilters.date || undefined,
     dateTo: trackingAppliedFilters.date || undefined,
   }), [trackingAppliedFilters]);
-  // Tracking queries only on the Live Tracking tab; the trail only once a
-  // delivery boy is picked (it was fetched for everyone and then discarded).
+  // Tracking queries only on the Live tab; the trail only once a delivery boy is picked.
   const { data: locationsData } = useQuery(GET_LATEST_LOCATIONS, {
     variables: { filter: { adminid, ...locFilter } },
     skip: !adminid || !isTracking,
@@ -256,12 +236,7 @@ const DeliveryBoyReport: React.FC = () => {
     { label: "Delivered Value (₹)", key: "deliveredValue", numeric: true },
   ];
 
-  // ── Live tracking: full day's trail when a delivery boy is picked (punch-in
-  // → punch-out, one row per GPS ping, oldest first), otherwise the latest
-  // known location per delivery boy. Location shown as a place name, not raw
-  // lat/long — resolved via free-text reverse geocoding (OpenStreetMap
-  // Nominatim), cached per rounded coordinate so the same spot isn't looked
-  // up twice.
+  // Live tracking: picked delivery boy's full trail, otherwise latest location per person.
   const showingTrail = !!trackingAppliedFilters.deliveryboyid;
   const trackingPings = showingTrail ? trail : locations;
 

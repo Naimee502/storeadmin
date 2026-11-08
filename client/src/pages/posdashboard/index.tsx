@@ -1,7 +1,4 @@
-// Accounting-style Retail POS (Tally-inspired)
-// Voucher header, item-selection ledger table, itemised voucher cart
-// Totals block with Sub Total / Discount / GST / Total, function-key action bar
-// Staff/Branch/Admin can take orders or generate invoices
+// Tally-style retail POS: Staff/Branch/Admin can take orders or generate invoices.
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import HomeLayout from "../../layouts/home";
@@ -193,12 +190,7 @@ export default function POSDashboard() {
 
   // Fetch branches to auto-detect when staff has no branch assigned
   const { data: branchesData } = useBranchesQuery();
-  // firstBranchId is the rescue for a STAFF account with no branch assigned
-  // that is all it was ever meant for. It used to sit on the admin arm too,
-  // which meant an admin on "All Branches" silently filed the document under
-  // whichever branch happened to come back first: no error, wrong branch, and
-  // nothing on screen to say so. Admin now resolves to the chosen branch or to
-  // nothing, and the save path says so out loud.
+  // firstBranchId is only a fallback for staff with no branch; admin uses the chosen branch.
   const firstBranchId = branchesData?.getBranches?.[0]?.id || "";
 
   const adminId =
@@ -324,8 +316,7 @@ export default function POSDashboard() {
     const cartId = `${product.id}_${chosenVariant.variantId}_${chosenUnit.id}`;
 
     const resolveAndAdd = async () => {
-      // Product's own price (used when no price list applies, and to revert to
-      // when the customer is cleared/changed).
+      // Product's own price, used when no price list applies.
       const basePrice =
         chosenUnit.offerprice ??
         chosenUnit.salesrate ??
@@ -343,8 +334,7 @@ export default function POSDashboard() {
             variantid: chosenVariant.variantId,
             unitid: chosenUnit.id,
             accountid: selectedParty.id,
-            // channel comes back as an object ({ id, channelName }); the resolver
-            // expects the id.
+            // channel is an object; the resolver expects its id.
             channelid: selectedParty.channel?.id ?? selectedParty.channel ?? null,
             region: selectedParty.region ?? null,
           });
@@ -422,10 +412,7 @@ export default function POSDashboard() {
     resolveAndAdd();
   };
 
-  /* ---------- Re-price cart when the customer changes ----------
-     Choosing / changing a customer re-evaluates every cart line against that
-     party's assigned price list (channel / region / customer). With no customer
-     (walk-in), lines revert to the product's own base price. */
+  // Re-price the cart from the customer's price list; walk-in uses base price.
   useEffect(() => {
     if (cart.length === 0) return;
     let cancelled = false;
@@ -607,9 +594,7 @@ export default function POSDashboard() {
 
   /* Submit / Save */
   const handlePaymentComplete = async ({ paymentType }: any) => {
-    // Customer is selected in the cart (selectedParty), NOT in the drawer.
-    // The drawer only returns paymentType / paidAmount / balance now to
-    // avoid the duplicate-dropdown bug.
+    // Customer is chosen in the cart; the drawer returns payment details only.
     if (!selectedParty?.id) {
       dispatch(
         showMessage({
@@ -620,8 +605,7 @@ export default function POSDashboard() {
       return;
     }
 
-    // A missing branch is almost always the header sitting on "All Branches",
-    // not a broken session — say the thing the user can actually act on.
+    // Missing branch usually means "All Branches" is selected; say so.
     if (!branchId) {
       dispatch(showMessage({ message: BRANCH_REQUIRED, type: "error" }));
       return;

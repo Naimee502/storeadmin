@@ -63,8 +63,7 @@ export const useSalesReturnMutations = () => {
   };
 };
 
-// Returns reduce an invoice's outstanding (see useOutstanding), and a return
-// can be created moments before this list is read — so revalidate on mount.
+// Returns reduce outstanding, so revalidate on mount.
 export const useSalesReturnsQuery = (fetchPolicy: WatchQueryFetchPolicy = "cache-and-network") => {
   const { type, admin, branch, staff } = useAppSelector((s) => s.auth);
   const selectedBranchId = useAppSelector((s) => s.selectedBranch.branchId);
@@ -78,8 +77,7 @@ export const useSalesReturnsQuery = (fetchPolicy: WatchQueryFetchPolicy = "cache
   return { data, loading, error, refetch };
 };
 
-// Listing (lite) variant of useSalesReturnsQuery — same filter, only the
-// table columns. Used by the Sales Returns list page.
+// Lite listing variant for the Sales Returns page.
 export const useSalesReturnsListQuery = (fetchPolicy: WatchQueryFetchPolicy = "cache-and-network") => {
   const { type, admin, branch, staff } = useAppSelector((s) => s.auth);
   const selectedBranchId = useAppSelector((s) => s.selectedBranch.branchId);

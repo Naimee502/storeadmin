@@ -38,9 +38,7 @@ const Payment = () => {
 
   useEffect(() => {
     const fetchPayments = async () => {
-      // Rows already in the cache (e.g. straight after a save, which writes
-      // the new payment into it) → refresh quietly instead of blocking the
-      // whole table behind the loader.
+      // Rows already cached: refresh quietly without the full-screen loader.
       const blocking = !paymentList.length;
       if (blocking) dispatch(showLoading());
       try {
@@ -55,9 +53,7 @@ const Payment = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dispatch, refetch]);
 
-  // Payments also arrive from elsewhere — staff and parties on the mobile app,
-  // another admin tab, invoices with auto-receipt. Re-check quietly whenever
-  // this tab comes back into view, so nobody has to hit browser refresh.
+  // Payments also come from the app and other tabs; refetch when this tab is visible.
   useEffect(() => {
     // Switching tabs fires both events; one fetch is enough.
     let last = 0;
@@ -78,16 +74,13 @@ const Payment = () => {
     { label: "Seq", key: "seqNo" },
     { label: "Code", key: "paymentcode" },
     { label: "Type", key: "type" },
-    // Who the money actually moved with. Without it two ₹720 receipts on the
-    // same day are indistinguishable in the list.
+    // Party or ledger the money moved with.
     { label: "Party / Ledger", key: "partyDisplay" },
     { label: "Mode", key: "mode" },
     { label: "Date", key: "paymentdate" },
     { label: "Ledger", key: "ledgername" },
     { label: "Amount", key: "amount" },
-    // How much of this payment is still floating (Tally's "On Account"), and
-    // whether the bills were picked by hand or proposed by FIFO. Both exist so
-    // an allocation can always be explained after the fact.
+    // Unallocated (On Account) amount and whether bills were picked by hand or FIFO.
     { label: "Unallocated", key: "unallocatedDisplay" },
     { label: "Settlement", key: "settlementDisplay" },
     { label: "Created By", key: "createdByDisplay" },
@@ -120,9 +113,7 @@ const Payment = () => {
       amount: pay.amount?.toFixed(2) || "0.00",
       unallocatedDisplay:
         Number(pay.unallocatedamount) > 0 ? Number(pay.unallocatedamount).toFixed(2) : "-",
-      // Mirror the two labels on the payment form's Settlement Mode toggle and
-      // nothing more. The per-bill / opening breakdown lives on the payment
-      // itself, where there's room to show it properly.
+      // Same labels as the form's Settlement Mode toggle.
       settlementDisplay:
         pay.allocationmode === "auto_fifo" || pay.allocationmode === "on_account"
           ? "Direct / On Account"

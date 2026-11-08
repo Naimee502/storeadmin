@@ -23,11 +23,7 @@ const AdminList = () => {
 
   let adminList = data?.getAdmins || [];
 
-  // Edit-form shape mirrors the Admin Register form exactly. Note that
-  // legacy `isMultibranch` / `isChannelCustomers` flags were intentionally
-  // dropped — they aren't on the register page so they don't belong here.
-  // Allowed Modules is intentionally NOT part of this form — module
-  // allowance is managed from Business Settings, not the admin edit modal.
+  // Mirrors the Admin Register form; Allowed Modules is managed in Business Settings.
   const [formValues, setFormValues] = useState<{
     name: string;
     email: string;
@@ -73,9 +69,7 @@ const AdminList = () => {
     }, [dispatch, refetch]);
 
   const handleEdit = (row: any) => {
-    // The row passed in here has been capitalised for display. Look up the
-    // raw record from the GraphQL response so we don't write display-cased
-    // values back to the database on save.
+    // Use the raw record so display-cased values aren't saved back.
     const raw =
       adminList.find((a: any) => a.id === row.id) || row;
 
@@ -141,8 +135,7 @@ const AdminList = () => {
     }
   };
 
-  // Columns mirror the fields on the Admin Register form so the list view
-  // is consistent with what was captured at sign-up.
+  // Columns mirror the Admin Register form.
   const columns = [
     { label: "Seq No", key: "seqNo" },
     { label: "Admin Code", key: "admincode" },
@@ -155,9 +148,7 @@ const AdminList = () => {
     { label: "Business Type", key: "businesstype" },
   ];
 
-  // Capitalize the first letter of a string. Used so admin records show
-  // "Retail" / "Monthly" / "John Doe" instead of "retail" / "monthly".
-  // Email is intentionally left untouched (case-sensitive in many MTAs).
+  // Capitalize the first letter for display; email is left as-is.
   const cap = (v: any) => {
     if (v == null) return "";
     const s = String(v);
@@ -182,8 +173,7 @@ const AdminList = () => {
           columns={columns}
           data={tableData}
           {...actions}
-          /* Super-admin page: not governed by Business Settings / Allowed
-             Modules, so edit & delete are always available here. */
+          /* Super-admin page: edit & delete always available. */
           showEdit={true}
           showDelete={true}
           showDeleted={true}
@@ -209,9 +199,7 @@ const AdminList = () => {
           isLoading={isLoading}
         />
 
-        {/* Edit modal — mirrors the Admin Register form so editing an admin
-            uses the same grouped Allowed Modules checklist (catalog from
-            config/modules.ts), business type, subscription, and toggles. */}
+        {/* Edit modal, mirrors the Admin Register form. */}
         <Modal
           isOpen={editModalOpen}
           onClose={closeEdit}
@@ -312,9 +300,7 @@ const AdminList = () => {
               />
             </div>
 
-            {/* Active toggle — only flag the register form keeps. The
-                `isMultibranch` and `isChannelCustomers` legacy flags were
-                removed because they don't exist on the register page. */}
+            {/* Active toggle */}
             <div className="flex flex-wrap gap-6">
               <FormSwitch
                 label="Active"

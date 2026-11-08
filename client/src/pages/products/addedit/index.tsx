@@ -96,22 +96,13 @@ const AddEditProductService = () => {
   const { data: productData } = useProductServiceByIDQuery(id || "");
   const { addProductServiceMutation, updateProductServiceMutation } = useProductServiceMutations();
   const { uploadImageMutation, deleteImages } = useImageUpload();
-  // Full image gallery — each item is either an already-uploaded URL (from
-  // edit mode) or a freshly picked File (blob preview, uploaded on Save,
-  // same upload-on-save pattern used by Hero Banner slides). imageurl is
-  // kept in sync as galleryImages[0] for older single-image consumers.
+  // Gallery items: saved URLs or picked Files (uploaded on Save); imageurl mirrors item 0.
   const [galleryImages, setGalleryImages] = useState<{ url: string; file?: File }[]>([]);
 
-  // Images the product already had when the form opened. Anything in here that
-  // is not in the saved payload has been removed or replaced by the user, and
-  // its file on the server is now unreachable — so it is deleted once the save
-  // succeeds. Held in a ref rather than state: it must not re-render anything,
-  // and it must survive every edit the user makes to the gallery.
+  // Images the product had on open; ones missing after Save are deleted from the server.
   const originalImageUrls = useRef<string[]>([]);
 
-  // Files uploaded during the current save attempt. If the save then fails,
-  // these are already on disk with nothing pointing at them, so they are
-  // cleaned up too — otherwise every failed save leaked its images.
+  // Uploaded in this save attempt, so a failed save can delete them.
   const justUploadedUrls = useRef<string[]>([]);
 
   const [errors, setErrors] = useState<any>({});
@@ -429,12 +420,7 @@ const AddEditProductService = () => {
     setIsFormValid(valid);
   }, [errors]);
 
-  // Live "sales rate below purchase rate" check.
-  //
-  // Kept separate from validateForm() because that only runs on submit — the
-  // requirement is that the save button stays disabled and the message sits
-  // under the rate field as soon as a bad rate is typed. Rates are compared
-  // per base unit, so Piece vs Dozen pricing is handled (see utils/rates).
+  // Live "sales rate below purchase rate" check, compared per base unit.
   const belowCostErrors = useMemo(() => {
     const out: Record<number, Record<number, string>> = {};
     if (formData.isservice) return out;
@@ -448,31 +434,16 @@ const AddEditProductService = () => {
       });
     });
     return out;
-    // Depends on the whole formData on purpose. handleChange does a shallow
-    // copy (`{ ...prev }`) and then mutates the nested variant objects in
-    // place, so `formData.productvariants` keeps the SAME array reference
-    // across edits — depending on it would freeze this memo at whatever the
-    // form loaded with, and typing a bad rate would never flag. The top-level
-    // object is new on every change, so this recomputes as expected.
+    // Depends on whole formData: handleChange mutates nested variants in place.
   }, [formData]);
 
   const hasBelowCostError = Object.keys(belowCostErrors).length > 0;
 
-  // Stock amounts are derived, never typed. The server's manageStock() always
-  // stores `stock x purchase rate`, and the three amount fields are disabled on
-  // an edit, so they are recomputed here the moment a stock figure or the
-  // purchase rate changes.
-  //
-  // Without this a product whose stock had gone negative could never be fixed
-  // from this screen: correcting Current Stock left the old negative AMOUNT
-  // untouched, the non-negative rule below kept the Update button disabled, and
-  // the only field that would have cleared it was one the form does not let the
-  // user edit.
+  // Stock amounts are derived (stock x purchase rate), so recompute when stock or rate changes.
   useEffect(() => {
     if (formData.isservice) return;
 
-    // Mirrors the server's getPurchaseRate(): when the purchase unit converts
-    // to the base unit, stock is valued per BASE unit.
+    // Mirrors server getPurchaseRate(): value stock per base unit when units convert.
     const baseRateOf = (v: any) => {
       const rate = Number(v?.purchaserate) || 0;
       const purchaseUnitId = v?.purchaseunitid ? String(v.purchaseunitid) : "";
@@ -502,8 +473,7 @@ const AddEditProductService = () => {
 
         PAIRS.forEach(([qtyKey, amtKey]) => {
           const raw = v?.[qtyKey];
-          // A blank stock box means "not entered yet", not zero -- leave its
-          // amount blank too rather than writing a 0 the user never typed.
+          // Blank stock means not entered; leave the amount blank, not 0.
           if (raw === "" || raw === null || raw === undefined) return;
           const amount = round2((Number(raw) || 0) * rate);
           if (Number(next?.[amtKey]) === amount) return;
@@ -514,17 +484,13 @@ const AddEditProductService = () => {
         return next;
       });
 
-      // Same object back when nothing moved: React bails out, so this effect
-      // cannot loop on the state it just set.
+      // Return the same object when unchanged so the effect can't loop.
       if (!changed) return prev;
       return { ...prev, productvariants: variants };
     });
   }, [formData]);
 
-  // Stock quantities and their values can never be negative. The number
-  // inputs happily accepted "-1" (a product did end up with -200 in stock),
-  // so this is checked live like the rate rule above — same reason for
-  // depending on the whole formData object.
+  // Stock and its value can't be negative; checked live like the rate rule.
   const NON_NEGATIVE_FIELDS: Record<string, string> = {
     openingstock: "Opening Stock",
     currentstock: "Current Stock",
@@ -556,9 +522,7 @@ const AddEditProductService = () => {
   const hasNegativeStockError = Object.keys(negativeStockErrors).length > 0;
   const hasBlockingError = hasBelowCostError || hasNegativeStockError;
 
-  // Merge the live messages (below-cost rate, negative stock) into the errors
-  // the variants section renders, so they appear in the normal error slot
-  // under the field they belong to.
+  // Merge live errors (below-cost rate, negative stock) into the variant errors.
   const variantErrorsWithRate = useMemo(() => {
     if (!hasBlockingError) return errors;
     const merged: any = { ...errors };
@@ -854,9 +818,7 @@ const AddEditProductService = () => {
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     if (!files.length) return;
-    // Show the newly picked files immediately (blob preview) — added to
-    // whatever's already in the gallery, not replacing it. Upload only
-    // happens on Save, same as everywhere else in this app.
+    // Append picked files as blob previews; upload on Save.
     setGalleryImages((prev) => [...prev, ...files.map((file) => ({ url: URL.createObjectURL(file), file }))]);
     e.target.value = ""; // allow picking the same file(s) again later
   };
@@ -864,14 +826,11 @@ const AddEditProductService = () => {
   const removeGalleryImage = (idx: number) => {
     setGalleryImages((prev) => {
       const going = prev[idx];
-      // A preview of a file that was never uploaded holds a blob in memory
-      // until the tab is closed; nothing else will release it.
+      // Release the blob preview's memory.
       if (going?.file && going.url.startsWith("blob:")) URL.revokeObjectURL(going.url);
       return prev.filter((_, i) => i !== idx);
     });
-    // The file on the server (if this was an already-saved image) is deleted
-    // on Save, not now — cancelling out of the form must leave the product
-    // exactly as it was, pictures included.
+    // Saved image is deleted on Save, not now, so cancel leaves the product unchanged.
   };
 
   const uploadGalleryImages = async (): Promise<string[]> => {
@@ -892,16 +851,7 @@ const AddEditProductService = () => {
     return urls;
   };
 
-  /**
-   * Validation lives in utils/products/validateproduct so this form, the
-   * spreadsheet importer and the server all apply the same rules.
-   *
-   * The copy that used to sit here had two problems the shared version does
-   * not: it `push()`ed variant / conversion / price errors instead of writing
-   * them at their own index, so a problem in variant 2 was rendered under
-   * variant 1 (and variant 2 looked clean), and it ignored the Business
-   * Settings field permissions, demanding fields that are switched off.
-   */
+  /** Shared validation (utils/products/validateproduct) used by form, importer and server. */
   const validateForm = (): ValidationResult => {
     const result = validateProduct(formData, productFormPermissions);
     setErrors(result.errors);
@@ -920,11 +870,7 @@ const AddEditProductService = () => {
     return ` (Variant ${issue.variantIndex + 1}${row})`;
   };
 
-  /**
-   * The old toast said only "Please fix the errors before submitting.", which
-   * is useless when the offending field is three screens down. Name the
-   * problems instead, and take the user to the first one.
-   */
+  /** Name the problems in the toast and jump to the first one. */
   const describeIssues = (issues: ValidationIssue[]) => {
     if (!issues.length) return "Please fix the errors before submitting.";
     const lines = issues.map((i) => `${i.message}${issueLocation(i)}`);
@@ -932,11 +878,7 @@ const AddEditProductService = () => {
     return lines.length > 4 ? `${shown} • and ${lines.length - 4} more` : shown;
   };
 
-  /**
-   * FormField renders id={name} on every control (react-select gets it via
-   * inputId), and a validation issue's `path` is exactly that name — so the
-   * offending field can be found without threading refs through the tree.
-   */
+  /** Fields render id={name}, matching the issue's path, so we can find them by id. */
   const focusField = (path?: string) => {
     if (!path) return;
     const el = document.getElementById(path);
@@ -1090,13 +1032,7 @@ const AddEditProductService = () => {
   };
 
   const handleSubmit = async () => {
-    // Never save an edit form that has not received the product yet.
-    //
-    // Everything below writes the form's CURRENT state over the record, and
-    // until the query lands that state is the blank default — so a save in
-    // that window replaces the product's images (and everything else) with
-    // empty. Validation catches most of it, because a blank name fails, but
-    // the picture fields have no such rule and would go quietly.
+    // Don't save an edit form before the product has loaded.
     if (isEdit && !productData) {
       dispatch(showMessage({ message: "Still loading this product — try again in a moment.", type: "error" }));
       return;
@@ -1124,9 +1060,7 @@ const AddEditProductService = () => {
         dispatch(showMessage({ message: "Added successfully", type: "success" }));
       }
 
-      // The product is saved and no longer points at these files, so the
-      // copies on disk are unreachable — bin them. Removing a photo used to
-      // change only the database row and leave the file behind forever.
+      // Delete image files the saved product no longer references.
       const keptUrls: string[] = payload.imageurls || [];
       const droppedUrls = originalImageUrls.current.filter((url) => !keptUrls.includes(url));
       originalImageUrls.current = keptUrls;
@@ -1137,17 +1071,12 @@ const AddEditProductService = () => {
     } catch (err: any) {
       console.error("❌ GraphQL Error:", err);
 
-      // The images went up before the mutation ran, so a failed save has just
-      // left them on disk with nothing referencing them. Take them back off.
+      // Failed save: remove the images uploaded for it.
       const orphans = justUploadedUrls.current;
       justUploadedUrls.current = [];
       void deleteImages(orphans);
 
-      // The server rejects an invalid product with BAD_USER_INPUT and a
-      // fieldErrors list ([{ path, message }]) whose paths match this form's
-      // field names, so a rule that only the server can check (a duplicate
-      // SKU, a category belonging to another business) lands under the field
-      // it is about instead of disappearing into a bare "Failed" toast.
+      // Show server fieldErrors (BAD_USER_INPUT) under the matching fields.
       const gqlError = err?.graphQLErrors?.[0];
       const fieldErrors: { path: string; message: string }[] =
         gqlError?.extensions?.fieldErrors || [];
@@ -1234,10 +1163,7 @@ const AddEditProductService = () => {
               {isFieldEnabled("modelid") && <FormField label="Model" name="modelid" type="select" placeholder="Select model" options={modelData?.getModels.map(m => ({ value: m.id, label: m.modelname })) || []} value={formData.modelid} onChange={handleChange} searchable addable onAddNew={() => openQuickAdd("model", "Model", "modelid")}/>}
               {isFieldEnabled("sizeid") && <FormField label="Size" name="sizeid" type="select" placeholder="Select size" options={sizeData?.getSizes.map(s => ({ value: s.id, label: s.sizename })) || []} value={formData.sizeid} onChange={handleChange} searchable addable onAddNew={() => openQuickAdd("size", "Size", "sizeid")}/>}
 
-              {/* Gallery thumbnails — pick adds to this list (doesn't replace it);
-                  each thumbnail can be removed individually. First image is the
-                  product's main/cover image everywhere else in the app.
-                  Whole block only shows once at least one image is picked. */}
+              {/* Gallery thumbnails; the first image is the product's cover. */}
               {galleryImages.length > 0 && (
                 <div className="md:col-span-2 lg:col-span-3 flex flex-col gap-1">
                   <label className="text-sm font-medium text-gray-700">Image Preview ({galleryImages.length})</label>

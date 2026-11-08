@@ -47,8 +47,7 @@ export const useAccountGroupsQuery = () => {
   };
 };
 
-// Lite list (Account Groups page, Account Ledgers group picker) — same filter
-// as useAccountGroupsQuery, fewer fields.
+// Lite list for the Account Groups page and ledger group picker.
 export const useAccountGroupsListQuery = () => {
   const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
 

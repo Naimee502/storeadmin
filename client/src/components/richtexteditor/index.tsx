@@ -19,15 +19,11 @@ interface RichTextEditorProps {
   placeholder?: string;
 }
 
-// Small, dependency-free WYSIWYG editor (contentEditable + execCommand) so
-// About Us / Privacy Policy / Terms & Conditions content can have real
-// formatting (bold, lists, links, headings) instead of a flat textarea.
-// Stores/returns plain HTML — clientweb renders it directly.
+// Lightweight WYSIWYG (contentEditable) editor; returns plain HTML.
 const RichTextEditor: React.FC<RichTextEditorProps> = ({ label, value, onChange, disabled, placeholder }) => {
   const ref = useRef<HTMLDivElement>(null);
 
-  // Only push external value changes into the DOM when they didn't
-  // originate from this editor (avoids clobbering cursor position while typing).
+  // Sync external value only, so typing doesn't lose the cursor.
   useEffect(() => {
     if (ref.current && ref.current.innerHTML !== (value || '')) {
       ref.current.innerHTML = value || '';

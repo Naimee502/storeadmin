@@ -34,7 +34,7 @@ export const useAccountMutations = () => {
 };
 
 /** @param fetchPolicy "cache-and-network" where a party may have just been created. */
-// Lite variant for party dropdowns / labels — same filter, fewer fields.
+// Lite variant for party dropdowns / labels.
 export const useAccountsLiteQuery = (status: boolean = true, fetchPolicy?: WatchQueryFetchPolicy) => {
   const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
   const adminId =
@@ -49,8 +49,7 @@ export const useAccountsLiteQuery = (status: boolean = true, fetchPolicy?: Watch
   return { data, loading, error, refetch };
 };
 
-// Party Accounts list page only — same filter as useAccountsQuery, just the
-// fields the grid, its search, the export and the sub-party toggle read.
+// Party Accounts list page only (lite fields).
 export const useAccountsListQuery = (status: boolean = true, fetchPolicy?: WatchQueryFetchPolicy) => {
   const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
   const adminId =
@@ -65,10 +64,7 @@ export const useAccountsListQuery = (status: boolean = true, fetchPolicy?: Watch
   return { data, loading, error, refetch };
 };
 
-/**
- * Party Accounts list page: one page from the server. `listVariables` is the
- * filter of the full list (as useAccountsListQuery) so Export can fetch every row.
- */
+/** Party Accounts list page: one server page; `listVariables` lets Export fetch all rows. */
 export const useAccountsPageQuery = ({
   page,
   pageSize,
@@ -128,15 +124,7 @@ export const useAccountsQuery = (status: boolean = true, fetchPolicy?: WatchQuer
   return { data, loading, error, refetch };
 };
 
-/**
- * What each party still owes, keyed by account id — the party list's
- * Outstanding column.
- *
- * `status` mirrors `useAccountsQuery`: true for the live list, false for the
- * Deleted Entries view, so each screen gets figures for the rows it shows.
- * Kept out of GET_ACCOUNTS on purpose — the figures walk every invoice,
- * payment, journal and return, so only the screens that print them pay for it.
- */
+/** Outstanding per party id; `status` matches useAccountsQuery (live vs deleted). */
 export const usePartyOutstandingSummaryQuery = (status: boolean = true) => {
   const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
 

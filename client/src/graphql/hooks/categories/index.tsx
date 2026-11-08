@@ -47,8 +47,7 @@ export const useCategoriesQuery = () => {
   };
 };
 
-// Lite list (Categories page, Sub Categories page's category picker) — same
-// filter as useCategoriesQuery, fewer fields.
+// Lite list for the Categories page and category picker.
 export const useCategoriesListQuery = () => {
   const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
 
@@ -94,9 +93,7 @@ export const useCategoryByIDQuery = (id: string) => {
   return { data, loading, error };
 };
 
-// Saves the storefront order of categories (Categories → Rearrange). The
-// admin id is resolved the same way as useCategoriesQuery so a branch or
-// staff login reorders the same business it is looking at.
+// Saves the storefront category order for the scoped admin.
 export const useReorderCategories = () => {
   const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
 

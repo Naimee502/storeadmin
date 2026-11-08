@@ -13,15 +13,7 @@ import { useExpenseClaimsQuery, useExpenseClaimMutations } from "../../graphql/h
 import { useAccountLedgersQuery } from "../../graphql/hooks/accountledgers";
 import { formatDateDMY } from "../../utils/helper";
 
-/**
- * Expense Claims — reimbursement requests a salesman / delivery boy / staff
- * files from the app (Zoho Expense style).
- *
- *   Approve → the server books an Expense Note: Dr TA/DA Expense (or the
- *             ledger picked here) / Cr <staff ledger>.
- *   Pay     → opens Payments → Expense with that note selected; paying it
- *             posts Dr <staff ledger> / Cr Cash-Bank.
- */
+/** Expense Claims from the app; Approve books an Expense Note, Pay opens Payments → Expense. */
 
 export const CLAIM_CATEGORY_LABEL: Record<string, string> = {
   travel: "Travel",

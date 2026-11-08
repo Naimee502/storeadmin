@@ -46,8 +46,7 @@ export const useTransferStocksQuery = () => {
   return { data, loading, error, refetch };
 };
 
-// Transfer Stocks LIST (lite) — list page only. Same scope/variables as
-// useTransferStocksQuery, GET_TRANSFER_STOCKS_LIST selection.
+// Transfer Stocks list (lite), list page only.
 export const useTransferStocksListQuery = () => {
   const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
   const selectedBranchId = useAppSelector((state) => state.selectedBranch.branchId);
@@ -62,8 +61,7 @@ export const useTransferStocksListQuery = () => {
   return { data, loading, error, refetch };
 };
 
-// Product lookup for the list + add/edit form. Same scope/variables as
-// useProductServicesQuery (products hook); result is under getProductServices.
+// Product lookup for the list and form (result under getProductServices).
 export const useTransferStockProductsQuery = (
   status: boolean = true,
   limit: number = 0,
@@ -85,8 +83,7 @@ export const useTransferStockProductsQuery = (
   return { data, loading, error, refetch };
 };
 
-// Branch names for the list columns and the destination picker. Same
-// variables as useBranchesQuery; result is under getBranches.
+// Branch names for list columns and the destination picker.
 export const useTransferStockBranchesQuery = () => {
   const adminId = useAppSelector((state) => state.auth.admin?.id);
 

@@ -2,9 +2,7 @@ import { gql } from "@apollo/client";
 
 // Queries
 
-// Listing-only query for the Payments table — no allocation lines, no audit
-// fields. Edit loads the full payment by id. Mutations return the same fields
-// so a saved payment can be written straight into this list's cache.
+// Payments listing fields; mutations return the same so the list cache can be updated.
 export const GET_PAYMENTS_LIST = gql`
   query GetPaymentsList($filter: PaymentFilterInput) {
     getPayments(filter: $filter) {
@@ -205,8 +203,7 @@ export const GET_PAYMENT_BY_ID = gql`
   }
 `;
 
-// Open bills for a party, computed on the SERVER. Used by the Direct/On-Account
-// flow so the figures can't come from a stale Apollo cache.
+// A party's open bills, computed on the server.
 export const GET_PARTY_OUTSTANDING_BILLS = gql`
   query GetPartyOutstandingBills(
     $partyid: ID!
@@ -233,8 +230,7 @@ export const GET_PARTY_OUTSTANDING_BILLS = gql`
   }
 `;
 
-// Dry run for the confirmation dialog: "this ₹X will clear these bills".
-// Nothing is written until the user approves the result.
+// Dry run for the confirmation dialog; nothing is written.
 export const PREVIEW_ALLOCATION = gql`
   query PreviewAllocation(
     $partyid: ID!

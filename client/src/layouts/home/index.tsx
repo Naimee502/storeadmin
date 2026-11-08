@@ -16,8 +16,7 @@ import { offlineOnLogout } from '../../offline/boot';
 const HomeLayout: React.FC<{ children: React.ReactNode; hideNav?: boolean }> = ({ children, hideNav }) => {
   const dispatch = useAppDispatch();
   const [isSidebarOpen, setSidebarOpen] = useState(true);
-  // Hover only widens the menu over the page (desktop-app style); the page
-  // itself never reflows, so only the setter is needed.
+  // Hover widens the menu over the page without reflowing it.
   const [, setSidebarHovered] = useState(false);
   const { logout } = useAuth();
 
@@ -53,25 +52,13 @@ const HomeLayout: React.FC<{ children: React.ReactNode; hideNav?: boolean }> = (
       dispatch(setAdminSettings(settingsData.getAdminSettings));
     }
   }, [settingsData, dispatch]);
-  /**
-   * The dropdown shows the SAME value the pages send — Redux — never a second
-   * copy of its own. It used to keep its own useState seeded from localStorage,
-   * which is how it ended up displaying a branch name while Redux held "" and
-   * the payment went out as branchid: "".
-   */
+  /** The dropdown shows the Redux branch value, the same one pages send. */
   const selectedBranchId = useAppSelector((state: any) => state.selectedBranch?.branchId || "");
 
   const { data } = useBranchesQuery();
   const branchesList = data?.getBranches || [];
 
-  /**
-   * Another tab changed the branch → follow it.
-   *
-   * localStorage is shared across tabs, so two tabs used to drift apart and
-   * whichever wrote last decided what the next reload saw. The `storage` event
-   * only fires in the OTHER tabs, which is exactly what we want: every open tab
-   * converges on the branch the user just picked.
-   */
+  /** Follow branch changes made in another tab. */
   useEffect(() => {
     const onStorage = (e: StorageEvent) => {
       if (e.key !== "branchid") return;
@@ -82,17 +69,7 @@ const HomeLayout: React.FC<{ children: React.ReactNode; hideNav?: boolean }> = (
     return () => window.removeEventListener("storage", onStorage);
   }, [selectedBranchId, dispatch]);
 
-  /**
-   * Drop a saved branch that is not in this admin's list any more — deleted, or
-   * left over from a different account — so the header can never show a branch
-   * the server would reject.
-   *
-   * Nothing else is chosen on the user's behalf. Auto-selecting the only branch
-   * of a single-branch business was tried and removed: it made "All Branches"
-   * impossible to pick, because every attempt snapped straight back. An empty
-   * branch is a legitimate choice for browsing; the save paths each say so with
-   * a message (see utils/branch) when a document actually needs one.
-   */
+  /** Drop a saved branch no longer in this admin's list; nothing is auto-selected. */
   useEffect(() => {
     if (type !== "admin" || !data?.getBranches) return;
     const ids = branchesList.map((b: any) => b.id);
@@ -107,9 +84,7 @@ const HomeLayout: React.FC<{ children: React.ReactNode; hideNav?: boolean }> = (
   const handleLogout = () => {
     // No-op unless offline mode is on; must run before the session keys go.
     offlineOnLogout();
-    // clearBranchId wipes the Redux value AND the "branchid" key together
-    // removing the key by hand used to leave the two out of step for whoever
-    // logged in next.
+    // Clears the Redux value and the "branchid" key together.
     dispatch(clearBranchId());
     dispatch({ type: 'LOGOUT' });
     persistor.purge();
@@ -144,8 +119,7 @@ const HomeLayout: React.FC<{ children: React.ReactNode; hideNav?: boolean }> = (
             !hideNav ? (isSidebarOpen ? 'sm:ml-60 pt-12' : 'sm:ml-14 pt-12') : ''
           }`}
         >
-          {/* Desktop density everywhere: every FormField / FormSwitch in the
-              panel renders compact, including screens with their own forms. */}
+          {/* Compact density for all forms in the panel. */}
           <FormDensityContext.Provider value="compact">
             <div>{children}</div>
           </FormDensityContext.Provider>

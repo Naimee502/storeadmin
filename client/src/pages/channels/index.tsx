@@ -191,8 +191,7 @@ const Channels = () => {
 
 export default Channels;
 
-// Inline per-row multiselect (FormField/react-select) for "which channels
-// this channel handles". Saves immediately on change.
+// Inline multiselect of handled channels; saves on change.
 const HandlesCell: React.FC<{
   channel: any;
   allChannels: any[];

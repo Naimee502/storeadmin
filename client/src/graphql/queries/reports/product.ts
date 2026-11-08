@@ -1,10 +1,8 @@
 import { gql } from "@apollo/client";
 
-// Product statement report (pages/reports/product) — lite selections: only
-// what the page reads. Same root fields/filters as the full queries.
+// Product statement report fields only.
 
-// Product picker (id + name). Same variables as useProductServicesQuery.
-// Variant id/name too: transfer and adjustment lines carry a bare variant id.
+// Product picker, with variant id/name for transfer and adjustment lines.
 export const PRODUCT_REPORT_PRODUCT_OPTIONS = gql`
   query ProductReportProductOptions($filter: ProductServiceFilterInput, $limit: Int, $offset: Int) {
     getProductServices(filter: $filter, limit: $limit, offset: $offset) {
@@ -80,8 +78,7 @@ export const PRODUCT_REPORT_PURCHASE_RETURNS = gql`
   }
 `;
 
-// Stock transfers — a voucher keeps its products in items[] (one line per
-// product/variant). Same root field/arguments as GET_TRANSFER_STOCKS.
+// Stock transfers (one items[] line per product/variant).
 export const PRODUCT_REPORT_TRANSFER_STOCKS = gql`
   query ProductReportTransferStocks($adminId: ID, $frombranchid: ID) {
     getTransferStocks(adminId: $adminId, frombranchid: $frombranchid) {

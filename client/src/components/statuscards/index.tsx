@@ -84,9 +84,7 @@ const StatsCards: React.FC<StatsCardsProps> = ({
 
   const totalSales = invoices.reduce((acc, inv) => acc + (inv.totalamount ?? 0), 0);
   const totalPurchases = purchaseinvoices.reduce((acc, inv) => acc + (inv.totalamount ?? 0), 0);
-  // Expenses = expense notes only. Payments were wrongly added here before
-  // they're mostly customer RECEIPTS (money in) and vendor settlements, not
-  // expenses, which inflated this card even when no expense notes existed.
+  // Expenses = expense notes only, not payments.
   const activeExpenseNotes = expenseNotes.filter((e) => e.status !== false);
   const totalExpenses = activeExpenseNotes.reduce((acc, exp) => acc + (exp.amount ?? 0), 0);
   const netBalance = totalSales - totalPurchases - totalExpenses;

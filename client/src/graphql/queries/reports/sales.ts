@@ -1,9 +1,6 @@
 import { gql } from "@apollo/client";
 
-// Lite queries for the Sales Reports page (pages/reports/sales). Only the
-// fields the report rows and filters read — no ledgers, other charges,
-// transport or audit fields — so a 30-day report doesn't drag every heavy
-// invoice/order/return document over the wire.
+// Sales Reports fields only.
 
 const REPORT_PARTY = `
   partyacc {

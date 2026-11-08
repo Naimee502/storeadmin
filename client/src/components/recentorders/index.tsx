@@ -55,15 +55,10 @@ const RecentOrders: React.FC<RecentOrdersProps> = ({
   const transferStocks = Array.isArray(transferStockData?.getTransferStocks) ? transferStockData.getTransferStocks : [];
   const branches = Array.isArray(branchesData?.getBranches) ? branchesData.getBranches : [];
   const allProducts = Array.isArray(productData?.getProductServices) ? productData.getProductServices : [];
-  // Party accounts, for the Payments tab's "Party / Ledger" column: a payment
-  // stores only the party's name, and the mobile that tells two same-named
-  // parties apart lives on the account.
+  // Party accounts, for the mobile shown in the Payments tab.
   const accounts = Array.isArray(customerData?.getAccounts) ? customerData.getAccounts : [];
 
-  // Same resolution used by the Transfer Stock module list — the transfer
-  // query only returns raw branch/product ids, not populated names, and
-  // transferunitid points at one of the product variant's own unit
-  // conversions (or its base unit).
+  // Resolve branch/product/unit names, as in the Transfer Stock list.
   const productNameOf = (item: any) => {
     const product = allProducts.find((p: any) => p.id === item.productid);
     if (!product) return "-";
@@ -198,9 +193,7 @@ const RecentOrders: React.FC<RecentOrdersProps> = ({
           { label: "Created By", key: "createdby_name" },
           { label: "Status", key: "status" },
         ];
-        // getPurchaseInvoices has no server-side sort (natural/insertion
-        // order), so reverse here to put the newest voucher on top — same
-        // as Sales Invoices/Orders and Purchase Orders below.
+        // No server sort, so reverse for newest first.
         const data = purchaseInvoices.slice().reverse().map((item: any, idx: number) => {
           const totalqty = (item.productservice || []).reduce(
             (sum: number, p: any) => sum + (p.qty || 0),
@@ -453,8 +446,7 @@ const RecentOrders: React.FC<RecentOrdersProps> = ({
           { label: "Created By", key: "createdby_name" },
           { label: "Status", key: "statusLabel" },
         ];
-        // Server already returns these newest-first (sort createdAt:-1)
-        // don't re-reverse, or the dashboard ends up oldest-first instead.
+        // Already newest-first from the server.
         const data = transferStocks.map((stock: any, idx: number) => {
           const fromBranch = branches.find((b: any) => b.id === stock.frombranchid);
           const toBranch = branches.find((b: any) => b.id === stock.tobranchid);
@@ -507,8 +499,7 @@ const RecentOrders: React.FC<RecentOrdersProps> = ({
           { label: "Created By", key: "createdby_name" },
           { label: "Status", key: "status" },
         ];
-        // Server already returns these newest-first (sort expensedate:-1,
-        // createdAt:-1) — don't re-reverse.
+        // Already newest-first from the server.
         const data = expenseNotes.map((exp: any, idx: number) => {
           let formattedDate = "-";
           if (exp.expensedate) {
@@ -559,8 +550,7 @@ const RecentOrders: React.FC<RecentOrdersProps> = ({
       }
 
       case "payments": {
-        // Same columns in the same order as the Payments module list — only
-        // the Actions column is dropped, since Home is read-only.
+        // Same columns as the Payments list, minus Actions.
         const columns = [
           { label: "Seq", key: "seqNo" },
           { label: "Code", key: "paymentcode" },

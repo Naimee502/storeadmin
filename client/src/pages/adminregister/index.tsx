@@ -21,8 +21,7 @@ const AdminRegister = () => {
   const [subscription, setSubscription] = useState("monthly");
   const [businesstype, setBusinesstype] = useState("retail");
 
-  // All modules are enabled by default on registration. Module allowance is
-  // managed later from Business Settings, not here.
+  // All modules are enabled on registration; managed later in Business Settings.
   const allModules = ADMIN_REGISTER_MODULES.map((m) => m.id);
 
   const [emailError, setEmailError] = useState("");

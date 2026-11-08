@@ -17,8 +17,7 @@ export const GET_UNITS = gql`
   }
 `;
 
-// Units list page: grid columns plus what the inline edit form reads from a
-// row. Same root field/args as GET_UNITS, so both share the normalized cache list.
+// Units list page: grid + inline-form fields; shares the cache with GET_UNITS.
 export const GET_UNITS_LIST = gql`
   query GetUnitsList($adminId: ID) {
     getUnits(adminId: $adminId) {

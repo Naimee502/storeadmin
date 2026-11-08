@@ -272,8 +272,7 @@ const StaffAccounts = () => {
     dispatch(hideLoading());
   }, [formValues, selectedFile, isEditing, editingId]);
 
-  // Empty form (new staff) — account group pre-filled from the auto-resolved
-  // staff group. Used after a save and by the Cancel button while editing.
+  // Empty form with the staff account group pre-filled.
   function resetForm() {
     setFormValues({
       branchid: branchId || "",
@@ -441,8 +440,7 @@ const StaffAccounts = () => {
 
             {/* Account Group — auto-selected as "Staff Account", can be overridden */}
             {isFieldEnabled("accountgroupid") && (
-              // The "auto-selected, change if needed" note used to sit under the
-              // box and made the whole first row taller — it is a tooltip now.
+              // The "auto-selected" hint is a tooltip.
               <div title="Auto-selected (Staff Account) — change if needed">
               <FormField
                 label="Account Group"

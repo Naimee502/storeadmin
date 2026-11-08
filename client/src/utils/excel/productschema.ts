@@ -1,14 +1,6 @@
 import { FORM_PERMISSIONS_CONFIG } from "../../config/formpermissions";
 
-/**
- * The single source of truth for what the product spreadsheet looks like.
- *
- * Every consumer — the blank template writer, the export writer, the import
- * parser, the validator and the error report — builds its columns from this
- * one function. That is what makes "only the fields enabled in Business
- * Settings appear in the file" true everywhere at once instead of in four
- * places that slowly disagree.
- */
+// Single source of truth for the product spreadsheet columns (template, export, import, validation).
 
 export type SheetId = "Products" | "Variants" | "UnitConversions" | "UnitPrices";
 
@@ -58,29 +50,13 @@ export interface ColumnDef {
   width?: number;
 }
 
-/* ------------------------------------------------------------------ *
- * The full column map, before permissions are applied.
- * ------------------------------------------------------------------ */
+// The full column map, before permissions are applied.
 
-/**
- * How rows find each other across the four sheets.
- *
- * The Products sheet carries the product's real code in "Product Code" — the
- * first thing a person fills in, on the sheet they fill first. The other
- * sheets point back at a product through a column of the same name, which
- * accepts that code OR the product's Name, so a new product whose code is
- * left blank (to get the next #PRD number) can still be referred to.
- */
+// Other sheets link to a product by its code or, when the code is blank, its Name.
 export const PRODUCT_CODE_HEADER = "Product Code";
-// Same name on every sheet, for consistency. On the other sheets it also
-// accepts the product's Name, for a product whose code was left blank.
+// On other sheets this also accepts the product's Name.
 export const PRODUCT_LINK_HEADER = PRODUCT_CODE_HEADER;
-/**
- * One "Variant Code" column, right after Product Code on the Variants,
- * UnitConversions and UnitPrices sheets. It is both the variant's own code and
- * how the conversion / price rows say which variant they belong to — there
- * used to be a separate "VariantRef" label as well, which confused people.
- */
+/** "Variant Code": the variant's own code and the link for conversion/price rows. */
 export const VARIANT_CODE_HEADER = "Variant Code";
 export const VARIANT_REF_HEADER = VARIANT_CODE_HEADER;
 /** Header older files used for the variant link. Still read on import. */
@@ -102,8 +78,7 @@ const ALL_COLUMNS: ColumnDef[] = [
   },
   { header: "Name", key: "name", sheet: "Products", type: "text", permissionId: "name", required: true, width: 28 },
   { header: "Description", key: "description", sheet: "Products", type: "text", permissionId: "description", width: 34 },
-  // One column, like Category Image / Sub Category Image. It takes pictures
-  // placed in the cell, web addresses, and (fallback) file names — mixed.
+  // Takes in-cell pictures, web URLs or file names.
   {
     header: PRODUCT_IMAGE_HEADER, key: "productimage", sheet: "Products", type: "productimage",
     permissionId: "imageurl", width: 34,
@@ -111,8 +86,7 @@ const ALL_COLUMNS: ColumnDef[] = [
   },
   { header: "Category", key: "categoryid", sheet: "Products", type: "ref", master: "categories", permissionId: "categoryid", required: true, width: 22,
     hint: "Pick from the list, or type a new name — a new Category is created during import." },
-  // Image columns ride on the same permission as their master: Category on →
-  // Category Image appears, Category off → both disappear together.
+  // Image columns follow their master's permission.
   {
     header: "Category Image", key: "categoryimage", sheet: "Products", type: "masterimage",
     permissionId: "categoryid", width: 26,
@@ -221,13 +195,7 @@ export const PRODUCT_FORM_FIELD_IDS: string[] = (() => {
   return form.sections.flatMap((section) => section.fields.map((field) => field.id));
 })();
 
-/**
- * Build the workbook schema for the current form settings.
- *
- * A field that is switched off in Business Settings loses its column
- * everywhere. Structural columns (the join keys) always survive, because they
- * are plumbing rather than form fields.
- */
+// Schema for current form settings; disabled fields lose their column, join keys stay.
 export const buildProductSheetSchema = (
   permissions: Record<string, boolean | undefined> = {}
 ): ProductSheetSchema => {
@@ -255,11 +223,7 @@ export const buildProductSheetSchema = (
   };
 };
 
-/**
- * Required fields, after permissions. A required field that has been switched
- * off stops being required — otherwise the importer would demand something the
- * form itself no longer collects.
- */
+// Required fields after permissions; a disabled field is no longer required.
 export const requiredKeysFor = (
   schema: ProductSheetSchema,
   sheet: SheetId
@@ -278,11 +242,7 @@ export const masterNameRange = (master: MasterKey) => `MST_${master}_NAME`;
 /** Excel named range holding a master's ids, parallel to the name range. */
 export const masterIdRange = (master: MasterKey) => `MST_${master}_ID`;
 
-/**
- * Masters an import may create when the sheet names one that doesn't exist.
- * Every dropdown in the template: a new Account Ledger is filed under the
- * "Sales Account" or "Purchase Account" group by the column it was typed in.
- */
+// Masters an import may create; a new Account Ledger goes under Sales or Purchase by column.
 export const CREATABLE_MASTERS: MasterKey[] = [
   "categories",
   "subcategories",
@@ -297,12 +257,7 @@ export const CREATABLE_MASTERS: MasterKey[] = [
 export const isCreatableMaster = (master?: MasterKey): boolean =>
   !!master && CREATABLE_MASTERS.includes(master);
 
-/**
- * Payload key for the typed name of each product-level master column, by the
- * column's field key. Sent alongside the product so the server can find or
- * create the record by name when the sheet carries no id. Units live inside
- * the variants and travel separately, addressed by path.
- */
+// Payload key for each master's typed name, so the server can find or create it.
 export const NAME_KEY_BY_FIELD: Record<string, string> = {
   categoryid: "categoryname",
   subcategoryid: "subcategoryname",
@@ -330,15 +285,7 @@ export const MASTER_LABELS: Record<MasterKey, string> = {
   ledgers: "Account Ledger",
 };
 
-/**
- * Field key (or permission id) → the header the user actually sees.
- *
- * Validators and the server name a field by its payload key ("baseunitid",
- * "salesaccount"), but an error report has to point at "Base Unit" / "Sales
- * Account" — that is what the column is called in the workbook, and what the
- * corrected-file writer matches on to colour the offending cell. Without this
- * the message lands in the _Errors column and the cell itself stays unmarked.
- */
+// Field key → visible header, so errors can mark the right cell.
 export const headerForField = (sheet: SheetId, field: string): string | undefined => {
   const columns = ALL_COLUMNS.filter((c) => c.sheet === sheet);
   const match =

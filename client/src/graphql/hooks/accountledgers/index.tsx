@@ -31,11 +31,7 @@ export const useAccountLedgerMutations = () => {
   };
 };
 
-/**
- * @param fetchPolicy pass "cache-and-network" on screens where a ledger may
- *   have been created moments ago (the Payment form's Against Ledger picker).
- *   The default cache-first policy showed a stale list until a full reload.
- */
+/** @param fetchPolicy use "cache-and-network" where a ledger may be brand new. */
 export const useAccountLedgersQuery = (fetchPolicy?: WatchQueryFetchPolicy) => {
   const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
 
@@ -58,8 +54,7 @@ export const useAccountLedgersQuery = (fetchPolicy?: WatchQueryFetchPolicy) => {
   };
 };
 
-// Lite list for the Account Ledgers page — same filter as
-// useAccountLedgersQuery, only the grid/inline-form fields.
+// Lite list for the Account Ledgers page.
 export const useAccountLedgersListQuery = () => {
   const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
 

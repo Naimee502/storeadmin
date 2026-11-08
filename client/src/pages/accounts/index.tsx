@@ -22,22 +22,14 @@ const SERVER_FILTER_KEYS = ["accountcode", "name", "mobile", "ledgername", "type
 
 const Accounts = () => {
   const actions = useAppSelector(state => selectModuleActions(state, "accounts"));
-  /**
-   * City and Outstanding are on the grid for everyone — where a party is and
-   * what they owe are worth seeing on every setup. Channel is the only
-   * conditional column: without the module it would read "-" on every row, so
-   * it is dropped rather than shown empty.
-   */
+  /** City and Outstanding always; Channel only with the channels module. */
   const channelsEnabled = useAppSelector(state => selectIsModuleBusinessEnabled(state, "channels"));
   // Parent party (party under party) — only meaningful with downline on.
   const manageDownline = useAppSelector((s: any) => !!s.adminsettings?.settings?.partyManagesDownline);
-  // "Company sees direct-party orders only": the list opens on direct parties
-  // only (no parent party); sub-parties stay one click away for editing.
+  // "Company sees direct-party orders only": list opens on direct parties.
   const directOnlyOn = useAppSelector((s: any) => !!s.adminsettings?.settings?.directPartyOrdersOnly) && manageDownline;
   const [showSubParties, setShowSubParties] = useState(false);
-  // Parent Party column: only when sub-parties are actually in the list
-  // downline on, and either the direct-only filter is off or "Show
-  // sub-parties" is pressed. A business without party-under-party never sees it.
+  // Parent Party column only when sub-parties are listed.
   const showParentColumn = manageDownline && (!directOnlyOn || showSubParties);
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
@@ -91,9 +83,7 @@ const Accounts = () => {
       parentname: acc.assignaccountid?.name || "-",
       // Masters are often typed in ALL CAPS; the column reads better cased.
       city: acc.city ? toTitleCase(acc.city) : "-",
-      // Same basis as the payment screen and the party report: opening still
-      // due + open bills − advances held. Blank until the figures land so the
-      // column never flashes a wrong ₹0.00.
+      // Outstanding = opening due + open bills - advances; blank until loaded.
       outstandingLabel:
         outstandingById[acc.id] != null ? formatINR(outstandingById[acc.id]) : "-",
       status: acc.approvalstatus === "pending"
@@ -117,8 +107,7 @@ const Accounts = () => {
       return;
     }
     const exportData = [...accountList].reverse().map((acc: any, index: number) => {
-      // ledgerid comes populated ({ id, ledgername }) — same name the grid
-      // shows, so the export no longer needs the whole ledger list fetched.
+      // ledgerid comes populated, so no separate ledger list is needed.
       const ledgerName =
         typeof acc.ledgerid === "object" && acc.ledgerid ? acc.ledgerid.ledgername : "";
 
@@ -129,9 +118,7 @@ const Accounts = () => {
         Mobile: acc.mobile || "-",
         Email: acc.email || "-",
         Ledger: ledgerName || "-",
-        // The export mirrors the grid's one conditional column. Email stays in
-        // the export even though the grid no longer prints it — a spreadsheet
-        // of parties is exactly where you want the address.
+        // Export mirrors the grid's columns, plus Email.
         ...(channelsEnabled
           ? { Channel: typeof acc.channel === "object" && acc.channel ? acc.channel.channelName || "-" : "-" }
           : {}),

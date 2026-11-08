@@ -1,6 +1,4 @@
-// Staff View — left: the staff member's profile; right: the parties assigned
-// to them and the orders they took (filter by date, status, party). Opened
-// from the View button on Staff Accounts (permission: Staff Accounts → View).
+// Staff View: profile on the left, assigned parties and their orders on the right.
 import { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router";
 import { gql, useQuery } from "@apollo/client";
@@ -70,13 +68,9 @@ const StaffView = () => {
   );
   const deliveredCount = deliveries.filter((d: any) => d.deliveryStatus === "delivered").length;
   const collected = collections.filter((p: any) => p.status !== false).reduce((a: number, p: any) => a + (Number(p.amount) || 0), 0);
-  // Parties — the same list the staff member works with in the app
-  //  • Salesman: parties linked to him + parties on his Sales Routes (the
-  //    server's salesmanid filter, exactly what "My Parties" shows).
-  //  • Other staff: every party of the business, as in the staff app.
+  // Parties: a salesman's own + Sales Route parties; other staff see all.
   const isSalesman = member?.role === "salesman";
-  // directOnly: with "Company sees direct-party orders only" on, only parties
-  // with no parent party (the server ignores it when the setting is off).
+  // directOnly: only parties without a parent (ignored when the setting is off).
   const { data: smData } = useQuery(GET_ACCOUNTS, {
     variables: { filter: { admin: adminid, status: true, directOnly: true, ...(isSalesman ? { salesmanid: id } : {}) } },
     skip: !adminid || !id || !member,

@@ -1,24 +1,6 @@
 import type ExcelJS from "exceljs";
 
-/**
- * Pictures a person put INSIDE the workbook, so the import needs no file
- * paths and no separate "Select Images" step.
- *
- * Two ways Excel stores a picture against a cell, both read here:
- *
- *   Place in Cell  — Insert → Pictures → Place in Cell (Excel 365, Excel for
- *                    the web). The picture is the cell's value. ExcelJS does
- *                    not understand these, so they are read straight out of
- *                    the xlsx zip: sheet cell (vm="n") → metadata.xml →
- *                    richData/rdrichvalue.xml → richValueRel.xml → xl/media.
- *
- *   Over the cell  — Insert → Picture, then dropped onto the cell (every
- *                    Excel version). ExcelJS reads these with getImages();
- *                    the picture belongs to the cell its top-left corner is in.
- *
- * Result: `${row}|${col}` (1-based, as Excel numbers them) → the pictures in
- * that cell, as Files ready to upload.
- */
+// Reads pictures inside the workbook (Place in Cell and over-the-cell), keyed `${row}|${col}`.
 
 export type CellImages = Map<string, File[]>;
 
@@ -77,9 +59,7 @@ const resolvePath = (baseDir: string, target: string): string => {
   return parts.join("/");
 };
 
-/* ------------------------------------------------------------------ *
- * Place in Cell (rich value) pictures
- * ------------------------------------------------------------------ */
+// Place in Cell (rich value) pictures
 
 const readPlacedInCell = async (buffer: ArrayBuffer, sheetName: string, out: CellImages) => {
   const JSZip = (await import("jszip")).default;
@@ -171,9 +151,7 @@ const readPlacedInCell = async (buffer: ArrayBuffer, sheetName: string, out: Cel
   }
 };
 
-/* ------------------------------------------------------------------ *
- * Pictures floating over a cell
- * ------------------------------------------------------------------ */
+// Pictures floating over a cell
 
 const readFloating = (workbook: ExcelJS.Workbook, sheetName: string, out: CellImages) => {
   const sheet = workbook.getWorksheet(sheetName);
@@ -185,21 +163,14 @@ const readFloating = (workbook: ExcelJS.Workbook, sheetName: string, out: CellIm
     const ext = String(media?.extension ?? "png");
     if (!bytes || !USABLE.test(ext)) continue;
 
-    // The cell the picture's TOP-LEFT corner sits in: Excel inserts a
-    // picture at the selected cell, and a full-size photo then hangs down over
-    // many rows — its centre would land on some other product's row. tl is
-    // 0-based and fractional; a corner in the last quarter of a cell was
-    // nudged slightly above/left of the intended cell, so it counts as the next.
+    // Picture belongs to the cell of its top-left corner (last quarter nudges to the next).
     const tl: any = picture.range?.tl;
     if (!tl) continue;
     const settle = (v: number) => (v - Math.floor(v) > 0.75 ? Math.floor(v) + 1 : Math.floor(v));
     let row = settle(Number(tl.row)) + 1;
     let col = settle(Number(tl.col)) + 1;
 
-    // A hidden column has no width, so a picture put at the left edge of the
-    // visible cell is anchored by Excel to the hidden column before it — in
-    // the template that is the hidden "Category_ID" right before "Category
-    // Image". What the person saw and aimed at is the next visible column.
+    // An anchor on a hidden column means the next visible column.
     while (col < 16384 && sheet.getColumn(col).hidden) col++;
     while (row < 1048576 && sheet.getRow(row).hidden) row++;
 
@@ -208,10 +179,7 @@ const readFloating = (workbook: ExcelJS.Workbook, sheetName: string, out: CellIm
   }
 };
 
-/**
- * Every picture on `sheetName`, by the cell it belongs to. Never throws — a
- * workbook we can't read pictures from simply has none.
- */
+/** Every picture on `sheetName` by cell; never throws. */
 export const readCellImages = async (
   buffer: ArrayBuffer,
   workbook: ExcelJS.Workbook,

@@ -11,8 +11,7 @@ const Subscription = () => {
   const location = useLocation();
   const [confirmSubscription] = useConfirmSubscriptionMutation();
 
-  // Login redirects here with the admin's email (and whether an earlier request
-  // was rejected) when the account exists but has no active subscription.
+  // Login sends unsubscribed admins here with their email.
   const redirectState = (location.state || {}) as { email?: string; rejected?: boolean };
 
   const [email, setEmail] = useState(redirectState.email || "");

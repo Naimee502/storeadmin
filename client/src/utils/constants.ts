@@ -42,7 +42,5 @@ export const regionOptions = [
   { value: "international", label: "International" },
 ];
 
-// State list for the address "State" field (GST jurisdiction). Same underlying
-// list as regionOptions today, exported separately so the two concepts (tax
-// State vs pricing Region) stay distinct in the code.
+// GST State options, kept separate from pricing Region.
 export const stateOptions = regionOptions;

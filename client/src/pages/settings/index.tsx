@@ -1,11 +1,4 @@
-// Settings — central control plane for the admin/branch.
-//
-// KEY DESIGN
-//  1. A single global dropdown at the top selects the target
-//     (Branch for Admin, Staff for Branch). All child-management tabs share it.
-//  2. When admin is logged in AND the SaaS flags are enabled, business-level
-//     tabs (General, Business Modules, Business Permissions) are also shown
-//     so the admin can manage everything from one page.
+// Settings: one target dropdown (Branch for Admin, Staff for Branch) shared by all tabs.
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import HomeLayout from "../../layouts/home";
@@ -29,10 +22,7 @@ import { useProductServicesQuery } from "../../graphql/hooks/products";
 import { useImageUpload } from "../../graphql/hooks/uploads";
 import RichTextEditor from "../../components/richtexteditor";
 
-// Strips Apollo's injected __typename from every nested object/array before
-// sending a query result back as a mutation input — needed once fields stop
-// being flat scalars (heroBannerSlides / dealOfDayItems are objects, and
-// GraphQL input types reject any field they don't declare, __typename included).
+// Strip Apollo's __typename before sending query data back as mutation input.
 const deepStripTypename = (value: any): any =>
   JSON.parse(JSON.stringify(value), (key, val) => (key === "__typename" ? undefined : val));
 import {
@@ -74,8 +64,7 @@ const Settings = () => {
   const { data: branchesData } = useBranchesQuery();
   const { data: staffData } = useStaffQuery();
 
-  // Admin can manage a Branch OR a Staff member directly (a branch login
-  // always manages its own staff).
+  // Admin manages a Branch or Staff; a branch login manages its own staff.
   const [targetKind, setTargetKind] = useState<"branch" | "staff">("branch");
   const manageStaff = isBranch || (isAdmin && targetKind === "staff");
 
@@ -130,8 +119,7 @@ const Settings = () => {
       }
     }
     if (list === undefined || list === null) return ADMIN_REGISTER_MODULES.map((m) => m.id);
-    // Always surface default-on modules (newly added) so they can be granted /
-    // permissioned even for tenants whose allowedmodules predate the module.
+    // Always show default-on modules, even for tenants whose allowedmodules predate them.
     const extra = DEFAULT_ON_MODULE_IDS.filter(
       (id) => !list.map((x: string) => x.toLowerCase()).includes(id.toLowerCase())
     );
@@ -156,9 +144,7 @@ const Settings = () => {
     return targetAllowed.filter((id: string) => parentLower.includes(id.toLowerCase()));
   }, [selectedTargetId, parentAllowed, isAdmin, manageStaff, targetKind, branchesData, staffData]);
 
-  // ── Build visible tabs ──
-  // Business tabs: shown to admin when SaaS flags allow (hide ONLY if flag false)
-  // Child tabs: Branch Modules + Branch Access for admin, Staff Modules + Staff Access for branch
+  // Business tabs for admin when SaaS flags allow; child tabs for branch/staff management.
   const visibleTabs: Array<[TabKey, string]> = useMemo(() => {
     const tabs: Array<[TabKey, string]> = [];
 
@@ -178,8 +164,7 @@ const Settings = () => {
 
   const [tab, setTab] = useState<TabKey>(visibleTabs[0]?.[0] ?? "access");
 
-  // The logged-in user's own effective form permissions: a branch / staff
-  // member can be given at most these fields.
+  // The user's own form permissions cap what a child can be given.
   const myFormPerms = useAppSelector((s: any) => s.permissions?.permissions?.formPermissions || {});
   const [loadBranchEff, { data: branchEffData }] = useEffectivePermissionsLazy({ fetchPolicy: "network-only" });
   useEffect(() => {
@@ -317,27 +302,12 @@ const Settings = () => {
 
 export default Settings;
 
-/* =====================================================================
-   WEBSITE TAB — everything that drives the customer-facing website
-   (clientweb): storefront link/payment mode, support & legal contacts,
-   About/Privacy/Terms content, social links, Deal of the Day and Hero
-   Banner copy. Moved here (from Business Settings) so the admin can
-   manage their own website straight after logging in — no need to hop
-   into the multi-tenant Business Settings screen.
-   ===================================================================== */
+// Website tab: settings for the customer-facing website.
 
 /** The built-in brand colour, shown as the placeholder when none is set. */
 const DEFAULT_BRAND_COLOR = "#0F766E";
 
-// Shape of the product image box on product cards. One dropdown per surface
-// (see PRODUCT_IMAGE_RATIO_FIELDS) because these grids were never the same
-// size — the app's card, the Deal of the Day carousel tile and the Shop grid
-// each had their own height. Blank keeps whatever height that surface used
-// before this setting existed, so an untouched business sees no change.
-// FormField's native <select> already prepends its own blank "Select ..."
-// row, which is the "leave it at the default" choice — so this list holds
-// only the real ratios. The server validates the "w:h" shape rather than a
-// fixed list, so adding a ratio here is all it takes.
+// Product image ratio per surface; blank keeps the surface's default height.
 const PRODUCT_IMAGE_RATIO_OPTIONS = [
   { label: "Square (1:1)", value: "1:1" },
   { label: "Portrait (3:4)", value: "3:4" },
@@ -360,18 +330,13 @@ const WebsiteTab: React.FC<{ adminId?: string; dispatch: any }> = ({ adminId, di
   const [draft, setDraft] = useState<any>(null);
   const [saving, setSaving] = useState(false);
 
-  // The logo picked but not yet uploaded. Like every other picker in this app,
-  // the file only goes up when Save is pressed.
+  // Logo picked but not uploaded; uploads on Save.
   const [logoFile, setLogoFile] = useState<File | null>(null);
 
-  // Images these settings were loaded with — banner slides and the logo. A
-  // slide that is removed, or a picture swapped for another, leaves its old
-  // file on the server with nothing able to show it, so anything here that the
-  // saved settings no longer mention is deleted once the save succeeds.
+  // Images loaded with the settings; ones no longer referenced are deleted after Save.
   const originalImages = useRef<string[]>([]);
 
-  // Uploaded during the current save attempt, so a failed save can take its own
-  // uploads back off the disk instead of leaking one per attempt.
+  // Uploaded in this save attempt, so a failed save can delete them.
   const justUploadedUrls = useRef<string[]>([]);
 
   useEffect(() => {
@@ -412,8 +377,7 @@ const WebsiteTab: React.FC<{ adminId?: string; dispatch: any }> = ({ adminId, di
     const { id, adminid, __typename, ...rest } = draft;
     setSaving(true);
     try {
-      // Any slide with a newly picked file (not yet uploaded) gets uploaded
-      // now, same as the product form — upload only happens on Save.
+      // Upload newly picked slide files on Save.
       const uploaded: string[] = [];
 
       const uploadSlides = (slides: any[]) =>
@@ -427,12 +391,10 @@ const WebsiteTab: React.FC<{ adminId?: string; dispatch: any }> = ({ adminId, di
                 uploaded.push(image);
               }
             }
-            // A blob: url is a preview of a file that never made it up. Storing
-            // it would save a link that dies with the tab.
+            // A blob: URL is an unsaved preview; don't store it.
             if (image.startsWith("blob:")) image = "";
 
-            // Optional short video (hero slides). Picked from disk like the
-            // image and uploaded through the same mutation — no URL typing.
+            // Optional hero-slide video, uploaded like the image.
             let video = s.video ?? "";
             if (s._videoFile) {
               const { data: uploadedVideo } = await uploadImageMutation({ variables: { file: s._videoFile } });
@@ -458,8 +420,7 @@ const WebsiteTab: React.FC<{ adminId?: string; dispatch: any }> = ({ adminId, di
           uploaded.push(brandLogo);
         }
       }
-      // A blob: url is a preview whose file never went up — storing it would
-      // save a link that dies with the tab.
+      // A blob: URL is an unsaved preview; don't store it.
       if (brandLogo.startsWith("blob:")) brandLogo = "";
 
       justUploadedUrls.current = uploaded;
@@ -467,8 +428,7 @@ const WebsiteTab: React.FC<{ adminId?: string; dispatch: any }> = ({ adminId, di
       const input = deepStripTypename({ ...rest, heroBannerSlides, promoBanners, brandLogo });
       await updateAdminSettings({ variables: { adminid: adminId, input } });
 
-      // Saved. Whatever the settings used to point at and no longer do is now
-      // unreachable — removed slides, and pictures that were swapped out.
+      // Delete images the saved settings no longer reference.
       const keptUrls = [
         ...[...heroBannerSlides, ...promoBanners].flatMap((slide: any) => [slide.image, slide.video]),
         brandLogo,
@@ -482,8 +442,7 @@ const WebsiteTab: React.FC<{ adminId?: string; dispatch: any }> = ({ adminId, di
       await refetch();
       dispatch(showMessage({ message: "Website settings saved.", type: "success" }));
     } catch (e: any) {
-      // The images went up before the settings mutation ran, so a failed save
-      // has just left them on disk with nothing referencing them.
+      // Failed save: remove the images uploaded for it.
       const orphans = justUploadedUrls.current;
       justUploadedUrls.current = [];
       void deleteImages(orphans);
@@ -589,10 +548,7 @@ const WebsiteTab: React.FC<{ adminId?: string; dispatch: any }> = ({ adminId, di
             onChange={(e: any) => set("socialLinkedinUrl", e.target.value)}
           />
 
-          {/* One colour, and the website and app each build their own full
-              palette from it — tints, hover states, gradients, the app's tab
-              bar. This replaced a table of palettes hand-written per business
-              code, which meant new colours needed a deploy. */}
+          {/* One brand colour; website and app derive their palettes from it. */}
           <div className="flex flex-col gap-1">
             <label className="text-[12px] font-medium text-slate-600">Theme Colour</label>
             <div className="flex items-center gap-2">
@@ -623,10 +579,7 @@ const WebsiteTab: React.FC<{ adminId?: string; dispatch: any }> = ({ adminId, di
             </div>
           </div>
 
-          {/* Sits in the same grid as the fields above so it takes one cell,
-              not a section of its own. The thumbnail is inline beside the
-              picker rather than under a "Preview" label — at 32px it costs no
-              extra height. */}
+          {/* Takes one grid cell with an inline thumbnail. */}
           <div className="flex flex-col gap-1">
             <label className="text-[12px] font-medium text-slate-600">Business Logo</label>
             <div className="flex items-center gap-2">
@@ -637,10 +590,7 @@ const WebsiteTab: React.FC<{ adminId?: string; dispatch: any }> = ({ adminId, di
               </label>
               {draft.brandLogo && (
                 <div className="relative shrink-0">
-                  {/* Shown at the height the website header actually uses, and
-                      on a chequered tile — a white or transparent logo looks
-                      fine against a white panel here and then disappears on
-                      the site, which is exactly the surprise worth avoiding. */}
+                  {/* Preview at header height on a chequered tile so light logos stay visible. */}
                   <div
                     className="flex h-8 items-center rounded-md px-1 ring-1 ring-black/10"
                     style={{
@@ -883,12 +833,7 @@ const WebsiteTab: React.FC<{ adminId?: string; dispatch: any }> = ({ adminId, di
   );
 };
 
-/* =====================================================================
-   PRODUCT PICKER — shared by Featured Products, New Arrivals and Deal of
-   the Day. Search/select one of the admin's own products, optionally pick
-   which unit (Piece, Dozen, ...) to feature, add it to the list; each row
-   can be removed again. Each section keeps its own independent list.
-   ===================================================================== */
+// Product picker shared by Featured Products, New Arrivals and Deal of the Day.
 
 const ProductPickerEditor: React.FC<{
   idPrefix: string;
@@ -1001,9 +946,7 @@ const ProductPickerEditor: React.FC<{
   );
 };
 
-/* =====================================================================
-   HERO BANNER SLIDES — admin-managed list, add/edit/remove any number.
-   ===================================================================== */
+// Hero banner slides editor.
 
 type EditableSlide = {
   image?: string;
@@ -1033,8 +976,7 @@ const HeroBannerSlidesEditor: React.FC<{
   const removeSlide = (idx: number) => {
     releasePreview(slides[idx]);
     releaseVideoPreview(slides[idx]);
-    // The file on the server, if this slide had a saved image, is deleted when
-    // the settings are saved — not now, so backing out changes nothing.
+    // Saved image is deleted on Save, not now.
     onChange(slides.filter((_, i) => i !== idx));
   };
 
@@ -1081,8 +1023,7 @@ const HeroBannerSlidesEditor: React.FC<{
   const handleImagePick = (idx: number) => (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    // Preview immediately (like the product form) — the real upload only
-    // happens when "Save Website Settings" is clicked.
+    // Preview now; upload on Save.
     releasePreview(slides[idx]);
     updateSlide(idx, { image: URL.createObjectURL(file), _file: file });
   };
@@ -1116,9 +1057,7 @@ const HeroBannerSlidesEditor: React.FC<{
                     alt={`Slide ${idx + 1} preview`}
                     className="h-20 w-36 rounded-lg border border-gray-200 object-cover"
                   />
-                  {/* Lets a slide keep its copy but lose its picture. Without
-                      this the only way to drop an image was to delete the whole
-                      slide and type it out again. */}
+                  {/* Remove the image but keep the slide's copy. */}
                   <button
                     type="button"
                     title="Remove image"
@@ -1218,15 +1157,9 @@ const HeroBannerSlidesEditor: React.FC<{
   );
 };
 
-/* =====================================================================
-   TRUST BAR STATS — simple label/value tiles for the Home page's stat
-   strip (e.g. "12,400+ / Active retail partners"). Same add/edit/remove
-   pattern as the banner slide editors, just without the image upload.
-   ===================================================================== */
+// Trust bar stats: label/value tiles for the Home page.
 
-// The Home page renders these in a fixed 4-column strip (sm:grid-cols-4)
-// a 5th tile would just wrap awkwardly, so the editor caps it here instead
-// of letting the admin add more than the layout can actually show.
+// Home page shows 4 tiles, so cap at 4.
 const MAX_BUSINESS_STATS = 4;
 
 const BusinessStatsEditor: React.FC<{
@@ -1284,9 +1217,7 @@ const BusinessStatsEditor: React.FC<{
   );
 };
 
-/* =====================================================================
-   SUB-MODULES TAB — configure allowed modules for children (Admin -> Branch or Branch -> Staff)
-   ===================================================================== */
+// Sub-modules tab: allowed modules for children.
 
 const SubModulesTab: React.FC<{
   scope: "branch" | "staff";
@@ -1371,8 +1302,7 @@ const SubModulesTab: React.FC<{
   const eligibleModules = useMemo(
     () =>
       ADMIN_REGISTER_MODULES.filter((m) => {
-        // Staff get whatever their branch has (branch ∩ business) — parentAllowed
-        // already carries that chain, so no hard-coded staff list.
+        // Staff get their branch's modules (branch ∩ business) via parentAllowed.
         return parentAllowed.map((id) => id.toLowerCase()).includes(m.id.toLowerCase());
       }),
     [parentAllowed, scope]
@@ -1446,9 +1376,7 @@ const PermissionsTab: React.FC<{
   effectiveOverlay?: any;
   parentAllowed?: string[];
 }> = ({ scope, scopeid, title, dispatch, effectiveOverlay, parentAllowed }) => {
-  // Always read the stored document fresh: Access and Form Permissions save
-  // the same document, so a cached copy from the other tab would write the
-  // other tab's changes back over themselves.
+  // Read fresh: Access and Form Permissions save the same document.
   const [load, { data, loading }] = usePermissionsLazy({ fetchPolicy: "network-only" });
   const { setPermissions } = usePermissionsMutations();
   const [draft, setDraft] = useState<any>(null);
@@ -1457,13 +1385,7 @@ const PermissionsTab: React.FC<{
     if (scopeid) load({ variables: { scope, scopeid } });
   }, [scope, scopeid, load]);
 
-  // Draw the matrix from the SAME rule the app enforces (resolveAction), not
-  // from the raw record. A module with no record at all is unconfigured and
-  // therefore allowed, so its boxes must start ticked; a module that HAS a
-  // record shows exactly what that record grants, and any action missing from
-  // it — a capability added in a later release — starts unticked because that
-  // is how it now behaves. Saving then writes every box explicitly, so the
-  // record can never fall behind the module definition again.
+  // Build the matrix with resolveAction: no record means allowed, missing actions unticked.
   const seedDraft = (saved: Record<string, any>) => {
     const next: Record<string, any> = { ...(saved || {}) };
     MODULES.forEach((m) => {
@@ -1497,15 +1419,7 @@ const PermissionsTab: React.FC<{
 
   const handleSave = async () => {
     try {
-      // CRITICAL: write an explicit true/false for every visible module's every
-      // action. A key left out is a key that behaves differently from the box
-      // that was drawn for it, which is how Print / WhatsApp ended up showing on
-      // orders nobody had granted them to.
-      //
-      // Start from what is already stored so this save only rewrites the matrix
-      // on screen: the same document also holds `formPermissions` and any module
-      // hidden by the business's allowed-modules list, and building a fresh
-      // object from scratch silently wiped both.
+      // Write explicit true/false for every action, keeping other stored fields.
       const stored = data?.getPermissions?.permissions || {};
       const completePerms: Record<string, any> = { ...stored };
       visibleModules.forEach((m) => {

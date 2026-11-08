@@ -46,9 +46,7 @@ export const GET_TRANSACTIONS = gql`
   }
 `;
 
-// Listing-page query: only the columns the Transactions table renders, no
-// journal lines (entries[]) or settlement data. Named GetTransactionsList and
-// listed in PAYMENT_SIDE_EFFECT_QUERIES so it refetches with GetTransactions.
+// Listing-page columns only; refetched with GetTransactions via PAYMENT_SIDE_EFFECT_QUERIES.
 export const GET_TRANSACTIONS_LIST = gql`
   query GetTransactionsList($filter: TransactionFilterInput) {
     getTransactions(filter: $filter) {
@@ -167,10 +165,7 @@ export const GET_TRANSACTION_BY_ID = gql`
   }
 `;
 
-// Every journal that touches ONE ledger, trimmed to the fields needed to total
-// its balance. `ledgerid` is filtered server-side, so this is a handful of rows
-// rather than the whole book — but each row still carries its counter-leg, so
-// the caller must sum only the entries whose ledgerid matches.
+// Journals touching one ledger; sum only entries whose ledgerid matches.
 export const GET_LEDGER_MOVEMENTS = gql`
   query GetLedgerMovements($filter: TransactionFilterInput) {
     getTransactions(filter: $filter) {

@@ -23,9 +23,7 @@ export const GET_SUBCATEGORIES = gql`
   }
 `;
 
-// Sub Categories list page: grid columns plus what the inline edit form and
-// Rearrange read from a row (image, category id). Same root field/args as
-// GET_SUBCATEGORIES, so both share the normalized cache list.
+// Sub Categories list page: grid, inline-form and Rearrange fields; shares the cache with GET_SUBCATEGORIES.
 export const GET_SUBCATEGORIES_LIST = gql`
   query GetSubCategoriesList($adminId: ID, $categoryId: ID) {
     getSubCategories(adminId: $adminId, categoryId: $categoryId) {

@@ -23,11 +23,7 @@ import {
   DELETE_ANNOUNCEMENT,
 } from "../../graphql/queries/announcement";
 
-/**
- * Announcements — admin / branch send a notice to a chosen audience; it shows
- * in the app (staff + parties) and on the website (parties). Salesmen and
- * channel parties can also send from the app / website to their own parties.
- */
+// Announcements: send a notice to staff and/or parties (app and website).
 
 const ROLE_OPTIONS = [
   { value: "salesman", label: "Salesmen" },
@@ -39,11 +35,7 @@ const SENDER_LABEL: Record<string, string> = { admin: "Admin", branch: "Branch",
 
 const ymd = (iso?: string | null) => (iso ? iso.slice(0, 10) : "");
 
-/**
- * Small copy of a picture for the 72px list thumbnail. The server's /uploads
- * route answers "?w=" with a cached, resized WebP (see imageResizer); any
- * other URL (hosted elsewhere, already has a query) is used unchanged.
- */
+// Thumbnail URL: /uploads answers "?w=" with a resized WebP; other URLs unchanged.
 const thumbUrl = (url: string) => (/\/uploads\/[^/?#]+$/.test(url) ? `${url}?w=160` : url);
 
 type Form = {
@@ -378,8 +370,7 @@ const Announcements = () => {
 
         <Modal isOpen={!!preview} onClose={() => setPreview(null)} type="custom" title={preview?.title || "Picture"} size="md">
           {preview && (
-            // Kept well under the screen height so the modal never runs up
-            // behind the top header, whatever the picture's shape.
+            // Keep the modal below the top header.
             <div className="space-y-3">
               <img src={preview.imageurl} alt="" className="w-full max-h-[50vh] object-contain rounded bg-gray-50" />
               {preview.message && <p className="text-sm text-gray-700 whitespace-pre-line max-h-24 overflow-y-auto">{preview.message}</p>}

@@ -1,6 +1,4 @@
-// Tally-style Stock Transfer Voucher
-// One voucher → multiple product lines
-// From-branch stock is debited; to-branch stock is credited per item.
+// Stock Transfer Voucher: debit from-branch, credit to-branch per line.
 
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, useParams } from "react-router";
@@ -84,12 +82,7 @@ const TransferStockAddEdit: React.FC = () => {
     : (admin?.id || storedAdminId);
 
   const { data: branchesData } = useTransferStockBranchesQuery();
-  // firstBranchId is the rescue for a STAFF account with no branch assigned
-  // that is all it was ever meant for. It used to sit on the admin arm too,
-  // which meant an admin on "All Branches" silently filed the document under
-  // whichever branch happened to come back first: no error, wrong branch, and
-  // nothing on screen to say so. Admin now resolves to the chosen branch or to
-  // nothing, and the save path says so out loud.
+  // firstBranchId fallback is for staff without a branch only; admin uses the chosen branch.
   const firstBranchId = branchesData?.getBranches?.[0]?.id || "";
 
   const fromBranchId =
@@ -119,10 +112,7 @@ const TransferStockAddEdit: React.FC = () => {
   const totalAmount = items.reduce((s, i) => s + i.amount, 0);
   const totalQty = items.reduce((s, i) => s + i.transferqty, 0);
 
-  // ── Load edit data
-  // Hydrate once per voucher. The product lookup is cache-and-network, so it
-  // emits a second (new) array when the network answer lands after the cached
-  // one; re-running this effect then wiped whatever the user had already typed.
+  // Load edit data once per voucher, so a second cache-and-network emit doesn't wipe user input.
   const hydratedIdRef = useRef<string | null>(null);
   useEffect(() => {
     if (!isEdit || !editData?.getTransferStockById || allProducts.length === 0) return;
@@ -262,10 +252,7 @@ const TransferStockAddEdit: React.FC = () => {
     const validItems = items.filter((i) => i.productid && i.transferqty > 0);
     if (validItems.length === 0) return "Add at least one item with quantity > 0.";
 
-    // Compare in BASE units (stock is kept in base units; a box of 12 is 12),
-    // summed per variant (two lines of one variant draw on the same stock),
-    // and when editing, add back what this voucher already moved out — that
-    // stock is coming back before the new quantities go out.
+    // Compare in base units, summed per variant, adding back what this voucher already moved.
     const toBase = (it: TransferItem) => {
       const v = it._variants.find((x) => x.id === it.variantid);
       const baseId = typeof v?.baseunitid === "object" ? v?.baseunitid?.id : v?.baseunitid;

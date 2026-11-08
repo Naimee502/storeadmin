@@ -33,9 +33,7 @@ export const GET_PURCHASE_INVOICES_SETTLE = gql`
   }
 `;
 
-// Listing-only query: just the columns the Purchase Invoices table shows.
-// Print / WhatsApp fetch the full bill by id when they need it, so the list
-// no longer drags every line item, ledger and transport field over the wire.
+// Listing-only columns; Print/WhatsApp load the full bill by id.
 export const GET_PURCHASE_INVOICES_LIST = gql`
   query GetPurchaseInvoicesList($filter: PurchaseInvoiceFilterInput) {
     getPurchaseInvoices(filter: $filter) {
@@ -214,9 +212,7 @@ export const GET_DELETED_PURCHASE_INVOICES = gql`
   }
 `;
 
-// Lightweight, print-only lookup — the party's running balance is expensive
-// to compute (sums every unsettled bill for the party), so it's fetched only
-// when the user actually clicks Print / WhatsApp, not as part of the list query.
+// Party running balance, fetched only on Print/WhatsApp (expensive).
 export const GET_PURCHASE_INVOICE_BALANCE = gql`
   query GetPurchaseInvoiceBalance($id: ID!, $adminid: ID) {
     getPurchaseInvoiceById(id: $id, adminid: $adminid) {

@@ -76,9 +76,7 @@ export const GET_PURCHASE_ORDERS = gql`
 }
 `;
 
-// Listing-only query: just the columns (and status-dropdown inputs) the
-// Purchase Orders table needs. Print / WhatsApp fetch the full order by id
-// (GET_PURCHASE_ORDER_PRINT) when clicked.
+// Listing-only columns; Print/WhatsApp use GET_PURCHASE_ORDER_PRINT.
 export const GET_PURCHASE_ORDERS_LIST = gql`
   query GetPurchaseOrdersList($filter: PurchaseOrderFilterInput) {
     getPurchaseOrders(filter: $filter) {
@@ -179,9 +177,7 @@ export const GET_DELETED_PURCHASE_ORDERS = gql`
   }
 `;
 
-// Full order for Print / WhatsApp from the listing. Same as
-// GET_PURCHASE_ORDER_BY_ID plus the party's address / state / GSTIN, which the
-// printable document needs (Place of Supply, GSTIN cell).
+// Full order for Print/WhatsApp, with party address/state/GSTIN.
 export const GET_PURCHASE_ORDER_PRINT = gql`
   query getPurchaseOrderPrint($id: ID!) {
     getPurchaseOrderById(id: $id) {

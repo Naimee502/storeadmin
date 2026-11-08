@@ -17,9 +17,7 @@ export const GET_PRODUCTGROUPS = gql`
   }
 `;
 
-// Product Groups list page: grid columns plus what the inline edit form reads
-// from a row. Same root field/args as GET_PRODUCTGROUPS, so both share the
-// normalized cache list.
+// Product Groups list page: grid + inline-form fields; shares the cache with GET_PRODUCTGROUPS.
 export const GET_PRODUCTGROUPS_LIST = gql`
   query GetProductGroupsList($adminId: ID) {
     getProductGroups(adminId: $adminId) {

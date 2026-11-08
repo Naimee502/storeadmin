@@ -1,13 +1,4 @@
-// Single source of truth for module ids, labels, and the action set each
-// module supports. Consumed by
-// components/sidebar (which links to render)
-// pages/adminregister (which checkboxes to show)
-// pages/settings (Permissions matrix and Modules tab)
-// hooks/usePermission (enumerating actions)
-//
-// Adding a new module here makes it appear everywhere automatically.
-// Removing a module is safe — anything referring to a missing key falls
-// back to "no permission" (deny by default).
+// Single source of truth for module ids, labels and actions; missing keys deny by default.
 
 export type ModuleAction =
   | "view"
@@ -52,20 +43,11 @@ export const ACTION_LABELS: Record<ModuleAction, string> = {
   claims: "Claims",
 };
 
-// Default action sets per module category. Sales/Purchase invoices get
-// the full set; master data only gets CRUD; reports only get view+export.
+// Default action sets per module category.
 const FULL_TXN_ACTIONS: ModuleAction[] = [
   "add", "edit", "delete", "print", "return", "whatsapp", "reset",
 ];
-// Orders carry print + whatsapp for the same reason invoices do: an
-// order-only business (invoicing module switched off) still has to hand the
-// customer a document and send it to them, so the order IS their bill.
-// Both are permissioned so an admin can hide either from the Actions column.
-// Return documents (Sales / Purchase Returns) get everything an invoice has
-// EXCEPT "return": a return is created FROM an invoice, and a return cannot
-// itself be returned, so there is no Return button on their lists. Leaving
-// the key in drew a Return checkbox in Business Permissions that controlled
-// nothing.
+// Orders get print + whatsapp (they are the bill without invoicing); returns get no "return".
 const RETURN_TXN_ACTIONS: ModuleAction[] = FULL_TXN_ACTIONS.filter((a) => a !== "return");
 const ORDER_ACTIONS: ModuleAction[] = [
   "add", "edit", "delete", "print", "whatsapp", "cancel", "convert", "reset",
@@ -83,9 +65,7 @@ export interface ModuleDef {
   label: string;       // user-facing label
   section: ModuleSection;
   actions: ModuleAction[];
-  // Whether this module appears as a checkable item in the
-  // admin register's Allowed Modules list. Some keys (like report
-  // sub-modules) are admin-relevant; others are branch/staff only.
+  // Whether this module shows in the admin register's Allowed Modules list.
   inAdminRegister: boolean;
 }
 
@@ -106,12 +86,9 @@ export type ModuleSection =
   | "system";
 
 const MODULE_LIST: ModuleDef[] = [
-  // Master / Setup
-  // "rearrange" = the Rearrange button on Categories, which sets the order
-  // categories show in on the client app and website.
+  // Master / Setup ("rearrange" = category order on app and website)
   { id: "categories",     label: "Categories",      section: "master", actions: [...CRUD_ACTIONS, "rearrange"], inAdminRegister: true },
-  // "rearrange" = order of sub-categories inside each category on the app's
-  // catalogue browse (Category → Sub-category).
+  // "rearrange" = sub-category order inside each category.
   { id: "subcategories",  label: "Sub Categories",  section: "master", actions: [...CRUD_ACTIONS, "rearrange"], inAdminRegister: true },
   { id: "brands",         label: "Brands",          section: "master", actions: CRUD_ACTIONS, inAdminRegister: true },
   { id: "models",         label: "Models",          section: "master", actions: CRUD_ACTIONS, inAdminRegister: true },
@@ -123,9 +100,7 @@ const MODULE_LIST: ModuleDef[] = [
   // Accounts
   { id: "accountgroups",  label: "Account Groups",  section: "accounts", actions: CRUD_ACTIONS, inAdminRegister: true },
   { id: "accountledgers", label: "Account Ledgers", section: "accounts", actions: CRUD_ACTIONS, inAdminRegister: true },
-  // "view" = the View button on the list: a staff member's parties and the
-  // orders they took / a party's profile, orders, payments and sub-parties.
-  // Like every action added later it stays off until it is ticked.
+  // "view" = the View button on the list; off until ticked.
   { id: "staffaccounts",  label: "Staff Accounts",  section: "accounts", actions: ["view", ...CRUD_ACTIONS], inAdminRegister: true },
   { id: "accounts",       label: "Party Accounts",  section: "accounts", actions: ["view", ...CRUD_WITH_IMPORT_EXPORT_ACTIONS], inAdminRegister: true },
 
@@ -163,9 +138,7 @@ const MODULE_LIST: ModuleDef[] = [
   // HR & Staff
   { id: "attendance",    label: "Attendance & Leave", section: "hr", actions: CRUD_ACTIONS, inAdminRegister: true },
 
-  // Communication
-  // Announcements to staff and parties. Opt-in: NOT in DEFAULT_ON_MODULE_IDS,
-  // so a business only sees it (admin panel, app, website) once it is enabled.
+  // Communication (opt-in, not default-on)
   { id: "announcements", label: "Announcements", section: "communication", actions: CRUD_ACTIONS, inAdminRegister: true },
 
   // Manufacturing (BOM / Production)
@@ -192,8 +165,7 @@ const MODULE_LIST: ModuleDef[] = [
   { id: "permissions",   label: "Permissions",     section: "system", actions: ["edit"], inAdminRegister: false },
 ];
 
-// Modules with a Deleted Entries page get "Clear": hide a deleted entry for good
-// (kept in the database, never shown in deleted lists or reports again).
+// "Clear" hides a deleted entry for good (kept in the database).
 const CLEARABLE_MODULE_IDS = [
   "categories", "subcategories", "brands", "models", "productgroups", "sizes", "units",
   "products", "accountgroups", "accountledgers", "staffaccounts", "accounts", "branches",
@@ -227,11 +199,7 @@ export const SECTION_LABELS: Record<ModuleSection, string> = {
 
 export const findModule = (id: string) => MODULES.find((m) => m.id === id);
 
-// Newly-added "core" modules that should be visible by default even for
-// tenants whose allowedmodules array was saved before the module existed.
-// They bypass the business-level allowedmodules gate (so they show up in the
-// sidebar, the Business Modules checklist and the Permissions matrix), while
-// still honoring branch/staff-level restrictions and per-action permissions.
+// Core modules visible by default, even for tenants saved before they existed.
 export const DEFAULT_ON_MODULE_IDS: string[] = ["branches"];
 
 export const ADMIN_REGISTER_MODULES = MODULES.filter((m) => m.inAdminRegister);

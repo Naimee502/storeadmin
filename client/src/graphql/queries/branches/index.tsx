@@ -39,8 +39,7 @@ export const GET_BRANCHES = gql`
   }
 `;
 
-// Branches list page: the grid columns plus what the page's .xlsx export
-// reads. Same root field/args as GET_BRANCHES, so both share the cached list.
+// Branches list page: grid + export fields; shares the cache with GET_BRANCHES.
 export const GET_BRANCHES_LIST = gql`
   query GetBranchesList($adminId: ID) {
     getBranches(adminId: $adminId) {

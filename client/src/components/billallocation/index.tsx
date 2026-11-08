@@ -4,19 +4,7 @@ import { usePurchaseInvoicesQuery } from "../../graphql/hooks/purchaseinvoice";
 import { useTransactionsQuery } from "../../graphql/hooks/transactions";
 import { useOutstanding } from "../../graphql/hooks/shared/useoutstanding";
 
-/**
- * Shared Tally-style bill allocation ("Agst Ref").
- *
- * Lists a party's outstanding invoices and lets the user allocate a settle
- * amount against each one. Outstanding is computed consistently across BOTH
- * Payments AND manual Transactions (journals), so a journal settlement reduces
- * the same outstanding a payment would — and vice-versa.
- *
- * Controlled component: parent owns the allocation array (invoiceid /
- * invoicemodel / settledamount) and passes value + onChange. Reused by the
- * Payment page, the manual Transaction page, the Expense Note page, and later
- * the mobile app (party / salesman / delivery-boy collection).
- */
+/** Tally-style bill allocation ("Agst Ref") against payments and journals; controlled component. */
 
 export type Allocation = {
   invoiceid: string;
@@ -33,12 +21,7 @@ type Props = {
   /** Exclude the current doc (edit mode) so its own allocation isn't double-counted. */
   excludePaymentId?: string;
   excludeTransactionId?: string;
-  /**
-   * "settlement" (default) → Payment-style: allocate a settle amount, reduces outstanding.
-   * "record" → record the full journal once per invoice. An invoice that already has a
-   *            journal recorded against it (any transaction link) is hidden so it can't be
-   *            recorded twice. No settle amount is taken (outstanding is untouched).
-   */
+  /** "settlement" (default) reduces outstanding; "record" journals each invoice once. */
   mode?: "settlement" | "record";
 };
 
@@ -60,9 +43,7 @@ const BillAllocation: React.FC<Props> = ({
   // Payments + journal settlements + un-refunded returns, all in one place.
   const { outstandingOf } = useOutstanding({ excludePaymentId, excludeTransactionId });
 
-  // ── Invoices that already have a journal recorded against them
-  // In "record" mode an invoice's full journal is recorded exactly once, so any
-  // invoice already linked to a transaction is hidden from the picker.
+  // In "record" mode, invoices already linked to a transaction are hidden.
   const recordedInvoiceIds = useMemo(() => {
     const s = new Set<string>();
     (transactionsData?.getTransactions || []).forEach((txn: any) => {
@@ -96,8 +77,7 @@ const BillAllocation: React.FC<Props> = ({
       .filter((inv: any) => inv.outstanding > 0);
   }, [partyid, allInvoices, outstandingOf, mode, recordedInvoiceIds]);
 
-  // Rows to render = outstanding invoices + any already-selected invoice that
-  // is now fully settled (so edit mode still shows the allocation row).
+  // Outstanding invoices plus already-selected settled ones (for edit mode).
   const rows = useMemo(() => {
     const list = [...outstandingInvoices];
     value.forEach((a) => {

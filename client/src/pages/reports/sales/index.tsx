@@ -17,9 +17,7 @@ import { normalizeToYMD, formatDateDMY, todayYMD, shiftDaysYMD } from "../../../
 import { FaClipboardList, FaFileInvoiceDollar, FaUndoAlt } from "react-icons/fa";
 import { partyLabel } from "../../../utils/partylabel";
 
-// Order lifecycle for the report's Status column/filter. `status` on an order
-// is the soft-delete flag (true/false), not its stage — comparing it as text
-// hid every order (sales) or crashed the page (purchase).
+// Lifecycle stage for Status; order `status` is the soft-delete flag, not the stage.
 const orderStage = (o: any): "cancelled" | "converted" | "active" =>
   o?.cancelStatus === "cancelled" || o?.orderStatus === "cancelled"
     ? "cancelled"
@@ -34,8 +32,7 @@ const reportTabs = [
   { id: "Sales Return (CN)", label: "Sales Return (CN)", icon: <FaUndoAlt className="text-xs text-rose-600" /> },
 ];
 
-// One entry per line item — "Product - Variant × 2 Box". ReportTable renders an
-// array cell one item per line and exports it joined with "; ".
+// "Product - Variant × 2 Box" per line item; ReportTable puts each on its own line.
 const productLinesOf = (items: any[]): string[] => {
   const lines = (items || []).map((p: any) => {
     const n = p.productserviceid?.name || "Unknown";
@@ -46,10 +43,7 @@ const productLinesOf = (items: any[]): string[] => {
   return lines.length ? lines : ["-"];
 };
 
-// Server-side date bounds. Bill / return dates are stored as "YYYY-MM-DD…"
-// strings and compared as strings, so a bare "YYYY-MM-DD" To bound would drop
-// any value carrying a time part on the To day. "\uffff" sorts after every
-// character — the same inclusive-end trick the server's field report uses.
+// Server date bounds: "\uffff" keeps values with a time part on the To day.
 const dateTo = (ymd?: string) => (ymd ? `${ymd}\uffff` : undefined);
 
 // Safely capitalize a value that may be string | boolean | null | undefined
@@ -83,13 +77,8 @@ const SalesReports: React.FC = () => {
   const needDeletedInvoices = isInvoiceTab && appliedFilters.status !== "Active";
 
   // Data: only the active tab's lite query runs.
-  // NOTE: invoices are NOT date-filtered on the server — getSalesInvoices /
-  // getDeletedSalesInvoices compare the String `billdate` against
-  // `new Date(...)`, which Mongoose casts to "Tue Oct 06 2026 …" and so would
-  // match nothing. The client-side date filter below does the trimming.
   const invoiceFilter = { adminid, branchid };
-  // Active invoices ARE ranged on the server now (resolver fixed to compare
-  // the text billdate with text). Deleted invoices still filter client-side.
+  // Active invoices ranged server-side; deleted invoices filter client-side.
   const { data: activeData, loading: activeLoading } = useQuery(GET_SALES_INVOICES_REPORT, {
     variables: { filter: { ...invoiceFilter, billdateFrom: fromDate, billdateTo: dateTo(toDate) } },
     skip: !rangeReady || !needActiveInvoices,
@@ -142,8 +131,7 @@ const SalesReports: React.FC = () => {
     setAppliedFilters({ fromDate: from, toDate: to });
   }, []);
 
-  // Global loader follows the active tab's query (Apollo refetches on its own
-  // when the applied range / status / tab changes — no manual refetch).
+  // Loader follows the active tab's query; Apollo refetches on variable changes.
   const tabLoading =
     (needActiveInvoices && activeLoading) ||
     (needDeletedInvoices && deletedLoading) ||
@@ -281,8 +269,7 @@ const SalesReports: React.FC = () => {
 
   // ── Per-tab config ──
   const partyOptions = useMemo(
-    // Sales go to customers — the Party dropdown lists Customer and Both
-    // accounts only (no vendors / expense ledgers).
+    // Party dropdown lists Customer and Both accounts.
     () =>
       accountsList
         .filter((a: any) => {

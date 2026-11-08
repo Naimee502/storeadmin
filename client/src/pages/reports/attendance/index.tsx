@@ -1,9 +1,4 @@
-// Attendance & Leave Reports
-//
-// Tabs
-// Daily Logs → per-day attendance per staff
-// Punch Trail → individual punch records
-// Leave Summary → leave balances per staff
+// Attendance & Leave reports: Daily Logs, Punch Trail, Leave Summary.
 
 import React, { useEffect, useMemo, useState } from "react";
 import HomeLayout from "../../../layouts/home";
@@ -46,8 +41,7 @@ const cap = (s?: string | null) =>
 /* ── Component ── */
 const AttendanceReports: React.FC = () => {
   const [activeTab, setActiveTab] = useState<string>(reportTabsObj[0].id);
-  // Seeded with the default range on the first render so the date-scoped
-  // queries never fire once unfiltered before the effect below runs.
+  // Seed the default range on first render so date-scoped queries never run unfiltered.
   const [filters, setFilters] = useState<{ [key: string]: any }>(() => ({ fromDate: shiftDaysYMD(-30), toDate: todayYMD() }));
   const [appliedFilters, setAppliedFilters] = useState<{ [key: string]: any }>(() => ({ fromDate: shiftDaysYMD(-30), toDate: todayYMD() }));
 

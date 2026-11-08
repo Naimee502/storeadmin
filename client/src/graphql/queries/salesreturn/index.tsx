@@ -70,9 +70,7 @@ export const GET_SALES_RETURNS = gql`
   }
 `;
 
-// Listing-only query: just the columns the Sales Returns table shows. Line
-// items are reduced to their qty (item count / total qty); edit loads the full
-// return by id, so the list no longer carries every line, ledger and charge.
+// Listing-only columns; Edit loads the full return by id.
 export const GET_SALES_RETURNS_LIST = gql`
   query GetSalesReturnsList($filter: SalesReturnFilterInput) {
     getSalesReturns(filter: $filter) {

@@ -46,15 +46,13 @@ const ProductStatementReport: React.FC = () => {
   const [filters, setFilters] = useState({});
   const [appliedFilters, setAppliedFilters] = useState({} as any);
 
-  // Same adminid/branchid scoping as the existing hooks (products, invoices,
-  // returns, transfers).
+  // Same adminid/branchid scoping as the existing hooks.
   const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
   const selectedBranchId = useAppSelector((state) => state.selectedBranch.branchId);
   const adminid = type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : type === 'staff' ? staff?.admin?.id : undefined;
   const branchid = type === 'admin' ? selectedBranchId : type === 'branch' ? branch?.id : type === 'staff' ? staff?.branchid?.id : undefined;
 
-  // Every tab is empty until a product is picked, so nothing but the picker
-  // loads before that; after it, only the sources the active tab shows.
+  // Load only the picker until a product is chosen, then only the active tab's sources.
   const selected = !!appliedFilters.product;
   const all = activeTab === "Complete Statement";
   const need = (tab: string) => selected && (all || activeTab === tab);
@@ -64,12 +62,7 @@ const ProductStatementReport: React.FC = () => {
     skip: !adminid,
     fetchPolicy: "cache-and-network",
   });
-  // Cancelled bills are wanted HERE, unlike everywhere else: this report is
-  // the product's movement history, and a cancellation is a movement — the
-  // goods came back. Leaving it out would show a sale with no matching
-  // return and a stock figure nobody could reconcile.
-  // (No server date filter on invoices: a cancellation reversal is dated on
-  // cancelledAt, which can fall in range for a bill dated before it.)
+  // Include cancelled bills: a cancellation is a stock movement. No server date filter on invoices.
   const { data: salesData } = useQuery(PRODUCT_REPORT_SALES_INVOICES, {
     variables: { filter: { adminid, branchid } },
     skip: !need("Sales Invoices"),
@@ -78,7 +71,7 @@ const ProductStatementReport: React.FC = () => {
     variables: { filter: { adminid, branchid } },
     skip: !need("Purchase Invoices"),
   });
-  // Returns are ranged on the server by returndate text, a day wider each side; the exact range is still applied below.
+  // Returns ranged server-side a day wider; exact range applied below.
   const retFrom = appliedFilters.fromDate ? shiftYMD(appliedFilters.fromDate, -1) : null;
   const retToDay = appliedFilters.toDate ? shiftYMD(appliedFilters.toDate, 1) : null;
   const retRange = {
@@ -121,8 +114,7 @@ const ProductStatementReport: React.FC = () => {
     (branchData?.getBranches || []).forEach((b: any) => m.set(b.id, b.branchname));
     return m;
   }, [branchData]);
-  // Variant names of the selected product (transfer/adjustment lines only
-  // carry the variant id).
+  // Variant names, since transfer/adjustment lines only carry the variant id.
   const variantNames = useMemo(() => {
     const m = new Map<string, string>();
     const p = products.find((x: any) => x.id === appliedFilters.product);
@@ -166,14 +158,9 @@ const ProductStatementReport: React.FC = () => {
             variant: productItem.variantid?.name || "-",
             remarks: cancelled ? "Cancelled — see reversal below" : "-",
           }];
-          // The sale row stays, and the stock coming back gets a row of its own,
-          // dated when the cancellation happened rather than when the bill was
-          // written. Two rows, because that is what actually happened to the goods.
+          // Cancellation gets its own row, dated when it happened.
           if (cancelled) {
-            // Negative, not positive: the column totals at the foot of this table
-            // add every row up, so a positive reversal would count the cancelled
-            // bill twice and inflate both qty and value. Signed, the pair nets to
-            // zero — which is exactly what the shelf and the books say.
+            // Negative so the sale and its reversal net to zero in totals.
             rows.push({
               transactionType: "Sales Invoice Cancelled",
               invoiceNo: inv.billnumber,
@@ -216,11 +203,9 @@ const ProductStatementReport: React.FC = () => {
             variant: productItem.variantid?.name || "-",
             remarks: cancelled ? "Cancelled — see reversal below" : "-",
           }];
-          // Same as the sales side, in the other direction: the goods that came in
-          // on this bill went back out when it was cancelled.
+          // Purchase cancellation: the goods went back out.
           if (cancelled) {
-            // Signed for the same reason as the sales side — the pair must net to
-            // zero in the column totals.
+            // Signed so the pair nets to zero in totals.
             rows.push({
               transactionType: "Purchase Invoice Cancelled",
               invoiceNo: inv.billnumber,
@@ -295,8 +280,7 @@ const ProductStatementReport: React.FC = () => {
 
   const productTransfers = useMemo(() => {
     if (!appliedFilters.product) return [];
-    // A transfer voucher keeps its products in items[] — one row per
-    // matching line.
+    // One row per matching transfer item.
     return transfers.flatMap((t: any) =>
       (t.items || [])
         .filter((it: any) => it.productid === appliedFilters.product)
@@ -317,8 +301,7 @@ const ProductStatementReport: React.FC = () => {
 
   const productAdjustments = useMemo(() => {
     if (!appliedFilters.product) return [];
-    // One row per matching line item. Signed by direction (Excess = in,
-    // Shortage = out) so the Adjustment Qty total is the net stock change.
+    // One row per line, signed (Excess in, Shortage out) so the total is net change.
     return adjustments.flatMap((adj: any) => {
       const sign = adj.type === "Shortage" ? -1 : 1;
       return (adj.items || [])

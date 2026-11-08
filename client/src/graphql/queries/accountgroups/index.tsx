@@ -17,9 +17,7 @@ export const GET_ACCOUNTGROUPS = gql`
   }
 `;
 
-// Account Groups list page (and the Account Ledgers page's group picker)
-// the grid columns plus what the inline edit form reads from a row. Same root
-// field/args as GET_ACCOUNTGROUPS, so both share the normalized cache list.
+// Account Groups list page: grid + inline-form fields; shares the cache with GET_ACCOUNTGROUPS.
 export const GET_ACCOUNTGROUPS_LIST = gql`
   query GetAccountGroupsList($adminId: ID) {
     getAccountGroups(adminId: $adminId) {

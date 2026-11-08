@@ -59,16 +59,14 @@ interface FormFieldProps {
   addable?: boolean;
   onAddNew?: () => void;
   required?: boolean;
-  /** Optional in-dropdown history (e.g. party's last bills / product's last sale rates).
-      Shows a toggle button at the bottom of the dropdown menu. */
+  /** Optional history list shown inside the dropdown. */
   historyTitle?: string;
   historyHeaders?: string[];
   historyRows?: string[][];
   historyEmptyText?: string;
   /** Plain text/email/password inputs: native autocomplete hint. */
   autoComplete?: string;
-  /** Stop the browser's password manager from filling this box with a saved
-      login (it ignores autocomplete="off"): read-only until focused. */
+  /** Block password-manager autofill: read-only until focused. */
   noAutofill?: boolean;
 }
 
@@ -382,9 +380,7 @@ const FormField: React.FC<FormFieldProps> = ({
     }
 
     if (isFile) {
-      // Just the file input — the thumbnail preview is shown separately
-      // (e.g. DataTable's dedicated "Preview" column) so this field stays
-      // compact instead of spilling a raw blob/UUID filename into the row.
+      // File input only; the preview is shown separately.
       return (
         <input
           type="file"
@@ -401,15 +397,10 @@ const FormField: React.FC<FormFieldProps> = ({
       );
     }
 
-    // A native date input always renders in the BROWSER's locale — on a US
-    // Chrome that is MM/DD/YYYY, and no attribute changes it (lang="en-GB" was
-    // tried and ignored). So keep the real <input type="date"> — the calendar,
-    // keyboard entry and the YYYY-MM-DD value all stay exactly as they were
-    // but paint its text transparent and lay a DD/MM/YYYY label over it.
+    // Native date input follows browser locale, so overlay a DD/MM/YYYY label on it.
     if (type === 'date') {
       const raw = value ?? '';
-      // Callers normally hold YYYY-MM-DD (what the input itself uses), but a few
-      // pass a Date or an epoch — fall back rather than blanking the field.
+      // Accepts YYYY-MM-DD, a Date or an epoch.
       let ymd = String(raw);
       if (!/^\d{4}-\d{2}-\d{2}$/.test(ymd) && raw !== '') {
         const d = new Date(/^\d+$/.test(ymd) ? Number(ymd) : ymd);
@@ -439,12 +430,7 @@ const FormField: React.FC<FormFieldProps> = ({
             onChange={onChange}
             disabled={disabled}
             required={required}
-            // text-transparent alone is not enough: when a segment is focused the
-            // browser paints its own highlight and forces a contrasting colour,
-            // so the native "2026" showed THROUGH the overlay and the year read
-            // as doubled-up digits. Zeroing the edit region's opacity hides the
-            // glyphs and the highlight together, while the calendar button,
-            // keyboard entry and the value all keep working.
+            // Hide the native glyphs and focus highlight so they don't show through the overlay.
             className={`w-full text-sm bg-transparent outline-none text-transparent [&::-webkit-datetime-edit]:opacity-0 ${className}`}
           />
         </span>

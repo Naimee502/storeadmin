@@ -59,12 +59,7 @@ export const useProductServicesQuery = (
   return { data, loading, error, refetch };
 };
 
-/**
- * Products list page only — same variables/filter as useProductServicesQuery,
- * but the lite GET_PRODUCT_SERVICES_LIST selection. `variables` is returned so
- * the page can fetch the full GET_PRODUCT_SERVICES for the same scope on demand
- * (Export).
- */
+/** Products list page (lite); returns `variables` so Export can fetch full records. */
 export const useProductServicesListQuery = (
   status: boolean = true,
   limit: number = 0,
@@ -97,10 +92,7 @@ export const useProductServicesListQuery = (
   return { data, loading, error, refetch, variables };
 };
 
-/**
- * Products list page: one page from the server. `listVariables` is the scope of
- * the full list (as useProductServicesListQuery) so Export can fetch every row.
- */
+/** Products list page: one server page; `listVariables` lets Export fetch all rows. */
 export const useProductServicesPageQuery = ({
   page,
   pageSize,
@@ -163,17 +155,9 @@ export const useDeletedProductServicesQuery = () => {
   return useProductServicesQuery(false);
 };
 
-/* ------------------------------------------------------------------ *
- * Import / Export
- * ------------------------------------------------------------------ */
+// Import / Export
 
-/**
- * Master lists for the spreadsheet template.
- *
- * Fetched lazily — the lists are only needed once someone opens the import
- * dialog or clicks Export, and pulling eight collections on every page load
- * would be wasteful.
- */
+/** Master lists for the spreadsheet template, fetched lazily. */
 export const useProductImportMasters = () => {
   const [load, { data, loading, error }] = useLazyQuery(GET_PRODUCT_IMPORT_MASTERS, {
     fetchPolicy: "network-only",

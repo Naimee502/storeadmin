@@ -22,9 +22,7 @@ const fyInfo = () => {
   return `${fy.label} (${formatDateDMY(fy.start)} → ${formatDateDMY(fy.end)})`;
 };
 
-/* ──────────────────────────────────────────────────────────────────
-   Types
-────────────────────────────────────────────────────────────────── */
+// Types
 export type ReportFilterField = {
   name: string;
   label: string;
@@ -41,11 +39,7 @@ export type ReportColumn = {
   render?: (row: any) => React.ReactNode;
   /** Mark true → right-align + include in Totals row */
   numeric?: boolean;
-  /**
-   * Mark true for action-only columns (buttons, icons). Exports read raw
-   * row values, not rendered output, so these would otherwise land in the
-   * Excel/CSV/PDF file as an empty column.
-   */
+  /** Action-only column; left out of exports. */
   noExport?: boolean;
 };
 
@@ -71,11 +65,7 @@ interface ReportTableProps {
   showTotals?: boolean;
   exportFileName?: string;
   pdfSubtitle?: string[];
-  /**
-   * Show the net (debit - credit) inside the Totals row. Pass the two numeric
-   * column keys that should net out; showInKey picks the column the net is
-   * printed in (defaults to the last column).
-   */
+  /** Print net (debit - credit) in the Totals row; showInKey defaults to the last column. */
   netTotal?: {
     debitKey: string;
     creditKey: string;
@@ -86,13 +76,8 @@ interface ReportTableProps {
   };
 }
 
-/* ──────────────────────────────────────────────────────────────────
-   Helpers
-────────────────────────────────────────────────────────────────── */
-// Accounting reports render negatives in brackets — "(25000.00)" means
-// 25000. Number("(25000.00)") is NaN, so a plain Number() check silently
-// dropped every negative row from the totals (a vendor sheet full of
-// payables added up to 0). Strip the brackets and restore the sign.
+// Helpers
+// Bracketed negatives like "(25000.00)" parse as negative numbers.
 const toNumericVal = (v: any): number | null => {
   if (v === null || v === undefined || v === "") return null;
   const s = String(v).trim();
@@ -104,24 +89,8 @@ const toNumericVal = (v: any): number | null => {
 
 const isNumericVal = (v: any) => toNumericVal(v) !== null;
 
-// The Totals-row net: total debits less total credits. Because the opening row
-// carries the opening balance in those same two columns, this lands on exactly
-// the CLOSING balance -- so the net always agrees with the last Running Balance
-// on screen and with what the Balance Sheet reads off the posted transactions.
-//
-// It deliberately does NOT fold in a statement's discount / commission columns.
-// That fold used to live here, meant to make the net reconcile to the cash that
-// actually moved, but a single column-wide sign can only be right for one
-// direction: a receipt puts the ledger leg on the credit side and a payment-out
-// on the debit side, and the same concession moves the cash opposite ways in
-// each case. A 5000 receipt with 10 discount and 20 commission netted to 4990
-// when the cash was 5010, and the figure agreed with neither the balance nor
-// the cash. The balance now moves by the cash itself -- the concessions are
-// already inside that net -- so debit minus credit means one thing only.
-//
-// A report whose concessions DO carry one fixed sign for every row (the Party
-// Statement: discount always minus, commission always plus) can opt in with
-// minusKeys / plusKeys so its net still lands on the closing balance.
+// Totals-row net = debits - credits, i.e. the closing balance.
+// Discount/commission only fold in via minusKeys / plusKeys (fixed-sign reports).
 const netTotalOf = (
   spec: { debitKey: string; creditKey: string; minusKeys?: string[]; plusKeys?: string[] },
   sumKey: (k: string) => number,
@@ -137,13 +106,7 @@ const cellText = (v: any): any => (Array.isArray(v) ? v.join("; ") : v ?? "");
 /** Columns whose text is "Name - Mobile - City" (partyLabel) → 2-line cell. */
 const PARTY_COL = /party|vendor|customer|supplier/i;
 
-/**
- * Default cell renderer (when a column has no render of its own):
- *  - arrays  → one item per line (e.g. every product of a bill with its qty),
- *    so a multi-item bill is never squashed into "a, b, c";
- *  - party   → name on top, "mobile · city" underneath in grey, so the column
- *    stays narrow and the table needs no sideways scroll.
- */
+/** Default cell: arrays one item per line; party as name over "mobile · city". */
 const renderCell = (col: ReportColumn, value: any): React.ReactNode => {
   if (Array.isArray(value)) {
     if (value.length === 0) return "-";
@@ -175,9 +138,7 @@ const buildExportRow = (row: any, columns: ReportColumn[]) => {
   return obj;
 };
 
-/* ──────────────────────────────────────────────────────────────────
-   PDF via print window  (Tally-style)
-────────────────────────────────────────────────────────────────── */
+// PDF via print window (Tally-style)
 const printReportAsPDF = (
   title: string,
   columns: ReportColumn[],
@@ -205,8 +166,7 @@ const printReportAsPDF = (
       return `<tr class="${i % 2 === 0 ? "even" : ""}">${cells}</tr>`;
     }).join("");
 
-  // Totals row. When netTotal is given, the net (debit - credit) is printed in
-  // that report's chosen column of the same Totals row (last column by default).
+  // Totals row, with the net in the chosen column when netTotal is set.
   const sumKey = (key: string) =>
     data.reduce((a, r) => a + (toNumericVal(r[key]) ?? 0), 0);
   const netKey = netTotal
@@ -231,8 +191,7 @@ const printReportAsPDF = (
       }).join("")}</tr>`
     : "";
 
-  // Fit wide reports on the page: landscape from 8 columns, smaller text and
-  // padding as the column count grows.
+  // Wide reports print landscape with smaller text.
   const n = columns.length;
   // Always A4 (what offices print on): landscape from 8 columns.
   const pageSize = n > 7 ? "A4 landscape" : "A4 portrait";
@@ -269,11 +228,8 @@ ${subtitleHtml}
   win.document.close();
 };
 
-/* ──────────────────────────────────────────────────────────────────
-   Component
-────────────────────────────────────────────────────────────────── */
-// Column chooser: offered only on wide reports, remembered per report in this
-// browser. The first LOCKED_COLS columns (Seq No / Rank, name) always stay.
+// Component
+// Column chooser for wide reports, remembered per report; first LOCKED_COLS always stay.
 const COLUMN_CHOOSER_MIN = 9;
 const LOCKED_COLS = 2;
 
@@ -431,9 +387,7 @@ const ReportTable: React.FC<ReportTableProps> = ({
     return { key, value: netTotalOf(netTotal, sumKey).toFixed(2) };
   }, [filteredData, columns, showTotals, netTotal]);
 
-  /* ── Built-in exports ── */
-  // Action-only columns (the reminder bell, etc.) hold no row data, so they
-  // are dropped from every export rather than shipping an empty column.
+  /* Built-in exports; action-only columns are dropped. */
   const exportColumns = useMemo(
     () => columns.filter((c) => !c.noExport),
     [columns]
@@ -493,8 +447,7 @@ const ReportTable: React.FC<ReportTableProps> = ({
   /* ── Render ── */
   return (
     <div className="relative">
-      {/* No full-screen overlay: the table stays visible and a thin bar runs
-          on top of it while the next tab / date range loads (desktop feel). */}
+      {/* Thin loading bar instead of a full-screen overlay. */}
 
       <div className="space-y-2 text-[13px]">
 

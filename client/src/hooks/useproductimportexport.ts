@@ -29,10 +29,7 @@ import {
 import { PRODUCT_FORM_FIELD_IDS, headerForField, type SheetId } from "../utils/excel/productschema";
 import type { ImportMode, ImportStage, ImportSummary } from "../components/importdialog";
 
-/**
- * "2 new Categories will be created: Oils, Soaps" — one line per master type,
- * from the server's list, so the user sees exactly what the import will add.
- */
+/** One "will be created" line per master type, from the server's list. */
 const newMasterLines = (
   items: { label: string; name: string }[] | null | undefined,
   done = false
@@ -53,16 +50,9 @@ const newMasterLines = (
   });
 };
 
-/**
- * Ties the spreadsheet pieces to the products page.
- *
- * Kept as a hook rather than inline in the page so the same flow can be reused
- * for the other master modules later — categories, brands, units and the rest
- * all have the identical import/export stub today.
- */
+/** Product import/export flow for the products page. */
 export const useProductImportExport = (
-  // Either the rows themselves, or a loader that fetches the full records when
-  // Export is clicked (the products list page only holds lite rows).
+  // Rows, or a loader that fetches full records on Export.
   products: any[] | (() => Promise<any[]>)
 ) => {
   const dispatch = useAppDispatch();
@@ -80,23 +70,18 @@ export const useProductImportExport = (
   const [errors, setErrors] = useState<RowError[]>([]);
   const [warnings, setWarnings] = useState<string[]>([]);
   const [summary, setSummary] = useState<ImportSummary | null>(null);
-  // One mode only: add new products and update existing ones (matched on
-  // Product Code). A separate "add only" choice was easy to pick by mistake
-  // with an exported file, and then every existing row was skipped.
+  // Single mode: add new and update existing (matched on Product Code).
   const [mode, setMode] = useState<ImportMode>("UPSERT");
   const [abortOnError, setAbortOnError] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<UploadProgress | null>(null);
   const [busyMessage, setBusyMessage] = useState("");
-  // Images picked with "Select Images" (files or a folder). Matched by file
-  // name against the Product Image / Category Image / Sub Category Image cells.
+  // Picked images, matched by file name against the image cells.
   const [pickedImages, setPickedImages] = useState<Map<string, File>>(new Map());
   const pickedWarnings = useRef<string[]>([]);
-  // The file exactly as the user chose it (sheet or zip), so picking images
-  // after the upload can re-run the check without asking for it again.
+  // The original file, so picking images can re-run the check.
   const originalFile = useRef<File | null>(null);
 
-  // Held so "download the file with errors marked" can re-open the exact
-  // workbook the user gave us, rather than a reconstruction of it.
+  // Kept to mark errors on the user's own workbook.
   const uploadedFile = useRef<File | null>(null);
   const parsedRef = useRef<{
     products: any[];
@@ -112,8 +97,7 @@ export const useProductImportExport = (
     const result = await loadMasters();
     const fresh = result.data?.getProductImportMasters;
     if (!fresh) {
-      // Say WHY — "session expired, sign in again" is something the person
-      // can fix; a generic "could not load" sends them to support instead.
+      // Show the actual reason so the user can fix it.
       const serverError: any = result.error;
       const reason =
         serverError?.graphQLErrors?.[0]?.message ||
@@ -273,15 +257,13 @@ export const useProductImportExport = (
 
         collectedWarnings.push(...parsed.warnings);
 
-        // Product images plus Category / Sub Category images, all uploaded in
-        // one pass so a shared file is only sent once.
+        // Upload product and category images in one pass.
         const referencedImages = new Map<string, string[]>([
           ...parsed.imageFiles,
           ...parsed.masterImageFiles,
         ]);
 
-        // Pictures inside the Excel cells, picked images and zip images
-        // together. In-cell pictures have generated names, so they never clash.
+        // Merge in-cell, picked and zip images.
         const availableImages = new Map<string, File>([
           ...pickedImages,
           ...(zipImages ?? []),
@@ -326,8 +308,7 @@ export const useProductImportExport = (
           masterNames: parsed.masterNames,
         };
 
-        // The server does the counting. Client validation is for a fast, clear
-        // report — it is not the gate, and its numbers are not authoritative.
+        // The server's counts are authoritative; client checks are just a fast report.
         setBusyMessage("Checking against your data…");
         const dry = await runImport({
           products: parsed.products,
@@ -337,11 +318,7 @@ export const useProductImportExport = (
           dryRun: true,
         });
 
-        // The server knows which sheet an issue belongs to but not which row
-        // of it — it never sees the workbook, only the assembled products. So
-        // take its sheet, leave the row blank rather than guess (a guessed row
-        // number paints the wrong cell in the corrected file), and translate
-        // its field key into the header the user sees.
+        // Server issues have a sheet but no row; map the field key to its header.
         const serverErrors: RowError[] = (dry?.errors ?? []).map((e: any) => {
           const sheet = ((e.sheet as SheetId) ?? "Products") as SheetId;
           return {
@@ -447,8 +424,7 @@ export const useProductImportExport = (
           setWarnings(newMasterLines(result.newmasters, true));
         }
 
-        // New categories / brands now exist — refresh the cached lists so the
-        // next template or import sees them in the dropdowns.
+        // Refresh master lists so new categories/brands appear.
         loadMasters().catch(() => undefined);
 
         const added = (result?.created ?? 0) + (result?.updated ?? 0);

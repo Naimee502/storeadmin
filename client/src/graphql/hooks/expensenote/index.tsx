@@ -19,12 +19,9 @@ import {
 import { useAppSelector } from "../../../redux/hooks";
 import { PAYMENT_SIDE_EFFECT_QUERIES } from "../shared/paymentsideeffects";
 
-/* =========================
-   MUTATIONS
-   ========================= */
+// Mutations
 
-// A credit expense note auto-creates a Payment + Transaction on the server
-// (ExpenseNote.createJournalAndPayment), so those caches must be refetched.
+// A credit expense note creates a Payment + Transaction server-side, so refetch those.
 export const useExpenseNoteMutations = () => {
   const [addExpenseNoteMutation] = useMutation(ADD_EXPENSE_NOTE, {
     refetchQueries: PAYMENT_SIDE_EFFECT_QUERIES,
@@ -47,9 +44,7 @@ export const useExpenseNoteMutations = () => {
   };
 };
 
-/* =========================
-   EXPENSE NOTES QUERY
-   ========================= */
+// Expense notes query
 
 export const useExpenseNotesQuery = (fetchPolicy?: WatchQueryFetchPolicy) => {
   const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
@@ -66,9 +61,7 @@ export const useExpenseNotesQuery = (fetchPolicy?: WatchQueryFetchPolicy) => {
   return { data, loading, error, refetch };
 };
 
-/* =========================
-   EXPENSE NOTES LIST (lite) — list page only
-   ========================= */
+// Expense notes list (lite), list page only
 
 export const useExpenseNotesListQuery = (fetchPolicy?: WatchQueryFetchPolicy) => {
   const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
@@ -85,9 +78,7 @@ export const useExpenseNotesListQuery = (fetchPolicy?: WatchQueryFetchPolicy) =>
   return { data, loading, error, refetch };
 };
 
-/* =========================
-   DELETED EXPENSE NOTES QUERY
-   ========================= */
+// Deleted expense notes query
 
 export const useDeletedExpenseNotesQuery = () => {
   const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
@@ -103,9 +94,7 @@ export const useDeletedExpenseNotesQuery = () => {
   return { data, loading, error, refetch };
 };
 
-/* =========================
-   EXPENSE NOTE BY ID QUERY
-   ========================= */
+// Expense note by id query
 
 export const useExpenseNoteByIDQuery = (id?: string) => {
   const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
@@ -119,12 +108,7 @@ export const useExpenseNoteByIDQuery = (id?: string) => {
   return { data, loading, error };
 };
 
-/* =========================
-   CATEGORY LEDGER (TA/DA, Salary)
-   Used by the form to fetch (and create on first use) the canonical
-   expense ledger for a category. We use a lazy query because it only
-   runs when the user changes the category dropdown.
-   ========================= */
+// Category ledger (TA/DA, Salary): lazily fetched (or created) on category change
 
 export const useExpenseCategoryLedgerLazy = () => {
   return useLazyQuery(GET_EXPENSE_CATEGORY_LEDGER);

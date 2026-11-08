@@ -19,8 +19,7 @@ const reportTabsObj = [
 const StockReports: React.FC = () => {
   const [activeTab, setActiveTab] = useState<string>(reportTabsObj[0].id);
 
-  // Same adminid/branchid scoping as useProductServicesQuery /
-  // useTransferStocksQuery / useBranchesQuery.
+  // Same adminid/branchid scoping as the product, transfer and branch hooks.
   const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
   const selectedBranchId = useAppSelector((state) => state.selectedBranch.branchId);
   const adminId = type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : type === 'staff' ? staff?.admin?.id : undefined;
@@ -101,8 +100,7 @@ const StockReports: React.FC = () => {
     if (!isTransfers) return [];
     const allTransfers = [...transfers, ...deletedTransfers];
     const deletedIds = new Set(deletedTransfers.map((dt: any) => dt.id));
-    // A transfer voucher carries its products in items[] — one row per item.
-    // (Older flat records without items[] still map as a single row.)
+    // One row per transfer item (older flat records map to one row).
     return allTransfers.flatMap((t: any) => {
       const items: any[] = Array.isArray(t.items) && t.items.length ? t.items : [t];
       const fromBranch = branches.find((b: any) => b.id === t.frombranchid);

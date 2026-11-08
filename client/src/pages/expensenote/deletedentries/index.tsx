@@ -31,9 +31,7 @@ const DeletedExpenseNotes = () => {
 
   const deletedExpenseNotes = data?.getDeletedExpenseNotes || [];
 
-  /* =========================
-     FETCH
-     ========================= */
+  // Fetch
 
   useEffect(() => {
     const fetchDeleted = async () => {
@@ -50,9 +48,7 @@ const DeletedExpenseNotes = () => {
     fetchDeleted();
   }, [dispatch, refetch]);
 
-  /* =========================
-     TABLE COLUMNS
-     ========================= */
+  // Table columns
 
   const columns = [
     { label: "Seq", key: "seqNo" },
@@ -76,15 +72,13 @@ const DeletedExpenseNotes = () => {
     other: "Other",
   };
 
-  /* =========================
-     FORMAT DATA
-     ========================= */
+  // Format data
 
   const tableData = [...deletedExpenseNotes].reverse().map((exp: any, index: number) => {
     let formattedDate = "-";
 
     if (exp.expensedate) {
-      const timestamp = Number(exp.expensedate); // FIX
+      const timestamp = Number(exp.expensedate);
       const dt = new Date(timestamp);
 
       if (!isNaN(dt.getTime())) {
@@ -112,9 +106,7 @@ const DeletedExpenseNotes = () => {
     };
   });
 
-  /* =========================
-     UI
-     ========================= */
+  // UI
 
   if (showClaims) {
     return (

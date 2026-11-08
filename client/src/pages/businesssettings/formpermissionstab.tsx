@@ -5,18 +5,7 @@ import { FORM_PERMISSIONS_CONFIG } from "../../config/formpermissions";
 import { showMessage } from "../../redux/slices/message";
 import { setPermissions as setReduxPermissions } from "../../redux/slices/permissions";
 
-/**
- * Which fields each form shows, for one level of the hierarchy:
- *   admin  → Business Settings → Business Form Permissions
- *   branch → Settings (admin login) → Branch Form Permissions
- *   staff  → Settings (branch login) → Staff Form Permissions
- *
- * A branch / staff member can only see a SUBSET of what the level above
- * allows: `ceiling` is the parent's effective form permissions, and any field
- * it switched off shows here greyed out and can't be ticked (the server merge
- * enforces the same rule). `allowedModules` hides forms of modules the target
- * can't open anyway.
- */
+/** Form field permissions for one level; children are capped by the parent's (ceiling). */
 const FormPermissionsTab: React.FC<{
   scope: "admin" | "branch" | "staff";
   scopeid?: string;
@@ -29,9 +18,7 @@ const FormPermissionsTab: React.FC<{
   const configs = FORM_PERMISSIONS_CONFIG.filter(
     (c) => !allowedLower || allowedLower.includes(c.moduleId.toLowerCase())
   );
-  // Always read the stored document fresh: Access and Form Permissions save
-  // the same document, so a cached copy from the other tab would write the
-  // other tab's changes back over themselves.
+  // Read fresh: Access and Form Permissions save the same document.
   const [load, { data, loading }] = usePermissionsLazy({ fetchPolicy: "network-only" });
   const { setPermissions } = usePermissionsMutations();
   const [draft, setDraft] = useState<any>(null);
@@ -59,9 +46,7 @@ const FormPermissionsTab: React.FC<{
       };
       const response = await setPermissions({ variables: { scope, scopeid, permissions: fullPermissions } });
 
-      // Update Redux state immediately so changes reflect without reloading
-      // only for the business's own settings. Saving a branch / staff member
-      // must not replace the logged-in user's permissions.
+      // Update Redux only for the business's own settings, not a branch/staff save.
       if (scope !== "admin") {
         // nothing to refresh locally
       } else if (response.data?.setPermissions?.permissions) {

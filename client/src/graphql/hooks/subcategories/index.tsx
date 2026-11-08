@@ -106,8 +106,7 @@ export const useSubCategoryByIDQuery = (id: string) => {
   return { data, loading, error };
 };
 
-// Saves the order of one category's sub-categories (Sub Categories →
-// Rearrange). Admin id resolved the same way as useSubCategoriesQuery.
+// Saves one category's sub-category order.
 export const useReorderSubCategories = () => {
   const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
 

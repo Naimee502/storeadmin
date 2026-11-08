@@ -36,9 +36,7 @@ const EXPENSE_NOTE_FIELDS = `
   updatedAt
 `;
 
-/* =========================
-   QUERIES
-   ========================= */
+// Queries
 
 export const GET_EXPENSE_NOTES = gql`
   query GetExpenseNotes($filter: ExpenseNoteFilterInput) {
@@ -48,8 +46,7 @@ export const GET_EXPENSE_NOTES = gql`
   }
 `;
 
-// Listing-page query: only the columns the Expense Notes table renders, no
-// expense lines (expenses[]), notes or staff salary details.
+// Listing page: table columns only.
 export const GET_EXPENSE_NOTES_LIST = gql`
   query GetExpenseNotesList($filter: ExpenseNoteFilterInput) {
     getExpenseNotes(filter: $filter) {
@@ -91,8 +88,7 @@ export const GET_EXPENSE_NOTE_BY_ID = gql`
   }
 `;
 
-// Used by the form to lazily fetch (and create if missing) the canonical
-// expense ledger for "tada" or "salary".
+// Lazily fetch (or create) the "tada"/"salary" expense ledger.
 export const GET_EXPENSE_CATEGORY_LEDGER = gql`
   query GetExpenseCategoryLedger($adminid: ID!, $category: String!) {
     getExpenseCategoryLedger(adminid: $adminid, category: $category) {
@@ -102,9 +98,7 @@ export const GET_EXPENSE_CATEGORY_LEDGER = gql`
   }
 `;
 
-/* =========================
-   MUTATIONS
-   ========================= */
+// Mutations
 
 export const ADD_EXPENSE_NOTE = gql`
   mutation AddExpenseNote($input: ExpenseNoteInput!) {

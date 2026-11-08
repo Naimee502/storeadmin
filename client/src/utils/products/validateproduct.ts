@@ -1,22 +1,6 @@
 import { belowCostError } from "../rates";
 
-/**
- * Product validation, in one place.
- *
- * This used to live inline in pages/products/addedit as validateForm(). It was
- * lifted out so the add/edit form, the spreadsheet importer and the server all
- * apply exactly the same rules — otherwise a product rejected by the form can
- * still walk in through an import, and the two sets of rules drift apart the
- * first time either is touched.
- *
- * The function is pure: it takes a product-shaped object and returns problems.
- * It does no React, no Redux and no network, so the importer and the server can
- * both call it.
- *
- * Two output shapes are produced from the same pass:
- *   - `errors`  — the nested object the add/edit form already renders from.
- *   - `issues`  — a flat list, which is what a row-by-row import report needs.
- */
+// Product validation shared by the add/edit form, importer and server; returns nested `errors` and flat `issues`.
 
 export type FieldPermissions = Record<string, boolean | undefined>;
 
@@ -59,11 +43,7 @@ export const isEmptyDeep = (obj: any): boolean => {
   return false;
 };
 
-/**
- * A field only counts as required if it is actually switched on in Business
- * Settings → Form Permissions. Turning "Category" off in the form and then
- * having the importer demand it would be incoherent.
- */
+/** A field is required only if enabled in Form Permissions. */
 const enabled = (permissions: FieldPermissions | undefined, fieldId: string) =>
   !permissions || permissions[fieldId] !== false;
 
@@ -185,9 +165,7 @@ export const validateProduct = (
           convErrors.factor = "Factor must be greater than 0";
           at("factor", convErrors.factor, "unitconversion", cIndex);
         }
-        // Indexed, not pushed. The UI reads errors.productvariants[i]
-        // .unitconversions[convIndex], so a compacted array would show row 3's
-        // problem against row 1 and leave row 3 looking fine.
+        // Indexed, not pushed, so errors line up with their rows.
         if (Object.keys(convErrors).length) convErrorsArr[cIndex] = convErrors;
       });
       if (convErrorsArr.filter(Boolean).length) variantErrors.unitconversions = convErrorsArr;

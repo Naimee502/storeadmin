@@ -1,10 +1,4 @@
-// PaymentDrawer
-//
-// Right-side drawer that completes a POS sale. Handles the LAST mile of the
-// transaction only: payment mode + paid amount + change due. The customer is
-// already chosen in the cart (POS Dashboard) and arrives via `onComplete`'s
-// caller, so we deliberately do NOT show another customer picker here
-// having two pickers leads to duplicate selection and inconsistent state.
+// PaymentDrawer: payment mode, paid amount and change for a POS sale (customer is picked in the cart).
 
 import { X } from "lucide-react";
 import { useEffect, useState } from "react";

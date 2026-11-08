@@ -1,12 +1,4 @@
-// Add / Edit a Sales Return (Credit Note).
-//
-// Modes
-// ?fromInvoice=<id> → load that invoice; the user ticks the lines being returned
-// /:id (existing) → load existing return for editing
-// bare /addedit → user must pick a source invoice from the dropdown
-//
-// Quantity validation runs both client-side (immediate UX) and server-side
-// (authoritative — reads existing returns to compute remaining returnable qty).
+// Add / Edit a Sales Return: ?fromInvoice=<id>, /:id, or pick an invoice; qty also checked server-side.
 
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams, useLocation } from "react-router";
@@ -344,9 +336,7 @@ const AddEditSalesReturn: React.FC = () => {
     );
   }, [isEdit, sourceInvData, salesReturns, sourceInvoiceId]);
 
-  // Totals
-  // Set the return qty of several lines in one go (row tick, header tick,
-  // or typing a qty) and recompute each one's amount.
+  // Set return qty on several lines at once and recompute amounts.
   const setQtys = (updates: Record<number, number>) => {
     setLines((prev) =>
       prev.map((line, idx) => {

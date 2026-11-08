@@ -29,9 +29,7 @@ const DeletedTransferStocks = () => {
   const allProducts = productData?.getProductServices || [];
   const transferStockList = data?.getDeletedTransferStocks || [];
 
-  // Same resolution as the active Transfer Stock list — transferunitid points
-  // at one of the product variant's unit conversions (or its base unit),
-  // neither of which the transfer query itself populates.
+  // Resolve the unit label from the variant's conversions (not populated by the query).
   const productNameOf = (item: any) => {
     const product = allProducts.find((p: any) => p.id === item.productid);
     if (!product) return "-";

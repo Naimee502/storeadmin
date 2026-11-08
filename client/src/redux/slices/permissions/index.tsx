@@ -33,9 +33,7 @@ const isModuleInAllowed = (state: any, moduleId: string): boolean => {
   const role = state.auth.type?.toString().toLowerCase();
   const mid = moduleId.toLowerCase();
 
-  // Default-on modules (newly added) are always allowed at the business level
-  // even for tenants whose allowedmodules array predates the module. Branch/
-  // staff overrides below still apply.
+  // Default-on modules are allowed at business level even for older tenants.
   if (DEFAULT_ON_MODULE_IDS.includes(mid)) return true;
 
   const includes = (arr: string[] | null | undefined) => {
@@ -67,13 +65,7 @@ export const selectIsModuleAllowed = (state: any, moduleId: string): boolean => 
   return isModuleInAllowed(state, moduleId);
 };
 
-// Business-level "is this module part of how the company works" check
-// business + branch allowance only, deliberately SKIPPING the staff-level
-// restriction (Level 3 above). Use this for workflow decisions that must
-// look the same for every role at a branch (e.g. "does this business
-// convert Sales Orders to Sales Invoices, or keep orders standalone?"),
-// as opposed to selectIsModuleAllowed which also gates a staff member's own
-// page access and should stay staff-restricted for that purpose.
+// Business + branch allowance only (no staff restriction), for role-independent workflow checks.
 export const selectIsModuleBusinessEnabled = (state: any, moduleId: string): boolean => {
   const mid = moduleId.toLowerCase();
   if (DEFAULT_ON_MODULE_IDS.includes(mid)) return true;
@@ -95,12 +87,7 @@ export const selectIsModuleBusinessEnabled = (state: any, moduleId: string): boo
   return true;
 };
 
-/**
- * Find a module's saved permission record, whatever case it was stored under.
- * `undefined` means the module has no record at all — nothing was ever
- * configured for it — which is different from a record that simply does not
- * grant a particular action.
- */
+/** Module's saved permission record, any case; `undefined` means never configured. */
 export const findSectionPerms = (
   permissions: Record<string, any>,
   moduleId: string
@@ -109,25 +96,7 @@ export const findSectionPerms = (
   return Object.entries(permissions || {}).find(([k]) => k.toLowerCase() === targetId)?.[1] as any;
 };
 
-/**
- * The ONE rule for "is this action allowed", used by both the runtime gate here
- * and the Business Permissions matrix, so a checkbox can never disagree with
- * what the app actually does.
- *
- *   • explicit true / false        → obey it.
- *   • module saved, action MISSING → deny. The admin has configured this
- *     module; an action absent from that record was never granted to it.
- *   • no record for the module     → allow (nothing configured yet).
- *
- * The middle case is the one that shipped a bug: when a new action is added to
- * a module (Print and WhatsApp on Sales / Purchase Orders), every tenant whose
- * permissions were saved BEFORE that release has a record without the new key.
- * The matrix drew those boxes unchecked — `!!draft?.[id]?.[action]` — while the
- * old rule here read the same missing key as "allow", so the buttons appeared
- * in the Actions column of a business that had never been given them. A new
- * capability now stays off until someone ticks it, which is also what the
- * server's own permissions resolver documents ("missing = deny by default").
- */
+/** Action rule: explicit true/false wins; saved module missing the action → deny; no record → allow. */
 export const resolveAction = (
   sectionPerms: Record<string, boolean> | undefined,
   action: string

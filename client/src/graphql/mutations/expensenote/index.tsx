@@ -1,8 +1,6 @@
 import { gql } from "@apollo/client";
 
-/* =========================
-   ADD EXPENSE NOTE
-   ========================= */
+// Add expense note
 
 export const ADD_EXPENSE_NOTE = gql`
   mutation AddExpenseNote($input: ExpenseNoteInput!) {
@@ -35,9 +33,7 @@ export const ADD_EXPENSE_NOTE = gql`
   }
 `;
 
-/* =========================
-   EDIT EXPENSE NOTE
-   ========================= */
+// Edit expense note
 
 export const EDIT_EXPENSE_NOTE = gql`
   mutation EditExpenseNote($id: ID!, $input: ExpenseNoteInput!) {
@@ -70,9 +66,7 @@ export const EDIT_EXPENSE_NOTE = gql`
   }
 `;
 
-/* =========================
-   DELETE EXPENSE NOTE
-   ========================= */
+// Delete expense note
 
 export const DELETE_EXPENSE_NOTE = gql`
   mutation DeleteExpenseNote($id: ID!) {
@@ -80,9 +74,7 @@ export const DELETE_EXPENSE_NOTE = gql`
   }
 `;
 
-/* =========================
-   RESET EXPENSE NOTE
-   ========================= */
+// Reset expense note
 
 export const RESET_EXPENSE_NOTE = gql`
   mutation ResetExpenseNote($id: ID!) {

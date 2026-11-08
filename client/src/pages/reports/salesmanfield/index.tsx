@@ -13,14 +13,7 @@ import { useAppSelector } from "../../../redux/hooks";
 import { formatDateDMY, formatDateTimeDMY, todayYMD, shiftDaysYMD } from "../../../utils/helper";
 import { FaChartBar, FaListAlt, FaBullseye, FaBoxes, FaMapMarkedAlt } from "react-icons/fa";
 
-// Salesman Field Report. All figures come from the server
-// (getSalesmanPerformance / getSalesmanCallLog / getSalesmanProductSales),
-// which applies one rule set for calls
-// Productive = visited and an order booked
-//   Unproductive = visited, no order (with the salesman's reason)
-// Missed = on the route for that day, never visited (past days)
-// Pending = on today's route, not visited yet
-// The salesman app dashboard uses the same server code, so both always agree.
+// Salesman Field Report; all figures come from the server, same as the salesman app.
 
 const TABS = [
   { id: "overview", label: "Overview", icon: <FaChartBar className="text-[12px] text-amber-500" /> },
@@ -43,8 +36,7 @@ const n2 = (n: any) => Number(n || 0).toFixed(2);
 
 const geocodeCache: Record<string, string> = {};
 
-// Compact stat tile: every line stays on ONE line (truncated, full text on
-// hover) so nine tiles fit a row without growing tall.
+// Compact one-line stat tile (full text on hover).
 const Tile: React.FC<{ label: string; value: string; sub?: string; tone?: string }> = ({ label, value, sub, tone }) => (
   <div className="rounded-md border border-slate-200 bg-white px-2.5 py-1.5 min-w-0" title={sub ? `${label} — ${sub}` : label}>
     <div className="text-[11px] text-slate-500 truncate">{label}</div>
@@ -150,8 +142,7 @@ const SalesmanFieldReport: React.FC = () => {
   const { data: logLive, previousData: logPrev, loading: logLoading } = useQuery(GET_SALESMAN_CALL_LOG, {
     variables: { filter: reportFilter }, skip: skip || tab !== "calls", fetchPolicy: "cache-and-network",
   });
-  // Keep showing the previous result while a new filter loads — no full-screen
-  // loader / blank page on every Apply, Reset or quick-date click.
+  // Keep the previous result visible while a new filter loads.
   const perfData = perfLive ?? perfPrev;
   const logData = logLive ?? logPrev;
   const perf: any[] = (perfData as any)?.getSalesmanPerformance || [];
@@ -319,8 +310,7 @@ const SalesmanFieldReport: React.FC = () => {
   const bestAchiever = [...perf].filter((p) => p.monthTarget > 0).sort((a, b) => b.monthAchievedPct - a.monthAchievedPct)[0];
   const topSeller = [...perf].sort((a, b) => b.monthAchieved - a.monthAchieved)[0];
 
-  // ── Product & category ──
-  // ── Sales Statement: every order line (product · variant · unit · qty) ──
+  // Sales statement: every order line.
   const { data: linesLive, previousData: linesPrev, loading: linesLoading } = useQuery(GET_SALESMAN_ORDER_LINES, {
     variables: { filter: reportFilter }, skip: skip || tab !== "products", fetchPolicy: "cache-and-network",
   });
@@ -392,8 +382,7 @@ const SalesmanFieldReport: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stLines, perf, applied.salesmanid]);
 
-  // One statement, five ways to look at it — all in the standard report table
-  // (search, column filters, totals, Excel / CSV / PDF), same as Target vs Achievement.
+  // One statement, five views, all in the standard report table.
   const stTable = useMemo(() => {
     const grand = stLines.reduce((a, l) => a + l.amount, 0) || 1;
     const share = (amt: number) => `${((amt / grand) * 100).toFixed(1)}%`;
@@ -513,9 +502,7 @@ const SalesmanFieldReport: React.FC = () => {
     dateFrom: trk.date || undefined,
     dateTo: trk.date || undefined,
   }), [trk]);
-  // Same variables as the locationping hooks (admin-scoped only), but only on
-  // the Live tab — and the full trail only once a salesman is picked (it was
-  // fetched for everyone on every tab and then discarded).
+  // Location queries only on the Live tab; full trail once a salesman is picked.
   const isLive = tab === "live";
   const { data: locationsData } = useQuery(GET_LATEST_LOCATIONS, {
     variables: { filter: { adminid: adminId, ...locFilter } },

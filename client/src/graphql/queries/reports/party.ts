@@ -1,9 +1,6 @@
 import { gql } from "@apollo/client";
 
-// Party report (pages/reports/party) — lite invoice selections: only what the
-// outstanding / aging / statement maths reads (useOutstanding keys on id and
-// totalamount). Same root fields/filters as the full queries. Outstanding is
-// all-time, so no date filter is sent.
+// Party report invoice fields for outstanding/aging; all-time, no date filter.
 const INVOICE_FIELDS = `
   id
   billnumber

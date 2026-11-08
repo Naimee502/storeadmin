@@ -20,7 +20,6 @@ const AnalyticalReports: React.FC = () => {
   const [filters, setFilters] = useState<{ [key: string]: any }>(() => ({ fromDate: shiftDaysYMD(-30), toDate: todayYMD() }));
   const [appliedFilters, setAppliedFilters] = useState<{ [key: string]: any }>(() => ({ fromDate: shiftDaysYMD(-30), toDate: todayYMD() }));
 
-  // Fetch data
   // Same adminid/branchid scoping as useSalesInvoicesQuery.
   const { type, admin, branch, staff: authStaff } = useAppSelector((state) => state.auth);
   const selectedBranchId = useAppSelector((state) => state.selectedBranch.branchId);
@@ -28,9 +27,7 @@ const AnalyticalReports: React.FC = () => {
   const branchid = type === 'admin' ? selectedBranchId : type === 'branch' ? branch?.id : type === 'staff' ? authStaff?.branchid?.id : undefined;
   const { data: salesData } = useQuery(ANALYTICS_REPORT_SALES_INVOICES, {
     variables: {
-      // Server now ranges invoices by billdate (text compare, whole To day
-      // included), so only the chosen period is downloaded. The client-side
-      // date filter below stays as a safety net.
+      // Server ranges invoices by billdate; the client date filter is a safety net.
       filter: {
         adminid,
         branchid,
@@ -46,8 +43,7 @@ const AnalyticalReports: React.FC = () => {
     fetchPolicy: "cache-and-network",
   });
 
-  // Purchase rates are only read by "Profit Margin Analysis". No status filter
-  // a product deactivated since it was sold still needs its cost.
+  // Purchase rates for Profit Margin; no status filter so deactivated products keep their cost.
   const { data: costData } = useQuery(ANALYTICS_REPORT_PRODUCT_COSTS, {
     variables: { filter: { adminid, branchid }, limit: 0, offset: 0 },
     skip: !adminid || activeTab !== "Profit Margin Analysis",
@@ -120,13 +116,7 @@ const AnalyticalReports: React.FC = () => {
       .sort((a, b) => a.qtySold - b.qtySold);
   }, [salesInvoices, products, appliedFilters]);
 
-  // ── Profit Margin Analysis ──
-  // Invoice lines keep no purchase-cost snapshot, so a line is costed at the
-  // variant's CURRENT purchaserate (an approximation: past bills are valued at
-  // today's rate, not the rate/average cost at the time of sale). Units follow
-  // the server's stock maths: qty × unitqty is converted to base units via the
-  // sales unit's factor, and purchaserate (per purchase unit) is divided by the
-  // purchase unit's factor. A missing / zero rate means "unknown cost".
+  // Profit margin: lines are costed at the variant's current purchase rate, in base units.
   const lineCost = useCallback((p: any): number | null => {
     const variants = variantsByProduct[p.productserviceid?.id];
     if (!variants?.length) return null;
@@ -166,9 +156,7 @@ const AnalyticalReports: React.FC = () => {
       });
     });
     const round2 = (n: number) => Math.round(n * 100) / 100;
-    // Any line without a known cost makes the product's cost/profit/margin
-    // unknown ("-", which ReportTable leaves out of the Totals row) rather
-    // than a misleading partial figure.
+    // Any line with unknown cost makes the product's cost and margin unknown ("-").
     return Object.values(marginMap).map(({ costUnknown, ...m }) => {
       if (costUnknown) return { ...m, revenue: round2(m.revenue), cost: "-", profit: "-", profitMargin: "-" };
       const profit = m.revenue - m.cost;

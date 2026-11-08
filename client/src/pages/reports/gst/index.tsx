@@ -39,8 +39,7 @@ const reportTabsObj = [
 
 const GSTReports: React.FC = () => {
   const [activeTab, setActiveTab] = useState(reportTabsObj[0].id);
-  // Seeded with the default range on the first render so the date-scoped
-  // journal query is never fired once unfiltered before the effect below runs.
+  // Seed the default range on first render so date-scoped queries never run unfiltered.
   const [filters, setFilters] = useState<any>(() => ({ fromDate: shiftDaysYMD(-30), toDate: todayYMD() }));
   const [appliedFilters, setAppliedFilters] = useState<any>(() => ({ fromDate: shiftDaysYMD(-30), toDate: todayYMD() }));
 
@@ -55,13 +54,10 @@ const GSTReports: React.FC = () => {
   const needSales = SALES_TABS.includes(activeTab);
   const needPurchase = PURCHASE_TABS.includes(activeTab);
 
-  // Lite invoice lists, only for the side the active tab shows. (No server
-  // billdate filter: see queries/reports/gst.ts — dates are filtered below.)
+  // Lite invoice lists for the active tab only (see queries/reports/gst.ts for dates).
   const { data: salesData } = useQuery(GST_REPORT_SALES_INVOICES, {
     variables: {
-      // Server now ranges invoices by billdate (text compare, whole To day
-      // included), so only the chosen period is downloaded. The client-side
-      // date filter below stays as a safety net.
+      // Server ranges invoices by billdate; the client date filter is a safety net.
       filter: {
         adminid,
         branchid,
@@ -73,9 +69,7 @@ const GSTReports: React.FC = () => {
   });
   const { data: purchaseData } = useQuery(GST_REPORT_PURCHASE_INVOICES, {
     variables: {
-      // Server now ranges invoices by billdate (text compare, whole To day
-      // included), so only the chosen period is downloaded. The client-side
-      // date filter below stays as a safety net.
+      // Server ranges invoices by billdate; the client date filter is a safety net.
       filter: {
         adminid,
         branchid,
@@ -91,9 +85,7 @@ const GSTReports: React.FC = () => {
     skip: !adminid || activeTab !== "GST by Product",
     fetchPolicy: "cache-and-network",
   });
-  // Journals for the applied date range only (an invoice's journal is dated on
-  // its bill date). A day of slack each side absorbs timezone casting; extra
-  // journals are harmless because they are looked up by source document id.
+  // Journals for the date range plus a day each side; matched by source document id.
   const trxDateFrom = appliedFilters.fromDate ? shiftYMD(appliedFilters.fromDate, -1) : undefined;
   const trxDateToDay = appliedFilters.toDate ? shiftYMD(appliedFilters.toDate, 1) : undefined;
   const { data: transactionsData } = useQuery(GST_REPORT_TRANSACTIONS, {
@@ -201,7 +193,6 @@ const GSTReports: React.FC = () => {
         if (from && d < from) return false;
         if (to && d > to) return false;
 
-        // FIXED FILTER MATCH (OLD LOGIC)
         if (appliedFilters.customer) {
           if (inv.partyacc?.accountname !== appliedFilters.customer) return false;
         }
@@ -323,7 +314,7 @@ const GSTReports: React.FC = () => {
     invoiceAmount: r.totalAmount,
   })), [gstPurchaseReport]);
 
-  // Filter Dropdown Options (FIXED)
+  // Filter dropdown options
 
   const customerOptions = accounts
     .filter((a) => isCustomerParty(a.type))
@@ -341,7 +332,7 @@ const GSTReports: React.FC = () => {
 
   const productOptions = products.map((p: any) => ({
     label: p.name,
-    value: p.id, // FIXED
+    value: p.id,
   }));
 
   // Table Data
@@ -398,7 +389,6 @@ const GSTReports: React.FC = () => {
       tableData = gstSalesReport
         .concat(gstPurchaseReport)
         .flatMap((inv:any) => inv.products)
-        // FIXED FILTER
         .filter(
           (p:any) =>
             !appliedFilters.product ||

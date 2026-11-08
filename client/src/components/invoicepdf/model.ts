@@ -1,25 +1,7 @@
 import { toWords } from "number-to-words";
 import { formatDateTimeDMY, formatDateDMY } from "../../utils/helper";
 
-/**
- * Everything the invoice PDF needs, worked out once, as plain data.
- *
- * This is deliberately separate from the drawing code. The PDF is rendered
- * by @react-pdf/renderer, which runs OUTSIDE the React tree — no hooks, no
- * redux, no context reach it — so every number and every toggle has to be
- * resolved before rendering starts. Keeping that here also means the layout
- * file contains layout and nothing else.
- *
- * ── Kept in step with components/printinvoice ───────────────────────────
- * The arithmetic and the settings toggles below are copied from the printed
- * HTML invoice, line for line, so a bill reads the same whether it was
- * printed or sent on WhatsApp. printinvoice was deliberately NOT refactored
- * to call this: that component is what every shop prints all day, and
- * rewriting its internals to fix the PDF would have put the working half at
- * risk to repair the broken one. Once the PDF has been in use for a while,
- * pointing printinvoice at this same function is the tidy-up that removes
- * the duplication — until then, a change to one belongs in both.
- */
+/** Invoice PDF data resolved up front; keep in step with components/printinvoice. */
 
 export interface PdfProduct {
   productserviceid: { name: string };

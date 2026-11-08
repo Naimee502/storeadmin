@@ -4,19 +4,7 @@ import { FormDensityContext } from "./density";
 import { OVERLAY_SELECTOR, isOverlayOpen } from "./overlay";
 import { useEscape } from "./useescape";
 
-/**
- * Desktop form shell — Tally / Vyapar style.
- *
- *  - Title + Save / Cancel live in a bar at the top of a one-screen-tall page;
- *    only the fields below it scroll, so Save is always on screen.
- *  - Everything inside renders in compact density (see ./density).
- *  - Keyboard:
- *      Enter        → next field (on the last field: Save)
- *      Ctrl/⌘ + S   → Save
- *      Esc          → Cancel
- *    Enter inside a textarea still adds a new line, and an open dropdown keeps
- *    Enter / Esc for itself (react-select marks those events handled).
- */
+/** Desktop form shell: sticky Save/Cancel bar; Enter next field, Ctrl/⌘+S save, Esc cancel. */
 
 const FOCUSABLE =
   'input:not([type="hidden"]):not([type="file"]):not([disabled]), select:not([disabled]), textarea:not([disabled])';
@@ -131,9 +119,7 @@ const FormPage: React.FC<FormPageProps> = ({
 
   return (
     <FormDensityContext.Provider value="compact">
-      {/* Exactly one screen tall (below the 48px app header): the action bar
-          stays at the top and only the fields area scrolls, whichever element
-          the layout happens to scroll. */}
+      {/* One screen tall below the header; only the fields scroll. */}
       <div className="flex h-[calc(100vh-48px)] flex-col bg-slate-50">
         <div className="z-30 flex shrink-0 items-center gap-2 px-4 pt-4 pb-3">
           <button

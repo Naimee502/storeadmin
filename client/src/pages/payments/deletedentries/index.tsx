@@ -44,8 +44,7 @@ const DeletedPayments = () => {
     { label: "Seq", key: "seqNo" },
     { label: "Code", key: "paymentcode" },
     { label: "Type", key: "type" },
-    // Who the money actually moved with. Without it two ₹720 receipts on the
-    // same day are indistinguishable in the list.
+    // Party or ledger the money moved with.
     { label: "Party / Ledger", key: "partyDisplay" },
     { label: "Mode", key: "mode" },
     { label: "Date", key: "paymentdate" },

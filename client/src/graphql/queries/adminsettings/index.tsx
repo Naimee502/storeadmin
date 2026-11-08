@@ -156,8 +156,7 @@ export const UPDATE_ADMIN_SETTINGS = gql`
   }
 `;
 
-// Test mail through the business's saved SMTP mailbox (Business Settings ->
-// Email (SMTP)). Resolves to a success message; fails with the SMTP error.
+// Send a test mail through the saved SMTP mailbox.
 export const TEST_BUSINESS_SMTP = gql`
   mutation TestBusinessSmtp($adminid: ID!, $to: String!) {
     testBusinessSmtp(adminid: $adminid, to: $to)

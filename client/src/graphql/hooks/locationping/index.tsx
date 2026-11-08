@@ -12,9 +12,7 @@ const useAdminBranch = () => {
   return { adminid, branchid };
 };
 
-// Full GPS trail (ordered) — used to draw a salesman/delivery boy's travelled route.
-// Admin-scoped only (no branch filter): salesmen move across branches and pings
-// don't reliably carry a branch, so branch-scoping would hide valid locations.
+// Full GPS trail for a staff member; admin-scoped since pings cross branches.
 export const useLocationPingsQuery = (filter: any = {}) => {
   const { adminid } = useAdminBranch();
   return useQuery(GET_LOCATION_PINGS, {
@@ -24,8 +22,7 @@ export const useLocationPingsQuery = (filter: any = {}) => {
   });
 };
 
-// Most recent ping per staff — used for a live-location view. Admin-scoped only
-// so it shows regardless of which branch is selected in the panel.
+// Latest ping per staff, admin-scoped.
 export const useLatestLocationsQuery = (filter: any = {}) => {
   const { adminid } = useAdminBranch();
   return useQuery(GET_LATEST_LOCATIONS, {

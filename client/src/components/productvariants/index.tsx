@@ -86,8 +86,7 @@ export const ProductVariants: React.FC<ProductVariantsProps> = ({
         return productFormPermissions[fieldId] !== false;
     };
 
-    // Section visibility — a section (and its header / remove buttons /
-    // barcode) only renders when at least one of its fields is allowed.
+    // A section shows only if at least one of its fields is allowed.
     const PRICE_FIELDS = ["quantity", "unitid", "mrp", "salesrate", "discount", "discounttype", "offerprice"];
     const priceFieldKey = (f: string) => (f === "unitid" ? "unitprices_unitid" : f);
     const showConvFields = isFieldEnabled("unitconversions_unitid") || isFieldEnabled("factor");
@@ -145,9 +144,7 @@ export const ProductVariants: React.FC<ProductVariantsProps> = ({
                                     : "text"}
                             value={variant[field]}
                             onChange={handleChange}
-                            // These core fields previously rendered no error at
-                            // all, so validation messages for them (e.g. negative
-                            // stock) had nowhere to appear.
+                            // Show validation errors (e.g. negative stock).
                             error={errors?.productvariants?.[index]?.[field]}
                             disabled={isEdit && [
                                 "productcode",

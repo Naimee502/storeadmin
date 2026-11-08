@@ -31,9 +31,7 @@ export const MARK_ALL_NOTIFICATIONS_READ = gql`
   }
 `;
 
-// Manual outstanding reminder — creates the party-side in-app notification
-// (visible in both the party app and the party website) and returns the
-// party's mobile + composed text so the caller can open WhatsApp too.
+// Manual outstanding reminder: in-app notification plus mobile/text for WhatsApp.
 export const SEND_OUTSTANDING_REMINDER = gql`
   mutation SendOutstandingReminder($input: OutstandingReminderInput!) {
     sendOutstandingReminder(input: $input) {

@@ -111,8 +111,7 @@ const OtherChargesSection: React.FC<OtherChargesSectionProps> = ({
     setEditingValue(value);
   };
 
-  /** Auto-save an inline cell on blur / Enter. GST Amt and Total are derived,
-      so editing either Amount or GST % recalculates both. */
+  /** Save an inline cell on blur/Enter; GST Amt and Total are recalculated. */
   const handleCellBlur = (rowIndex: number, field: string, newValue: string) => {
     if (field !== "remarks") {
       const num = parseFloat(newValue);
@@ -259,9 +258,7 @@ const OtherChargesSection: React.FC<OtherChargesSectionProps> = ({
       </div>
       </div>
 
-      {/* Table — tableLayout:"fixed" + per-column widths, same as the Products
-          List. Without it the columns re-measure and jump the moment an inline
-          editor replaces the text in a cell. */}
+      {/* Fixed layout so columns don't jump when an inline editor opens. */}
       {otherCharges.length > 0 && (
         <table className="w-full border-collapse text-[12.5px]" style={{ tableLayout: "fixed" }}>
           <thead>

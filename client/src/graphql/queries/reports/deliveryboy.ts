@@ -1,10 +1,8 @@
 import { gql } from "@apollo/client";
 
-// Delivery boy report (pages/reports/deliveryboy) — only the fields that page
-// reads. Same root fields/filters as GET_SALES_ORDERS / GET_PAYMENTS.
+// Delivery boy report fields only.
 
-// billdate is a "YYYY-MM-DD" string compared as a string on the server, so
-// billdateFrom/billdateTo include the whole To day.
+// billdate is a "YYYY-MM-DD" string, so the To day is included.
 export const DELIVERYBOY_REPORT_SALES_ORDERS = gql`
   query DeliveryBoyReportSalesOrders($filter: SalesOrderFilterInput) {
     getSalesOrders(filter: $filter) {

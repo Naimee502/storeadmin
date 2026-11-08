@@ -23,15 +23,7 @@ import { idColumnHeader, type MasterLists, type MasterOption } from "./exportpro
 import { validateProduct, type ValidationIssue } from "../products/validateproduct";
 import { cellKey, readCellImages } from "./embeddedimages";
 
-/**
- * Reads an uploaded workbook back into product payloads.
- *
- * The order of business per reference cell is: hidden ID column first, then an
- * exact (trimmed, case-insensitive) name match, then a row error. Nothing is
- * ever guessed — a value that can't be resolved is reported with the sheet,
- * row, column and the text that was actually in the cell, so the user can fix
- * it rather than wonder which of 400 rows was the problem.
- */
+// Reads an uploaded workbook into product payloads; unresolved refs become row errors, never guesses.
 
 export interface RowError {
   sheet: SheetId | "File";
@@ -54,23 +46,11 @@ export interface ParsedImport {
   counts: Record<string, number>;
   /** Image file names referenced but not yet uploaded. */
   imageFiles: Map<string, string[]>;
-  /**
-   * Typed master names per product, parallel to `products` — categoryname,
-   * subcategoryname, brandname... plus categoryimage / subcategoryimage. The
-   * server uses them to find or create a master when the sheet has no id.
-   */
+  /** Typed master names per product, so the server can find or create masters without an id. */
   masterNames: Record<string, any>[];
-  /**
-   * Category / Sub Category image FILE names (from a .zip) still to upload.
-   * Key is `${productIndex}:${field}` so the uploaded URL lands back on the
-   * right entry of `masterNames`.
-   */
+  /** Category/Sub Category image files still to upload, keyed `${productIndex}:${field}`. */
   masterImageFiles: Map<string, string[]>;
-  /**
-   * Pictures placed inside the workbook's cells (Insert → Pictures → Place in
-   * Cell, or dropped onto a cell), by the generated file name the sheet
-   * fields now refer to. Uploaded like any picked image — no path, no zip.
-   */
+  /** Pictures placed inside workbook cells, by generated file name. */
   embeddedImages: Map<string, File>;
   meta: Record<string, string>;
 }
@@ -89,19 +69,10 @@ export const IMPORT_MESSAGES = {
     `Sub Category "${sub}" belongs to Category "${actual}", not "${given}". Pick the right Category, or use a different Sub Category name.`,
 };
 
-/**
- * A web address or one of our own /uploads paths. Anything else is a picture
- * the user supplies — named in the cell, picked with "Select Images" or zipped.
- * Deliberately NOT "anything starting with /": a Mac path like
- * /Users/me/Pictures/oil.jpg is a local file, not a URL.
- */
+// A web URL or our /uploads path; a local path like /Users/... is not a URL.
 const isImageUrl = (value: string) => /^(https?:\/\/|\/uploads\/)/i.test(value);
 
-/**
- * "C:\Users\me\Pictures\oil.jpg" → "oil.jpg". People paste the full path
- * (Shift+right-click → Copy as path adds quotes too); the browser can never
- * open that path, so only the file name is used to match a picked image.
- */
+// Pasted full path → file name only, to match a picked image.
 export const imageFileName = (value: string): string =>
   norm(value).replace(/^"+|"+$/g, "").split(/[\\/]/).pop()?.trim() ?? "";
 
@@ -127,12 +98,7 @@ const cellValue = (cell: ExcelJS.Cell): any => {
   return v;
 };
 
-/**
- * Files made before the Product Code moved to the Products sheet used
- * "ProductRef" as a pure join key (P1, #PRD0001...) and kept the code on the
- * Variants sheet as "Product Code". Read them with the meaning they had:
- * the old ProductRef only links rows, it never becomes a code.
- */
+// Old files used ProductRef only as a join key, never as a code.
 const LEGACY_HEADERS: Partial<Record<SheetId, Record<string, string>>> = {
   Products: { ProductRef: INTERNAL_LINK_KEY },
   Variants: { ProductRef: PRODUCT_LINK_HEADER, "Product Code": VARIANT_CODE_HEADER },
@@ -153,10 +119,7 @@ const readSheet = (
     // "Name *" in the template means required — strip the marker.
     headers[colNumber] = norm(cellValue(cell)).replace(/\s*\*$/, "");
   });
-  // A file made before the Product Code moved to the Products sheet is
-  // recognised by its "ProductRef" column — and only then are its headers
-  // renamed, because in those files a Variants "Product Code" meant the
-  // variant's own code, not the link to the product.
+  // Old files (with a "ProductRef" column) get their headers renamed.
   if (headers.includes("ProductRef")) {
     const aliases = LEGACY_HEADERS[sheetId] ?? {};
     for (let i = 0; i < headers.length; i++) {
@@ -186,9 +149,7 @@ const readSheet = (
   return { rows, headers: headers.filter(Boolean), columnOf };
 };
 
-/* ------------------------------------------------------------------ *
- * Reference resolution
- * ------------------------------------------------------------------ */
+// Reference resolution
 
 interface MasterIndex {
   byId: Set<string>;
@@ -246,9 +207,7 @@ const resolveRef = (
       });
       return null;
     }
-    // Category, Brand, Size... — not in the list means "create it". The name
-    // travels to the server in masterNames, which checks it against every
-    // record (inactive ones too) and creates it once, however many rows use it.
+    // Unknown master names are created once by the server via masterNames.
     if (isCreatableMaster(master)) return null;
 
     errors.push({
@@ -277,9 +236,7 @@ const resolveRef = (
   return null;
 };
 
-/* ------------------------------------------------------------------ *
- * Cell coercion
- * ------------------------------------------------------------------ */
+// Cell coercion
 
 const toNumber = (
   raw: any,
@@ -321,9 +278,7 @@ const toDate = (
   const value = norm(raw);
   if (!value) return undefined;
 
-  // DD/MM/YYYY is what the form shows, so it is what people type. Parsed
-  // explicitly because new Date("03/04/2026") is month-first in most engines
-  // and would silently read 3 April as 4 March.
+  // Parse DD/MM/YYYY explicitly; new Date() would read it month-first.
   const dmy = value.match(/^(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{2,4})$/);
   if (dmy) {
     const [, d, m, y] = dmy;
@@ -352,9 +307,7 @@ const splitList = (raw: any): string[] =>
     .map((s) => s.trim())
     .filter(Boolean);
 
-/* ------------------------------------------------------------------ *
- * Main parse
- * ------------------------------------------------------------------ */
+// Main parse
 
 export interface ParseArgs {
   file: File | ArrayBuffer;
@@ -432,8 +385,7 @@ export const parseProductWorkbook = async (args: ParseArgs): Promise<ParsedImpor
     SHEET_ORDER.map((id) => [id, readSheet(workbook, id)])
   ) as Record<SheetId, { rows: RawRow[]; headers: string[]; columnOf: Map<string, number> }>;
 
-  // Pictures inside the Products sheet's cells, re-keyed by row + header so
-  // the assembler can ask "the picture in this row's Category Image cell".
+  // Cell pictures keyed by row + header.
   const byCell = await readCellImages(buffer, workbook, "Products");
   const cellImages = new Map<string, File[]>();
   for (const [header, col] of sheets.Products.columnOf) {
@@ -448,14 +400,7 @@ export const parseProductWorkbook = async (args: ParseArgs): Promise<ParsedImpor
   );
 };
 
-/**
- * Turn four sets of raw rows into product payloads.
- *
- * Split out of parseProductWorkbook so the CSV adapter — which produces the
- * same four row sets from a flat grid — runs through identical grouping,
- * reference resolution and validation. Only the reading differs between the
- * two formats; everything after it is shared.
- */
+// Shared by xlsx and CSV: grouping, reference resolution and validation.
 const assembleProducts = (
   sheets: Record<SheetId, { rows: RawRow[]; headers: string[] }>,
   schema: ReturnType<typeof buildProductSheetSchema>,
@@ -500,10 +445,7 @@ const assembleProducts = (
   ): Record<string, any> => {
     const out: Record<string, any> = {};
     for (const col of schema.bySheet(sheetId)) {
-      // ProductRef / VariantRef are join keys for this file only. They are read
-      // straight off raw.values where they're needed for grouping, and must NOT
-      // land on the payload — ProductVariantInput has no such fields, and
-      // GraphQL rejects the whole request with a 400 if they appear.
+      // ProductRef / VariantRef are file-only join keys; GraphQL rejects them on the payload.
       if (col.structural) continue;
 
       const value = raw.values[col.header];
@@ -544,9 +486,7 @@ const assembleProducts = (
           out[col.key] = norm(value);
           break;
         case "productimage": {
-          // One cell, mixed: web addresses stay as they are, anything else is
-          // a file name (a pasted path is cut down to its name). Older files
-          // had these as two columns — read those too.
+          // Web URLs stay as-is, anything else is a file name.
           const items = [
             ...splitList(value),
             ...LEGACY_PRODUCT_IMAGE_HEADERS.flatMap((h) => splitList(raw.values[h])),
@@ -570,10 +510,7 @@ const assembleProducts = (
   };
 
   /* how rows find their product and variant */
-  //
-  // Products sheet: "Product Code" (may be blank → next #PRD) and Name.
-  // Other sheets: "Product" = that code, or the Name when the code is blank;
-  // "VariantRef" only when the product has more than one variant.
+  // Rows link by Product Code, else Name; VariantRef only for multi-variant products.
   const nameHeader = schema.bySheet("Products").find((c) => c.key === "name")?.header ?? "Name";
 
   interface ProductEntry {
@@ -658,13 +595,10 @@ const assembleProducts = (
     if (entry) entry.variants.push(row);
   }
 
-  // "Variant Code" says which variant a row is. Older files had a separate
-  // "VariantRef" label for that; when it is present it still wins.
+  // "Variant Code" identifies the row's variant; an old "VariantRef" still wins.
   const variantRefOf = (row: RawRow) =>
     norm(row.values[LEGACY_VARIANT_REF_HEADER]) || norm(row.values[VARIANT_REF_HEADER]);
-  // A Variant Code cell may hold a real code (#PRD0012) or, in older files /
-  // CSVs, just a position label (1, 2, 3). Only a real code becomes the
-  // variant's product code.
+  // Only a real code (#PRD0012) becomes the variant's code, not a position label.
   const isPositionLabel = (v: string) => /^\d{1,3}$/.test(v);
   // The first variant may leave the code blank — it is the Product Code.
   const effectiveRef = (entry: ProductEntry, row: RawRow, index: number) =>
@@ -746,15 +680,12 @@ const assembleProducts = (
   const subCategoryById = new Map(
     (masterIndexLists.subcategories ?? []).map((o) => [String(o.id), o])
   );
-  // A new Sub Category typed on several rows must name the same Category each
-  // time — otherwise which one should it be created under?
+  // A new Sub Category must name the same Category on every row.
   const newSubParent = new Map<string, { category: string; row: number }>();
-  // A new Account Ledger is filed under Sales or Purchase by its column, so
-  // the same new name cannot be used in both.
+  // A new Account Ledger can't be both Sales and Purchase.
   const newLedgerRole = new Map<string, { role: string; name: string }>();
 
-  // Every code the file assigns (Products "Product Code" + Variants "Variant
-  // Code"), lower-cased, so two products can't claim the same one.
+  // Every code the file assigns, lower-cased, to catch duplicates.
   const seenProductCodes = new Set<string>();
   const variantCodeHeader = VARIANT_CODE_HEADER;
 
@@ -766,8 +697,7 @@ const assembleProducts = (
   const conversionUnitHeader = unitHeader("UnitConversions", "unitid");
   const priceUnitHeader = unitHeader("UnitPrices", "unitid");
 
-  // Product Codes are already unique among themselves (checked above); seed
-  // them so an extra variant's Variant Code can't reuse one.
+  // Seed Product Codes so a Variant Code can't reuse one.
   for (const entry of entries) if (entry.code) seenProductCodes.add(normKey(entry.code));
 
   for (const entry of entries) {
@@ -777,9 +707,7 @@ const assembleProducts = (
     const fields = readRow("Products", productRow, ref);
 
     /* pictures placed inside this row's image cells */
-    // A picture in the cell wins over any text there: it is exactly what the
-    // person chose. Each gets a generated file name and joins the same upload
-    // path as picked / zipped images.
+    // A picture in the cell wins over any text there.
     const picturesIn = (key: string, extraHeaders: string[] = []): string[] => {
       const header = schema.bySheet("Products").find((c) => c.key === key)?.header;
       if (!header) return [];
@@ -900,8 +828,7 @@ const assembleProducts = (
       });
     }
 
-    // Unit names typed in the sheet that matched nothing, by payload path
-    // ("0.baseunitid", "0.unitprices.2") — the server finds or creates them.
+    // Unmatched unit names by payload path; the server finds or creates them.
     const newUnits: { path: string; name: string }[] = [];
     const noteUnit = (id: any, header: string | undefined, raw: RawRow, path: string) => {
       if (id || !header) return;
@@ -913,11 +840,7 @@ const assembleProducts = (
       const variantFields = readRow("Variants", variantRow, ref);
       const children = childRows.get(variantRow) ?? { UnitConversions: [], UnitPrices: [] };
 
-      // The first variant carries the product's code from the Products sheet.
-      // Its Variant Code cell may be blank or repeat the same code; a
-      // different code there would leave it unclear which one is meant.
-      // The Variant Code column is no longer a regular field (it doubles as
-      // the link), so read it here. Position labels are not codes.
+      // First variant takes the Products sheet code; a different Variant Code there is an error.
       const typedCode = norm(variantRow.values[VARIANT_CODE_HEADER]);
       const variantCode = typedCode && !isPositionLabel(typedCode) ? typedCode : "";
       if (variantCode) variantFields.productcode = variantCode;
@@ -934,8 +857,7 @@ const assembleProducts = (
         }
         variantFields.productcode = entry.code;
       } else if (variantCode) {
-        // An extra variant's own code (or a legacy file's code) is kept by the
-        // server, so two rows carrying the same one would clash.
+        // Two rows with the same variant code would clash on the server.
         if (seenProductCodes.has(normKey(variantCode))) {
           errors.push({
             sheet: "Variants",
@@ -964,10 +886,7 @@ const assembleProducts = (
         if (price.discounttype) {
           price.discounttype = normKey(price.discounttype) === "percentage" ? "percentage" : "fixed";
         }
-        // quantity is Float! in the schema. A blank cell must still travel to
-        // the server so the dry run can report it as a row error — sending
-        // undefined would fail variable coercion and the user would get an
-        // opaque 400 instead of "Quantity must be greater than 0".
+        // Send blank quantity as null so the dry run reports a row error, not a 400.
         if (price.quantity === undefined || price.quantity === null) price.quantity = 0;
         return price;
       });
@@ -975,21 +894,7 @@ const assembleProducts = (
       return { ...variantFields, unitconversions, unitprices };
     });
 
-    // Pictures are only written when the sheet actually carries some.
-    //
-    // This used to send `imageurls: fields.imageurls ?? []` unconditionally,
-    // which meant a sheet WITHOUT an "Image URLs" column — the ordinary case,
-    // since the export fills it but nobody maintains it by hand — set every
-    // imported product's images to empty. Re-importing a price list to update
-    // rates therefore silently stripped the photos off every product it
-    // touched, and the app then drew a placeholder box for a product that had
-    // a perfectly good picture the day before.
-    //
-    // Leaving the keys out entirely is what restores it: updateProductService
-    // applies the input with Mongoose's `.set()`, which only writes the keys
-    // it is given, so an absent imageurl keeps whatever is already stored. A
-    // spreadsheet has no way to say "remove the picture" anyway — a blank cell
-    // means "not specified here", never "delete it".
+    // Only send images when the sheet has them, so re-imports don't wipe existing photos.
     const hasImages = Array.isArray(fields.imageurls) && fields.imageurls.length > 0;
 
     const product: any = {
@@ -1019,10 +924,7 @@ const assembleProducts = (
       productvariants,
     };
 
-    // Same rules the add/edit form applies, so nothing gets in through the
-    // spreadsheet that the form itself would have rejected. A Category typed
-    // as a new name has no id yet but IS given — the server creates it — so
-    // the "Category is required" rule must not fire for it.
+    // Same rules as the add/edit form; a new Category name counts as given.
     if (newUnits.length) names.units = newUnits;
 
     const { issues } = validateProduct(validationView(product, names, !!categoryCol), args.permissions);
@@ -1055,13 +957,7 @@ const assembleProducts = (
   };
 };
 
-/**
- * The product as the validator should see it: a master typed as a NEW name
- * has no id yet but IS given (the server creates it), so it must not trip
- * "Category is required" / "Base unit is required". Each new name gets a
- * stable placeholder id, so rules that compare units (purchase rate vs the
- * price unit's factor) still see the same unit as the same unit.
- */
+// New master names get stable placeholder ids so required/unit rules still pass.
 const validationView = (
   product: any,
   names: Record<string, any>,
@@ -1091,14 +987,7 @@ const validationView = (
   return view;
 };
 
-/**
- * CSV entry point.
- *
- * The flat grid is exploded into the same four row sets the xlsx reader
- * produces, then handed to the identical assembler — so grouping, reference
- * resolution, validation and the error report are shared, and only the reading
- * differs between the two formats.
- */
+// CSV entry point: explodes the grid into the xlsx row sets and reuses the assembler.
 export const parseProductCsv = async (
   args: Omit<ParseArgs, "file"> & { text: string }
 ): Promise<ParsedImport> => {
@@ -1123,11 +1012,7 @@ export const parseProductCsv = async (
   return assembleProducts(sheets, schema, masterIndex, args, errors, warnings, imageFiles, {}, args.masters);
 };
 
-/**
- * Turn a validator issue into a spreadsheet coordinate the user can navigate
- * to. Without this the report says "salesrate must be greater than 0" with no
- * indication of which of 900 rows it means.
- */
+// Map a validator issue to the sheet/row/column the user can find.
 const mapIssueToRow = (
   issue: ValidationIssue,
   ref: string,
@@ -1137,9 +1022,7 @@ const mapIssueToRow = (
 ): RowError => {
   const base = { value: "", ref, message: issue.message };
 
-  // The validator names fields by payload key ("baseunitid"); the workbook
-  // calls that column "Base Unit". buildErrorWorkbook matches on the header,
-  // so without the translation the cell is never highlighted.
+  // Translate payload keys to column headers so the cell gets highlighted.
   const columnFor = (sheet: SheetId) => headerForField(sheet, issue.field) ?? issue.field;
 
   if (issue.scope === "product") {
@@ -1159,15 +1042,9 @@ const mapIssueToRow = (
   return { ...base, sheet: sheetId, row: target?.row ?? null, column: columnFor(sheetId) };
 };
 
-/* ------------------------------------------------------------------ *
- * Corrected-file download
- * ------------------------------------------------------------------ */
+// Corrected-file download
 
-/**
- * Hand the user back their own file with the bad cells filled red, a note on
- * each explaining the problem, and an _Errors column per sheet. Fixing in
- * place and re-uploading beats hunting by row number.
- */
+// Return the user's file with bad cells marked red and an _Errors column.
 export const buildErrorWorkbook = async (
   file: File | ArrayBuffer,
   errors: RowError[]

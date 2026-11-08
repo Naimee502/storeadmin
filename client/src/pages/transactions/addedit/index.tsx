@@ -45,8 +45,7 @@ const AddEditTransaction = () => {
   const { data: transactionsData } = useTransactionsQuery();
   const ledgerList = ledgerData?.getAccountLedgers || [];
 
-  // Expense notes already journal-recorded (linked to a transaction) — hidden so
-  // the same note can't be recorded twice. Exclude the current txn in edit mode.
+  // Hide expense notes already journal-recorded (except this txn) so they can't be recorded twice.
   const recordedExpenseNoteIds = useMemo(() => {
     const s = new Set<string>();
     (transactionsData?.getTransactions || []).forEach((txn: any) => {
@@ -91,10 +90,7 @@ const AddEditTransaction = () => {
       }));
   }, [accountsData, settleSide]);
 
-  // Full Journal: rebuild the invoice's complete accounting journal
-  // (Dr Debtor / Cr Sales / Cr GST … or Dr Purchase / Dr GST / Cr Vendor) from
-  // the server — identical to what auto-posting creates. Used when the
-  // auto-create-journal flag is OFF and the user records the sale manually.
+  // Full Journal: fetch the invoice's complete journal from the server, for manual recording.
   useEffect(() => {
     if (allocations.length === 0) return;
     let cancelled = false;
@@ -126,8 +122,7 @@ const AddEditTransaction = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [JSON.stringify(allocations.map(a => a.invoiceid)), settleSide]);
 
-  // Expense Note: pull its full journal (Dr Expense / Cr Cash-or-Payable) from
-  // the server, so when auto-posting is OFF you record it manually here.
+  // Expense Note: fetch its full journal from the server, for manual recording.
   useEffect(() => {
     if (settleSide !== "ExpenseNote" || !expenseNoteId) return;
     let cancelled = false;
@@ -204,8 +199,7 @@ const AddEditTransaction = () => {
   }
 }, [isEdit, existingData]);
 
-// normalizeToYMD covers Date / ISO string / epoch-ms and reads the LOCAL
-// calendar day, so a voucher opened after midnight keeps its own date.
+// Local calendar day, so a voucher opened after midnight keeps its date.
 const formatTransactionDate = (date: any) => normalizeToYMD(date) || todayYMD();
 
   // Handlers
@@ -266,11 +260,7 @@ const formatTransactionDate = (date: any) => normalizeToYMD(date) || todayYMD();
       createdby_name: creator.name,
       createdby_type: creator.type,
       partyid: partyid || null,
-      // This page only RECORDS the full journal of a sale/purchase/expense note
-      // (Dr Debtor / Cr Sales / Cr GST …). It never settles a bill — settledamount
-      // is 0 so the invoice/note's outstanding is untouched. The link is stored only
-      // so the same invoice/expense note can't be journal-recorded twice (it's hidden
-      // next time).
+      // Records the journal only (settledamount 0); the link prevents recording the same document twice.
       invoices:
         settleSide === "ExpenseNote"
           ? (expenseNoteId

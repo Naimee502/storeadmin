@@ -33,9 +33,7 @@ const ExpenseNote = () => {
   const [tabState, setTab] = useState<string>(
     new URLSearchParams(location.search).get("tab") === "claims" ? "claims" : "notes"
   );
-  // Pending-claims badge on the tab. Same query the tab itself uses, so it is
-  // one request, shared through the Apollo cache.
-  // Business Settings → Permissions → Expense Notes → "Expense Claims".
+  // Pending-claims badge (shares the tab's query via cache; permission: Expense Claims).
   const claimsOn = actions.showClaims;
   const { data: claimsData } = useExpenseClaimsQuery(!claimsOn);
   const tab = claimsOn ? tabState : "notes";
@@ -48,14 +46,11 @@ const ExpenseNote = () => {
 
   const isLoading = useAppSelector((state) => state.loader.isLoading);
 
-  /* =========================
-     FETCH
-     ========================= */
+  // Fetch
 
   useEffect(() => {
     const fetchExpenseNotes = async () => {
-      // Already have rows from the cache → refresh quietly in the background
-      // instead of covering the table with the full-screen loader.
+      // Rows already cached: refresh quietly without the full-screen loader.
       const blocking = !expenseList.length;
       if (blocking) dispatch(showLoading());
       try {
@@ -71,9 +66,7 @@ const ExpenseNote = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dispatch, refetch]);
 
-  /* =========================
-     TABLE COLUMNS
-     ========================= */
+  // Table columns
 
   const columns = [
     { label: "Seq", key: "seqNo" },
@@ -98,15 +91,13 @@ const ExpenseNote = () => {
     other: "Other",
   };
 
-  /* =========================
-     FORMAT DATA
-     ========================= */
+  // Format data
 
   const tableData = expenseList.map((exp: any, index: number) => {
     let formattedDate = "-";
 
     if (exp.expensedate) {
-      const timestamp = Number(exp.expensedate); // FIX
+      const timestamp = Number(exp.expensedate);
       const dt = new Date(timestamp);
 
       if (!isNaN(dt.getTime())) {
@@ -136,16 +127,13 @@ const ExpenseNote = () => {
     };
   });
 
-  /* =========================
-     UI
-     ========================= */
+  // UI
 
   return (
     <HomeLayout>
       <div className="w-full px-2 sm:px-6 pt-4 pb-6">
         {/* Same layout as Attendance & Leave: page title first, tabs under it. */}
-        {/* Page title only when the tabs are shown; without Claims the
-            DataTable's own "Expense Notes" title is enough (no duplicate). */}
+        {/* Title only with tabs; otherwise DataTable shows its own. */}
         {claimsOn && (
           <div className="flex items-center justify-between mb-5">
             <h1 className="text-lg sm:text-xl md:text-2xl font-bold">Expense Notes &amp; Claims</h1>

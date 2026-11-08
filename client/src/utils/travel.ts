@@ -1,9 +1,4 @@
-/**
- * Running distance over a day's GPS trail — same rules as the server's
- * utils/travel.ts (getTravelSummary), so the per-row "KM so far" column adds
- * up to the day's total: jitter smaller than the GPS error is ignored, poor
- * fixes (> 150 m accuracy) and impossible jumps (> 150 km/h) are skipped.
- */
+/** Running GPS distance, same rules as the server's getTravelSummary. */
 const R = 6371000;
 const rad = (d: number) => (d * Math.PI) / 180;
 

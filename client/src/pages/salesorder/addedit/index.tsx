@@ -33,12 +33,7 @@ const AddEditSalesOrder = () => {
 
   // Fetch branches to auto-detect when staff has no branch assigned
   const { data: branchesData } = useBranchesQuery();
-  // firstBranchId is the rescue for a STAFF account with no branch assigned
-  // that is all it was ever meant for. It used to sit on the admin arm too,
-  // which meant an admin on "All Branches" silently filed the document under
-  // whichever branch happened to come back first: no error, wrong branch, and
-  // nothing on screen to say so. Admin now resolves to the chosen branch or to
-  // nothing, and the save path says so out loud.
+  // firstBranchId fallback is for staff without a branch only; admin uses the chosen branch.
   const firstBranchId = branchesData?.getBranches?.[0]?.id || "";
 
   const adminId = type === 'admin' ? admin?.id
@@ -78,8 +73,7 @@ const AddEditSalesOrder = () => {
   const [totalDiscount, setTotalDiscount] = useState(0.0);
   const [taxAmount, setTaxAmount] = useState(0.0);
   const [grandTotal, setGrandTotal] = useState(0.0);
-  // Order-level discount (₹ / %) — the salesman's "extra discount" from the
-  // app, or one the admin sets here. Same maths as the invoice discount.
+  // Order-level discount (₹ / %), same maths as the invoice discount.
   const [invoiceDiscount, setInvoiceDiscount] = useState<number | "">("");
   const [invoiceDiscountType, setInvoiceDiscountType] = useState("amount");
   const [invoiceDiscountAmt, setInvoiceDiscountAmt] = useState(0);
@@ -88,7 +82,7 @@ const AddEditSalesOrder = () => {
 
   const { data } = useSalesOrderByIDQuery(id || "");
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
-  // Next order number comes from the order list (the redux copy was never filled).
+  // Next order number comes from the order list.
   const { data: numberSource } = useSalesOrdersListQuery();
   const salesOrders: any[] = useMemo(() => numberSource?.getSalesOrders || [], [numberSource]);
 
@@ -226,9 +220,7 @@ const AddEditSalesOrder = () => {
       return;
     }
 
-    // Same rule as the Add Products box: no line may sell below its purchase
-    // rate. Catches rates changed inline in the Products List or carried in
-    // from a loaded document — the offending Rate cell is marked in red.
+    // No line may sell below its purchase rate; offending Rate cells are marked red.
     if (belowCostLines.size > 0) {
       dispatch(
         showMessage({
@@ -239,8 +231,7 @@ const AddEditSalesOrder = () => {
       return;
     }
 
-    // A missing branch is almost always the header sitting on "All Branches",
-    // not a broken session — say the thing the user can actually act on.
+    // A missing branch usually means "All Branches" is selected.
     if (!branchId) {
       dispatch(showMessage({ message: BRANCH_REQUIRED, type: "error" }));
       return;

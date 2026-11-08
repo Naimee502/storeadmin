@@ -39,12 +39,7 @@ const AddEditPurchaseOrder = () => {
 
   // Fetch branches to auto-detect when staff has no branch assigned
   const { data: branchesData } = useBranchesQuery();
-  // firstBranchId is the rescue for a STAFF account with no branch assigned
-  // that is all it was ever meant for. It used to sit on the admin arm too,
-  // which meant an admin on "All Branches" silently filed the document under
-  // whichever branch happened to come back first: no error, wrong branch, and
-  // nothing on screen to say so. Admin now resolves to the chosen branch or to
-  // nothing, and the save path says so out loud.
+  // firstBranchId fallback is for staff without a branch only; admin uses the chosen branch.
   const firstBranchId = branchesData?.getBranches?.[0]?.id || "";
 
   const adminId =
@@ -105,8 +100,7 @@ const AddEditPurchaseOrder = () => {
 
   const { data } = usePurchaseOrderByIDQuery(id || "");
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
-  // Next PO number comes from the order list (the redux copy was never filled,
-  // so every new PO was proposed as 000001).
+  // Next PO number comes from the order list.
   const { data: numberSource } = usePurchaseOrdersListQuery();
   const purchaseOrders: any[] = useMemo(() => numberSource?.getPurchaseOrders || [], [numberSource]);
 
@@ -242,8 +236,7 @@ const AddEditPurchaseOrder = () => {
       return;
     }
 
-    // A missing branch is almost always the header sitting on "All Branches",
-    // not a broken session — say the thing the user can actually act on.
+    // A missing branch usually means "All Branches" is selected.
     if (!branchId) {
       dispatch(showMessage({ message: BRANCH_REQUIRED, type: "error" }));
       return;

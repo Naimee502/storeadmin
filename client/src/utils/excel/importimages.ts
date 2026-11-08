@@ -1,21 +1,4 @@
-/**
- * Images for an import.
- *
- * Two routes, because they suit different users:
- *
- *   URLs   — web addresses in the "Product Image" cell, comma-separated. Works
- *            in CSV too, needs no new infrastructure, and round-trips on
- *            export. Handled entirely by the parser; nothing to do here.
- *
- *   ZIP    — the user zips the workbook together with an images/ folder and
- *            names files in the "Product Image" cell. That is what people
- *            actually have: a folder of photos off a phone or a camera.
- *
- * The ZIP route reuses the existing uploadImage GraphQL mutation, one call per
- * unique file, so no storage work was needed. Uploads run a few at a time with
- * progress reported — 200 images pushed one-by-one through a single endpoint
- * looks like a frozen browser, and all at once falls over.
- */
+// Import images: URLs in the cell (parser handles them) or a ZIP with images/, uploaded a few at a time.
 
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 const MAX_TOTAL_BYTES = 150 * 1024 * 1024;
@@ -94,11 +77,7 @@ export const readImportZip = async (zipFile: File): Promise<ZipContents> => {
   return { sheetFile, images, warnings };
 };
 
-/**
- * Images picked with the "Select Images" button (files or a whole folder),
- * keyed the same way as zip images: lower-cased file name. Same size limits,
- * and non-image files in a picked folder are skipped quietly.
- */
+/** Images from "Select Images", keyed by lower-cased file name; non-images skipped. */
 export const collectPickedImages = (
   files: File[]
 ): { images: Map<string, File>; warnings: string[] } => {
@@ -130,12 +109,7 @@ export const collectPickedImages = (
   return { images, warnings };
 };
 
-/**
- * Upload every referenced image once and return name → URL.
- *
- * Deduplicated on purpose: a catalogue where forty products share one brand
- * shot should upload it once, not forty times.
- */
+/** Upload each referenced image once and return name → URL. */
 export const uploadImportImages = async (
   referenced: Map<string, string[]>,
   images: Map<string, File>,
@@ -182,11 +156,7 @@ export const uploadImportImages = async (
   return { urls, missing };
 };
 
-/**
- * Write the uploaded URLs onto the parsed products, matching by ProductRef.
- * URLs already present in the "Product Image" cell are kept and the uploaded
- * ones appended, so both routes can be used in the same file.
- */
+/** Add uploaded URLs to parsed products by ProductRef, keeping URLs already in the cell. */
 export const attachImageUrls = (
   products: any[],
   refs: string[],

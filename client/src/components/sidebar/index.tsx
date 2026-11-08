@@ -98,8 +98,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar, onHoverChange 
     return true;
   };
 
-  // Announcements: unticking every permission box (Business Settings →
-  // Permissions) means the business does not use it, so the menu goes too.
+  // Announcements menu hides when no permission box is ticked.
   const annActions = useAppSelector((state) => selectModuleActions(state, "announcements"));
   const announcementsUsed = annActions.showAdd || annActions.showEdit || annActions.showDelete || annActions.canReset;
 
@@ -208,8 +207,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar, onHoverChange 
   const navigate = useNavigate();
   const isActive = (to: string) => location.pathname === to || location.pathname.startsWith(to + "/");
 
-  // Collapsible groups, remembered per browser. The group holding the open
-  // page always shows, so the highlighted item is never hidden.
+  // Collapsible groups, remembered per browser; the active page's group stays open.
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>(() => {
     try { return JSON.parse(localStorage.getItem("sidebar:collapsed") || "{}"); } catch { return {}; }
   });

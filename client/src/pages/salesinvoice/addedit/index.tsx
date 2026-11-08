@@ -32,9 +32,7 @@ const AddEditSalesInvoice = () => {
   const dispatch = useAppDispatch();
   const { addSalesInvoiceMutation, editSalesInvoiceMutation, deleteSalesInvoiceMutation } = useSalesInvoiceMutations();
 
-  // Business Settings → "Delete Sales / Purchase Invoices only from inside the
-  // invoice". On → the list hides its trash icon and this page carries the
-  // Delete button instead. Still needs the user's own Delete permission.
+  // Business setting: delete invoices only from inside the invoice (still needs Delete permission).
   const deleteInsideOnly = useAppSelector((state: any) => !!state.adminsettings.settings?.deleteInvoiceFromInsideOnly);
   const canDeleteInvoice = useAppSelector(state => selectModuleActions(state, "salesinvoice")).showDelete;
   const [deletingInvoice, setDeletingInvoice] = useState(false);
@@ -50,12 +48,7 @@ const AddEditSalesInvoice = () => {
 
   // Fetch branches to auto-detect when staff has no branch assigned
   const { data: branchesData } = useBranchesQuery();
-  // firstBranchId is the rescue for a STAFF account with no branch assigned
-  // that is all it was ever meant for. It used to sit on the admin arm too,
-  // which meant an admin on "All Branches" silently filed the document under
-  // whichever branch happened to come back first: no error, wrong branch, and
-  // nothing on screen to say so. Admin now resolves to the chosen branch or to
-  // nothing, and the save path says so out loud.
+  // firstBranchId is only a fallback for staff with no branch; admin uses the chosen branch.
   const firstBranchId = branchesData?.getBranches?.[0]?.id || "";
 
   const adminId = type === 'admin' ? admin?.id
@@ -102,20 +95,16 @@ const AddEditSalesInvoice = () => {
   const [taxAmount, setTaxAmount] = useState(0.0);
   const [grandTotal, setGrandTotal] = useState(0.0);
 
-  // How much of this bill was settled on the spot. 0 is a pure credit bill, the
-  // full grand total is a fully settled one, and anything between leaves the
-  // remainder outstanding for a later Payment-In. Payment Type only says HOW the
-  // money moved, never how much.
+  // Amount settled now: 0 = credit, grand total = fully paid, between = rest outstanding.
   const [received, setReceived] = useState<string | number>("");
 
-  // "Credit" is just received = 0 said in words, so the box locks there. Clamping
-  // here as well as on the server keeps the Balance line honest while typing.
+  // Credit means received = 0; clamp here too so Balance stays right.
   const isCreditBill = String(paymentType).toLowerCase() === "credit";
   const receivedNum = isCreditBill
     ? 0
     : Math.min(Math.max(Number(received) || 0, 0), grandTotal);
   const balanceDue = parseFloat((grandTotal - receivedNum).toFixed(2));
-  // Bill numbers come from the same list (cancelled included) the old redux copy held.
+  // Bill numbers come from the full list, cancelled included.
   const { data: billSourceData } = useSalesInvoicesListQuery("cache-and-network", { includeCancelled: true });
   const salesInvoices = useMemo(() => billSourceData?.getSalesInvoices || [], [billSourceData]);
 
@@ -187,19 +176,7 @@ const AddEditSalesInvoice = () => {
 
   const { settings } = useAppSelector((state: any) => state.adminsettings);
 
-  // Lines pre-filled from a Sales Order (app/website orders in particular,
-  // where the catalogue never caps quantity at the stock on hand) skip the Add
-  // Products box and its stock check. Re-run the check over the finished list
-  // so the shortfall is visible here instead of surfacing as a server error
-  // or, worse, as silently negative stock.
-  //
-  // On an EDIT the saved lines are netted off first. The bill's own stock is
-  // already out of the branch — a bill that took the last 3 pieces leaves
-  // currentstock at 0 — and the stock hook puts it back before deducting the
-  // new lines, so those units are still this bill's to spend. Without this,
-  // re-opening a saved invoice just to fix a rate would flag every line red
-  // and seal Update over stock the invoice itself consumed. The server nets it
-  // the same way (server utils/stockguard), so the two stay in step.
+  // Re-check stock for lines loaded from an order; on edit, net off this bill's own lines first.
   const originalProducts = useMemo<InvoiceProduct[]>(() => {
     if (!isEdit) return [];
     return (data?.getSalesInvoiceById?.productservice || []).map((p: any) => ({
@@ -222,23 +199,17 @@ const AddEditSalesInvoice = () => {
     () => (isService ? new Map<number, string>() : getBelowCostLines(products, salesProductData)),
     [products, salesProductData, isService]
   );
-  // Business Settings -> "Allow negative stock": when it's on, short lines are
-  // still flagged in red but the bill is allowed through — the server takes the
-  // same view, so the two never disagree.
+  // "Allow negative stock": short lines still show red but the bill can save.
   const blockOnShortStock =
     stockShortfalls.length > 0 && !settings?.allowNegativeStock;
 
-  // Refresh the party list once when the form opens (a party added elsewhere
-  // shows up). It used to re-run on every accountData change — i.e. each
-  // refetch triggered another one.
+  // Refresh the party list once on open.
   useEffect(() => {
     accountRefetch().catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // A cancelled bill is still worth opening — it is the only way to see what was
-  // on it — but nothing about it may be changed until it is re-opened from the
-  // list. So the form loads normally and is sealed instead of being withheld.
+  // A cancelled bill opens read-only until re-opened from the list.
   const isCancelledBill = data?.getSalesInvoiceById?.cancelStatus === "cancelled";
   const cancelledInfo = data?.getSalesInvoiceById;
 
@@ -462,10 +433,7 @@ const AddEditSalesInvoice = () => {
 
     setErrors({});
 
-    // The header can sit on "All Branches" (value ""), but this document must
-    // belong to one real branch — the server requires it. Said as a toast so
-    // the form stays usable; sealing the button would only leave the user
-    // staring at a dead control.
+    // Document needs a real branch, not "All Branches"; warn with a toast.
     if (!branchId) {
       dispatch(showMessage({ message: BRANCH_REQUIRED, type: "error" }));
       return;
@@ -476,9 +444,7 @@ const AddEditSalesInvoice = () => {
       return;
     }
 
-    // Same rule as the Add Products box: no line may sell below its purchase
-    // rate. Catches rates changed inline in the Products List or carried in
-    // from a loaded document — the offending Rate cell is marked in red.
+    // No line may sell below its purchase rate.
     if (belowCostLines.size > 0) {
       dispatch(
         showMessage({
@@ -489,12 +455,9 @@ const AddEditSalesInvoice = () => {
       return;
     }
 
-    // Hard stop on short stock — the server refuses the same invoice, so
-    // failing here keeps the message specific and the form editable.
+    // Block short stock here too; the server refuses it anyway.
     if (blockOnShortStock) {
-      // Name the first few and count the rest — a 100-line invoice would
-      // otherwise produce a toast nobody can read. The red lines in the
-      // Products List carry the per-item detail.
+      // List the first few short items and count the rest.
       const named = stockShortfalls
         .slice(0, 3)
         .map(
@@ -569,8 +532,7 @@ const AddEditSalesInvoice = () => {
       status,
     };
 
-    // When converting an order → invoice, keep the original order creator
-    // (e.g. the party) separately — createdby_* will be the converter (branch).
+    // Order to invoice: keep the original order creator separately.
     if (orderId && orderData?.getSalesOrderById) {
       const o: any = orderData.getSalesOrderById;
       (input as any).sourceorderid = orderId;
@@ -596,7 +558,7 @@ const AddEditSalesInvoice = () => {
             taxorsupplytype: taxOrSupplyType,
             billdate: billDate,
             billtype: billType,
-            billnumber: orderData?.getSalesOrderById?.billnumber, // Keep original order number or use new one? User said "Update in Sales Order Entry", usually means update the content.
+            billnumber: orderData?.getSalesOrderById?.billnumber,
             notes,
             ordertype: invoiceType,
             subtotal: productsTotal,
@@ -624,16 +586,12 @@ const AddEditSalesInvoice = () => {
         }
         dispatch(showMessage({ message: savedOffline ? OFFLINE_SAVED_MESSAGE : "Invoice added successfully", type: "success" }));
       }
-      // Refresh product stock in the background — the products query is
-      // cache-and-network, so every screen that shows stock re-reads it on
-      // mount anyway. Awaiting the full product list here only kept the user
-      // staring at the Save button.
+      // Refresh product stock in the background; don't await it.
       refetch().catch(() => {});
       navigate(-1);
     } catch (error: any) {
       console.error("Error:", error);
-      // Show what the server actually said — the stock guard's message names
-      // the product and the shortfall, which "An error occurred" threw away.
+      // Show the server's message (names product and shortfall).
       const serverMessage =
         error?.graphQLErrors?.[0]?.message || error?.message || "An error occurred";
       dispatch(showMessage({ message: serverMessage, type: "error" }));
@@ -703,10 +661,8 @@ const AddEditSalesInvoice = () => {
           </div>
         )}
 
-        {/* fieldset disabled seals every input at once — no field can be missed,
-            and no edit can be typed that the server would then refuse. */}
+        {/* fieldset disabled seals every input at once. */}
         <form onSubmit={(e) => e.preventDefault()} className="space-y-6">
-        {/* space-y-6: one even gap between every section (the children used to carry their own mixed mt-4 / mt-6 / none). */}
         <fieldset disabled={isCancelledBill} className={`space-y-6 ${isCancelledBill ? "opacity-90" : ""}`}>
           {/* Main Details */}
           {(isFieldEnabled("partyacc") || isFieldEnabled("invoicedate") || isFieldEnabled("billnumber") || isFieldEnabled("duedays") || isFieldEnabled("salesman") || isFieldEnabled("paymenttype") || isFieldEnabled("placeofsupply") || isFieldEnabled("billtype") || isFieldEnabled("shipto") || isFieldEnabled("notes")) && (
@@ -848,9 +804,7 @@ const AddEditSalesInvoice = () => {
           </fieldset>
           )}
 
-          {/* Product Section — short-stock lines flag themselves inside the
-              Products List (see components/productsection), so there is no
-              separate banner to scroll past on a long invoice. */}
+          {/* Product section; short-stock lines are flagged inside the list. */}
           <ProductSection
             products={products}
             setProducts={setProducts}
