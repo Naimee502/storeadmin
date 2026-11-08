@@ -16,6 +16,8 @@ import {
   useTransferStockBranchesQuery,
 } from "../../../graphql/hooks/transferstock";
 import { BRANCH_REQUIRED } from "../../../utils/branch";
+import { useOfflineNumber, savedOffline } from "../../../offline/billing";
+import { OFFLINE_SAVED_MESSAGE } from "../../../offline/saved";
 
 // Types
 
@@ -292,6 +294,9 @@ const TransferStockAddEdit: React.FC = () => {
   };
 
   // ── Submit
+  // Offline without network: this device's provisional TR- number (OFFLINE.md).
+  const { number: offlineNo } = useOfflineNumber("transferstock", !isEdit);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const err = validate();
@@ -330,11 +335,11 @@ const TransferStockAddEdit: React.FC = () => {
 
     try {
       if (isEdit && id) {
-        await editTransferStockMutation({ variables: { id, input } });
-        dispatch(showMessage({ message: "Transfer voucher updated successfully!", type: "success" }));
+        const r = await editTransferStockMutation({ variables: { id, input } });
+        dispatch(showMessage({ message: savedOffline(r?.data?.editTransferStock) ? OFFLINE_SAVED_MESSAGE : "Transfer voucher updated successfully!", type: "success" }));
       } else {
-        await addTransferStockMutation({ variables: { input } });
-        dispatch(showMessage({ message: "Stock transferred successfully!", type: "success" }));
+        const r = await addTransferStockMutation({ variables: { input: { ...input, ...(offlineNo ? { vouchernumber: offlineNo } : {}) } } });
+        dispatch(showMessage({ message: savedOffline(r?.data?.addTransferStock) ? OFFLINE_SAVED_MESSAGE : "Stock transferred successfully!", type: "success" }));
       }
       navigate("/transferstock");
     } catch (error: any) {

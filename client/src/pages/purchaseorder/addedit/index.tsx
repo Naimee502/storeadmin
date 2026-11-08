@@ -21,6 +21,8 @@ import PosAddCustomer from "../../../components/posaddcustomer";
 import { partyLabel } from "../../../utils/partylabel";
 import { isVendorParty } from "../../../utils/partytype";
 import { BRANCH_REQUIRED } from "../../../utils/branch";
+import { OFFLINE_SAVED_MESSAGE } from "../../../offline/saved";
+import { OfflineNumberNote, savedOffline as wasSavedOffline, useOfflineNumber, useOfflineStock } from "../../../offline/billing";
 
 const AddEditPurchaseOrder = () => {
   const { id } = useParams<{ id?: string }>();
@@ -114,7 +116,9 @@ const AddEditPurchaseOrder = () => {
   }));
 
   const { data: producData } = useProductServicesQuery();
-  const purchaseProductData = producData?.getProductServices ?? [];
+  // Offline mode adds unsynced stock moves; otherwise the list as fetched.
+  const purchaseProductData = useOfflineStock(producData?.getProductServices ?? [], branchId);
+  const { number: offlineNo, noDevice } = useOfflineNumber("purchaseorder", !isEdit);
 
   const purchaseorderFormPermissions = useAppSelector(state => state.permissions.permissions?.formPermissions?.purchaseorder || {});
   const isFieldEnabled = (fieldId: string) => purchaseorderFormPermissions[fieldId] !== false;
@@ -168,6 +172,11 @@ const AddEditPurchaseOrder = () => {
       setProducts(mappedProducts);
     } else if (!isEdit) {
       // NEW ORDER MODE - Auto-calculate next bill number
+      // Offline mode without network: this device's own series.
+      if (offlineNo || noDevice) {
+        setBillNumber(offlineNo || "");
+        return;
+      }
       if (purchaseOrders.length > 0) {
         const billNumbers = purchaseOrders.map((order) => order.billnumber);
         const lastBillNumber = [...billNumbers].sort().pop();
@@ -179,7 +188,7 @@ const AddEditPurchaseOrder = () => {
         setBillNumber("000001");
       }
     }
-  }, [isEdit, data, purchaseOrders]);
+  }, [isEdit, data, purchaseOrders, offlineNo, noDevice]);
 
   useEffect(() => {
     let productsTotalCalc = 0;
@@ -284,18 +293,18 @@ const AddEditPurchaseOrder = () => {
 
     try {
       if (isEdit && id) {
-        await editPurchaseOrderMutation({ variables: { id, input } });
+        const r = await editPurchaseOrderMutation({ variables: { id, input } });
         dispatch(
           showMessage({
-            message: "Purchase Order updated successfully",
+            message: wasSavedOffline(r?.data?.editPurchaseOrder) ? OFFLINE_SAVED_MESSAGE : "Purchase Order updated successfully",
             type: "success",
           })
         );
       } else {
-        await addPurchaseOrderMutation({ variables: { input } });
+        const r = await addPurchaseOrderMutation({ variables: { input } });
         dispatch(
           showMessage({
-            message: "Purchase Order added successfully",
+            message: wasSavedOffline(r?.data?.addPurchaseOrder) ? OFFLINE_SAVED_MESSAGE : "Purchase Order added successfully",
             type: "success",
           })
         );
@@ -380,6 +389,7 @@ const AddEditPurchaseOrder = () => {
                 placeholder="Auto-generated"
                 disabled={!isEdit && billNumber !== ""}
               />)}
+              <OfflineNumberNote show={!isEdit && noDevice} />
             </div>
           </fieldset>
 

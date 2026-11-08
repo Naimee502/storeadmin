@@ -12,6 +12,7 @@ import {
 } from "../../graphql/hooks/stockadjustments";
 import { formatDateDMY } from "../../utils/helper";
 import { useServerTable, useServerPaging } from "../../hooks/useservertable";
+import { useOfflineList } from "../../offline/listing";
 
 // Columns the server can filter (Seq No. is per page, so it has none).
 const SERVER_FILTER_KEYS = [
@@ -42,6 +43,7 @@ const StockAdjustmentsList: React.FC = () => {
   const isLoading = useAppSelector((state: any) => state.loader.isLoading);
 
   const table = useServerTable("stockadjustments", SERVER_FILTER_KEYS);
+  const offline = useOfflineList("stockadjustment", table.page);
   const { items: adjustmentList, total, loading, refetch } = useStockAdjustmentsPageQuery({
     ...table.variables,
     filter: { adminid: adminId, branchid: branchId },
@@ -78,16 +80,20 @@ const StockAdjustmentsList: React.FC = () => {
     { label: "Status", key: "status" },
   ];
 
-  const tableData = adjustmentList.map((item: any, index: number) => ({
+  const buildRow = (item: any, index: number) => ({
     ...item,
-    seqNo: table.offset + index + 1,
+    seqNo: index + 1,
     adjustmentdate: item.adjustmentdate
       ? formatDateDMY(item.adjustmentdate)
       : "-",
     totalamount: `₹${(item.totalamount ?? 0).toFixed(2)}`,
     createdByDisplay: item.createdby_name || "N/A",
     status: item.status ? "Active" : "Cancelled",
-  }));
+  });
+  const tableData = [
+    ...offline.rows.map((r: any) => offline.decorate(buildRow(r, -1), "seqNo")),
+    ...adjustmentList.map((r: any, i: number) => offline.decorate(buildRow(r, table.offset + i), "seqNo")),
+  ];
 
   const handleDelete = async (row: any) => {
     if (

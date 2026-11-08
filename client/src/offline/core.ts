@@ -1,10 +1,29 @@
 // Pure offline-billing logic (no browser or Apollo access) so it can be unit tested.
 
-export type DocType = "salesinvoice" | "salesorder" | "salesreturn" | "payment";
+export type DocType =
+  | "salesinvoice"
+  | "salesorder"
+  | "salesreturn"
+  | "payment"
+  | "purchaseinvoice"
+  | "purchaseorder"
+  | "purchasereturn"
+  | "stockadjustment"
+  | "transferstock";
 export type OpKind = "create" | "edit" | "cancel" | "reopen" | "delete";
 export type OutboxStatus = "pending" | "failed" | "review";
 
-export const DOC_TYPES: DocType[] = ["salesinvoice", "salesorder", "salesreturn", "payment"];
+export const DOC_TYPES: DocType[] = [
+  "salesinvoice",
+  "salesorder",
+  "salesreturn",
+  "payment",
+  "purchaseinvoice",
+  "purchaseorder",
+  "purchasereturn",
+  "stockadjustment",
+  "transferstock",
+];
 export const OFFLINE_ID_PREFIX = "offline-";
 
 export interface OpSpec {
@@ -44,6 +63,27 @@ export const OP_SPECS: Record<string, OpSpec> = {
   addPayment: spec("addPayment", "create", "payment", "Payment", "Payment"),
   editPayment: spec("editPayment", "edit", "payment", "Payment", "Payment"),
   deletePayment: spec("deletePayment", "delete", "payment", "Payment", "Payment"),
+  addPurchaseInvoice: spec("addPurchaseInvoice", "create", "purchaseinvoice", "PurchaseInvoice", "Purchase Invoice"),
+  editPurchaseInvoice: spec("editPurchaseInvoice", "edit", "purchaseinvoice", "PurchaseInvoice", "Purchase Invoice"),
+  cancelPurchaseInvoice: spec("cancelPurchaseInvoice", "cancel", "purchaseinvoice", "PurchaseInvoice", "Purchase Invoice"),
+  reopenPurchaseInvoice: spec("reopenPurchaseInvoice", "reopen", "purchaseinvoice", "PurchaseInvoice", "Purchase Invoice", false),
+  deletePurchaseInvoice: spec("deletePurchaseInvoice", "delete", "purchaseinvoice", "PurchaseInvoice", "Purchase Invoice"),
+  addPurchaseOrder: spec("addPurchaseOrder", "create", "purchaseorder", "PurchaseOrder", "Purchase Order"),
+  editPurchaseOrder: spec("editPurchaseOrder", "edit", "purchaseorder", "PurchaseOrder", "Purchase Order"),
+  cancelPurchaseOrder: spec("cancelPurchaseOrder", "cancel", "purchaseorder", "PurchaseOrder", "Purchase Order"),
+  reopenPurchaseOrder: spec("reopenPurchaseOrder", "reopen", "purchaseorder", "PurchaseOrder", "Purchase Order", false),
+  deletePurchaseOrder: spec("deletePurchaseOrder", "delete", "purchaseorder", "PurchaseOrder", "Purchase Order"),
+  addPurchaseReturn: spec("addPurchaseReturn", "create", "purchasereturn", "PurchaseReturn", "Purchase Return"),
+  editPurchaseReturn: spec("editPurchaseReturn", "edit", "purchasereturn", "PurchaseReturn", "Purchase Return"),
+  deletePurchaseReturn: spec("deletePurchaseReturn", "delete", "purchasereturn", "PurchaseReturn", "Purchase Return"),
+  createStockAdjustment: spec("createStockAdjustment", "create", "stockadjustment", "StockAdjustment", "Stock Adjustment"),
+  updateStockAdjustment: spec("updateStockAdjustment", "edit", "stockadjustment", "StockAdjustment", "Stock Adjustment"),
+  // Cancel reverses the stock and deactivates, same as delete.
+  cancelStockAdjustment: spec("cancelStockAdjustment", "delete", "stockadjustment", "StockAdjustment", "Stock Adjustment"),
+  deleteStockAdjustment: spec("deleteStockAdjustment", "delete", "stockadjustment", "StockAdjustment", "Stock Adjustment"),
+  addTransferStock: spec("addTransferStock", "create", "transferstock", "TransferStock", "Transfer Stock"),
+  editTransferStock: spec("editTransferStock", "edit", "transferstock", "TransferStock", "Transfer Stock"),
+  deleteTransferStock: spec("deleteTransferStock", "delete", "transferstock", "TransferStock", "Transfer Stock"),
 };
 
 // Old (v1) items only stored the operation name.
@@ -52,12 +92,22 @@ export const FIELD_BY_OPERATION: Record<string, string> = {
   AddSalesOrder: "addSalesOrder",
 };
 
-export const NUMBER_FIELD: Record<DocType, "billnumber" | "paymentcode"> = {
+export const NUMBER_FIELD: Record<DocType, "billnumber" | "paymentcode" | "vouchernumber"> = {
   salesinvoice: "billnumber",
   salesorder: "billnumber",
   salesreturn: "billnumber",
   payment: "paymentcode",
+  purchaseinvoice: "billnumber",
+  purchaseorder: "billnumber",
+  purchasereturn: "billnumber",
+  stockadjustment: "vouchernumber",
+  transferstock: "vouchernumber",
 };
+
+// Their edit input type is partial, so an edit of a queued create keeps the create's other fields.
+const PARTIAL_EDIT: DocType[] = ["stockadjustment"];
+
+export const isOrderType = (t: DocType) => t === "salesorder" || t === "purchaseorder";
 
 // Same patterns the server accepts (server/src/utils/offlinesync.ts).
 const DEVICE_NUMBER_RX: Record<DocType, RegExp> = {
@@ -65,13 +115,28 @@ const DEVICE_NUMBER_RX: Record<DocType, RegExp> = {
   salesorder: /^([A-Z]{1,3})\/(\d{6})$/,
   salesreturn: /^CN-([A-Z]{1,3})\/(\d{6})$/,
   payment: /^#PAY-([A-Z]{1,3})\/(\d{6})$/,
+  purchaseinvoice: /^([A-Z]{1,3})\/(\d{6})$/,
+  purchaseorder: /^([A-Z]{1,3})\/(\d{6})$/,
+  purchasereturn: /^DN-([A-Z]{1,3})\/(\d{6})$/,
+  stockadjustment: /^SA-([A-Z]{1,3})\/(\d{6})$/,
+  transferstock: /^TR-([A-Z]{1,3})\/(\d{6})$/,
 };
 
-const PREFIX: Record<DocType, string> = { salesinvoice: "", salesorder: "", salesreturn: "CN-", payment: "#PAY-" };
+const PREFIX: Record<DocType, string> = {
+  salesinvoice: "",
+  salesorder: "",
+  salesreturn: "CN-",
+  payment: "#PAY-",
+  purchaseinvoice: "",
+  purchaseorder: "",
+  purchasereturn: "DN-",
+  stockadjustment: "SA-",
+  transferstock: "TR-",
+};
 
 export const MAX_SEQ = 999999;
 
-// A/000123, CN-A/000012, #PAY-A/000012; null when the sequence does not fit 6 digits.
+// A/000123, CN-A/000012, #PAY-A/000012, DN-, SA-, TR-; null when the sequence does not fit 6 digits.
 export function formatDeviceNumber(type: DocType, code: string, seq: number): string | null {
   if (!/^[A-Z]{1,3}$/.test(code) || !Number.isInteger(seq) || seq < 1 || seq > MAX_SEQ) return null;
   return `${PREFIX[type]}${code}/${String(seq).padStart(6, "0")}`;
@@ -232,7 +297,8 @@ export function planChange(items: OutboxItem[], incoming: OutboxItem): Plan {
     if (incoming.kind === "edit") {
       const num = create.number;
       const nf = NUMBER_FIELD[create.docType];
-      const input = { ...(incoming.variables?.input || {}), clientRequestId: create.clientRequestId };
+      const base = PARTIAL_EDIT.includes(create.docType) ? create.variables?.input : {};
+      const input = { ...base, ...(incoming.variables?.input || {}), clientRequestId: create.clientRequestId };
       if (num) input[nf] = num;
       else delete input[nf];
       const merged: OutboxItem = {
@@ -385,37 +451,49 @@ export function liveCreates(items: OutboxItem[], statuses: OutboxStatus[] = ["pe
   return out;
 }
 
-// Base-unit quantity of a line, same rule as utils/products/stockcheck lineBaseQty.
+// Base-unit quantity of a line (sales, purchase, transfer or adjustment), same rule as utils/products/stockcheck lineBaseQty.
 export function lineBaseQty(line: any, variant?: any): number {
-  const qty = num(line?.qty) * (line?.unitqty ? num(line.unitqty) : 1);
+  const qty = num(line?.qty ?? line?.transferqty ?? line?.quantity) * (line?.unitqty ? num(line.unitqty) : 1);
   if (!variant) return qty;
-  const unitId = idOf(line?.salesunitid) || idOf(variant.baseunitid);
+  const unitId = idOf(line?.salesunitid) || idOf(line?.purchaseunitid) || idOf(line?.transferunitid) || idOf(variant.baseunitid);
   const baseUnitId = idOf(variant.baseunitid);
   if (!unitId || unitId === baseUnitId) return qty;
   const conv = (variant.unitconversions || []).find((uc: any) => idOf(uc.unitid) === unitId);
   return qty * Number(conv?.factor ?? 1);
 }
 
-// Unsynced stock change for a variant: invoices negative, returns positive, orders/services zero.
+const STOCK_SIGN: Partial<Record<DocType, number>> = { salesinvoice: -1, salesreturn: 1, purchaseinvoice: 1, purchasereturn: -1 };
+
+// Branch, sign and lines of each stock move a queued document makes; orders and services make none.
+export function stockMoves(type: DocType, input: any): Array<[string, number, any[]]> {
+  if (type === "transferstock") {
+    const lines = input?.items || [];
+    return [[idOf(input?.frombranchid), -1, lines], [idOf(input?.tobranchid), 1, lines]];
+  }
+  if (type === "stockadjustment") return [[idOf(input?.branchid), input?.type === "Excess" ? 1 : -1, input?.items || []]];
+  const sign = STOCK_SIGN[type];
+  if (!sign || input?.isservice) return [];
+  return [[idOf(input?.branchid), sign, input?.productservice || []]];
+}
+
+// Unsynced stock change for a variant in a branch (all branches when null).
 export function stockDelta(items: OutboxItem[], productId: string, variantId: string | null, branchId: string | null, variant?: any): number {
   let total = 0;
   for (const { item, cancelled } of liveCreates(items)) {
     if (cancelled) continue;
-    const sign = item.docType === "salesinvoice" ? -1 : item.docType === "salesreturn" ? 1 : 0;
-    if (!sign) continue;
-    const input = item.variables?.input || {};
-    if (input.isservice) continue;
-    if (branchId && idOf(input.branchid) && idOf(input.branchid) !== branchId) continue;
-    for (const line of input.productservice || []) {
-      if (idOf(line?.productserviceid) !== productId) continue;
-      if (variantId && idOf(line?.variantid) !== variantId) continue;
-      total += sign * lineBaseQty(line, variant);
+    for (const [branch, sign, lines] of stockMoves(item.docType, item.variables?.input || {})) {
+      if (branchId && branch && branch !== branchId) continue;
+      for (const line of lines) {
+        if (idOf(line?.productserviceid ?? line?.productid) !== productId) continue;
+        if (variantId && idOf(line?.variantid) !== variantId) continue;
+        total += sign * lineBaseQty(line, variant);
+      }
     }
   }
   return total;
 }
 
-// Unsynced outstanding change: invoices add (total - received), returns and receipts subtract.
+// Unsynced balance change (debit positive): sales invoices add (total - received), purchase invoices subtract (total - paid), returns and payments the other way.
 export function partyDelta(items: OutboxItem[], partyId: string): number {
   let total = 0;
   for (const { item, cancelled } of liveCreates(items)) {
@@ -433,6 +511,18 @@ export function partyDelta(items: OutboxItem[], partyId: string): number {
       const mode = String(input.refundMode || "auto").toLowerCase();
       if (mode === "auto" && (pay === "cash" || pay === "bank")) continue;
       total -= num(input.totalamount);
+    } else if (item.docType === "purchaseinvoice") {
+      if (idOf(input.partyacc) !== partyId) continue;
+      const t = num(input.totalamount);
+      const pay = String(input.paymenttype || "").toLowerCase();
+      const paid = pay === "credit" ? 0 : Math.min(Math.max(num(input.paid), 0), t);
+      total -= t - paid;
+    } else if (item.docType === "purchasereturn") {
+      if (idOf(input.partyacc) !== partyId) continue;
+      const pay = String(input.paymenttype || "").toLowerCase();
+      const mode = String(input.refundMode || "auto").toLowerCase();
+      if (mode === "auto" && (pay === "cash" || pay === "bank")) continue;
+      total += num(input.totalamount);
     } else if (item.docType === "payment") {
       if (idOf(input.partyid) !== partyId) continue;
       const v = num(input.amount) + num(input.discount) + num(input.commission);

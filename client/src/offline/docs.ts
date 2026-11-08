@@ -4,7 +4,12 @@ import { GET_SALES_INVOICES_PAGE } from "../graphql/queries/salesinvoice";
 import { GET_SALES_ORDERS_PAGE } from "../graphql/queries/salesorder";
 import { GET_SALES_RETURNS_PAGE } from "../graphql/queries/salesreturn";
 import { GET_PAYMENTS_PAGE } from "../graphql/queries/payments";
-import { byAge, docId, liveCreates, offlineIdFor, type DocType, type OutboxItem, type OutboxStatus } from "./core";
+import { GET_PURCHASE_INVOICES_PAGE } from "../graphql/queries/purchaseinvoice";
+import { GET_PURCHASE_ORDERS_PAGE } from "../graphql/queries/purchaseorder";
+import { GET_PURCHASE_RETURNS_PAGE } from "../graphql/queries/purchasereturn";
+import { GET_STOCK_ADJUSTMENTS_PAGE } from "../graphql/queries/stockadjustments";
+import { GET_TRANSFER_STOCKS_PAGE } from "../graphql/queries/transferstock";
+import { byAge, docId, isOrderType, liveCreates, offlineIdFor, type DocType, type OutboxItem, type OutboxStatus } from "./core";
 import { selectionAt, shapeBySelection } from "./gql";
 import { getOfflineClient, offlineStore } from "./outbox";
 import { localDoc, localDocs } from "./localdb";
@@ -14,6 +19,11 @@ const PAGE: Record<DocType, DocumentNode> = {
   salesorder: GET_SALES_ORDERS_PAGE,
   salesreturn: GET_SALES_RETURNS_PAGE,
   payment: GET_PAYMENTS_PAGE,
+  purchaseinvoice: GET_PURCHASE_INVOICES_PAGE,
+  purchaseorder: GET_PURCHASE_ORDERS_PAGE,
+  purchasereturn: GET_PURCHASE_RETURNS_PAGE,
+  stockadjustment: GET_STOCK_ADJUSTMENTS_PAGE,
+  transferstock: GET_TRANSFER_STOCKS_PAGE,
 };
 
 const LINE_TYPENAME: Record<DocType, string> = {
@@ -21,6 +31,11 @@ const LINE_TYPENAME: Record<DocType, string> = {
   salesorder: "SalesOrderProductService",
   salesreturn: "SalesReturnProductService",
   payment: "",
+  purchaseinvoice: "PurchaseInvoiceProductService",
+  purchaseorder: "PurchaseOrderProductService",
+  purchasereturn: "PurchaseReturnProductService",
+  stockadjustment: "StockAdjustmentItem",
+  transferstock: "TransferStockItem",
 };
 
 // Extra fields on every offline document.
@@ -49,6 +64,7 @@ const COLLECTION_OF: Record<string, string> = {
   ProductService: "product",
   Unit: "unit",
   AccountLedger: "ledger",
+  Branch: "branch",
 };
 
 function localVariant(id: string): any {
@@ -149,12 +165,39 @@ export function buildRichDoc(
     };
   }
   const lineType = LINE_TYPENAME[item.docType];
+  const base = { ...scalars(input), __typename: item.typename, id, status: input.status ?? true, createdAt: created, updatedAt: created, ...meta };
+  if (item.docType === "stockadjustment") {
+    const branch = idOf(input.branchid);
+    return {
+      ...base,
+      vouchernumber: item.number ?? str(input.vouchernumber),
+      adminid: input.adminid ? { __typename: "StockAdjustmentAdminRef", id: idOf(input.adminid), name: null } : null,
+      branchid: branch ? { __typename: "StockAdjustmentBranchRef", id: branch, branchname: str(entity(data, branch, ["Branch"])?.branchname) } : null,
+      items: (input.items || []).map((l: any) => ({
+        ...scalars(l),
+        __typename: lineType,
+        productid: { ...ref(data, l.productid, PRODUCT, "ProductService") },
+        variantid: idOf(l.variantid) || null,
+      })),
+    };
+  }
+  if (item.docType === "transferstock") {
+    return {
+      ...base,
+      vouchernumber: item.number ?? str(input.vouchernumber),
+      frombranchid: idOf(input.frombranchid),
+      tobranchid: idOf(input.tobranchid),
+      items: (input.items || []).map((l: any) => ({ ...scalars(l), __typename: lineType })),
+      admin: input.admin ? { __typename: "Admin", id: idOf(input.admin), name: null, email: null } : null,
+    };
+  }
   const productservice = (input.productservice || []).map((l: any) => ({
     ...scalars(l),
     __typename: lineType,
     productserviceid: ref(data, l.productserviceid, PRODUCT, "SimpleRef"),
     variantid: l.variantid ? ref(data, l.variantid, VARIANT, "SimpleRef") : null,
     salesunitid: l.salesunitid ? ref(data, l.salesunitid, UNIT, "SimpleRef") : null,
+    purchaseunitid: l.purchaseunitid ? ref(data, l.purchaseunitid, UNIT, "SimpleRef") : null,
     salesaccountid: l.salesaccountid ? ref(data, l.salesaccountid, LEDGER, "SimpleRef") : null,
     purchaseaccountid: l.purchaseaccountid ? ref(data, l.purchaseaccountid, LEDGER, "SimpleRef") : null,
     serviceaccountid: l.serviceaccountid ? ref(data, l.serviceaccountid, LEDGER, "SimpleRef") : null,
@@ -172,6 +215,7 @@ export function buildRichDoc(
     billnumber: item.number ?? str(input.billnumber),
     partyacc: ref(data, input.partyacc, PARTY, "SimpleRef"),
     salesmenid: input.salesmenid ? ref(data, input.salesmenid, STAFF, "SimpleRef") : null,
+    purchasemenid: input.purchasemenid ? ref(data, input.purchasemenid, STAFF, "SimpleRef") : null,
     productservice,
     othercharges,
     isservice: !!input.isservice,
@@ -186,12 +230,12 @@ export function buildRichDoc(
     updatedAt: created,
     ...meta,
   };
-  if (item.docType === "salesorder") {
+  if (isOrderType(item.docType)) {
     doc.orderStatus = cancelled ? "cancelled" : "pending";
     doc.isConverted = false;
     doc.invoicenumber = null;
   }
-  if (item.docType === "salesinvoice") {
+  if (item.docType === "salesinvoice" || item.docType === "purchaseinvoice") {
     doc.sourceorderno = null;
     doc.received = typeof input.received === "number" ? input.received : null;
   }
@@ -245,7 +289,7 @@ function applyOp(doc: any, op: OutboxItem): any {
   const cancelled = op.kind === "cancel";
   if (!cancelled && op.kind !== "reopen") return doc;
   const out = { ...doc, cancelStatus: cancelled ? "cancelled" : "open" };
-  if (op.docType === "salesorder") out.orderStatus = cancelled ? "cancelled" : "pending";
+  if (isOrderType(op.docType)) out.orderStatus = cancelled ? "cancelled" : "pending";
   return out;
 }
 

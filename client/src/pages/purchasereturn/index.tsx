@@ -11,6 +11,7 @@ import {
   usePurchaseReturnMutations,
 } from "../../graphql/hooks/purchasereturn";
 import { useServerTable, useServerPaging } from "../../hooks/useservertable";
+import { useOfflineList } from "../../offline/listing";
 import { formatDateDMY } from "../../utils/helper";
 import { partyLabel } from "../../utils/partylabel";
 
@@ -28,6 +29,7 @@ const PurchaseReturns = () => {
   const dispatch = useAppDispatch();
   // Lite listing query — only the table columns.
   const table = useServerTable("purchasereturn", SERVER_FILTER_KEYS);
+  const offline = useOfflineList("purchasereturn", table.page);
   const { items: list, total, loading, refetch } = usePurchaseReturnsPageQuery(table.variables);
   const serverPaging = useServerPaging(table, total, loading);
   const { deletePurchaseReturnMutation } = usePurchaseReturnMutations();
@@ -62,9 +64,9 @@ const PurchaseReturns = () => {
     { label: "Status", key: "statusLabel" },
   ];
 
-  const tableData = list.map((r: any, i: number) => ({
+  const buildRow = (r: any, i: number) => ({
     ...r,
-    seqNo: table.offset + i + 1,
+    seqNo: i + 1,
     returndate: formatDateDMY(r.returndate),
     returndateRaw: r.returndate,
     partyacc: partyLabel(r.partyacc) || "N/A",
@@ -73,7 +75,11 @@ const PurchaseReturns = () => {
     refundLabel: cap(r.refundMode),
     createdByDisplay: r.createdby_name || "N/A",
     statusLabel: r.status ? "Active" : "Inactive",
-  }));
+  });
+  const tableData = [
+    ...offline.rows.map((r: any) => offline.decorate(buildRow(r, -1), "seqNo")),
+    ...list.map((r: any, i: number) => offline.decorate(buildRow(r, table.offset + i), "seqNo")),
+  ];
 
   return (
     <HomeLayout>

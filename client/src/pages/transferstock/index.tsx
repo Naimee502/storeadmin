@@ -14,6 +14,7 @@ import {
 } from "../../graphql/hooks/transferstock";
 import { formatDateDMY } from "../../utils/helper";
 import { useServerTable, useServerPaging } from "../../hooks/useservertable";
+import { useOfflineList } from "../../offline/listing";
 
 // Server-filterable columns; Product, Qty and Purchase Rate are built locally.
 const SERVER_FILTER_KEYS = [
@@ -27,6 +28,7 @@ const TransferStock = () => {
   const actions = useAppSelector((state) => selectModuleActions(state, "transferstock"));
 
   const table = useServerTable("transferstock", SERVER_FILTER_KEYS);
+  const offline = useOfflineList("transferstock", table.page);
   const { items: transferStocks, total, loading, refetch } = useTransferStocksPageQuery(table.variables);
   const serverPaging = useServerPaging(table, total, loading);
   const isLoading = useAppSelector((state) => state.loader.isLoading);
@@ -113,7 +115,7 @@ const TransferStock = () => {
     </div>
   );
 
-  const tableData = transferStocks.map((ts: any) => {
+  const buildRow = (ts: any, _i: number) => {
     const fromBranch = branches.find((b: any) => b.id === ts.frombranchid);
     const toBranch   = branches.find((b: any) => b.id === ts.tobranchid);
     const items = ts.items || [];
@@ -130,7 +132,11 @@ const TransferStock = () => {
       createdByDisplay:   ts.createdby_name || "N/A",
       status:             ts.status ? "Active" : "Inactive",
     };
-  });
+  };
+  const tableData = [
+    ...offline.rows.map((r: any) => offline.decorate(buildRow(r, -1), "vouchernumber")),
+    ...transferStocks.map((r: any, i: number) => offline.decorate(buildRow(r, table.offset + i), "vouchernumber")),
+  ];
 
   return (
     <HomeLayout>

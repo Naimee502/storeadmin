@@ -48,9 +48,14 @@ const DOC_FIELDS: Array<[string, string]> = [
   ["partyacc", "Party"],
   ["billdate", "Date"],
   ["returndate", "Date"],
+  ["adjustmentdate", "Date"],
+  ["transferdate", "Date"],
+  ["type", "Type"],
+  ["tobranchid", "To branch"],
   ["paymenttype", "Payment type"],
   ["billtype", "Bill type"],
   ["productservice", "Items"],
+  ["items", "Items"],
   ["subtotal", "Subtotal"],
   ["totaldiscount", "Discount"],
   ["totalgst", "Tax"],
@@ -58,8 +63,11 @@ const DOC_FIELDS: Array<[string, string]> = [
   ["roundoff", "Round off"],
   ["totalamount", "Total"],
   ["received", "Received"],
+  ["paid", "Paid"],
   ["refundMode", "Refund mode"],
   ["notes", "Notes"],
+  ["reason", "Reason"],
+  ["narration", "Narration"],
   ["status", "Active"],
 ];
 
@@ -92,10 +100,11 @@ function dayOf(v: any): string {
 
 // Comparable key and display text for one field value.
 function view(key: string, v: any, side: "mine" | "server", item: OutboxItem): { cmp: string; text: string } {
-  if (key === "productservice") {
+  if (key === "productservice" || key === "items") {
     const lines = Array.isArray(v) ? v : [];
-    const qty = lines.reduce((s: number, l: any) => s + (Number(l?.qty) || 0), 0);
-    const cmp = JSON.stringify(lines.map((l: any) => [idOf(l?.productserviceid), idOf(l?.variantid), num(l?.qty), num(l?.rate), num(l?.discount)]));
+    const q = (l: any) => l?.qty ?? l?.transferqty ?? l?.quantity;
+    const qty = lines.reduce((s: number, l: any) => s + (Number(q(l)) || 0), 0);
+    const cmp = JSON.stringify(lines.map((l: any) => [idOf(l?.productserviceid ?? l?.productid), idOf(l?.variantid), num(q(l)), num(l?.rate), num(l?.discount)]));
     return { cmp, text: `${lines.length} line${lines.length === 1 ? "" : "s"} · qty ${qty}` };
   }
   if (key === "invoices" || key === "othercharges") {
@@ -114,7 +123,7 @@ function view(key: string, v: any, side: "mine" | "server", item: OutboxItem): {
     const d = dayOf(v);
     return { cmp: d, text: d ? d.split("-").reverse().join("-") : "—" };
   }
-  if (typeof v === "number" || ["subtotal", "totaldiscount", "totalgst", "roundoff", "totalamount", "received", "amount", "discount", "commission"].includes(key)) {
+  if (typeof v === "number" || ["subtotal", "totaldiscount", "totalgst", "roundoff", "totalamount", "received", "paid", "amount", "discount", "commission"].includes(key)) {
     if (v === null || v === undefined || v === "") return { cmp: "", text: "—" };
     return { cmp: String(num(v)), text: fmtAmount(num(v)) };
   }

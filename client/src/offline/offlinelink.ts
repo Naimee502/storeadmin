@@ -4,6 +4,7 @@ import { print, type DocumentNode, type FieldNode } from "graphql";
 import {
   DOC_TYPES,
   NUMBER_FIELD,
+  isOrderType,
   OP_SPECS,
   collectOfflineIds,
   docId,
@@ -46,7 +47,17 @@ import { isOfflineEnabled } from "./settings";
 import { currentUserKey } from "./userkey";
 
 // By-id queries answered from the outbox for documents not synced yet.
-const BY_ID_FIELDS = new Set(["getSalesInvoiceById", "getSalesOrderById", "getSalesReturnById", "getPaymentById"]);
+const BY_ID_FIELDS = new Set([
+  "getSalesInvoiceById",
+  "getSalesOrderById",
+  "getSalesReturnById",
+  "getPaymentById",
+  "getPurchaseInvoiceById",
+  "getPurchaseOrderById",
+  "getPurchaseReturnById",
+  "getStockAdjustmentById",
+  "getTransferStockById",
+]);
 
 // Network failure with no HTTP response at all (not a GraphQL or HTTP error).
 function isNoResponse(err: any): boolean {
@@ -106,6 +117,11 @@ const LOCAL_QUERIES: Record<string, LocalSpec> = {
   ...doc("salesorder", "SalesOrder", "getSalesOrders", "getSalesOrdersPage", "getSalesOrderById"),
   ...doc("salesreturn", "SalesReturn", "getSalesReturns", "getSalesReturnsPage", "getSalesReturnById"),
   ...doc("payment", "Payment", "getPayments", "getPaymentsPage", "getPaymentById"),
+  ...doc("purchaseinvoice", "PurchaseInvoice", "getPurchaseInvoices", "getPurchaseInvoicesPage", "getPurchaseInvoiceById"),
+  ...doc("purchaseorder", "PurchaseOrder", "getPurchaseOrders", "getPurchaseOrdersPage", "getPurchaseOrderById"),
+  ...doc("purchasereturn", "PurchaseReturn", "getPurchaseReturns", "getPurchaseReturnsPage", "getPurchaseReturnById"),
+  ...doc("stockadjustment", "StockAdjustment", "getStockAdjustments", "getStockAdjustmentsPage", "getStockAdjustmentById"),
+  ...doc("transferstock", "TransferStock", "getTransferStocks", "getTransferStocksPage", "getTransferStockById"),
   getProductServices: list("product", "ProductService"),
   getAccounts: list("account", "Account"),
   getAccountLedgers: list("ledger", "AccountLedger"),
@@ -137,6 +153,8 @@ function matches(d: any, vars: any, isDoc: boolean): boolean {
   for (const k of ["branchid", "partyacc", "partyid"]) {
     if (isDoc && f[k] && d?.[k] !== undefined && idOf(d[k]) !== String(f[k])) return false;
   }
+  // Transfer lists take the branch as a top-level argument.
+  if (isDoc && vars?.frombranchid && d?.frombranchid !== undefined && idOf(d.frombranchid) !== String(vars.frombranchid)) return false;
   const cat = vars?.categoryId;
   const dcat = d?.categoryid ?? d?.categoryId;
   if (cat && dcat !== undefined && idOf(dcat) !== String(cat)) return false;
@@ -164,7 +182,7 @@ function localResult(field: FieldNode, spec: LocalSpec, vars: any): any {
   if (spec.kind === "page") {
     // Online the list screens add queued new documents to page 1 themselves.
     let sorted = newestFirst(rows(!isOnline()));
-    if (spec.c === "salesinvoice" && !vars?.filter?.includeCancelled) sorted = sorted.filter((d) => d.cancelStatus !== "cancelled");
+    if ((spec.c === "salesinvoice" || spec.c === "purchaseinvoice") && !vars?.filter?.includeCancelled) sorted = sorted.filter((d) => d.cancelStatus !== "cancelled");
     const { items, total } = pageRows(sorted, vars || {});
     const sel = field.selectionSet?.selections.find((s: any) => s.kind === "Field" && s.name.value === "items") as FieldNode | undefined;
     return { [key]: { __typename: spec.page, items: items.map((d) => shape(sel?.selectionSet, d, spec.typename)), total } };
@@ -262,7 +280,8 @@ const stampFragment = (typename: string) => {
   return f;
 };
 
-const COLLECTION_OF_TYPE: Record<string, string> = { SalesInvoice: "salesinvoice", SalesOrder: "salesorder", SalesReturn: "salesreturn", Payment: "payment" };
+// Document typename to its collection (doc types are named after their collections).
+const COLLECTION_OF_TYPE: Record<string, string> = Object.fromEntries(Object.values(OP_SPECS).map((s) => [s.typename, s.docType]));
 
 // Field of a document from the Apollo cache, else from pulled records.
 function knownField(typename: string, id: string, field: string): any {
@@ -319,7 +338,7 @@ function makeItem(p: {
   const input = p.variables?.input || {};
   const label = p.spec.docType === "payment" ? (String(input.type || "").toLowerCase() === "receipt" ? "Receipt" : "Payment") : p.spec.label;
   const amount = typeof input.totalamount === "number" ? input.totalamount : typeof input.amount === "number" ? input.amount : null;
-  const date = input.billdate ?? input.returndate ?? input.paymentdate;
+  const date = input.billdate ?? input.returndate ?? input.paymentdate ?? input.adjustmentdate ?? input.transferdate;
   const item: OutboxItem = {
     v: 2,
     id: p.id,
@@ -458,10 +477,10 @@ function syntheticChange(
     }
   } else if (kind === "cancel") {
     src = { __typename: spec.typename, id: target, cancelStatus: "cancelled", cancelReason: variables.reason ?? "", cancelledAt: now };
-    if (spec.docType === "salesorder") src.orderStatus = "cancelled";
+    if (isOrderType(spec.docType)) src.orderStatus = "cancelled";
   } else {
     src = { __typename: spec.typename, id: target, cancelStatus: "open", cancelReason: null, cancelledAt: null };
-    if (spec.docType === "salesorder") src.orderStatus = "pending";
+    if (isOrderType(spec.docType)) src.orderStatus = "pending";
   }
   const mode = isOfflineId(target) && kind === "edit" ? "null" : "omit";
   return { data: { [key]: shapeBySelection(field.selectionSet, src, mode) } };

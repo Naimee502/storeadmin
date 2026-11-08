@@ -15,6 +15,8 @@ import { showMessage } from "../../../redux/slices/message";
 import { FaTrash } from "react-icons/fa";
 import { todayYMD, normalizeToYMD } from "../../../utils/helper";
 import { BRANCH_REQUIRED } from "../../../utils/branch";
+import { useOfflineNumber, savedOffline } from "../../../offline/billing";
+import { OFFLINE_SAVED_MESSAGE } from "../../../offline/saved";
 
 // Shared row template so columns align; written in full so Tailwind generates it.
 const ROW_GRID_SM =
@@ -226,6 +228,9 @@ const StockAdjustmentAddEdit: React.FC = () => {
       return next.length === 0 ? [emptyItem()] : next;
     });
 
+  // Offline without network: this device's provisional SA- number (OFFLINE.md).
+  const { number: offlineNo } = useOfflineNumber("stockadjustment", !isEdit);
+
   // ── Submit
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -269,16 +274,16 @@ const StockAdjustmentAddEdit: React.FC = () => {
 
     try {
       if (isEdit && id) {
-        await updateStockAdjustment({ variables: { id, input: payload } });
+        const r = await updateStockAdjustment({ variables: { id, input: payload } });
         dispatch(
-          showMessage({ message: "Stock adjustment updated successfully!", type: "success" })
+          showMessage({ message: savedOffline(r?.data?.updateStockAdjustment) ? OFFLINE_SAVED_MESSAGE : "Stock adjustment updated successfully!", type: "success" })
         );
       } else {
-        await createStockAdjustment({
-          variables: { input: { ...payload, adminid: adminId, branchid: branchId } },
+        const r = await createStockAdjustment({
+          variables: { input: { ...payload, adminid: adminId, branchid: branchId, ...(offlineNo ? { vouchernumber: offlineNo } : {}) } },
         });
         dispatch(
-          showMessage({ message: "Stock adjustment saved successfully!", type: "success" })
+          showMessage({ message: savedOffline(r?.data?.createStockAdjustment) ? OFFLINE_SAVED_MESSAGE : "Stock adjustment saved successfully!", type: "success" })
         );
       }
       navigate("/stockadjustments");

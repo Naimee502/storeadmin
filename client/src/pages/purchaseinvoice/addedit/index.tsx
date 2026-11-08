@@ -20,6 +20,8 @@ import PosAddCustomer from "../../../components/posaddcustomer";
 import { partyLabel } from "../../../utils/partylabel";
 import { isVendorParty } from "../../../utils/partytype";
 import { BRANCH_REQUIRED } from "../../../utils/branch";
+import { isOfflineSaved, OFFLINE_SAVED_MESSAGE } from "../../../offline/saved";
+import { OfflineNumberNote, savedOffline as wasSavedOffline, useOfflineNumber, useOfflineStock } from "../../../offline/billing";
 
 const AddEditPurchaseInvoice = () => {
   const { id } = useParams<{ id?: string }>();
@@ -143,7 +145,9 @@ const AddEditPurchaseInvoice = () => {
 
   // Product List
   const { data: productData, refetch } = useProductServicesQuery();
-  const purchaseProductData = productData?.getProductServices ?? [];
+  // Offline mode adds unsynced stock moves; otherwise the list as fetched.
+  const purchaseProductData = useOfflineStock(productData?.getProductServices ?? [], branchId);
+  const { number: offlineNo, noDevice } = useOfflineNumber("purchaseinvoice", !isEdit);
 
   // Refresh the party list once on open.
   useEffect(() => {
@@ -252,7 +256,7 @@ const AddEditPurchaseInvoice = () => {
       setInvoiceType(order.ordertype || "retail");
       setNotes(order.notes || "");
       setIsService(order.isservice || false);
-      setBillNumber(""); // Allow auto-generate for the new invoice
+      setBillNumber(offlineNo || ""); // Allow auto-generate for the new invoice
 
       const mappedProducts: InvoiceProduct[] = (order.productservice || []).map((p: any) => ({
         productserviceid: p.productserviceid?.id || "",
@@ -273,6 +277,11 @@ const AddEditPurchaseInvoice = () => {
       setProducts(mappedProducts);
     } else if (!isEdit && !orderId) {
       // NEW INVOICE MODE - Auto-calculate next bill number
+      // Offline mode without network: this device's own series.
+      if (offlineNo || noDevice) {
+        setBillNumber(offlineNo || "");
+        return;
+      }
       if (purchaseInvoices.length > 0) {
         const billNumbers = purchaseInvoices.map((inv) => inv.billnumber);
         const lastBillNumber = [...billNumbers].sort().pop();
@@ -284,7 +293,7 @@ const AddEditPurchaseInvoice = () => {
         setBillNumber("000001");
       }
     }
-  }, [isEdit, data, orderId, orderData, purchaseInvoices]);
+  }, [isEdit, data, orderId, orderData, purchaseInvoices, offlineNo, noDevice]);
 
   const handleTaxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = parseFloat(e.target.value);
@@ -439,11 +448,13 @@ const AddEditPurchaseInvoice = () => {
 
     try {
       if (isEdit && id) {
-        await editPurchaseInvoiceMutation({ variables: { id, input } });
-        dispatch(showMessage({ message: "Purchase Invoice updated successfully", type: "success" }));
+        const r = await editPurchaseInvoiceMutation({ variables: { id, input } });
+        dispatch(showMessage({ message: wasSavedOffline(r?.data?.editPurchaseInvoice) ? OFFLINE_SAVED_MESSAGE : "Purchase Invoice updated successfully", type: "success" }));
       } else {
-        await addPurchaseInvoiceMutation({ variables: { input } });
-        if (orderId) {
+        const res = await addPurchaseInvoiceMutation({ variables: { input } });
+        // Queued offline: the order update needs the server, so it is skipped.
+        const savedOffline = isOfflineSaved(res?.data?.addPurchaseInvoice);
+        if (orderId && !savedOffline) {
           // Mark the source Purchase Order as converted
           const orderInput = {
             paymenttype: paymentType,
@@ -479,7 +490,7 @@ const AddEditPurchaseInvoice = () => {
             variables: { id: orderId, input: orderInput },
           });
         }
-        dispatch(showMessage({ message: "Purchase Invoice added successfully", type: "success" }));
+        dispatch(showMessage({ message: savedOffline ? OFFLINE_SAVED_MESSAGE : "Purchase Invoice added successfully", type: "success" }));
       }
       // Refresh product stock in the background; don't await it.
       refetch().catch(() => {});
@@ -635,6 +646,7 @@ const AddEditPurchaseInvoice = () => {
                 placeholder="Auto-generated"
                 disabled={!isEdit && billNumber !== ""}
               />}
+              <OfflineNumberNote show={!isEdit && noDevice} />
               {isFieldEnabled("billtype") && <FormField
                 label="Bill Type"
                 name="billType"

@@ -13,6 +13,7 @@ import {
   usePurchaseOrderMutations,
 } from "../../graphql/hooks/purchaseorder";
 import { useServerTable, useServerPaging } from "../../hooks/useservertable";
+import { useOfflineList } from "../../offline/listing";
 import { GET_PURCHASE_ORDER_PRINT } from "../../graphql/queries/purchaseorder";
 import { formatDateDMY } from "../../utils/helper";
 import PrintableInvoice from "../../components/printinvoice";
@@ -41,6 +42,7 @@ const PurchaseOrders = () => {
 
   // Lite listing query; the full order is fetched by id on Print / WhatsApp.
   const table = useServerTable("purchaseorder", SERVER_FILTER_KEYS);
+  const offline = useOfflineList("purchaseorder", table.page);
   const {
     items: orderList,
     total: orderTotal,
@@ -140,7 +142,7 @@ const PurchaseOrders = () => {
   const waMeta = useRef<{ phone: string; message: string; fileName: string } | null>(null);
 
   const handleWhatsAppShare = async (row: any) => {
-    const orig = orderList.find((o: any) => o.id === row.id);
+    const orig = [...offline.rows, ...orderList].find((o: any) => o.id === row.id);
     if (!orig) return;
 
     // Copy the supplier's number for WhatsApp's picker; keep the toast up long enough.
@@ -286,7 +288,10 @@ const PurchaseOrders = () => {
     };
   };
 
-  const tableData = orderList.map((order: any, i: number) => buildRow(order, table.offset + i));
+  const tableData = [
+    ...offline.rows.map((r: any) => offline.decorate(buildRow(r, -1), "seqNo")),
+    ...orderList.map((r: any, i: number) => offline.decorate(buildRow(r, table.offset + i), "seqNo")),
+  ];
 
   // Print / WhatsApp need the full order; fetch it by id.
   const loadPrintable = async (row: any) => {

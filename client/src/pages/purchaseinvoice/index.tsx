@@ -12,6 +12,7 @@ import {
   usePurchaseInvoiceMutations,
 } from "../../graphql/hooks/purchaseinvoice";
 import { useServerTable, useServerPaging } from "../../hooks/useservertable";
+import { useOfflineList } from "../../offline/listing";
 import { GET_PURCHASE_INVOICE_BALANCE, GET_PURCHASE_INVOICE_BY_ID } from "../../graphql/queries/purchaseinvoice";
 import { usePurchaseReturnsListQuery } from "../../graphql/hooks/purchasereturn";
 import PrintableInvoice from "../../components/printinvoice";
@@ -39,6 +40,7 @@ const PurchaseInvoices = () => {
 
   // Lite listing; the full bill is fetched on Print / WhatsApp (see loadPrintable).
   const table = useServerTable("purchaseinvoice", SERVER_FILTER_KEYS);
+  const offline = useOfflineList("purchaseinvoice", table.page);
   const {
     items: invoiceList,
     total: invoiceTotal,
@@ -90,7 +92,7 @@ const PurchaseInvoices = () => {
   const waMeta = useRef<{ phone: string; message: string; fileName: string } | null>(null);
 
   const handleWhatsAppShare = async (row: any) => {
-    const orig = invoiceList.find((inv: any) => inv.id === row.id);
+    const orig = [...offline.rows, ...invoiceList].find((inv: any) => inv.id === row.id);
     if (!orig) return;
 
     // WhatsApp can't preselect a recipient, so copy the number and keep the toast up longer.
@@ -256,7 +258,10 @@ const PurchaseInvoices = () => {
     };
   };
 
-  const tableData = invoiceList.map((inv: any, i: number) => buildRow(inv, table.offset + i));
+  const tableData = [
+    ...offline.rows.map((r: any) => offline.decorate(buildRow(r, -1), "seqNo")),
+    ...invoiceList.map((r: any, i: number) => offline.decorate(buildRow(r, table.offset + i), "seqNo")),
+  ];
 
   // Fetch the full bill (and party balance if enabled) for Print / WhatsApp.
   const loadPrintable = async (row: any) => {

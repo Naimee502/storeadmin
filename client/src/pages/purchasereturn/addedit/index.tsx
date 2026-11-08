@@ -19,6 +19,10 @@ import {
 } from "../../../graphql/hooks/purchaseinvoice";
 import OtherChargesSection from "../../../components/othercharges";
 import { partyLabel } from "../../../utils/partylabel";
+import { OfflineNumberNote, savedOffline as wasSavedOffline, useOfflineNumber } from "../../../offline/billing";
+import { OFFLINE_SAVED_MESSAGE } from "../../../offline/saved";
+import { isOfflineEnabled } from "../../../offline/settings";
+import { isOwnDeviceNumber } from "../../../offline/device";
 
 type Line = {
   productserviceid: string;
@@ -222,9 +226,21 @@ const AddEditPurchaseReturn: React.FC = () => {
     );
   }, [isEdit, existingData]);
 
+  const { number: offlineNo, noDevice } = useOfflineNumber("purchasereturn", !isEdit);
+
   // Auto-calculate bill number for new returns
   useEffect(() => {
     if (isEdit) return;
+    // Offline mode without network: this device's own series (null and false otherwise).
+    if (offlineNo || noDevice) {
+      setBillnumber(offlineNo || "");
+      return;
+    }
+    // Back online: drop the device number shown while offline.
+    if (isOfflineEnabled() && isOwnDeviceNumber("purchasereturn", billnumber)) {
+      setBillnumber("");
+      return;
+    }
     if (sourceInvoiceId) return; // Wait for source invoice to be selected
     if (billnumber) return; // Already set
 
@@ -239,7 +255,7 @@ const AddEditPurchaseReturn: React.FC = () => {
     } else {
       setBillnumber("000001");
     }
-  }, [isEdit, sourceInvoiceId, billnumber]);
+  }, [isEdit, sourceInvoiceId, billnumber, offlineNo, noDevice]);
 
   // Hydrate from source invoice
   useEffect(() => {
@@ -442,7 +458,7 @@ const AddEditPurchaseReturn: React.FC = () => {
       taxorsupplytype: taxorsupplytype || "exclusive",
       returndate,
       billtype: billtype || "tax",
-      billnumber: isEdit ? billnumber : null,  // ✅ Let server generate for new records
+      billnumber: isEdit ? billnumber : offlineNo || null,  // ✅ Let server generate for new records
       notes: notes || undefined,
       reason: reason || undefined,
       refundMode,
@@ -487,12 +503,12 @@ const AddEditPurchaseReturn: React.FC = () => {
 
       if (isEdit && id) {
         console.log("Editing ID:", id);
-        await editPurchaseReturnMutation({ variables: { id, input } });
-        dispatch(showMessage({ message: "Purchase return updated.", type: "success" }));
+        const r = await editPurchaseReturnMutation({ variables: { id, input } });
+        dispatch(showMessage({ message: wasSavedOffline(r?.data?.editPurchaseReturn) ? OFFLINE_SAVED_MESSAGE : "Purchase return updated.", type: "success" }));
       } else {
         console.log("Creating new Purchase Return");
-        await addPurchaseReturnMutation({ variables: { input } });
-        dispatch(showMessage({ message: "Purchase return saved.", type: "success" }));
+        const r = await addPurchaseReturnMutation({ variables: { input } });
+        dispatch(showMessage({ message: wasSavedOffline(r?.data?.addPurchaseReturn) ? OFFLINE_SAVED_MESSAGE : "Purchase return saved.", type: "success" }));
       }
       console.log("✅ Success! Navigating back...");
       navigate(-1);
@@ -560,6 +576,7 @@ const AddEditPurchaseReturn: React.FC = () => {
                 placeholder="Auto-generated"
                 disabled={!isEdit && billnumber !== ""}
               />}
+              <OfflineNumberNote show={!isEdit && noDevice} />
               {isFieldEnabled("paymenttype") && <FormField
                 label="Payment Type"
                 name="paymentType"

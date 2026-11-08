@@ -32,6 +32,11 @@ export const COLLECTIONS = [
   "priceassignment",
   "chargerule",
   "adminsettings",
+  "purchaseinvoice",
+  "purchaseorder",
+  "purchasereturn",
+  "stockadjustment",
+  "transferstock",
 ];
 
 const SYNC_PULL = gql`
