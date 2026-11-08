@@ -69,6 +69,7 @@ export const salesInvoiceTypeDefs = gql`
   }
 
   type SalesInvoice {
+    paymentsplit: [PaymentSplit!]
     id: ID!
     salesmenid: SimpleRef
     paymenttype: String!
@@ -131,7 +132,20 @@ export const salesInvoiceTypeDefs = gql`
     offlineNumber: String
   }
 
+  "One part of a split POS payment."
+  input PaymentSplitInput {
+    mode: String!
+    amount: Float!
+  }
+
+  type PaymentSplit {
+    mode: String
+    amount: Float
+  }
+
   input SalesInvoiceInput {
+    "POS split payment (cash + UPI + card...); each part gets its own receipt. received is their sum."
+    paymentsplit: [PaymentSplitInput!]
     salesmenid: ID
     paymenttype: String!
     partyacc: ID!  

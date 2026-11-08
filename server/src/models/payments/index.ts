@@ -91,6 +91,8 @@ const paymentSchema = new mongoose.Schema(
     autosource: {
       docmodel: { type: String, enum: ["SalesInvoice", "PurchaseInvoice", "ExpenseNote"], default: undefined },
       docid: { type: mongoose.Schema.Types.ObjectId, default: undefined },
+      // Split POS payment: 1, 2... for the parts after the first (the first keeps no part).
+      part: { type: Number, default: undefined },
     },
 
     createdby_id: { type: mongoose.Schema.Types.ObjectId },

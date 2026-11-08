@@ -93,6 +93,8 @@ const salesInvoiceSchema = new mongoose.Schema(
     // old all-or-nothing "paymenttype = cash means the whole bill is settled":
     // paymenttype now only says HOW the money came, this says HOW MUCH.
     received: { type: Number, default: 0 },
+    // POS split payment, e.g. cash 500 + upi 620; each part gets its own receipt.
+    paymentsplit: { type: [{ mode: String, amount: Number, _id: false }], default: undefined },
 
     isservice: { type: Boolean, default: false },
     autocreate: {
@@ -560,11 +562,12 @@ salesInvoiceSchema.statics.adjustStockAndTransactions = async function (oldInv: 
       "source.docmodel": "SalesInvoice",
       "source.docid": newInv._id,
     });
-    const autoReceipt = await Payment.findOne({
+    // Every receipt the bill raised (one, or one per split part).
+    const autoReceipts = await Payment.find({
       "autosource.docmodel": "SalesInvoice",
       "autosource.docid": newInv._id,
     });
-    if (autoReceipt) {
+    for (const autoReceipt of autoReceipts) {
       await Transaction.deleteOne({ _id: autoReceipt.transactionid });
       await Payment.deleteOne({ _id: autoReceipt._id });
     }
@@ -993,13 +996,19 @@ salesInvoiceSchema.statics.adjustStockAndTransactions = async function (oldInv: 
   const oldPayment = await Payment.findOne({
     "autosource.docmodel": "SalesInvoice",
     "autosource.docid": invId,
+    "autosource.part": { $in: [null, 0] },
   });
 
   const grandTotal = parseFloat(Number(newInv.totalamount || 0).toFixed(2));
-  const payType = String(newInv.paymenttype || "").toLowerCase();
+  // Split payment: the first part is the bill's own receipt below, the others get receipts of their own.
+  const split = (Array.isArray(newInv.paymentsplit) ? newInv.paymentsplit : [])
+    .map((p: any) => ({ mode: PAY_MODES.has(String(p?.mode).toLowerCase()) ? String(p.mode).toLowerCase() : "other", amount: parseFloat(Number(p?.amount || 0).toFixed(2)) }))
+    .filter((p: any) => p.amount > 0);
+  await syncSplitReceipts(newInv, invId, customer, split.slice(1), grandTotal, userContext, billNote);
+  const payType = split.length ? split[0].mode : String(newInv.paymenttype || "").toLowerCase();
 
   let payAmount =
-    payType === "credit" ? 0 : parseFloat(Number(newInv.received || 0).toFixed(2));
+    split.length ? split[0].amount : payType === "credit" ? 0 : parseFloat(Number(newInv.received || 0).toFixed(2));
   if (!(payAmount > 0)) payAmount = 0;
   if (payAmount > grandTotal) payAmount = grandTotal;
 
@@ -1038,14 +1047,6 @@ salesInvoiceSchema.statics.adjustStockAndTransactions = async function (oldInv: 
   // Every mode is mapped explicitly. It used to be `isCash ? "Cash" : "Bank
   // Account"`, so UPI, Card, Cheque AND Other all silently became Bank Account
   // -- fine for the first three, plainly wrong for the last.
-  const LEDGER_BY_MODE: Record<string, string> = {
-    cash: "Cash",
-    bank: "Bank Account",
-    upi: "Bank Account",
-    card: "Bank Account",
-    cheque: "Bank Account",
-    other: "Cash",
-  };
   const payLedgerName = LEDGER_BY_MODE[payType] || "Cash";
 
   let payLedger = await AccountLedger.findOne({
@@ -1087,7 +1088,7 @@ salesInvoiceSchema.statics.adjustStockAndTransactions = async function (oldInv: 
 
   // ------------------------- UPDATE EXISTING -------------------------
   if (oldPayment) {
-    oldPayment.mode = newInv.paymenttype;
+    oldPayment.mode = split.length ? payType : newInv.paymenttype;
     // The receipt belongs to the bill's date, not to whenever the row happens to
     // be re-saved. Only the Transaction was being moved, so changing a bill's
     // date left its receipt sitting on the old one.
@@ -1153,7 +1154,7 @@ salesInvoiceSchema.statics.adjustStockAndTransactions = async function (oldInv: 
     adminid: newInv.adminid,
     branchid: newInv.branchid,
     type: "receipt",
-    mode: newInv.paymenttype,
+    mode: split.length ? payType : newInv.paymenttype,
     // Without this the schema default (Date.now) stamped every auto receipt with
     // the day it was saved rather than the day of the bill.
     paymentdate: newInv.billdate,
@@ -1195,6 +1196,75 @@ salesInvoiceSchema.statics.adjustStockAndTransactions = async function (oldInv: 
 //     next(e);
 //   }
 // });
+
+// Cash/Bank ledger each payment mode posts to.
+const LEDGER_BY_MODE: Record<string, string> = {
+  cash: "Cash",
+  bank: "Bank Account",
+  upi: "Bank Account",
+  card: "Bank Account",
+  cheque: "Bank Account",
+  other: "Cash",
+};
+const PAY_MODES = new Set(Object.keys(LEDGER_BY_MODE));
+
+// Receipts for the 2nd, 3rd... parts of a split POS payment (autosource.part 1, 2...); extra old parts are removed.
+async function syncSplitReceipts(newInv: any, invId: any, customer: any, parts: any[], grandTotal: number, userContext: any, billNote: string) {
+  const existing: any[] = await Payment.find({ "autosource.docmodel": "SalesInvoice", "autosource.docid": invId, "autosource.part": { $gte: 1 } });
+  const byPart = new Map(existing.map((p: any) => [Number(p.autosource.part), p]));
+  let left = grandTotal;
+  for (let i = 0; i < parts.length; i += 1) {
+    const amount = Math.min(parts[i].amount, Math.max(left, 0));
+    left = parseFloat((left - amount).toFixed(2));
+    const part = i + 1;
+    const old = byPart.get(part);
+    byPart.delete(part);
+    if (!(amount > 0)) {
+      if (old) {
+        await Transaction.deleteOne({ _id: old.transactionid });
+        await Payment.deleteOne({ _id: old._id });
+      }
+      continue;
+    }
+    const ledgerName = LEDGER_BY_MODE[parts[i].mode] || "Cash";
+    let ledger: any = await AccountLedger.findOne({ ledgername: ledgerName, admin: newInv.adminid });
+    if (!ledger) ledger = { _id: (await getOrCreateAccount(ledgerName, "other", newInv.adminid, newInv.branchid)).ledgerid };
+    if (!ledger?._id) throw new Error(`Cash/Bank ledger "${ledgerName}" could not be resolved for admin ${newInv.adminid}`);
+    const entries = [
+      { ledgerid: ledger._id, debit: amount, credit: 0, remarks: `Payment received (Invoice ${newInv.billnumber})` },
+      { ledgerid: customer.ledgerid, debit: 0, credit: amount, remarks: `Customer payment (Invoice ${newInv.billnumber})` },
+    ];
+    const by = {
+      createdby_id: userContext?.createdby_id || newInv.createdby_id,
+      createdby_name: userContext?.createdby_name || newInv.createdby_name,
+      createdby_type: userContext?.createdby_type || newInv.createdby_type,
+    };
+    const narration = `Receipt for Sales Invoice #${newInv.billnumber}`;
+    if (old) {
+      Object.assign(old, { mode: parts[i].mode, paymentdate: newInv.billdate, ledgerid: ledger._id, amount, remarks: billNote || narration });
+      old.invoices = [{ invoiceid: invId, invoicemodel: "SalesInvoice", settledamount: amount } as any];
+      await old.save();
+      await Transaction.updateOne({ _id: old.transactionid }, { $set: { entries, totaldebit: amount, totalcredit: amount, transactiondate: newInv.billdate, narration } });
+      continue;
+    }
+    const trx = await Transaction.create({
+      adminid: newInv.adminid, branchid: newInv.branchid, entrytype: "auto", source: { docmodel: "Payment", docid: invId },
+      transactiondate: newInv.billdate, narration, entries, totaldebit: amount, totalcredit: amount, ...by,
+    });
+    await Payment.create({
+      adminid: newInv.adminid, branchid: newInv.branchid, type: "receipt", mode: parts[i].mode, paymentdate: newInv.billdate,
+      partyid: customer._id, ledgerid: ledger._id, amount, remarks: billNote || narration, transactionid: trx._id,
+      invoices: [{ invoiceid: invId, invoicemodel: "SalesInvoice", settledamount: amount }],
+      autosource: { docmodel: "SalesInvoice", docid: invId, part },
+      ...by,
+      orderedby_id: newInv.orderedby_id || null, orderedby_name: newInv.orderedby_name || null, orderedby_type: newInv.orderedby_type || null,
+    });
+  }
+  for (const old of byPart.values()) {
+    await Transaction.deleteOne({ _id: old.transactionid });
+    await Payment.deleteOne({ _id: old._id });
+  }
+}
 
 interface SalesInvoiceModel extends mongoose.Model<any> {
   adjustStockAndTransactions(oldInvoice: any, newInvoice: any, userContext?: any): Promise<void>;
