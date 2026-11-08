@@ -45,6 +45,12 @@ One file, identical in both: `clientapp/src/apollo/offline.ts` = `clientweb/src/
 - Online only, on purpose: login/OTP/registration, subscriptions, branches and staff accounts (they carry passwords), business settings and permissions, restore and clear of deleted entries (deleted records are not kept on the device), order-to-invoice conversion and payment re-allocation in the admin (they create or move money entries the user must see), product import, leave and claim approvals, sending announcements and reminders, live location, uploads.
 - Payment collection in the apps: `AddPayment` is queued. Offline the allocation preview is unavailable, so an on-account receipt is saved (settling bills always needs the user to see and approve the split); invoice-wise receipts use the bills last loaded online.
 
+## Phase 4 (reports)
+- Reports that read list queries (sales, purchase, GST, party, product, salesman, accounting, analytics, stock, delivery-boy orders and payments) work offline: those queries are answered from localdb plus this device's pending documents, and the page computes the report as online.
+- Local reads apply the report date filters exactly as the server does (`inDateRange` in `core`): `<field>From/To` on date strings with To covering the whole day, `dateFrom/dateTo` on payment dates.
+- Online only: attendance and leave reports, deleted-invoice reports, salesman performance/call log/order lines, travel and location (server-side data not kept on the device). Offline they show what was loaded in this session.
+- Stock figures in reports are the last synced stock; billing screens add pending moves on top.
+
 ## Deploy
 Server first, then client (the client asks for `offlineBilling` and `syncPull`).
 
@@ -59,13 +65,13 @@ Server first, then client (the client asks for `offlineBilling` and `syncPull`).
 1. Foundation: business switch, `syncPull`, `localdb`, local reads, hybrid numbers, disconnect alert, dashboard offline. Billing screens (invoice, order, POS, return, receipt).
 2. Purchase and stock: purchase invoice/order/return, stock adjustment, transfer.
 3. Masters and expenses edited offline: done.
-4. Reports from local data.
+4. Reports from local data: done.
 5. Apps: sales (order, payment, sales return, delivery, visit) done in `clientapp` and `clientweb`.
 
 ## Status (handoff: read this first)
 Branch `feature/server-paging-clear-offline`. One commit per finished step; never commit `.DS_Store`, builds, `dist`, notes or test scripts.
 - Done and committed: Phases 1-3 (all billing, purchase, stock, masters, settings masters, expenses, status actions) and the apps (sales, payments, parties, visits, attendance, claims, leave, announcements, notifications). See "Online only, on purpose" for what stays online.
 - `client/src/offline` files: `core` (rules: doc types, numbers, local stock and balance), `outbox` (queue and push), `localdb` (IndexedDB and pull), `offlinelink` (Apollo link, local reads), `docs` + `gql` (collections and their queries), `device` (device code and numbers), `settings` (on/off), `boot` (start/stop and service worker), `billing` (screen hooks and helpers), `listing` (list badges), `localprice`, `userkey`, and the UI (`OfflineStatusBar`, `OfflineHeaderStatus`, `OfflineModeCard`). Add to these; do not add new files.
-- Next: Phase 4 (reports from local data). Open points: master add/edit forms show their usual success message offline (the header pill shows the pending count); pending masters appear in lists only offline (online they save at once).
+- Next: nothing planned. New modules follow the same pattern (server `withOfflineWrites`/`withOfflineActions`, `OP_SPECS` + `MASTER_TYPES` in `core`, a `syncPull` collection and `LOCAL_QUERIES` entry).
 - Checks: server `tsc` + `check-schema`; client `tsc` (many old errors in untouched pages; only touched files must be clean); `vite build` needs the Mac (node_modules are macOS binaries).
 - Local testing: the server runs on the same Mac, so turning Wi-Fi off does not make the apps offline. Stop the server or use DevTools > Network > Offline.

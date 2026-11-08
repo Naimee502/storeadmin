@@ -9,6 +9,7 @@ import {
   collectOfflineIds,
   docId,
   findQueuedCreate,
+  inDateRange,
   isMasterType,
   isOfflineId,
   liveCreates,
@@ -185,6 +186,7 @@ const same = (a: any, b: any) => idOf(a).toLowerCase() === String(b).toLowerCase
 
 function matches(d: any, vars: any, isDoc: boolean, master = false): boolean {
   const f = vars?.filter || {};
+  if (!inDateRange(d, f)) return false;
   if (master) {
     if (typeof f.status !== "boolean" && d?.status === false) return false;
     for (const k of MASTER_FILTER_KEYS) if (f[k] && d?.[k] !== undefined && d[k] !== null && !same(d[k], f[k])) return false;

@@ -699,6 +699,30 @@ export function newestFirst(rows: any[]): any[] {
 }
 
 // One page of already sorted rows; search and column filter values match anywhere in the row.
+// Date-range filters the way the server applies them: <field>From/To on date strings
+// (To includes the whole day), dateFrom/dateTo on a payment's date.
+export function inDateRange(d: any, f: any): boolean {
+  for (const k of Object.keys(f || {})) {
+    const m = /^(\w+?)(From|To)$/.exec(k);
+    const v = f[k];
+    if (!m || v == null || v === "") continue;
+    if (m[1] === "date") {
+      const at = d?.paymentdate ?? d?.date;
+      if (at == null) continue;
+      const t = new Date(at).getTime();
+      const lim = new Date(v).getTime();
+      if (isNaN(t) || isNaN(lim)) continue;
+      if (m[2] === "From" ? t < lim : t > lim) return false;
+      continue;
+    }
+    const field = d?.[m[1]];
+    if (typeof field !== "string") continue;
+    const day = String(v).slice(0, 10);
+    if (m[2] === "From" ? field < day : field > `${day}\uffff`) return false;
+  }
+  return true;
+}
+
 export function pageRows(rows: any[], v: { page?: number; pageSize?: number; search?: string; columnFilters?: any[] } = {}): { items: any[]; total: number } {
   const terms = [String(v.search || ""), ...((v.columnFilters || []) as any[]).map((f) => String(f?.value ?? ""))]
     .map((t) => t.trim().toLowerCase())
