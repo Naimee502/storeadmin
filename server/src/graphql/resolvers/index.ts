@@ -44,29 +44,43 @@ import { commonResolvers } from "./common";
 import { offlineDeviceResolvers } from "./offlinedevice";
 import { syncResolvers } from "./sync";
 
+import { withOfflineWrites } from "../../utils/offlinesync";
+import { Unit } from "../../models/units";
+import { Category } from "../../models/categories";
+import { SubCategory } from "../../models/subcategories";
+import { Brand } from "../../models/brands";
+import { Model } from "../../models/models";
+import { Size } from "../../models/size";
+import { ProductGroup } from "../../models/productgroups";
+import { ProductService } from "../../models/products";
+import { Account } from "../../models/accounts";
+import { AccountLedger } from "../../models/accountledgers";
+import { ExpenseNote } from "../../models/expensenote";
+import { Transaction } from "../../models/transactions";
+
 export const resolvers = [
   branchResolvers,
-  categoryResolvers,
-  subCategoryResolvers,
-  sizeResolvers,
-  brandResolvers,
-  modelResolvers,
-  productGroupResolvers,
+  withOfflineWrites(categoryResolvers, { model: Category, typename: "Category", tenant: "admin", add: "addCategory", edit: "editCategory", del: "deleteCategory", isoUpdatedAt: true }),
+  withOfflineWrites(subCategoryResolvers, { model: SubCategory, typename: "SubCategory", tenant: "admin", add: "addSubCategory", edit: "editSubCategory", del: "deleteSubCategory", isoUpdatedAt: true }),
+  withOfflineWrites(sizeResolvers, { model: Size, typename: "Size", tenant: "admin", add: "addSize", edit: "editSize", del: "deleteSize", isoUpdatedAt: true }),
+  withOfflineWrites(brandResolvers, { model: Brand, typename: "Brand", tenant: "admin", add: "addBrand", edit: "editBrand", del: "deleteBrand", isoUpdatedAt: true }),
+  withOfflineWrites(modelResolvers, { model: Model, typename: "Model", tenant: "admin", add: "addModel", edit: "editModel", del: "deleteModel", isoUpdatedAt: true }),
+  withOfflineWrites(productGroupResolvers, { model: ProductGroup, typename: "ProductGroup", tenant: "admin", add: "addProductGroup", edit: "editProductGroup", del: "deleteProductGroup", isoUpdatedAt: true }),
   accountGroupResolvers,
-  accountLedgerResolvers,
-  accountResolvers,
-  unitResolvers,
+  withOfflineWrites(accountLedgerResolvers, { model: AccountLedger, typename: "AccountLedger", tenant: "admin", add: "addAccountLedger", edit: "editAccountLedger", del: "deleteAccountLedger" }),
+  withOfflineWrites(accountResolvers, { model: Account, typename: "Account", tenant: "admin", add: "addAccount", edit: "editAccount", del: "deleteAccount" }),
+  withOfflineWrites(unitResolvers, { model: Unit, typename: "Unit", tenant: "admin", add: "addUnit", edit: "editUnit", del: "deleteUnit", isoUpdatedAt: true }),
   staffAccountResolvers,
   uploadResolvers,
-  productServiceResolvers,
+  withOfflineWrites(productServiceResolvers, { model: ProductService, typename: "ProductService", tenant: "adminid", add: "addProductService", edit: "updateProductService", del: "deleteProductService" }),
   productImportResolvers,
   salesInvoiceResolvers,
   purchaseInvoiceResolvers,
   transferStockResolvers,
   adminResolvers,
-  transactionResolvers,
+  withOfflineWrites(transactionResolvers, { model: Transaction, typename: "Transaction", tenant: "adminid", add: "addTransaction", edit: "editTransaction", del: "deleteTransaction" }),
   paymentResolvers,
-  expenseNoteResolvers,
+  withOfflineWrites(expenseNoteResolvers, { model: ExpenseNote, typename: "ExpenseNote", tenant: "adminid", add: "addExpenseNote", edit: "editExpenseNote", del: "deleteExpenseNote" }),
   expenseClaimResolvers,
   announcementResolvers,
   channelResolvers,

@@ -175,6 +175,8 @@ export const productServiceTypeDefs = gql`
 
   # Input Types
   input ProductServiceInput {
+    "Set by offline sync so a retried save returns the same document."
+    clientRequestId: String
     id: ID
     # adminid / branchid are resolved from the caller's token server-side and
     # whatever arrives here is discarded. Kept on the input (nullable) so the
@@ -398,8 +400,8 @@ export const productServiceTypeDefs = gql`
 
   type Mutation {
     addProductService(input: ProductServiceInput!): ProductService
-    updateProductService(id: ID!, input: ProductServiceInput!): ProductService
-    deleteProductService(id: ID!): Boolean!
+    updateProductService(id: ID!, input: ProductServiceInput!, expectedUpdatedAt: String): ProductService
+    deleteProductService(id: ID!, expectedUpdatedAt: String): Boolean!
     resetProductService(id: ID!): Boolean!
     importProductServices(input: ProductImportInput!): ProductImportResult!
   }

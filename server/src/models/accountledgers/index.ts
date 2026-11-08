@@ -63,4 +63,8 @@ accountLedgerSchema.pre("save", async function (next) {
   next();
 });
 
+
+// Offline sync: one document per request id; only rows that carry one are indexed.
+accountLedgerSchema.add({ clientRequestId: { type: String } });
+accountLedgerSchema.index({ admin: 1, clientRequestId: 1 }, { unique: true, partialFilterExpression: { clientRequestId: { $type: "string" } } });
 export const AccountLedger = mongoose.model("AccountLedger", accountLedgerSchema);

@@ -15,6 +15,10 @@ export const categoryTypeDefs = gql`
   }
 
   type Category {
+
+    "ISO date"
+
+    updatedAt: String
     id: ID!
     categorycode: String!
     categoryname: String!
@@ -25,6 +29,10 @@ export const categoryTypeDefs = gql`
   }
 
   input CategoryInput {
+
+    "Set by offline sync so a retried save returns the same document."
+
+    clientRequestId: String
     categoryname: String!
     image: String
     status: Boolean!
@@ -39,8 +47,8 @@ export const categoryTypeDefs = gql`
 
   type Mutation {
     addCategory(input: CategoryInput!): Category!
-    editCategory(id: ID!, input: CategoryInput!): Category!
-    deleteCategory(id: ID!): Boolean!
+    editCategory(id: ID!, input: CategoryInput!, expectedUpdatedAt: String): Category!
+    deleteCategory(id: ID!, expectedUpdatedAt: String): Boolean!
     resetCategory(id: ID!): Boolean!
     # Saves the storefront order: \`ids\` is every active category of the
     # business, first to last.

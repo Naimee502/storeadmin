@@ -15,6 +15,10 @@ export const brandTypeDefs = gql`
   }
 
   type Brand {
+
+    "ISO date"
+
+    updatedAt: String
     id: ID!
     brandcode: String!
     brandname: String!
@@ -23,6 +27,10 @@ export const brandTypeDefs = gql`
   }
 
   input BrandInput {
+
+    "Set by offline sync so a retried save returns the same document."
+
+    clientRequestId: String
     brandname: String!
     status: Boolean!
     admin: ID
@@ -42,8 +50,8 @@ export const brandTypeDefs = gql`
 
   type Mutation {
     addBrand(input: BrandInput!): Brand!
-    editBrand(id: ID!, input: BrandInput!): Brand!
-    deleteBrand(id: ID!): Boolean!
+    editBrand(id: ID!, input: BrandInput!, expectedUpdatedAt: String): Brand!
+    deleteBrand(id: ID!, expectedUpdatedAt: String): Boolean!
     resetBrand(id: ID!): Boolean!
   }
 `;

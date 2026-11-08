@@ -15,6 +15,10 @@ export const unitTypeDefs = gql`
   }
 
   type Unit {
+
+    "ISO date"
+
+    updatedAt: String
     id: ID!
     unitcode: String!
     unitname: String!
@@ -23,6 +27,10 @@ export const unitTypeDefs = gql`
   }
 
   input UnitInput {
+
+    "Set by offline sync so a retried save returns the same document."
+
+    clientRequestId: String
     unitname: String!
     status: Boolean!
     admin: ID
@@ -42,8 +50,8 @@ export const unitTypeDefs = gql`
 
   type Mutation {
     addUnit(input: UnitInput!): Unit!
-    editUnit(id: ID!, input: UnitInput!): Unit!
-    deleteUnit(id: ID!): Boolean!
+    editUnit(id: ID!, input: UnitInput!, expectedUpdatedAt: String): Unit!
+    deleteUnit(id: ID!, expectedUpdatedAt: String): Boolean!
     resetUnit(id: ID!): Boolean!
   }
 `;

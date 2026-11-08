@@ -68,4 +68,8 @@ subCategorySchema.pre('save', async function (next) {
   next();
 });
 
+
+// Offline sync: one document per request id; only rows that carry one are indexed.
+subCategorySchema.add({ clientRequestId: { type: String } });
+subCategorySchema.index({ admin: 1, clientRequestId: 1 }, { unique: true, partialFilterExpression: { clientRequestId: { $type: "string" } } });
 export const SubCategory = mongoose.model('SubCategory', subCategorySchema);

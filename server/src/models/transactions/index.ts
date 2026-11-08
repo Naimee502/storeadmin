@@ -121,4 +121,8 @@ transactionSchema.index(
 transactionSchema.index({ "source.docid": 1, "source.docmodel": 1 });
 transactionSchema.index({ "invoices.invoiceid": 1 });
 
+
+// Offline sync: one document per request id; only rows that carry one are indexed.
+transactionSchema.add({ clientRequestId: { type: String } });
+transactionSchema.index({ adminid: 1, clientRequestId: 1 }, { unique: true, partialFilterExpression: { clientRequestId: { $type: "string" } } });
 export const Transaction = mongoose.model("Transaction", transactionSchema);

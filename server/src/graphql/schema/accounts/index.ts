@@ -85,6 +85,10 @@ export const accountTypeDefs = gql`
   }
 
   input AccountInput {
+
+    "Set by offline sync so a retried save returns the same document."
+
+    clientRequestId: String
     name: String!
     type: String
     channel: ID
@@ -211,8 +215,8 @@ export const accountTypeDefs = gql`
 
   type Mutation {
     addAccount(input: AccountInput!): Account!
-    editAccount(id: ID!, input: AccountInput!): Account!
-    deleteAccount(id: ID!): Boolean!
+    editAccount(id: ID!, input: AccountInput!, expectedUpdatedAt: String): Account!
+    deleteAccount(id: ID!, expectedUpdatedAt: String): Boolean!
     resetAccount(id: ID!): Boolean!
     # Party login — mobile number only. When Business Settings -> "Party login
     # needs an email OTP" is on, the first call (no otp) mails an OTP and fails

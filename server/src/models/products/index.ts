@@ -88,6 +88,7 @@ export interface ISEO {
 
 // 🔹 Main ProductService
 export interface IProductService extends Document {
+  clientRequestId?: string;
   adminid: Types.ObjectId;
   vendorid?: Types.ObjectId;
   branchid: Types.ObjectId;
@@ -403,6 +404,10 @@ productServiceSchema.pre("save", async function (next) {
   next();
 });
 
+
+// Offline sync: one document per request id; only rows that carry one are indexed.
+productServiceSchema.add({ clientRequestId: { type: String } });
+productServiceSchema.index({ adminid: 1, clientRequestId: 1 }, { unique: true, partialFilterExpression: { clientRequestId: { $type: "string" } } });
 export const ProductService = mongoose.model<IProductService>(
   "ProductService",
   productServiceSchema

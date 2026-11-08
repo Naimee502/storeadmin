@@ -40,4 +40,8 @@ modelSchema.pre('save', async function (next) {
   next();
 });
 
+
+// Offline sync: one document per request id; only rows that carry one are indexed.
+modelSchema.add({ clientRequestId: { type: String } });
+modelSchema.index({ admin: 1, clientRequestId: 1 }, { unique: true, partialFilterExpression: { clientRequestId: { $type: "string" } } });
 export const Model = mongoose.model('Model', modelSchema);

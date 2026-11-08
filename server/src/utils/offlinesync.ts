@@ -198,3 +198,37 @@ export async function createOnce<T>(
     if (inFlight.get(key) === run) inFlight.delete(key);
   }
 }
+
+type OfflineWrites = {
+  model: any;
+  typename: string;
+  tenant: "admin" | "adminid";
+  add: string;
+  edit: string;
+  del: string;
+  // The type had no updatedAt before: serve it as ISO (OFFLINE.md, Phase 3).
+  isoUpdatedAt?: boolean;
+};
+
+/** Offline sync for a master's writes: one create per clientRequestId, expectedUpdatedAt on edit and delete. */
+export function withOfflineWrites(resolvers: any, w: OfflineWrites) {
+  const m = { ...resolvers.Mutation };
+  const current = (id: any) => () => w.model.findById(id).lean().then((d: any) => d && { ...d, id: String(d._id) });
+  const add = m[w.add];
+  m[w.add] = (p: any, args: any, ctx: any, info: any) =>
+    createOnce(ctx, args?.input, (adminid, req) => w.model.findOne({ [w.tenant]: adminid, clientRequestId: req }), () => add(p, args, ctx, info), w.tenant);
+  for (const name of [w.edit, w.del]) {
+    const run = m[name];
+    m[name] = async (p: any, args: any, ctx: any, info: any) => {
+      const expected = parseExpectedUpdatedAt(args?.expectedUpdatedAt);
+      if (expected) {
+        const stored: any = await w.model.findById(args.id).select("updatedAt").lean();
+        if (stored) await assertFresh(stored.updatedAt, expected, current(args.id));
+      }
+      return run(p, args, ctx, info);
+    };
+  }
+  const out: any = { ...resolvers, Mutation: m };
+  if (w.isoUpdatedAt) out[w.typename] = { ...resolvers[w.typename], updatedAt: (d: any) => isoOf(d.updatedAt) };
+  return out;
+}

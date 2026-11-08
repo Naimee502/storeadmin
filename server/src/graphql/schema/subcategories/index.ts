@@ -16,6 +16,10 @@ type Admin {
   }
 
   type SubCategory {
+
+    "ISO date"
+
+    updatedAt: String
     id: ID!
     subcategorycode: String!
     subcategoryname: String!
@@ -27,6 +31,10 @@ type Admin {
   }
 
   input SubCategoryInput {
+
+    "Set by offline sync so a retried save returns the same document."
+
+    clientRequestId: String
     subcategoryname: String!
     image: String
     status: Boolean!
@@ -42,8 +50,8 @@ type Admin {
 
   type Mutation {
     addSubCategory(input: SubCategoryInput!): SubCategory!
-    editSubCategory(id: ID!, input: SubCategoryInput!): SubCategory!
-    deleteSubCategory(id: ID!): Boolean!
+    editSubCategory(id: ID!, input: SubCategoryInput!, expectedUpdatedAt: String): SubCategory!
+    deleteSubCategory(id: ID!, expectedUpdatedAt: String): Boolean!
     resetSubCategory(id: ID!): Boolean!
     # Saves the order of one category's sub-categories: \`ids\` is every
     # active sub-category of \`categoryId\`, first to last.

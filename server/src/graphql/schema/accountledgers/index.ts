@@ -48,6 +48,10 @@ export const accountLedgerTypeDefs = gql`
   }
 
   input AccountLedgerInput {
+
+    "Set by offline sync so a retried save returns the same document."
+
+    clientRequestId: String
     ledgername: String!
     accountgroupid: ID!
     admin: ID!
@@ -72,8 +76,8 @@ export const accountLedgerTypeDefs = gql`
 
   type Mutation {
     addAccountLedger(input: AccountLedgerInput!): AccountLedger!
-    editAccountLedger(id: ID!, input: AccountLedgerInput!): AccountLedger!
-    deleteAccountLedger(id: ID!): Boolean!
+    editAccountLedger(id: ID!, input: AccountLedgerInput!, expectedUpdatedAt: String): AccountLedger!
+    deleteAccountLedger(id: ID!, expectedUpdatedAt: String): Boolean!
     resetAccountLedger(id: ID!): Boolean!
   }
 `;

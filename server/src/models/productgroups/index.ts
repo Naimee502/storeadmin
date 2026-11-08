@@ -39,4 +39,8 @@ productGroupSchema.pre('save', async function (next) {
   next();
 });
 
+
+// Offline sync: one document per request id; only rows that carry one are indexed.
+productGroupSchema.add({ clientRequestId: { type: String } });
+productGroupSchema.index({ admin: 1, clientRequestId: 1 }, { unique: true, partialFilterExpression: { clientRequestId: { $type: "string" } } });
 export const ProductGroup = mongoose.model('ProductGroup', productGroupSchema);

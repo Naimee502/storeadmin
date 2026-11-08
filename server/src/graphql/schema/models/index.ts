@@ -15,6 +15,10 @@ export const modelTypeDefs = gql`
   }
 
   type Model {
+
+    "ISO date"
+
+    updatedAt: String
     id: ID!
     modelcode: String!
     modelname: String!
@@ -23,6 +27,10 @@ export const modelTypeDefs = gql`
   }
 
   input ModelInput {
+
+    "Set by offline sync so a retried save returns the same document."
+
+    clientRequestId: String
     modelname: String!
     status: Boolean!
     admin: ID
@@ -42,8 +50,8 @@ export const modelTypeDefs = gql`
 
   type Mutation {
     addModel(input: ModelInput!): Model!
-    editModel(id: ID!, input: ModelInput!): Model!
-    deleteModel(id: ID!): Boolean!
+    editModel(id: ID!, input: ModelInput!, expectedUpdatedAt: String): Model!
+    deleteModel(id: ID!, expectedUpdatedAt: String): Boolean!
     resetModel(id: ID!): Boolean!
   }
 `;

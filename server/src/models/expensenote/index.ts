@@ -433,6 +433,10 @@ interface ExpenseNoteModel extends mongoose.Model<any> {
   createJournalAndPayment(doc: any, userContext?: any): Promise<void>;
 }
 
+
+// Offline sync: one document per request id; only rows that carry one are indexed.
+expenseNoteSchema.add({ clientRequestId: { type: String } });
+expenseNoteSchema.index({ adminid: 1, clientRequestId: 1 }, { unique: true, partialFilterExpression: { clientRequestId: { $type: "string" } } });
 export const ExpenseNote = mongoose.model<any, ExpenseNoteModel>(
   "ExpenseNote",
   expenseNoteSchema

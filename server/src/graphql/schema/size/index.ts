@@ -15,6 +15,10 @@ export const sizeTypeDefs = gql`
   }
 
   type Size {
+
+    "ISO date"
+
+    updatedAt: String
     id: ID!
     sizecode: String!
     sizename: String!
@@ -23,6 +27,10 @@ export const sizeTypeDefs = gql`
   }
 
   input SizeInput {
+
+    "Set by offline sync so a retried save returns the same document."
+
+    clientRequestId: String
     sizename: String!
     status: Boolean!
     admin: ID
@@ -42,8 +50,8 @@ export const sizeTypeDefs = gql`
 
   type Mutation {
     addSize(input: SizeInput!): Size!
-    editSize(id: ID!, input: SizeInput!): Size!
-    deleteSize(id: ID!): Boolean!
+    editSize(id: ID!, input: SizeInput!, expectedUpdatedAt: String): Size!
+    deleteSize(id: ID!, expectedUpdatedAt: String): Boolean!
     resetSize(id: ID!): Boolean!
   }
 `;

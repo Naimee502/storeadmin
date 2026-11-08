@@ -74,6 +74,10 @@ export const expenseNoteTypeDefs = gql`
   }
 
   input ExpenseNoteInput {
+
+    "Set by offline sync so a retried save returns the same document."
+
+    clientRequestId: String
     adminid: ID!
     branchid: ID!
     expensedate: String
@@ -124,8 +128,8 @@ export const expenseNoteTypeDefs = gql`
   # =====================
   type Mutation {
     addExpenseNote(input: ExpenseNoteInput!): ExpenseNote!
-    editExpenseNote(id: ID!, input: ExpenseNoteInput!): ExpenseNote!
-    deleteExpenseNote(id: ID!): Boolean!
+    editExpenseNote(id: ID!, input: ExpenseNoteInput!, expectedUpdatedAt: String): ExpenseNote!
+    deleteExpenseNote(id: ID!, expectedUpdatedAt: String): Boolean!
     resetExpenseNote(id: ID!): Boolean!
   }
 `;

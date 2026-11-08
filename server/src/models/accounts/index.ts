@@ -253,4 +253,8 @@ accountSchema.pre('findOneAndUpdate', async function (next) {
   next();
 });
 
+
+// Offline sync: one document per request id; only rows that carry one are indexed.
+accountSchema.add({ clientRequestId: { type: String } });
+accountSchema.index({ admin: 1, clientRequestId: 1 }, { unique: true, partialFilterExpression: { clientRequestId: { $type: "string" } } });
 export const Account = mongoose.model('Account', accountSchema);

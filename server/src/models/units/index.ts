@@ -41,4 +41,8 @@ unitSchema.pre('save', async function (next) {
   next();
 });
 
+
+// Offline sync: one document per request id; only rows that carry one are indexed.
+unitSchema.add({ clientRequestId: { type: String } });
+unitSchema.index({ admin: 1, clientRequestId: 1 }, { unique: true, partialFilterExpression: { clientRequestId: { $type: "string" } } });
 export const Unit = mongoose.model('Unit', unitSchema);

@@ -15,6 +15,10 @@ export const productGroupTypeDefs = gql`
   }
 
   type ProductGroup {
+
+    "ISO date"
+
+    updatedAt: String
     id: ID!
     productgroupcode: String!
     productgroupname: String!
@@ -23,6 +27,10 @@ export const productGroupTypeDefs = gql`
   }
 
   input ProductGroupInput {
+
+    "Set by offline sync so a retried save returns the same document."
+
+    clientRequestId: String
     productgroupname: String!
     status: Boolean!
     admin: ID
@@ -42,8 +50,8 @@ export const productGroupTypeDefs = gql`
 
   type Mutation {
     addProductGroup(input: ProductGroupInput!): ProductGroup!
-    editProductGroup(id: ID!, input: ProductGroupInput!): ProductGroup!
-    deleteProductGroup(id: ID!): Boolean!
+    editProductGroup(id: ID!, input: ProductGroupInput!, expectedUpdatedAt: String): ProductGroup!
+    deleteProductGroup(id: ID!, expectedUpdatedAt: String): Boolean!
     resetProductGroup(id: ID!): Boolean!
   }
 `;

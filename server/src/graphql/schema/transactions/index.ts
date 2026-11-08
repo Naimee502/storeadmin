@@ -77,6 +77,10 @@ export const transactionTypeDefs = gql`
   }
 
   input TransactionInput {
+
+    "Set by offline sync so a retried save returns the same document."
+
+    clientRequestId: String
     adminid: ID!
     branchid: ID!
     entrytype: String
@@ -123,8 +127,8 @@ export const transactionTypeDefs = gql`
 
   type Mutation {
     addTransaction(input: TransactionInput!): Transaction!
-    editTransaction(id: ID!, input: TransactionInput!): Transaction!
-    deleteTransaction(id: ID!): Boolean!
+    editTransaction(id: ID!, input: TransactionInput!, expectedUpdatedAt: String): Transaction!
+    deleteTransaction(id: ID!, expectedUpdatedAt: String): Boolean!
     resetTransaction(id: ID!): Boolean!
   }
 `;
