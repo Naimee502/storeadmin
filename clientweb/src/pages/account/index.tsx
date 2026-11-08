@@ -50,7 +50,7 @@ import {
   GET_PARTY_STOCK,
 } from "../../graphql/queries/accounts";
 import { formatPrice } from "../../utils/format";
-import { orderStatus, formatBillNumber, formatDate, titleCase, type FilterKey } from "../../utils/orders";
+import { orderStatus, formatBillNumber, formatDate, titleCase, type FilterKey, pendingClass, PENDING_SYNC } from "../../utils/orders";
 import { stateOptions } from "../../utils/states";
 import OrdersSummaryCard from "../../components/orderssummary";
 import SubPartiesPanel from "../../components/subparties";
@@ -367,7 +367,7 @@ export default function AccountPage() {
                       >
                         <span className="h-2 w-2 shrink-0 rounded-full bg-brand-600" />
                         <div className="min-w-0 flex-1">
-                          <p className="text-sm font-semibold text-ink-900">{formatBillNumber(order)}</p>
+                          <p className={`text-sm font-semibold text-ink-900${pendingClass(order)}`}>{formatBillNumber(order)}</p>
                           <p className="text-xs text-slate-500">{formatDate(order.billdate || order.createdAt)}</p>
                         </div>
                         <div className="shrink-0 text-right">
@@ -517,7 +517,7 @@ export default function AccountPage() {
                         >
                           <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
                             <div>
-                              <p className="text-sm font-semibold text-ink-900">{formatBillNumber(order)}</p>
+                              <p className={`text-sm font-semibold text-ink-900${pendingClass(order)}`}>{formatBillNumber(order)}</p>
                               <p className="text-xs text-slate-500">Placed on {formatDate(order.billdate || order.createdAt)}</p>
                             </div>
                             <span className={`flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ${style.className}`}>
@@ -646,7 +646,7 @@ export default function AccountPage() {
                               <Wallet2 className="h-4 w-4" />
                             </span>
                             <div className="min-w-0 flex-1">
-                              <p className="text-sm font-semibold text-ink-900">#{p.paymentcode}</p>
+                              <p className={`text-sm font-semibold text-ink-900${pendingClass(p)}`}>{p.paymentcode === PENDING_SYNC ? p.paymentcode : `#${p.paymentcode}`}</p>
                               <p className="truncate text-xs text-slate-500">
                                 {titleCase(p.type) || "Receipt"} · {titleCase(p.mode) || "Cash"} · {formatDate(p.paymentdate)}
                               </p>
@@ -676,7 +676,7 @@ export default function AccountPage() {
                         >
                           <div className="flex items-center justify-between">
                             <div>
-                              <p className="text-sm font-semibold text-ink-900">{formatBillNumber(o)}</p>
+                              <p className={`text-sm font-semibold text-ink-900${pendingClass(o)}`}>{formatBillNumber(o)}</p>
                               <p className="text-xs text-slate-500">{formatDate(o.billdate)}</p>
                             </div>
                             <p className="text-sm font-bold text-brand-700">{formatPrice(o.totalamount)}</p>

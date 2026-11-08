@@ -6,7 +6,7 @@ import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/nativ
 import { useQuery } from '@apollo/client/react';
 import { useSelector } from 'react-redux';
 import { COLORS, FONTS, useTheme } from '../../../../config';
-import { formatINR, formatDate, formatBillNumber, formatPaymentCode, titleCase } from '../../../../utils';
+import { formatINR, formatDate, formatBillNumber, formatPaymentCode, titleCase, pendingBadge } from '../../../../utils';
 import { BackHeader, DynamicFlashList } from '../../../../components';
 import {
   GET_ACCOUNT, GET_SALES_ORDERS, GET_PAYMENTS, GET_ADMIN_SETTINGS, GET_PARTY_STOCK,
@@ -83,7 +83,7 @@ export default function SubPartyDetail() {
       <Pressable style={[styles.row, { backgroundColor: colors.cardGlass, borderColor: colors.border }]} onPress={() => navigation.navigate('OrderDetail', { orderId: o.id })}>
         <View style={[styles.dot, { backgroundColor: c }]} />
         <View style={{ flex: 1 }}>
-          <Text style={[styles.rowTitle, { color: colors.text }]}>{formatBillNumber(o)}</Text>
+          <Text style={[styles.rowTitle, { color: colors.text }, pendingBadge(o)]}>{formatBillNumber(o)}</Text>
           <Text style={[styles.meta, { color: colors.subText }]}>{formatDate(o.billdate)} • {o.productservice?.length ?? 0} items</Text>
           <View style={[styles.badge, { backgroundColor: c + '22' }]}><Text style={[styles.badgeText, { color: c }]}>{titleCase(st)}</Text></View>
         </View>
@@ -96,7 +96,7 @@ export default function SubPartyDetail() {
     <Pressable style={[styles.row, { backgroundColor: colors.cardGlass, borderColor: colors.border }]} onPress={() => navigation.navigate('PaymentDetail', { payment: p, accountName: name })}>
       <View style={[styles.icon, { backgroundColor: colors.brandSoft }]}><Icon name="cash" size={16} color={colors.brand} /></View>
       <View style={{ flex: 1 }}>
-        <Text style={[styles.rowTitle, { color: colors.text }]}>{formatPaymentCode(p.paymentcode)}</Text>
+        <Text style={[styles.rowTitle, { color: colors.text }, pendingBadge(p)]}>{formatPaymentCode(p.paymentcode)}</Text>
         <Text style={[styles.meta, { color: colors.subText }]}>{formatDate(p.paymentdate)}{p.mode ? ` • ${titleCase(p.mode)}` : ''}</Text>
       </View>
       <Text style={[styles.amount, { color: '#16a34a' }]}>{formatINR(p.amount)}</Text>

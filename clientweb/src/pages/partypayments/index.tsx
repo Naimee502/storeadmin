@@ -7,7 +7,7 @@ import { useTenant } from "../../contexts/tenant";
 import { useDownline } from "../../hooks/useDownline";
 import { GET_ACCOUNT, GET_PAYMENTS, GET_SALES_ORDERS } from "../../graphql/queries/accounts";
 import { formatPrice } from "../../utils/format";
-import { formatBillNumber, formatDate, titleCase } from "../../utils/orders";
+import { formatBillNumber, formatDate, titleCase, pendingClass, PENDING_SYNC } from "../../utils/orders";
 
 // Drill-down into a single sub-party's payment history — same screen the
 // app's Payments tab opens (isDrill=true) when a channel party taps one of
@@ -133,7 +133,7 @@ export default function PartyPaymentsPage() {
                   <Wallet2 className="h-4 w-4" />
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-semibold text-ink-900">#{p.paymentcode}</p>
+                  <p className={`text-sm font-semibold text-ink-900${pendingClass(p)}`}>{p.paymentcode === PENDING_SYNC ? p.paymentcode : `#${p.paymentcode}`}</p>
                   <p className="truncate text-xs text-slate-500">
                     {titleCase(p.type) || "Receipt"} · {titleCase(p.mode) || "Cash"} · {formatDate(p.paymentdate)}
                   </p>
@@ -163,7 +163,7 @@ export default function PartyPaymentsPage() {
                 <div key={o.id} className="rounded-2xl border border-slate-100 p-4">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-semibold text-ink-900">{formatBillNumber(o)}</p>
+                      <p className={`text-sm font-semibold text-ink-900${pendingClass(o)}`}>{formatBillNumber(o)}</p>
                       <p className="text-xs text-slate-500">{formatDate(o.billdate)}</p>
                     </div>
                     <p className="text-sm font-bold text-brand-700">{formatPrice(o.totalamount)}</p>

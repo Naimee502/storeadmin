@@ -14,18 +14,17 @@ import ScrollToTop from "../../components/scrolltotop";
 import OrderForBanner from "../../components/orderforbanner";
 import WhatsAppChat from "../../components/whatsappchat";
 
-// Offline orders and payments: shown until they sync.
+// Sync messages for a few seconds; the lasting status is the header pill.
 function OfflineBanner() {
-  const { online, pending, message } = useSyncExternalStore(offline.subscribe, offline.getState);
+  const { message } = useSyncExternalStore(offline.subscribe, offline.getState);
   const [shown, setShown] = useState("");
   useEffect(() => {
     setShown(message);
     const t = setTimeout(() => setShown(""), 6000);
     return () => clearTimeout(t);
   }, [message]);
-  const text = shown || (!online ? "You are offline. Orders and payments will sync later." : pending ? `${pending} offline ${pending === 1 ? "entry" : "entries"} waiting to sync.` : "");
-  if (!text) return null;
-  return <div className="bg-amber-50 px-4 py-2 text-center text-[13px] text-amber-800">{text}</div>;
+  if (!shown) return null;
+  return <div className="bg-amber-50 px-4 py-2 text-center text-[13px] text-amber-800">{shown}</div>;
 }
 
 export default function MainLayout() {

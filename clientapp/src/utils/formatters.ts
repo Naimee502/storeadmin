@@ -57,7 +57,17 @@ export const formatPercent = (n: number): string =>
   `${(n ?? 0).toFixed(1)}%`;
 
 // Returns "SO-000001" for orders, "INV-000001" for converted orders (matching admin panel)
+// Number of a document saved on this device and not synced yet (apollo/offline.ts).
+export const PENDING_SYNC = 'Pending sync';
+export const isPendingSync = (doc: any) => doc?.billnumber === PENDING_SYNC || doc?.paymentcode === PENDING_SYNC;
+// Badge look for a pending number; goes last in a Text style array.
+export const pendingBadge = (doc: any) =>
+  isPendingSync(doc)
+    ? { color: '#4338CA', backgroundColor: '#EEF2FF', paddingHorizontal: 6, borderRadius: 4, overflow: 'hidden' as const, alignSelf: 'flex-start' as const }
+    : null;
+
 export const formatBillNumber = (order: { billnumber?: string | null; isConverted?: boolean; invoicenumber?: string | null }): string => {
+  if (order.billnumber === PENDING_SYNC && !order.isConverted) return PENDING_SYNC;
   // Converted orders show the REAL invoice number (same as the admin panel),
   // not the order's own sequence. Falls back to the order number if the invoice
   // link isn't available yet.
@@ -79,6 +89,7 @@ export const formatDocCode = (
   prefix: string,
   seq?: number | null,
 ): string => {
+  if (code === PENDING_SYNC) return code;
   if (code) return code.startsWith('#') ? code : `#${code}`;
   const n = seq != null ? String(seq).padStart(4, '0') : '0000';
   return `#${prefix}${n}`;

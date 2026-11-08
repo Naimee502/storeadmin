@@ -8,7 +8,7 @@ import { useQuery } from '@apollo/client/react';
 import { useSelector } from 'react-redux';
 import { COLORS, FONTS, useTheme } from '../../../../config';
 import { AppHeader, useNotificationCenter } from '../../../../components';
-import { formatINR, formatDate, formatBillNumber } from '../../../../utils';
+import { formatINR, formatDate, formatBillNumber, pendingBadge } from '../../../../utils';
 import { GET_SALES_ORDERS } from '../../../../apollo/queries/accounts';
 import { usePunchGate } from '../../../../apollo/hooks/attendance';
 import type { RootState } from '../../../../store/rootreducer';
@@ -186,7 +186,7 @@ export default function StaffDashboard() {
                 >
                   <View style={[styles.statusDot, { backgroundColor: colour }]} />
                   <View style={{ flex: 1 }}>
-                    <Text style={[styles.orderNum, { color: colors.text }]}>{formatBillNumber(order)}</Text>
+                    <Text style={[styles.orderNum, { color: colors.text }, pendingBadge(order)]}>{formatBillNumber(order)}</Text>
                     <Text style={[styles.orderParty, { color: colors.subText }]} numberOfLines={1}>
                       {order.partyacc?.accountname ?? '—'}
                     </Text>

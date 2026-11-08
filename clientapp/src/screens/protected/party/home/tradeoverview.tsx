@@ -6,7 +6,7 @@ import { useQuery } from '@apollo/client/react';
 import { useSelector } from 'react-redux';
 import { COLORS, FONTS, STRINGS, useTheme } from '../../../../config';
 import { GET_SALES_ORDERS, GET_ACCOUNT } from '../../../../apollo/queries/accounts';
-import { formatINR, formatDate, formatBillNumber } from '../../../../utils';
+import { formatINR, formatDate, formatBillNumber, pendingBadge } from '../../../../utils';
 import type { RootState } from '../../../../store/rootreducer';
 
 /**
@@ -122,7 +122,7 @@ export const TradeOverview: React.FC = React.memo(function TradeOverview() {
               >
                 <View style={[styles.statusDot, { backgroundColor: colour }]} />
                 <View style={{ flex: 1 }}>
-                  <Text style={[styles.orderNum, { color: colors.text }]}>{formatBillNumber(order)}</Text>
+                  <Text style={[styles.orderNum, { color: colors.text }, pendingBadge(order)]}>{formatBillNumber(order)}</Text>
                   <Text style={[styles.orderDate, { color: colors.subText }]}>{formatDate(order.billdate)}</Text>
                 </View>
                 <View style={{ alignItems: 'flex-end', marginRight: 8 }}>

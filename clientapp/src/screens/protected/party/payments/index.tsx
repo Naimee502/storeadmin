@@ -7,7 +7,7 @@ import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/nativ
 import { useQuery } from '@apollo/client/react';
 import { useSelector } from 'react-redux';
 import { COLORS, FONTS, useTheme } from '../../../../config';
-import { formatINR, formatDate, formatBillNumber, formatPaymentCode, titleCase, ledgerEntryTotals } from '../../../../utils';
+import { formatINR, formatDate, formatBillNumber, formatPaymentCode, titleCase, ledgerEntryTotals, pendingBadge } from '../../../../utils';
 import { AppHeader, BackHeader, DynamicFlashList } from '../../../../components';
 import { GET_SALES_ORDERS, GET_ACCOUNT, GET_PAYMENTS, GET_TRANSACTIONS, GET_ADMIN_SETTINGS, GET_DOWNLINE_PARTY_BALANCES } from '../../../../apollo/queries/accounts';
 import type { RootState } from '../../../../store/rootreducer';
@@ -120,7 +120,7 @@ export default function Payments() {
           <Icon name={MODE_ICON[mode] ?? 'cash-multiple'} size={18} color="#22c55e" />
         </View>
         <View style={{ flex: 1 }}>
-          <Text style={[styles.payCode, { color: colors.text }]}>{formatPaymentCode(p.paymentcode)}</Text>
+          <Text style={[styles.payCode, { color: colors.text }, pendingBadge(p)]}>{formatPaymentCode(p.paymentcode)}</Text>
           {p.partyid?.id && p.partyid.id !== user?.id && (
             <Text style={[styles.paySub, { color: colors.brand }]} numberOfLines={1}>
               {p.partyid?.name || 'Sub-party'}
@@ -190,7 +190,7 @@ export default function Payments() {
           <View key={o.id} style={[styles.invCard, { backgroundColor: colors.cardGlass, borderColor: colors.border }]}>
             <View style={styles.invTop}>
               <View>
-                <Text style={[styles.invNum, { color: colors.text }]}>{formatBillNumber(o)}</Text>
+                <Text style={[styles.invNum, { color: colors.text }, pendingBadge(o)]}>{formatBillNumber(o)}</Text>
                 <Text style={[styles.invDate, { color: colors.subText }]}>{formatDate(o.billdate)}</Text>
               </View>
               <Text style={[styles.invAmt, { color: colors.brand }]}>{formatINR(o.totalamount)}</Text>

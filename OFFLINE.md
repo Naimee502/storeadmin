@@ -29,7 +29,8 @@ One file, identical in both: `clientapp/src/apollo/offline.ts` = `clientweb/src/
 - Reads: queries are saved per user (AsyncStorage / localStorage, max 3.5 MB). Offline, a query is answered from the saved copy; online reads never use it.
 - Sync: on any successful request, every 30 s, and on the browser `online` event. Server errors drop the entry with a message; network errors keep it.
 - Images: app `AppImage` (FastImage, `immutable`) keeps every image it showed on disk. Website `public/sw.js` keeps images it showed (newest 800) and the site itself, so an offline reload still opens. An image never shown online cannot appear offline; cart, checkout and order detail then hide the broken image.
-- Status: app Snackbar messages; website banner under the header (`layouts/main`).
+- Status: header pill like the admin (`Offline` / `Syncing` + `N pending`, hidden when online with nothing pending): app `components/header.tsx`, website `components/header`. Sync messages: app Snackbar, website banner (`layouts/main`).
+- Pending numbers: `PENDING_SYNC`, `pendingBadge` (app `utils/formatters.ts`) and `pendingClass` (website `utils/orders.ts`) show `Pending sync` as an indigo badge in order and payment lists.
 - Not offline in the apps (by design): stock and outstanding are the last synced values; new parties, catalogue and masters need the network.
 - Test: `node test.js` style check with a fake server (offline create, list/detail of pending, edit merge, id swap, 3 s timeout, no duplicate) passes on Apollo 3 (web) and 4 (app).
 

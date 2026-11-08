@@ -10,7 +10,7 @@ import {
   ADD_ACCOUNT, GET_ACCOUNT_GROUPS, GET_CHANNELS, GET_SALES_ORDERS, GET_PAYMENTS, GET_PARTY_STOCK,
 } from "../../graphql/queries/accounts";
 import { formatPrice } from "../../utils/format";
-import { orderStatus, formatBillNumber, formatDate, titleCase } from "../../utils/orders";
+import { orderStatus, formatBillNumber, formatDate, titleCase, pendingClass } from "../../utils/orders";
 
 const STATUS_CLS: Record<string, string> = {
   pending: "bg-amber-50 text-amber-700",
@@ -191,7 +191,7 @@ function PartyDetail({ party, adminid, trackStock, onBack }: { party: any; admin
             return (
               <button key={o.id} onClick={() => navigate(`/account/orders/${o.id}`)} className="flex w-full flex-wrap items-center justify-between gap-2 rounded-2xl border border-slate-100 p-4 text-left hover:border-brand-300">
                 <div>
-                  <p className="text-sm font-semibold text-ink-900">{formatBillNumber(o)}</p>
+                  <p className={`text-sm font-semibold text-ink-900${pendingClass(o)}`}>{formatBillNumber(o)}</p>
                   <p className="text-xs text-slate-500">{formatDate(o.billdate || o.createdAt)} · {o.productservice?.length ?? 0} items</p>
                 </div>
                 <div className="flex items-center gap-3">
@@ -209,7 +209,7 @@ function PartyDetail({ party, adminid, trackStock, onBack }: { party: any; admin
           {payments.map((p) => (
             <div key={p.id} className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-slate-100 p-4">
               <div>
-                <p className="text-sm font-semibold text-ink-900">{p.paymentcode || "Payment"}</p>
+                <p className={`text-sm font-semibold text-ink-900${pendingClass(p)}`}>{p.paymentcode || "Payment"}</p>
                 <p className="text-xs text-slate-500">{formatDate(p.paymentdate || p.createdAt)}{p.mode ? ` · ${titleCase(p.mode)}` : ""}{p.reference ? ` · ${p.reference}` : ""}</p>
               </div>
               <p className="text-sm font-bold text-brand-700">{formatPrice(Number(p.amount) || 0)}</p>

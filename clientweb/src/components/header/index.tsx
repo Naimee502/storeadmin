@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import {
   Search,
@@ -28,6 +28,20 @@ import { useCatalog } from "../../hooks/useCatalog";
 import { titleCaseIfShouting } from "../../utils/format";
 import NotificationBell from "../notificationbell";
 import { usePaymentsEnabled, useAnnouncementsEnabled } from "../../hooks/useModuleEnabled";
+import { offline } from "../../graphql/client";
+
+// Offline / not-synced status, like the admin header; hidden when online with nothing pending.
+function SyncPill() {
+  const { online, pending } = useSyncExternalStore(offline.subscribe, offline.getState);
+  if (online && !pending) return null;
+  return (
+    <span className="flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[12px] font-medium text-slate-700">
+      <span className={`h-2 w-2 rounded-full ${online ? "bg-indigo-600" : "bg-red-600"}`} />
+      {online ? "Syncing" : "Offline"}
+      {pending > 0 && <span className="rounded bg-slate-100 px-1.5 text-slate-600">{pending} pending</span>}
+    </span>
+  );
+}
 
 export default function Header() {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -259,6 +273,7 @@ export default function Header() {
               </Link>
             )}
 
+            <SyncPill />
             <div className="flex items-center">
               <NotificationBell />
             </div>

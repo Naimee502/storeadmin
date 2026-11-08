@@ -16,7 +16,7 @@ import { COLORS, FONTS, useTheme } from '../../../../config';
 import { BackHeader, AppImage, ProductImageViewer } from '../../../../components';
 import { setCartParty } from '../../../../store/slices';
 import { GET_SALES_ORDERS, GET_ACCOUNT, GET_TRANSACTIONS, GET_PARTY_SALES_INVOICES } from '../../../../apollo/queries/accounts';
-import { formatINR, formatDate, formatBillNumber, ledgerEntryTotals } from '../../../../utils';
+import { formatINR, formatDate, formatBillNumber, ledgerEntryTotals, pendingBadge } from '../../../../utils';
 import type { RootState } from '../../../../store/rootreducer';
 
 const STATUS_COLOR: Record<string, string> = {
@@ -416,7 +416,7 @@ export default function RoutePartyVisit() {
               >
                 <View style={[styles.orderDot, { backgroundColor: colour }]} />
                 <View style={{ flex: 1 }}>
-                  <Text style={[styles.orderNum, { color: colors.text }]}>{formatBillNumber(order)}</Text>
+                  <Text style={[styles.orderNum, { color: colors.text }, pendingBadge(order)]}>{formatBillNumber(order)}</Text>
                   <Text style={[styles.orderDate, { color: colors.subText }]}>{formatDate(order.billdate)}</Text>
                 </View>
                 <View style={{ alignItems: 'flex-end' }}>

@@ -9,7 +9,7 @@ import { COLORS, FONTS, useTheme } from '../../../../config';
 import { OrderListSkeleton } from '../../../../config/skeletonlayouts';
 import { AppHeader, DynamicFlashList, OrdersSummaryCard, ALL_TIME, inRange, rangeLabel, type DateRange } from '../../../../components';
 import { GET_SALES_ORDERS } from '../../../../apollo/queries/accounts';
-import { formatINR, formatDate, formatBillNumber, parseServerDate } from '../../../../utils';
+import { formatINR, formatDate, formatBillNumber, parseServerDate, pendingBadge } from '../../../../utils';
 import type { RootState } from '../../../../store/rootreducer';
 
 type FilterKey = 'all' | 'pending' | 'confirmed' | 'dispatched' | 'delivered' | 'cancelled';
@@ -104,7 +104,7 @@ export default function StaffOrders() {
         <View style={[styles.statusDot, { backgroundColor: colour }]} />
         <View style={{ flex: 1 }}>
           <View style={styles.cardTop}>
-            <Text style={[styles.billNum, { color: colors.text }]}>{formatBillNumber(order)}</Text>
+            <Text style={[styles.billNum, { color: colors.text }, pendingBadge(order)]}>{formatBillNumber(order)}</Text>
             <Text style={[styles.amount, { color: colors.text }]}>{formatINR(order.totalamount)}</Text>
           </View>
           <Text style={[styles.partyName, { color: colors.subText }]} numberOfLines={1}>

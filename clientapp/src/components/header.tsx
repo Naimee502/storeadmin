@@ -1,10 +1,11 @@
-import React from 'react';
+import React, { useSyncExternalStore } from 'react';
 import { View, StyleSheet, Pressable, Text, Image } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { COLORS, FONTS, useTheme, NavConfig, IMAGES } from '../config';
 import { tourRef } from './apptour';
+import { offline } from '../apollo/client';
 
 export const HEADER_ICONS = {
   menu: 'menu',
@@ -81,6 +82,18 @@ const RightSection = ({ rightIcons, colors }: any) => (
   </View>
 );
 
+// Offline / not-synced status, like the admin header; hidden when online with nothing pending.
+const SyncPill = () => {
+  const { online, pending } = useSyncExternalStore(offline.subscribe, offline.getState);
+  if (online && !pending) return null;
+  return (
+    <View style={[styles.pill, { borderColor: online ? '#C7D2FE' : '#FECACA' }]}>
+      <View style={[styles.pillDot, { backgroundColor: online ? '#4F46E5' : '#DC2626' }]} />
+      <Text style={styles.pillText}>{online ? 'Syncing' : 'Offline'}{pending ? ` · ${pending} pending` : ''}</Text>
+    </View>
+  );
+};
+
 const RightSpacer = ({ type }: any) =>
   type === 'back' ? <View style={styles.spacer} /> : null;
 
@@ -152,9 +165,13 @@ export const DynamicHeader = (props: any) => {
         <>
           <CenterLabel type={type} label={label} colors={colors} />
           <RightSpacer type={type} />
+          <View style={styles.pillFloat}><SyncPill /></View>
         </>
       ) : (
-        rightIcons.length > 0 && <RightSection rightIcons={rightIcons} colors={colors} />
+        <View style={styles.rightContainer}>
+          <SyncPill />
+          {rightIcons.length > 0 && <RightSection rightIcons={rightIcons} colors={colors} />}
+        </View>
       )}
     </View>
   );
@@ -213,6 +230,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 14,
   },
+  pill: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999, borderWidth: 1, backgroundColor: '#FFFFFF' },
+  pillDot: { width: 6, height: 6, borderRadius: 3 },
+  pillText: { fontSize: 11, color: '#334155', fontWeight: '600' },
+  pillFloat: { position: 'absolute', right: 12, bottom: 10 },
   iconButton: {
     position: 'relative',
     width: 38,

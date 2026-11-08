@@ -20,7 +20,13 @@ export function orderStatus(order: any): FilterKey {
 
 // "SO-000123" for orders, "INV-000123" (the real invoice number) once
 // converted — mirrors formatBillNumber() in the app.
+export const PENDING_SYNC = "Pending sync";
+// Badge classes for a document saved on this device and not synced yet (graphql/offline.ts).
+export const pendingClass = (doc: any) =>
+  doc?.billnumber === PENDING_SYNC || doc?.paymentcode === PENDING_SYNC ? " inline-block rounded bg-indigo-50 px-1.5 text-indigo-700 ring-1 ring-indigo-200" : "";
+
 export function formatBillNumber(order: any): string {
+  if (order.billnumber === PENDING_SYNC && !order.isConverted) return PENDING_SYNC;
   // Show INV- only when we actually hold an invoice number. An order-only
   // business has no invoice its parties have ever seen, so orders stay SO-.
   const invoiceNo = order.isConverted ? order.invoicenumber : null;

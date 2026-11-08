@@ -8,7 +8,7 @@ import { useSelector } from 'react-redux';
 import { COLORS, FONTS, STRINGS, useTheme } from '../../../../config';
 import { OrderListSkeleton } from '../../../../config/skeletonlayouts';
 import { GET_SALES_ORDERS, GET_ADMIN_SETTINGS, GET_DOWNLINE_PARTY_BALANCES } from '../../../../apollo/queries/accounts';
-import { formatINR, formatDate, formatBillNumber, parseServerDate } from '../../../../utils';
+import { formatINR, formatDate, formatBillNumber, parseServerDate, pendingBadge } from '../../../../utils';
 import { AppHeader, DynamicFlashList, OrdersSummaryCard, ALL_TIME, inRange, rangeLabel, type DateRange } from '../../../../components';
 import type { RootState } from '../../../../store/rootreducer';
 
@@ -132,7 +132,7 @@ export default function MyOrders() {
 
         <View style={{ flex: 1 }}>
           <View style={styles.cardTop}>
-            <Text style={[styles.billNum, { color: colors.text }]}>{formatBillNumber(order)}</Text>
+            <Text style={[styles.billNum, { color: colors.text }, pendingBadge(order)]}>{formatBillNumber(order)}</Text>
             <Text style={[styles.amount, { color: colors.text }]}>{formatINR(order.totalamount)}</Text>
           </View>
 
