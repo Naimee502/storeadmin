@@ -30,14 +30,13 @@ import NotificationBell from "../notificationbell";
 import { usePaymentsEnabled, useAnnouncementsEnabled } from "../../hooks/useModuleEnabled";
 import { offline } from "../../graphql/client";
 
-// Offline / not-synced status, like the admin header; hidden when online with nothing pending.
+// Online / Offline / Syncing status with the pending count, like the admin header.
 function SyncPill() {
   const { online, pending } = useSyncExternalStore(offline.subscribe, offline.getState);
-  if (online && !pending) return null;
   return (
     <span className="flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[12px] font-medium text-slate-700">
-      <span className={`h-2 w-2 rounded-full ${online ? "bg-indigo-600" : "bg-red-600"}`} />
-      {online ? "Syncing" : "Offline"}
+      <span className={`h-2 w-2 rounded-full ${!online ? "bg-red-600" : pending ? "bg-indigo-600" : "bg-emerald-500"}`} />
+      {!online ? "Offline" : pending ? "Syncing" : "Online"}
       {pending > 0 && <span className="rounded bg-slate-100 px-1.5 text-slate-600">{pending} pending</span>}
     </span>
   );

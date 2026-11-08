@@ -82,14 +82,13 @@ const RightSection = ({ rightIcons, colors }: any) => (
   </View>
 );
 
-// Offline / not-synced status, like the admin header; hidden when online with nothing pending.
+// Online / Offline / Syncing status with the pending count, like the admin header.
 const SyncPill = () => {
   const { online, pending } = useSyncExternalStore(offline.subscribe, offline.getState);
-  if (online && !pending) return null;
   return (
-    <View style={[styles.pill, { borderColor: online ? '#C7D2FE' : '#FECACA' }]}>
-      <View style={[styles.pillDot, { backgroundColor: online ? '#4F46E5' : '#DC2626' }]} />
-      <Text style={styles.pillText}>{online ? 'Syncing' : 'Offline'}{pending ? ` · ${pending} pending` : ''}</Text>
+    <View style={[styles.pill, { borderColor: !online ? '#FECACA' : pending ? '#C7D2FE' : '#A7F3D0' }]}>
+      <View style={[styles.pillDot, { backgroundColor: !online ? '#DC2626' : pending ? '#4F46E5' : '#10B981' }]} />
+      <Text style={styles.pillText}>{!online ? 'Offline' : pending ? 'Syncing' : 'Online'}{pending ? ` · ${pending} pending` : ''}</Text>
     </View>
   );
 };
