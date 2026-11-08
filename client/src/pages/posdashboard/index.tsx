@@ -266,18 +266,20 @@ export default function POSDashboard() {
       const inOther = /^(INPUT|TEXTAREA|SELECT)$/.test(el?.tagName || "") && el !== searchRef.current;
       if (e.key === "F2") { e.preventDefault(); searchRef.current?.focus(); }
       else if (e.key === "F3") { e.preventDefault(); barcodeRef.current?.focus(); }
-      else if (e.key === "F4") { e.preventDefault(); (customerRef.current?.querySelector("input,button") as HTMLElement | null)?.click(); }
+      else if (e.key === "F4") { e.preventDefault(); k.openCustomer(); }
       else if (e.key === "F8") { e.preventDefault(); k.holdCart(); }
       else if (e.key === "F9") { e.preventDefault(); k.recallCart(); }
       else if (e.key === "F10") { e.preventDefault(); k.clearCart(); }
       else if (e.key === "F12") { e.preventDefault(); k.openPay(); }
-      else if (e.altKey && e.code === "KeyN") { e.preventDefault(); k.newParty(); }
+      // ⌥N on a Mac is a dead key ("˜"); match the key position and drop the mark it may leave.
+      else if (e.altKey && (e.code === "KeyN" || e.key === "˜")) { e.preventDefault(); e.stopPropagation(); (el as HTMLInputElement)?.blur?.(); k.newParty(); }
       else if (e.key === "Escape") setPaymentOpen(false);
       else if (!k.busy && !inOther && (e.key === "ArrowDown" || e.key === "ArrowUp")) { e.preventDefault(); k.moveRow(e.key === "ArrowDown" ? 1 : -1); }
       else if (!k.busy && el === searchRef.current && e.key === "Enter") { e.preventDefault(); k.addActive(); }
     };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    // Capture phase: runs before the focused box handles the key.
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
   }, []);
 
   /* Filtered subcategories */
@@ -779,7 +781,18 @@ export default function POSDashboard() {
   };
   keys.current = {
     holdCart, recallCart, clearCart, openPay,
-    newParty: () => setAddCustomerOpen(true),
+    newParty: () => {
+      setBarcode((b) => b.replace(/˜$/, ""));
+      setSearch((q) => q.replace(/˜$/, ""));
+      setAddCustomerOpen(true);
+    },
+    // Focus the customer box and open its list (the select opens on ArrowDown).
+    openCustomer: () => {
+      const input = customerRef.current?.querySelector("input") as HTMLInputElement | null;
+      if (!input) return;
+      input.focus();
+      input.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", code: "ArrowDown", keyCode: 40, bubbles: true }));
+    },
     busy: paymentOpen,
     moveRow: (d: number) => {
       const next = Math.min(Math.max(rowIndex + d, 0), Math.max(sortedProducts.length - 1, 0));
