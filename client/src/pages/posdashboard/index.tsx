@@ -1008,13 +1008,13 @@ export default function POSDashboard() {
                         <td className="px-2 py-1.5">
                           <div className="font-semibold text-slate-800 leading-tight line-clamp-1">{p.name}</div>
                         </td>
-                        <td className="px-2 py-1.5 text-slate-600 hidden md:table-cell">
+                        <td className="px-2 py-1.5 text-slate-600 hidden md:table-cell whitespace-nowrap">
                           {[p.brandName, p.sizeName].filter(Boolean).join(" · ") || "—"}
                         </td>
                         <td className="px-2 py-1.5">
                           {p.variants.length > 1 ? (
                             <select
-                              className="text-[12px] border border-slate-300 rounded px-1.5 py-0.5 bg-white min-w-[120px] w-auto"
+                              className="h-6 w-full max-w-[150px] truncate rounded border border-slate-300 bg-white px-1 py-0 text-[12px] leading-none"
                               value={sel.variantId}
                               onClick={(e) => e.stopPropagation()}
                               onChange={(e) => onSelectVariant(p.id, e.target.value)}
@@ -1026,13 +1026,13 @@ export default function POSDashboard() {
                               ))}
                             </select>
                           ) : (
-                            <span className="text-slate-600">{selectedVariant?.name || "—"}</span>
+                            <span className="block max-w-[150px] truncate whitespace-nowrap text-slate-600" title={selectedVariant?.name || ""}>{selectedVariant?.name || "—"}</span>
                           )}
                         </td>
                         <td className="px-2 py-1.5">
                           {selectedVariant?.units?.length > 1 ? (
                             <select
-                              className="text-[12px] border border-slate-300 rounded px-1.5 py-0.5 bg-white min-w-[120px] w-auto"
+                              className="h-6 w-full max-w-[150px] truncate rounded border border-slate-300 bg-white px-1 py-0 text-[12px] leading-none"
                               value={sel.unitId}
                               onClick={(e) => e.stopPropagation()}
                               onChange={(e) => onSelectUnit(p.id, e.target.value)}
@@ -1044,7 +1044,7 @@ export default function POSDashboard() {
                               ))}
                             </select>
                           ) : (
-                            <span className="text-slate-600">{currentUnit?.name || "—"}</span>
+                            <span className="block max-w-[150px] truncate whitespace-nowrap text-slate-600">{currentUnit?.name || "—"}</span>
                           )}
                         </td>
                         <td className="px-2 py-1.5 text-right font-mono">
@@ -1160,11 +1160,11 @@ export default function POSDashboard() {
                       const lineGst = (lineNet * (it.gst ?? 0)) / 100;
                       const lineTotal = lineNet + lineGst;
                       return (
-                        <tr key={it.cartId} className="border-b border-slate-200 align-top hover:bg-slate-50">
+                        <tr key={it.cartId} className="border-b border-slate-200 align-middle hover:bg-slate-50">
                           <td className="px-2 py-1.5 font-mono text-slate-500">{i + 1}</td>
                           <td className="px-2 py-1.5">
-                            <div className="font-semibold text-slate-800 leading-tight line-clamp-2">{it.name}</div>
-                            <div className="text-[11px] text-slate-500 leading-tight">
+                            <div className="font-semibold text-slate-800 leading-tight truncate max-w-[180px]" title={it.name}>{it.name}</div>
+                            <div className="text-[11px] text-slate-500 leading-tight truncate max-w-[180px]" title={[it.variantName, it.unitName].filter(Boolean).join(" · ")}>
                               {[it.variantName, it.unitName].filter(Boolean).join(" · ") || "—"}
                               {it.gst > 0 && <span> · GST {it.gst}%</span>}
                             </div>
