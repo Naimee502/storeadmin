@@ -86,7 +86,7 @@ const formatStaffRef = (s: any) =>
       }
     : null;
 
-const formatExpense = (r: any) => ({
+export const formatExpense = (r: any) => ({
   id: r._id.toString(),
   ...r,
   ledgerid: formatLedgerRef(r.ledgerid),
@@ -103,14 +103,14 @@ const populatePaths = ["ledgerid", "staffid", "expenses.expenseledgerid"];
 
 // List resolvers only: same paths, but fetch just the fields formatLedgerRef /
 // formatStaffRef read, instead of whole ledger / staff documents per row.
-const listPopulatePaths: any[] = [
+export const listPopulatePaths: any[] = [
   { path: "ledgerid", select: "ledgername" },
   { path: "staffid", select: "name staffcode ledgerid salary role" },
   { path: "expenses.expenseledgerid", select: "ledgername" },
 ];
 
 /** Role and filter scope of the expense notes list (getExpenseNotes and its page query). */
-function buildExpenseNoteQuery(filter: any, context: any): any {
+export function buildExpenseNoteQuery(filter: any, context: any): any {
   const query: any = { status: true };
   const { user } = context;
 

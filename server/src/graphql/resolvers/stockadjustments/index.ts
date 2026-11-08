@@ -124,7 +124,7 @@ async function reverseAndDeactivate(id: any, expected: Date | null = null) {
 
 
 /** Filter scope shared by getStockAdjustments and its page query. */
-function buildStockAdjustmentQuery(filter: any): any {
+export function buildStockAdjustmentQuery(filter: any): any {
   const query: any = {};
 
   // Only filter by status when explicitly passed

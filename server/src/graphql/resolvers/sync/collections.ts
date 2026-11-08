@@ -27,6 +27,20 @@ import { buildReturnQuery, formatReturn, listPopulateFields as returnRefs } from
 import { buildPaymentQuery, formatPayment, LIST_POPULATE as paymentRefs } from "../payments";
 import { buildProductListQuery, mapProductsWithStock, withProductListRefs } from "../products";
 import { withAccountListRefs } from "../accounts";
+import { PurchaseInvoice } from "../../../models/purchaseinvoice";
+import { PurchaseOrder } from "../../../models/purchaseorder";
+import { PurchaseReturn } from "../../../models/purchasereturn";
+import { StockAdjustment } from "../../../models/stockadjustments";
+import { TransferStock } from "../../../models/transferstock";
+import { ExpenseNote } from "../../../models/expensenote";
+import { Transaction } from "../../../models/transactions";
+import { buildPurchaseInvoiceQuery, formatInvoice as formatPurchaseInvoice, listPopulateFields as purchaseInvoiceRefs } from "../purchaseinvoice";
+import { buildPurchaseOrderQuery, formatOrder as formatPurchaseOrder, listPopulateFields as purchaseOrderRefs } from "../purchaseorder";
+import { buildPurchaseReturnQuery, formatReturn as formatPurchaseReturn, listPopulateFields as purchaseReturnRefs } from "../purchasereturn";
+import { buildStockAdjustmentQuery, formatAdjustment } from "../stockadjustments";
+import { buildTransferQuery } from "../transferstock";
+import { buildExpenseNoteQuery, formatExpense, listPopulatePaths as expenseRefs } from "../expensenote";
+import { buildTransactionQuery, formatTransaction } from "../transactions";
 import { withStaffListRefs } from "../staffaccounts";
 import { BRANCH_LIST_ADMIN_FIELDS } from "../branches";
 import { formatRule, populate as chargeRuleRefs } from "../chargerule";
@@ -103,6 +117,55 @@ export const SYNC_COLLECTIONS: Record<string, SyncCollection> = {
     scope: async (ctx) => withoutStatus(await buildPaymentQuery({ adminid: ctx.adminid }, ctx.context)),
     find: (f) => Payment.find(f).populate(paymentRefs).lean(),
     shape: (docs) => docs.map(formatPayment),
+  },
+  purchaseinvoice: {
+    model: PurchaseInvoice,
+    tenant: "adminid",
+    scope: async (ctx) => withoutStatus(buildPurchaseInvoiceQuery({ adminid: ctx.adminid }, ctx.context)),
+    find: (f) => PurchaseInvoice.find(f).populate(purchaseInvoiceRefs).lean(),
+    shape: (docs) => docs.map(formatPurchaseInvoice),
+  },
+  purchaseorder: {
+    model: PurchaseOrder,
+    tenant: "adminid",
+    scope: async (ctx) => withoutStatus(await buildPurchaseOrderQuery({ adminid: ctx.adminid }, ctx.context)),
+    find: (f) => PurchaseOrder.find(f).populate(purchaseOrderRefs).lean(),
+    shape: (docs) => docs.map(formatPurchaseOrder),
+  },
+  purchasereturn: {
+    model: PurchaseReturn,
+    tenant: "adminid",
+    scope: async (ctx) => withoutStatus(buildPurchaseReturnQuery({ adminid: ctx.adminid }, ctx.context)),
+    find: (f) => PurchaseReturn.find(f).populate(purchaseReturnRefs).lean(),
+    shape: (docs) => docs.map(formatPurchaseReturn),
+  },
+  stockadjustment: {
+    model: StockAdjustment,
+    tenant: "adminid",
+    scope: async (ctx) => withoutStatus(buildStockAdjustmentQuery({ adminid: ctx.adminid })),
+    find: (f) =>
+      StockAdjustment.find(f).populate("adminid", "name").populate("branchid", "branchname").populate("items.productid", "name").lean(),
+    shape: (docs) => docs.map(formatAdjustment),
+  },
+  transferstock: {
+    model: TransferStock,
+    tenant: "admin",
+    scope: async (ctx) => withoutStatus(buildTransferQuery(ctx.adminid, null, ctx.context)),
+    find: (f) => TransferStock.find(f).populate({ path: "admin", select: "name email" }).lean(),
+  },
+  expensenote: {
+    model: ExpenseNote,
+    tenant: "adminid",
+    scope: async (ctx) => withoutStatus(buildExpenseNoteQuery({ adminid: ctx.adminid }, ctx.context)),
+    find: (f) => ExpenseNote.find(f).populate(expenseRefs).lean(),
+    shape: (docs) => docs.map(formatExpense),
+  },
+  transaction: {
+    model: Transaction,
+    tenant: "adminid",
+    scope: async (ctx) => withoutStatus(buildTransactionQuery({ adminid: ctx.adminid }, ctx.context)),
+    find: (f) => Transaction.find(f).populate("entries.ledgerid", "ledgername").lean(),
+    shape: (docs) => docs.map(formatTransaction),
   },
   product: {
     model: ProductService,

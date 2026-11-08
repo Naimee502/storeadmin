@@ -8,7 +8,7 @@ import { containsRx, pageWindow, textMatch, notCleared } from "../../../utils/li
 import { activeText, dmyOrDash, fixed2, searchAndFilterClauses, textOr } from "./listtext";
 
 /** Role and filter scope of the transactions list (getTransactions and its page query). */
-function buildTransactionQuery(filter: any, context: any): any {
+export function buildTransactionQuery(filter: any, context: any): any {
   const query: any = { status: true };
   const { user } = context;
 
@@ -41,7 +41,7 @@ function buildTransactionQuery(filter: any, context: any): any {
   return query;
 }
 
-const formatTransaction = (r: any) => ({
+export const formatTransaction = (r: any) => ({
   id: r._id.toString(),
   ...r,
   entries: r.entries.map((e: any) => ({
