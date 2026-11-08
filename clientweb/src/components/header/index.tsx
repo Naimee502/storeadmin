@@ -34,10 +34,10 @@ import { offline } from "../../graphql/client";
 function SyncPill() {
   const { online, pending } = useSyncExternalStore(offline.subscribe, offline.getState);
   return (
-    <span className="flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[12px] font-medium text-slate-700">
-      <span className={`h-2 w-2 rounded-full ${!online ? "bg-red-600" : pending ? "bg-indigo-600" : "bg-emerald-500"}`} />
+    <span className="flex items-center gap-1.5 font-medium text-slate-200">
+      <span className={`h-2 w-2 rounded-full ${!online ? "bg-red-500" : pending ? "bg-indigo-400" : "bg-emerald-400"}`} />
       {!online ? "Offline" : pending ? "Syncing" : "Online"}
-      {pending > 0 && <span className="rounded bg-slate-100 px-1.5 text-slate-600">{pending} pending</span>}
+      {pending > 0 && <span className="rounded bg-white/10 px-1.5 text-slate-200">{pending} pending</span>}
     </span>
   );
 }
@@ -101,6 +101,7 @@ export default function Header() {
             )}
           </div>
           <div className="flex items-center gap-5">
+            <SyncPill />
             <Link to="/login" className="flex items-center gap-1.5 font-medium text-brand-300 hover:text-brand-200">
               <Briefcase className="h-3.5 w-3.5" /> Apply for a Business / Party Account
             </Link>
@@ -272,7 +273,6 @@ export default function Header() {
               </Link>
             )}
 
-            <SyncPill />
             <div className="flex items-center">
               <NotificationBell />
             </div>
