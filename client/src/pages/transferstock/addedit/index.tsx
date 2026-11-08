@@ -17,7 +17,7 @@ import {
 } from "../../../graphql/hooks/transferstock";
 import { BRANCH_REQUIRED } from "../../../utils/branch";
 import { useOfflineNumber, savedOffline } from "../../../offline/billing";
-import { OFFLINE_SAVED_MESSAGE } from "../../../offline/saved";
+import { OFFLINE_SAVED_MESSAGE } from "../../../offline/billing";
 
 // Types
 

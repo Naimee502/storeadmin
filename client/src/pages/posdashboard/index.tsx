@@ -41,7 +41,7 @@ import { showMessage } from "../../redux/slices/message";
 import { partyLabel } from "../../utils/partylabel";
 import { isCustomerParty } from "../../utils/partytype";
 import { BRANCH_REQUIRED } from "../../utils/branch";
-import { isOfflineSaved, OFFLINE_SAVED_MESSAGE } from "../../offline/saved";
+import { isOfflineSaved, OFFLINE_SAVED_MESSAGE } from "../../offline/billing";
 import { useOfflineNumber, useOfflineStock } from "../../offline/billing";
 
 /* Helpers */

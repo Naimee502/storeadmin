@@ -22,7 +22,7 @@ import { getStockShortfalls } from "../../../utils/products/stockcheck";
 import { getBelowCostLines } from "../../../utils/rates";
 import { isCustomerParty } from "../../../utils/partytype";
 import { BRANCH_REQUIRED } from "../../../utils/branch";
-import { isOfflineSaved, OFFLINE_SAVED_MESSAGE } from "../../../offline/saved";
+import { isOfflineSaved, OFFLINE_SAVED_MESSAGE } from "../../../offline/billing";
 import { OfflineNumberNote, savedOffline as wasSavedOffline, useOfflineNumber, useOfflineStock } from "../../../offline/billing";
 
 const AddEditSalesInvoice = () => {

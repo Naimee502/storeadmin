@@ -16,7 +16,7 @@ import { FaTrash } from "react-icons/fa";
 import { todayYMD, normalizeToYMD } from "../../../utils/helper";
 import { BRANCH_REQUIRED } from "../../../utils/branch";
 import { useOfflineNumber, savedOffline } from "../../../offline/billing";
-import { OFFLINE_SAVED_MESSAGE } from "../../../offline/saved";
+import { OFFLINE_SAVED_MESSAGE } from "../../../offline/billing";
 
 // Shared row template so columns align; written in full so Tailwind generates it.
 const ROW_GRID_SM =

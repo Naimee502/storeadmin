@@ -25,7 +25,7 @@ import { todayYMD, normalizeToYMD } from "../../../utils/helper";
 import { isCustomerParty, isVendorParty } from "../../../utils/partytype";
 import { BRANCH_REQUIRED } from "../../../utils/branch";
 import { savedOffline as wasSavedOffline, useOfflineNumber, useOfflinePartyDelta } from "../../../offline/billing";
-import { OFFLINE_SAVED_MESSAGE } from "../../../offline/saved";
+import { OFFLINE_SAVED_MESSAGE } from "../../../offline/billing";
 import { isOfflineEnabled } from "../../../offline/settings";
 import { isNoNetworkError } from "../../../offline/localprice";
 

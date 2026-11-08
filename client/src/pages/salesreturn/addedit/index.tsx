@@ -19,7 +19,7 @@ import {
 } from "../../../graphql/hooks/salesinvoice";
 import OtherChargesSection, { type OtherCharge } from "../../../components/othercharges";
 import { OfflineNumberNote, savedOffline as wasSavedOffline, useOfflineNumber } from "../../../offline/billing";
-import { OFFLINE_SAVED_MESSAGE } from "../../../offline/saved";
+import { OFFLINE_SAVED_MESSAGE } from "../../../offline/billing";
 import { isOfflineEnabled } from "../../../offline/settings";
 import { isOwnDeviceNumber } from "../../../offline/device";
 import { partyLabel } from "../../../utils/partylabel";

@@ -53,7 +53,8 @@ Server first, then client (the client asks for `offlineBilling` and `syncPull`).
 
 ## Status (handoff: read this first)
 Branch `feature/server-paging-clear-offline`. One commit per finished step; never commit `.DS_Store`, builds, `dist`, notes or test scripts.
-- Done and committed: Phase 1 (admin client + server), Phase 2 contract, Apps sales.
-- Phase 2 in progress, NOT committed (26 files): server models/schemas/resolvers for purchase invoice/order/return, stock adjustment, transfer stock, `offlinedevice`, `utils/offlinesync.ts`; client `offline/core, docs, localdb, offlinelink, OfflineStatusBar` and purchase invoice/order/return addedit pages. Server `tsc` 0 errors. Next: client stock adjustment and transfer screens, local stock/vendor balance rules above, API tests, then commit.
-- Next cleanup: `client/src/offline` has 19 files; merge the small ones (`network`, `saved`, `userkey`, `OfflineHeaderStatus`, `sw`) into their callers after Phase 2 is committed, so no two changes touch the same files.
-- Checks: `vite build` needs the Mac (node_modules are macOS binaries); run it there before deploy.
+- Done and committed: Phase 1 (admin client + server), Phase 2 (purchase invoice/order/return, stock adjustment, transfer: server, client queue, local stock, vendor balance, device numbers, Pending sync badges in lists), Apps sales (`clientapp`, `clientweb`).
+- `client/src/offline` files: `core` (rules: doc types, numbers, local stock and balance), `outbox` (queue and push), `localdb` (IndexedDB and pull), `offlinelink` (Apollo link, local reads), `docs` + `gql` (collections and their queries), `device` (device code and numbers), `settings` (on/off), `boot` (start/stop and service worker), `billing` (screen hooks and helpers), `listing` (list badges), `localprice`, `userkey`, and the UI (`OfflineStatusBar`, `OfflineHeaderStatus`, `OfflineModeCard`). Add to these; do not add new files.
+- Next: Phase 3 (masters and expenses edited offline: product, account/ledger, unit, category, subcategory, brand, model, size, productgroup, expensenote) on the same pattern: server `createOnce` + `expectedUpdatedAt`, `OP_SPECS` in `core`, list badges with `useOfflineList`.
+- Checks: server `tsc` + `check-schema`; client `tsc` (many old errors in untouched pages; only touched files must be clean); `vite build` needs the Mac (node_modules are macOS binaries).
+- Local testing: the server runs on the same Mac, so turning Wi-Fi off does not make the apps offline. Stop the server or use DevTools > Network > Offline.

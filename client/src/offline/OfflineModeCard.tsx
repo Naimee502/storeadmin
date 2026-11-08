@@ -5,7 +5,7 @@ import { getDeviceMode, modeStore, setDeviceMode, type DeviceMode } from "./sett
 import { useAppSelector } from "../redux/hooks";
 import { countOutboxForCurrentUser } from "./outbox";
 import { clearAllRecords } from "./localdb";
-import { unregisterServiceWorker } from "./sw";
+import { unregisterServiceWorker } from "./boot";
 
 const OPTIONS: Array<[DeviceMode, string]> = [
   ["follow", "Business setting"],

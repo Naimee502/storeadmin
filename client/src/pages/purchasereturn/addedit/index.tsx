@@ -20,7 +20,7 @@ import {
 import OtherChargesSection from "../../../components/othercharges";
 import { partyLabel } from "../../../utils/partylabel";
 import { OfflineNumberNote, savedOffline as wasSavedOffline, useOfflineNumber } from "../../../offline/billing";
-import { OFFLINE_SAVED_MESSAGE } from "../../../offline/saved";
+import { OFFLINE_SAVED_MESSAGE } from "../../../offline/billing";
 import { isOfflineEnabled } from "../../../offline/settings";
 import { isOwnDeviceNumber } from "../../../offline/device";
 

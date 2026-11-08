@@ -3,7 +3,6 @@ import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { isOfflineEnabled } from "./settings";
 import { offlineStore, type OfflineSnapshot } from "./outbox";
 import { getDeviceCode, peekDeviceNumber } from "./device";
-import { isOfflineSaved } from "./saved";
 import { partyDelta, stockDelta, type DocType } from "./core";
 
 export function useOfflineSnapshot(): OfflineSnapshot {
@@ -82,6 +81,25 @@ export function useOfflinePartyDelta(partyId: string | null | undefined): number
   if (!snap.enabled || !partyId) return 0;
   return partyDelta(snap.items, partyId);
 }
+
+export const OFFLINE_SAVED_MESSAGE = "Saved offline — will sync automatically";
+
+// True when a mutation result is the placeholder returned for a queued save.
+export function isOfflineSaved(doc: any): boolean {
+  return typeof doc?.id === "string" && doc.id.startsWith("offline-");
+}
+
+const subscribeNetwork = (cb: () => void) => {
+  window.addEventListener("online", cb);
+  window.addEventListener("offline", cb);
+  return () => {
+    window.removeEventListener("online", cb);
+    window.removeEventListener("offline", cb);
+  };
+};
+
+/** Browser network state, re-rendering on change. */
+export const useNetworkOnline = () => useSyncExternalStore(subscribeNetwork, () => navigator.onLine, () => true);
 
 // True when a save was queued on this device (offline id, or offline mode with no network).
 export function savedOffline(doc: any): boolean {

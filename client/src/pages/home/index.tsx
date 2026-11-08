@@ -1,6 +1,6 @@
 import React, { useEffect } from "react";
 import HomeLayout from "../../layouts/home";
-import { useNetworkOnline } from "../../offline/network";
+import { useNetworkOnline } from "../../offline/billing";
 import { useQuery } from "@apollo/client";
 import { useAppSelector } from "../../redux/hooks";
 
