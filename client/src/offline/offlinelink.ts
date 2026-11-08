@@ -22,6 +22,10 @@ import { getDeviceCode, nextDeviceNumber, noteUsedNumber } from "./device";
 import { buildRichDoc } from "./docs";
 import { scheduleCacheSave } from "./persist";
 import { currentUserKey } from "./userkey";
+import { GET_SALES_INVOICES_LIST } from "../graphql/queries/salesinvoice";
+import { GET_SALES_ORDERS_LIST } from "../graphql/queries/salesorder";
+import { GET_SALES_RETURNS_LIST } from "../graphql/queries/salesreturn";
+import { GET_PAYMENTS_LIST } from "../graphql/queries/payments";
 
 export { OFFLINE_ID_PREFIX } from "./core";
 
@@ -93,13 +97,51 @@ function readFromCache(operation: Operation): any {
   }
 }
 
+// Paged lists that can be served offline from the cached full list (newest first).
+const LOCAL_PAGES: Record<string, { list: DocumentNode; field: string; typename: string }> = {
+  getSalesInvoicesPage: { list: GET_SALES_INVOICES_LIST, field: "getSalesInvoices", typename: "SalesInvoicePage" },
+  getSalesOrdersPage: { list: GET_SALES_ORDERS_LIST, field: "getSalesOrders", typename: "SalesOrderPage" },
+  getSalesReturnsPage: { list: GET_SALES_RETURNS_LIST, field: "getSalesReturns", typename: "SalesReturnPage" },
+  getPaymentsPage: { list: GET_PAYMENTS_LIST, field: "getPayments", typename: "PaymentPage" },
+};
+
+// A page that was never loaded online: slice it out of the cached full list.
+function localPage(operation: Operation): any {
+  const root = rootField(operation.query);
+  const spec = root ? LOCAL_PAGES[root.name.value] : undefined;
+  if (!root || !spec) return null;
+  const v: any = operation.variables || {};
+  const { includeCancelled: _ignored, ...filter } = v.filter || {};
+  let rows: any[] | undefined;
+  try {
+    rows = (getOfflineClient()?.cache.readQuery({ query: spec.list, variables: { filter } }) as any)?.[spec.field];
+  } catch {
+    rows = undefined;
+  }
+  if (!Array.isArray(rows)) return null;
+  const terms = [String(v.search || ""), ...((v.columnFilters || []) as any[]).map((f) => String(f?.value || ""))]
+    .map((t) => t.trim().toLowerCase())
+    .filter(Boolean);
+  const matched = [...rows].reverse().filter((row) => {
+    if (!terms.length) return true;
+    const text = JSON.stringify(row).toLowerCase();
+    return terms.every((t) => text.includes(t));
+  });
+  const size = Math.min(Math.max(Number(v.pageSize) || 10, 1), 200);
+  const start = (Math.max(Number(v.page) || 1, 1) - 1) * size;
+  const itemsSel = root.selectionSet?.selections.find((s: any) => s.kind === "Field" && s.name.value === "items") as FieldNode | undefined;
+  const items = matched.slice(start, start + size).map((row) => shapeBySelection(itemsSel?.selectionSet, row));
+  const key = root.alias?.value ?? root.name.value;
+  return { [key]: { __typename: spec.typename, items, total: matched.length } };
+}
+
 // Queries: without network, answer from the cache when it has the full result.
 function queryWithFallback(operation: Operation, forward: NextLink, fallback: boolean): Observable<FetchResult> {
   if (!fallback) return passthrough(operation, forward);
   return new Observable<FetchResult>((observer) => {
     let sub: { unsubscribe: () => void } | null = null;
     const fromCache = (original: unknown) => {
-      const data = readFromCache(operation);
+      const data = readFromCache(operation) ?? localPage(operation);
       if (data) {
         observer.next({ data });
         observer.complete();

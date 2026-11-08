@@ -1,6 +1,5 @@
 // List-screen helpers: unsynced rows on page 1, badges and the no-network note (offline mode only).
 import { useMemo, type ReactNode } from "react";
-import { CloudOff } from "lucide-react";
 import { isOfflineEnabled } from "./settings";
 import { listOfflineDocs, queuedChangesFor } from "./docs";
 import { useOfflineSnapshot } from "./billing";
@@ -66,15 +65,4 @@ export function useOfflineList(type: DocType, page: number) {
     return { ...row, [key]: withBadge(row[key], changesBadge(changes)) };
   };
   return { on, online: snap.online, rows, decorate };
-}
-
-// One-line note shown above a list when offline mode is on and there is no network.
-export function OfflineListNote({ show }: { show: boolean }) {
-  if (!show) return null;
-  return (
-    <div className="mb-2 flex items-center gap-1.5 rounded-md border border-amber-200 bg-amber-50 px-3 py-1.5 text-[13px] text-amber-800">
-      <CloudOff size={14} className="shrink-0" />
-      No internet: search, filters and other pages need a connection. Showing the last loaded page and bills saved on this device.
-    </div>
-  );
 }

@@ -1,5 +1,6 @@
 import React, { useEffect } from "react";
 import HomeLayout from "../../layouts/home";
+import { useNetworkOnline } from "../../offline/network";
 import { useQuery } from "@apollo/client";
 import { useAppSelector } from "../../redux/hooks";
 
@@ -27,6 +28,7 @@ import DashboardCharts from "../../components/dashboardcharts";
 import RecentOrders from "../../components/recentorders";
 
 const Home: React.FC = () => {
+  const online = useNetworkOnline();
   const { type, admin, branch, staff } = useAppSelector((state: any) => state.auth);
   const branchId = useAppSelector((state: any) => state.selectedBranch.branchId);
 
@@ -134,9 +136,15 @@ const Home: React.FC = () => {
             <div className="h-5 w-px bg-slate-200"></div>
             <div>
               <span className="text-gray-400 uppercase text-[10px] block font-semibold">Status</span>
-              <span className="font-bold text-emerald-600 flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping"></span> Online
-              </span>
+              {online ? (
+                <span className="font-bold text-emerald-600 flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping"></span> Online
+                </span>
+              ) : (
+                <span className="font-bold text-rose-600 flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span> Offline
+                </span>
+              )}
             </div>
           </div>
         </div>

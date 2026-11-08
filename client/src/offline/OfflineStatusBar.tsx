@@ -1,7 +1,6 @@
 // Floating status pill and the sync side panel for offline mode; renders nothing when the mode is off.
-import { useState, useSyncExternalStore, type ReactNode } from "react";
-import { useLocation } from "react-router";
-import { AlertTriangle, Check, CloudOff, RefreshCw, RotateCcw, Trash2, X } from "lucide-react";
+import { useState, useSyncExternalStore } from "react";
+import { Check, RefreshCw, RotateCcw, Trash2, X } from "lucide-react";
 import { isOfflineEnabled } from "./settings";
 import { offlineActions, offlineStore, type OutboxItem } from "./outbox";
 import { openOfflinePanel, panelStore, type PanelTab } from "./panel";
@@ -351,63 +350,10 @@ function Panel({ tab }: { tab: PanelTab }) {
   );
 }
 
-function Pill({ onPos }: { onPos: boolean }) {
-  const snap = useSyncExternalStore(offlineStore.subscribe, offlineStore.getSnapshot);
-  const failed = snap.failed;
-  const review = snap.review;
-  // The header dot covers POS, so the pill never sits over its footer buttons.
-  if (onPos) return null;
-  if (snap.online && snap.pending === 0 && failed.length === 0 && review.length === 0) return null;
-  const chip = (children: ReactNode, cls: string, tab: PanelTab) => (
-    <button type="button" onClick={() => openOfflinePanel(tab)} className={`inline-flex h-6 items-center gap-1 rounded px-2 font-medium ${cls}`}>
-      {children}
-    </button>
-  );
-  return (
-    <div className="fixed bottom-3 right-3 z-50 text-[13px]">
-      <div className="flex h-8 items-center gap-2 rounded-md border border-slate-200 bg-white px-2.5 shadow-sm">
-        {!snap.online && (
-          <span className="inline-flex items-center gap-1 font-medium text-slate-700">
-            <CloudOff size={14} className="text-slate-500" /> Offline
-          </span>
-        )}
-        {snap.pending > 0 &&
-          chip(
-            <>
-              <RefreshCw size={13} className={snap.syncing ? "animate-spin text-indigo-600" : "text-slate-500"} />
-              {snap.syncing ? `Syncing ${snap.pending}…` : `${snap.pending} waiting to sync`}
-            </>,
-            "text-slate-700 hover:bg-slate-50",
-            "waiting"
-          )}
-        {review.length > 0 &&
-          chip(
-            <>
-              <AlertTriangle size={13} /> {review.length} need review
-            </>,
-            "bg-amber-50 text-amber-800 hover:bg-amber-100",
-            "review"
-          )}
-        {failed.length > 0 &&
-          chip(
-            <>
-              <AlertTriangle size={13} /> {failed.length} failed
-            </>,
-            "bg-rose-50 text-rose-700 hover:bg-rose-100",
-            "failed"
-          )}
-      </div>
-    </div>
-  );
-}
-
 function StatusBar() {
   const tab = useSyncExternalStore(panelStore.subscribe, panelStore.getSnapshot);
-  const { pathname } = useLocation();
-  const onPos = pathname.toLowerCase().startsWith("/posdashboard");
   return (
     <>
-      {!tab && <Pill onPos={onPos} />}
       {tab && <Panel tab={tab} />}
     </>
   );

@@ -18,7 +18,7 @@ import { GET_SIZES } from "../graphql/queries/sizes";
 import { GET_PRODUCTGROUPS } from "../graphql/queries/productgroups";
 import { GET_SALES_INVOICES, GET_SALES_INVOICES_LIST, GET_SALES_INVOICES_PAGE, GET_SALES_INVOICES_SETTLE } from "../graphql/queries/salesinvoice";
 import { GET_SALES_ORDERS, GET_SALES_ORDERS_LIST, GET_SALES_ORDERS_PAGE } from "../graphql/queries/salesorder";
-import { GET_SALES_RETURNS, GET_SALES_RETURNS_PAGE } from "../graphql/queries/salesreturn";
+import { GET_SALES_RETURNS, GET_SALES_RETURNS_PAGE, GET_SALES_RETURNS_LIST } from "../graphql/queries/salesreturn";
 import { GET_PAYMENTS, GET_PAYMENTS_LIST, GET_PAYMENTS_PAGE } from "../graphql/queries/payments";
 import { GET_TRANSACTIONS } from "../graphql/queries/transactions";
 import { GET_PURCHASE_RETURNS } from "../graphql/queries/purchasereturn";
@@ -77,6 +77,7 @@ export function warmupJobs(state: any): Job[] {
     { name: "salesOrders", query: GET_SALES_ORDERS, variables: { filter } },
     { name: "salesOrdersList", query: GET_SALES_ORDERS_LIST, variables: { filter } },
     { name: "salesReturns", query: GET_SALES_RETURNS, variables: { filter } },
+    { name: "salesReturnsList", query: GET_SALES_RETURNS_LIST, variables: { filter } },
     { name: "payments", query: GET_PAYMENTS, variables: { filter } },
     { name: "paymentsList", query: GET_PAYMENTS_LIST, variables: { filter } },
     { name: "transactions", query: GET_TRANSACTIONS, variables: { filter } },

@@ -21,7 +21,7 @@ import { shareBlobOnWhatsApp, copyPartyNumberForPicker } from "../../utils/share
 import { useInvoicePdf } from "../../components/invoicepdf";
 import { stateOptions } from "../../utils/constants";
 import { partyLabel } from "../../utils/partylabel";
-import { OfflineListNote, useOfflineList } from "../../offline/listing";
+import { useOfflineList } from "../../offline/listing";
 
 // Party state is a slug; map it to the label for Place of Supply.
 const stateLabel = (slug?: string) =>
@@ -328,7 +328,6 @@ const SalesOrders = () => {
   return (
     <HomeLayout>
       <div className="w-full px-2 sm:px-6 pt-4 pb-6">
-        <OfflineListNote show={offline.on && !offline.online} />
         <DataTable requireBranchForAdd={true}
           {...actions}
           title="Manage Sales Orders"

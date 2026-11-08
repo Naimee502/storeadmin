@@ -13,7 +13,7 @@ import {
 import { useServerTable, useServerPaging } from "../../hooks/useservertable";
 import { formatDateDMY } from "../../utils/helper";
 import { partyLabel } from "../../utils/partylabel";
-import { OfflineListNote, useOfflineList } from "../../offline/listing";
+import { useOfflineList } from "../../offline/listing";
 
 const cap = (s?: string) => (s ? s.charAt(0).toUpperCase() + s.slice(1).toLowerCase() : "");
 
@@ -87,7 +87,6 @@ const SalesReturns = () => {
   return (
     <HomeLayout>
       <div className="w-full px-2 sm:px-6 pt-4 pb-6">
-        <OfflineListNote show={offline.on && !offline.online} />
         <DataTable requireBranchForAdd={true}
           {...actions}
           title="Manage Sales Returns (Credit Notes)"

@@ -15,7 +15,7 @@ import { selectModuleActions } from "../../redux/slices/permissions";
 import { formatDateDMY } from "../../utils/helper";
 import { paymentPartyLabel } from "../../utils/partylabel";
 import { useServerTable, useServerPaging } from "../../hooks/useservertable";
-import { OfflineListNote, useOfflineList } from "../../offline/listing";
+import { useOfflineList } from "../../offline/listing";
 
 // Columns the server can filter (Seq is per page, so it has none).
 const SERVER_FILTER_KEYS = [
@@ -135,7 +135,6 @@ const Payment = () => {
   return (
     <HomeLayout>
       <div className="w-full px-2 sm:px-6 pt-4 pb-6">
-        <OfflineListNote show={offline.on && !offline.online} />
         <DataTable requireBranchForAdd={true}
           title="Manage Payments"
           columns={columns}
