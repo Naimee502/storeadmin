@@ -24,9 +24,18 @@ export type MasterType =
   | "size"
   | "productgroup"
   | "expensenote"
-  | "transaction";
+  | "transaction"
+  | "accountgroup"
+  | "channel"
+  | "chargerule"
+  | "pricelist"
+  | "priceassignment"
+  | "salesroute"
+  | "holiday"
+  | "leavetype";
 export const MASTER_TYPES: MasterType[] = [
   "product", "account", "ledger", "unit", "category", "subcategory", "brand", "model", "size", "productgroup", "expensenote", "transaction",
+  "accountgroup", "channel", "chargerule", "pricelist", "priceassignment", "salesroute", "holiday", "leavetype",
 ];
 export const isMasterType = (t: string): t is MasterType => (MASTER_TYPES as string[]).includes(t);
 // "action": a status change (confirm, dispatch, deliver, assign) whose local effect is `patch`.
@@ -155,6 +164,30 @@ export const OP_SPECS: Record<string, OpSpec> = {
   editExpenseNote: spec("editExpenseNote", "edit", "expensenote", "ExpenseNote", "Expense Note"),
   deleteExpenseNote: spec("deleteExpenseNote", "delete", "expensenote", "ExpenseNote", "Expense Note"),
   addTransaction: spec("addTransaction", "create", "transaction", "Transaction", "Transaction"),
+  addAccountGroup: spec("addAccountGroup", "create", "accountgroup", "AccountGroup", "Account Group"),
+  editAccountGroup: spec("editAccountGroup", "edit", "accountgroup", "AccountGroup", "Account Group"),
+  deleteAccountGroup: spec("deleteAccountGroup", "delete", "accountgroup", "AccountGroup", "Account Group"),
+  createChannel: spec("createChannel", "create", "channel", "Channel", "Channel"),
+  updateChannel: spec("updateChannel", "edit", "channel", "Channel", "Channel"),
+  deleteChannel: spec("deleteChannel", "delete", "channel", "Channel", "Channel"),
+  addChargeRule: spec("addChargeRule", "create", "chargerule", "ChargeRule", "Charge Rule"),
+  editChargeRule: spec("editChargeRule", "edit", "chargerule", "ChargeRule", "Charge Rule"),
+  deleteChargeRule: spec("deleteChargeRule", "delete", "chargerule", "ChargeRule", "Charge Rule"),
+  createPriceList: spec("createPriceList", "create", "pricelist", "PriceList", "Price List"),
+  updatePriceList: spec("updatePriceList", "edit", "pricelist", "PriceList", "Price List"),
+  deletePriceList: spec("deletePriceList", "delete", "pricelist", "PriceList", "Price List"),
+  createPriceAssignment: spec("createPriceAssignment", "create", "priceassignment", "PriceAssignment", "Price Assignment"),
+  updatePriceAssignment: spec("updatePriceAssignment", "edit", "priceassignment", "PriceAssignment", "Price Assignment"),
+  deletePriceAssignment: spec("deletePriceAssignment", "delete", "priceassignment", "PriceAssignment", "Price Assignment"),
+  createSalesRoute: spec("createSalesRoute", "create", "salesroute", "SalesRoute", "Sales Route"),
+  updateSalesRoute: spec("updateSalesRoute", "edit", "salesroute", "SalesRoute", "Sales Route"),
+  deleteSalesRoute: spec("deleteSalesRoute", "delete", "salesroute", "SalesRoute", "Sales Route"),
+  addHoliday: spec("addHoliday", "create", "holiday", "Holiday", "Holiday"),
+  editHoliday: spec("editHoliday", "edit", "holiday", "Holiday", "Holiday"),
+  deleteHoliday: spec("deleteHoliday", "delete", "holiday", "Holiday", "Holiday"),
+  addLeaveType: spec("addLeaveType", "create", "leavetype", "LeaveType", "Leave Type"),
+  editLeaveType: spec("editLeaveType", "edit", "leavetype", "LeaveType", "Leave Type"),
+  deleteLeaveType: spec("deleteLeaveType", "delete", "leavetype", "LeaveType", "Leave Type"),
   editTransaction: spec("editTransaction", "edit", "transaction", "Transaction", "Transaction"),
   deleteTransaction: spec("deleteTransaction", "delete", "transaction", "Transaction", "Transaction"),
 };

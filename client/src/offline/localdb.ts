@@ -39,6 +39,11 @@ export const COLLECTIONS = [
   "transferstock",
   "expensenote",
   "transaction",
+  "accountgroup",
+  "channel",
+  "salesroute",
+  "holiday",
+  "leavetype",
 ];
 
 const SYNC_PULL = gql`
