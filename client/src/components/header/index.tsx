@@ -7,6 +7,7 @@ import {
   FaSignOutAlt,
 } from 'react-icons/fa';
 import { Menu } from '@headlessui/react';
+import { WifiOff } from 'lucide-react';
 import { useNavigate } from 'react-router';
 import { useAppSelector } from '../../redux/hooks';
 import NotificationBell from '../notificationbell';
@@ -133,6 +134,19 @@ const Header: React.FC<HeaderProps> = ({
               <FaBuilding className="text-cyan-600 text-sm flex-shrink-0" />
               <span className="truncate">{selectedBranch?.branchname || (isAdmin ? "Business" : "Admin")}</span>
             </div>
+
+            {/* Offline mode switch lives on Settings, reachable by every role from here */}
+            <Menu.Item>
+              {({ active }) => (
+                <button
+                  onClick={() => navigate('/settings')}
+                  className={`${active ? 'bg-slate-50' : ''} w-full text-left px-3 py-2.5 text-xs sm:text-sm text-slate-700 flex items-center gap-2 transition-colors`}
+                >
+                  <WifiOff size={14} className="text-slate-500 flex-shrink-0" />
+                  Offline mode
+                </button>
+              )}
+            </Menu.Item>
 
             {/* Logout */}
             <Menu.Item>

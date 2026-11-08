@@ -737,6 +737,13 @@ export const salesInvoiceResolvers = {
     // needs that: the bill must stay open so the money can be collected on the
     // Payments screen, exactly like a Sales Invoice raised by hand.
     addSalesInvoice: async (_: any, { input, autoPayment }: any, context: any) => {
+      // An offline sync retry carries the same id: return the bill already saved.
+      if (input?.clientRequestId) {
+        const existing: any = await SalesInvoice.findOne({ adminid: input.adminid, clientRequestId: String(input.clientRequestId) })
+          .populate(populateFields)
+          .lean();
+        if (existing) return formatInvoice(existing);
+      }
       assertLineUnits(input);
       // ✅ Extract user info from context and populate createdby fields
       // (resolves staff → real role + name, party → account name).

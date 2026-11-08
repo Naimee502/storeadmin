@@ -165,6 +165,8 @@ export const salesOrderTypeDefs = gql`
     lockedTotal: Float
     isConverted: Boolean
     status: Boolean
+    "Set by offline sync so a retried save returns the same document."
+    clientRequestId: String
   }
 
   input SalesOrderFilterInput {

@@ -167,6 +167,8 @@ export const salesInvoiceTypeDefs = gql`
     orderedby_name: String
     orderedby_type: String
     status: Boolean
+    "Set by offline sync so a retried save returns the same document."
+    clientRequestId: String
   }
 
   type SalesInvoicePage {

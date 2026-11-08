@@ -10,6 +10,8 @@ import { setBranchId, clearBranchId } from '../../redux/slices/branch';
 import { useEffectivePermissionsLazy, useAdminSettingsQuery } from '../../graphql/hooks/adminsettings';
 import { setPermissions } from '../../redux/slices/permissions';
 import { setAdminSettings } from '../../redux/slices/adminsettings';
+import OfflineStatusBar from '../../offline/OfflineStatusBar';
+import { offlineOnLogout } from '../../offline/boot';
 
 const HomeLayout: React.FC<{ children: React.ReactNode; hideNav?: boolean }> = ({ children, hideNav }) => {
   const dispatch = useAppDispatch();
@@ -103,6 +105,8 @@ const HomeLayout: React.FC<{ children: React.ReactNode; hideNav?: boolean }> = (
   const toggleSidebar = () => setSidebarOpen(prev => !prev);
 
   const handleLogout = () => {
+    // No-op unless offline mode is on; must run before the session keys go.
+    offlineOnLogout();
     // clearBranchId wipes the Redux value AND the "branchid" key together
     // removing the key by hand used to leave the two out of step for whoever
     // logged in next.
@@ -147,6 +151,7 @@ const HomeLayout: React.FC<{ children: React.ReactNode; hideNav?: boolean }> = (
           </FormDensityContext.Provider>
         </main>
       </div>
+      <OfflineStatusBar />
     </div>
   );
 };

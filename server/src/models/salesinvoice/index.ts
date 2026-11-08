@@ -34,6 +34,7 @@ const salesInvoiceSchema = new mongoose.Schema(
     billdate: { type: String, required: true },
     billtype: { type: String, required: true },
     billnumber: { type: String },
+    clientRequestId: { type: String }, // offline sync de-duplication
     notes: { type: String },
 
     invoicetype: { type: String, default: "retail" },

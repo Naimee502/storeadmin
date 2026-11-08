@@ -44,6 +44,7 @@ import { showMessage } from "../../redux/slices/message";
 import { partyLabel } from "../../utils/partylabel";
 import { isCustomerParty } from "../../utils/partytype";
 import { BRANCH_REQUIRED } from "../../utils/branch";
+import { isOfflineSaved, OFFLINE_SAVED_MESSAGE } from "../../offline/saved";
 
 /* Helpers */
 function getPriceFromUnitPrice(u: any) {
@@ -677,29 +678,35 @@ export default function POSDashboard() {
     };
 
     try {
+      let savedOffline = false;
       if (isOrderMode) {
         const orderInput = { ...input, ordertype: "retail" };
-        await addSalesOrderMutation({ variables: { input: orderInput } });
+        const res = await addSalesOrderMutation({ variables: { input: orderInput } });
+        savedOffline = isOfflineSaved(res?.data?.addSalesOrder);
         dispatch(
           showMessage({
-            message: "Sales Order saved successfully",
+            message: savedOffline ? OFFLINE_SAVED_MESSAGE : "Sales Order saved successfully",
             type: "success",
           })
         );
       } else {
         const invoiceInput = { ...input, invoicetype: "retail" };
-        await addSalesInvoiceMutation({ variables: { input: invoiceInput } });
+        const res = await addSalesInvoiceMutation({ variables: { input: invoiceInput } });
+        savedOffline = isOfflineSaved(res?.data?.addSalesInvoice);
         dispatch(
           showMessage({
-            message: "Invoice generated successfully",
+            message: savedOffline ? OFFLINE_SAVED_MESSAGE : "Invoice generated successfully",
             type: "success",
           })
         );
       }
-      await refetchProducts();
-      // Refetch so the next bill/order number updates
-      if (isOrderMode) await refetchOrders();
-      else await refetchInvoices();
+      // Queued offline: the server refetches would only fail, so they wait for sync.
+      if (!savedOffline) {
+        await refetchProducts();
+        // Refetch so the next bill/order number updates
+        if (isOrderMode) await refetchOrders();
+        else await refetchInvoices();
+      }
     } catch (error: any) {
       console.error("Error:", error);
       dispatch(showMessage({ message: "An error occurred", type: "error" }));

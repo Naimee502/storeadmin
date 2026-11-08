@@ -22,6 +22,7 @@ import { getStockShortfalls } from "../../../utils/products/stockcheck";
 import { getBelowCostLines } from "../../../utils/rates";
 import { isCustomerParty } from "../../../utils/partytype";
 import { BRANCH_REQUIRED } from "../../../utils/branch";
+import { isOfflineSaved, OFFLINE_SAVED_MESSAGE } from "../../../offline/saved";
 
 const AddEditSalesInvoice = () => {
   const { id } = useParams<{ id?: string }>();
@@ -585,8 +586,10 @@ const AddEditSalesInvoice = () => {
         await editSalesInvoiceMutation({ variables: { id, input } });
         dispatch(showMessage({ message: "Invoice updated successfully", type: "success" }));
       } else {
-        await addSalesInvoiceMutation({ variables: { input } });
-        if (orderId) {
+        const res = await addSalesInvoiceMutation({ variables: { input } });
+        // Queued offline: the order update needs the server, so it is skipped.
+        const savedOffline = isOfflineSaved(res?.data?.addSalesInvoice);
+        if (orderId && !savedOffline) {
           const orderInput = {
             paymenttype: paymentType,
             partyacc: partyAccount?.id || partyAccount,
@@ -619,7 +622,7 @@ const AddEditSalesInvoice = () => {
           };
           await editSalesOrderMutation({ variables: { id: orderId, input: orderInput } });
         }
-        dispatch(showMessage({ message: "Invoice added successfully", type: "success" }));
+        dispatch(showMessage({ message: savedOffline ? OFFLINE_SAVED_MESSAGE : "Invoice added successfully", type: "success" }));
       }
       // Refresh product stock in the background — the products query is
       // cache-and-network, so every screen that shows stock re-reads it on

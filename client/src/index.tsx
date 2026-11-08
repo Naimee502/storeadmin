@@ -8,19 +8,30 @@ import { PersistGate } from 'redux-persist/integration/react';
 import { ApolloProvider } from '@apollo/client';
 import client from './graphql/index.tsx';
 import { setBranchId } from './redux/slices/branch';
+import { isOfflineEnabled } from './offline/settings';
+import { bootOffline, cleanupOfflineArtifacts } from './offline/boot';
 
 // Restore the saved branch before first render; the slice itself starts empty so logout can't revive it.
 const savedBranchId = localStorage.getItem('branchid');
 if (savedBranchId) store.dispatch(setBranchId(savedBranchId));
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <Provider store={store}>
-      <PersistGate loading={null} persistor={persistor}>
-        <ApolloProvider client={client}>
-          <App />
-        </ApolloProvider>
-      </PersistGate>
-    </Provider>
-  </StrictMode>
-);
+const renderApp = () =>
+  createRoot(document.getElementById('root')!).render(
+    <StrictMode>
+      <Provider store={store}>
+        <PersistGate loading={null} persistor={persistor}>
+          <ApolloProvider client={client}>
+            <App />
+          </ApolloProvider>
+        </PersistGate>
+      </Provider>
+    </StrictMode>
+  );
+
+// Offline mode off (default): render straight away, as before.
+if (isOfflineEnabled()) {
+  bootOffline(client).finally(renderApp);
+} else {
+  cleanupOfflineArtifacts();
+  renderApp();
+}

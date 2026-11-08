@@ -832,6 +832,13 @@ export const salesOrderResolvers = {
   Mutation: {
     addSalesOrder: async (_: any, { input }: any, context: any) => {
       try {
+        // An offline sync retry carries the same id: return the order already saved.
+        if (input?.clientRequestId) {
+          const existing: any = await SalesOrder.findOne({ adminid: input.adminid, clientRequestId: String(input.clientRequestId) })
+            .populate(populateFields)
+            .lean();
+          if (existing) return formatOrder(existing);
+        }
         // ✅ Extract user info from context and populate createdby fields
         // (staff → real role salesman/staff/deliveryboy + name; party → account name)
         const { user } = context;

@@ -16,6 +16,7 @@ import PosAddCustomer from "../../../components/posaddcustomer";
 import { partyLabel } from "../../../utils/partylabel";
 import { isCustomerParty } from "../../../utils/partytype";
 import { BRANCH_REQUIRED } from "../../../utils/branch";
+import { isOfflineSaved, OFFLINE_SAVED_MESSAGE } from "../../../offline/saved";
 import { getBelowCostLines } from "../../../utils/rates";
 
 const AddEditSalesOrder = () => {
@@ -292,8 +293,9 @@ const AddEditSalesOrder = () => {
         await editSalesOrderMutation({ variables: { id, input } });
         dispatch(showMessage({ message: "Order updated successfully", type: "success" }));
       } else {
-        await addSalesOrderMutation({ variables: { input } });
-        dispatch(showMessage({ message: "Order added successfully", type: "success" }));
+        const res = await addSalesOrderMutation({ variables: { input } });
+        const savedOffline = isOfflineSaved(res?.data?.addSalesOrder);
+        dispatch(showMessage({ message: savedOffline ? OFFLINE_SAVED_MESSAGE : "Order added successfully", type: "success" }));
       }
       navigate(-1);
     } catch (error: any) {

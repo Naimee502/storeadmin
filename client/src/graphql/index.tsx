@@ -4,6 +4,8 @@ import createUploadLink from 'apollo-upload-client/createUploadLink.mjs';
 import { setContext } from '@apollo/client/link/context';
 import { onError } from '@apollo/client/link/error';
 import { API_CONFIG } from '../config/apiconfig';
+import { isOfflineEnabled } from '../offline/settings';
+import { offlineLink } from '../offline/offlinelink';
 
 // Create the upload link
 const httpLink = createUploadLink({
@@ -69,7 +71,8 @@ const errorLink = onError(({ graphQLErrors, networkError, operation, forward }) 
 
 // Combine links
 const client = new ApolloClient({
-  link: from([errorLink, authLink, httpLink]),
+  // The offline link is only in the chain when offline mode is on for this device.
+  link: from(isOfflineEnabled() ? [errorLink, authLink, offlineLink, httpLink] : [errorLink, authLink, httpLink]),
   cache: new InMemoryCache(),
 });
 
