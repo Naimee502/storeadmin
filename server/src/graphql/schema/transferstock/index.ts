@@ -48,6 +48,9 @@ export const transferStockTypeDefs = gql`
     createdby_id: ID
     createdby_name: String
     createdby_type: String
+    "ISO date"
+    updatedAt: String
+    offlineNumber: String
   }
 
   type TransferStockPage {
@@ -67,6 +70,10 @@ export const transferStockTypeDefs = gql`
     createdby_id: ID
     createdby_name: String
     createdby_type: String
+    "Offline device number (TR-A/000012) on create only; the main series numbers the voucher."
+    vouchernumber: String
+    "Set by offline sync so a retried save returns the same document."
+    clientRequestId: String
   }
 
   type Query {
@@ -78,8 +85,9 @@ export const transferStockTypeDefs = gql`
 
   type Mutation {
     addTransferStock(input: TransferStockInput!): TransferStock!
-    editTransferStock(id: ID!, input: TransferStockInput!): TransferStock!
-    deleteTransferStock(id: ID!): Boolean!
+    "expectedUpdatedAt: optional; when it differs from the stored updatedAt the edit fails with CONFLICT."
+    editTransferStock(id: ID!, input: TransferStockInput!, expectedUpdatedAt: String): TransferStock!
+    deleteTransferStock(id: ID!, expectedUpdatedAt: String): Boolean!
     resetTransferStock(id: ID!): Boolean!
   }
 `;

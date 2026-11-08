@@ -6,6 +6,7 @@ import { PurchaseInvoice } from "../../../models/purchaseinvoice";
 import { AdminSettings } from "../../../models/adminsettings";
 import { Account } from "../../../models/accounts";
 import { asText, dmyFromText, escapeRegex, notCleared, pageWindow, textMatch } from "../../../utils/listquery";
+import { assertFresh, conflictError, createOnce, deleteGuarded, dropDeviceNumber, isoOf, parseExpectedUpdatedAt, raiseDeviceSeq, takeDeviceNumber, updateByIdGuarded } from "../../../utils/offlinesync";
 
 const toSimpleRef = (doc: any, keys: string[] = ["name"]) => {
   if (!doc) return null;
@@ -27,7 +28,7 @@ const populateFields = [
 // Listing variant — each populated doc carries only what formatReturn copies
 // out (toSimpleRef keys + its `name` fallback; product name + variant names).
 // Used ONLY by getPurchaseReturns; every other resolver keeps populateFields.
-const listPopulateFields: any[] = [
+export const listPopulateFields: any[] = [
   { path: "partyacc", select: "name accountname mobile city" },
   { path: "productservice.productserviceid", select: "name productvariants._id productvariants.name" },
   { path: "productservice.purchaseunitid", select: "name unitname" },
@@ -37,7 +38,7 @@ const listPopulateFields: any[] = [
   { path: "othercharges.ledgerid", select: "name ledgername" },
 ];
 
-const formatReturn = (r: any) => ({
+export const formatReturn = (r: any) => ({
   ...r,
   id: r._id.toString(),
   sourceInvoiceId: r.sourceInvoiceId?.toString?.() ?? r.sourceInvoiceId,
@@ -130,7 +131,7 @@ async function validateReturnQuantities(input: any, excludeReturnId?: string) {
 }
 
 /** Role and filter scoping shared by every purchase return list. */
-function buildPurchaseReturnQuery(filter: any, context: any): any {
+export function buildPurchaseReturnQuery(filter: any, context: any): any {
   const q: any = { status: true };
   const { user } = context;
 
@@ -220,6 +221,79 @@ async function purchaseReturnColumnClause(key: string, term: string, base: any):
   }
 }
 
+// Current return as the API returns it (for CONFLICT errors).
+const loadReturn = async (id: any) => {
+  const r = await PurchaseReturn.findById(id).populate(populateFields).lean();
+  return r ? formatReturn(r) : null;
+};
+
+// Saved purchase return for an offline retry, looked up in the caller's own business.
+const findPurchaseReturnByRequest = async (adminid: string, requestId: string) => {
+  const doc: any = await PurchaseReturn.findOne({ adminid, clientRequestId: requestId }).populate(populateFields).lean();
+  return doc ? formatReturn(doc) : null;
+};
+
+async function addPurchaseReturnNow(_: any, { input }: any, context: any) {
+      try {
+        console.log("🟢 SERVER: addPurchaseReturn called");
+        console.log("🟢 SERVER: Input received:", JSON.stringify(input, null, 2));
+
+        // A device number ("DN-A/000012") is provisional: moved to offlineNumber.
+        const deviceNo = takeDeviceNumber("purchasereturn", input);
+        const sourceInv = await validateReturnQuantities(input);
+        console.log("🟢 SERVER: validateReturnQuantities passed");
+
+        // The goods leave the branch that received them, never whichever branch
+        // is selected in the header when the debit note is written — otherwise
+        // one branch keeps stock it has sent back and another goes negative.
+        if ((sourceInv as any)?.branchid) input.branchid = (sourceInv as any).branchid;
+
+        if (sourceInv?.billnumber && !input.sourceBillNumber) {
+          input.sourceBillNumber = sourceInv.billnumber;
+        }
+
+        // ✅ Extract user info from context and populate createdby fields
+        const { user } = context;
+        const createdbyData = {
+          createdby_id: user?.id,
+          createdby_name: input.createdby_name || user?.name || user?.email,
+          createdby_type: user?.type || input.createdby_type || 'admin',
+        };
+
+        // ✅ Set autocreate flag from AdminSettings
+        const settings = await AdminSettings.getOrCreateForAdmin(input.adminid);
+        const autoCreateData = {
+          autocreate: {
+            stock: settings?.autoCreateStockOnPurchaseReturn ?? true,
+          },
+        };
+
+        console.log("🟢 SERVER: Creating purchase return with data");
+        const created = await PurchaseReturn.create({ ...input, ...createdbyData, ...autoCreateData });
+        await raiseDeviceSeq(input.adminid, deviceNo);
+        console.log("🟢 SERVER: Purchase return created:", created._id);
+
+        // ✅ Explicitly call adjustStockAndTransactions WITH userContext
+        // (ensures Transaction/Payment Created By is never N/A)
+        console.log("🟢 SERVER: Calling adjustStockAndTransactions");
+        await PurchaseReturn.adjustStockAndTransactions(null, created, createdbyData);
+        console.log("🟢 SERVER: adjustStockAndTransactions completed");
+
+        const fresh = await PurchaseReturn.findById(created._id).populate(populateFields).lean();
+        console.log("🟢 SERVER: Purchase return saved successfully");
+        return formatReturn(fresh);
+      } catch (error: any) {
+        console.error("🔴 SERVER: Error in addPurchaseReturn");
+        console.error("🔴 SERVER: Error name:", error.name);
+        console.error("🔴 SERVER: Error message:", error.message);
+        console.error("🔴 SERVER: Error stack:", error.stack);
+        if (error.errors) {
+          console.error("🔴 SERVER: Validation errors:", error.errors);
+        }
+        throw error;
+      }
+    }
+
 export const purchaseReturnResolvers = {
   Query: {
     getPurchaseReturns: async (_: any, { filter = {} }: { filter?: any }, context: any) => {
@@ -293,68 +367,16 @@ export const purchaseReturnResolvers = {
   },
 
   Mutation: {
-    addPurchaseReturn: async (_: any, { input }: any, context: any) => {
-      try {
-        console.log("🟢 SERVER: addPurchaseReturn called");
-        console.log("🟢 SERVER: Input received:", JSON.stringify(input, null, 2));
+    addPurchaseReturn: (_: any, args: any, context: any) =>
+      createOnce(context, args?.input, findPurchaseReturnByRequest, () => addPurchaseReturnNow(_, args, context)),
 
-        const sourceInv = await validateReturnQuantities(input);
-        console.log("🟢 SERVER: validateReturnQuantities passed");
-
-        // The goods leave the branch that received them, never whichever branch
-        // is selected in the header when the debit note is written — otherwise
-        // one branch keeps stock it has sent back and another goes negative.
-        if ((sourceInv as any)?.branchid) input.branchid = (sourceInv as any).branchid;
-
-        if (sourceInv?.billnumber && !input.sourceBillNumber) {
-          input.sourceBillNumber = sourceInv.billnumber;
-        }
-
-        // ✅ Extract user info from context and populate createdby fields
-        const { user } = context;
-        const createdbyData = {
-          createdby_id: user?.id,
-          createdby_name: input.createdby_name || user?.name || user?.email,
-          createdby_type: user?.type || input.createdby_type || 'admin',
-        };
-
-        // ✅ Set autocreate flag from AdminSettings
-        const settings = await AdminSettings.getOrCreateForAdmin(input.adminid);
-        const autoCreateData = {
-          autocreate: {
-            stock: settings?.autoCreateStockOnPurchaseReturn ?? true,
-          },
-        };
-
-        console.log("🟢 SERVER: Creating purchase return with data");
-        const created = await PurchaseReturn.create({ ...input, ...createdbyData, ...autoCreateData });
-        console.log("🟢 SERVER: Purchase return created:", created._id);
-
-        // ✅ Explicitly call adjustStockAndTransactions WITH userContext
-        // (ensures Transaction/Payment Created By is never N/A)
-        console.log("🟢 SERVER: Calling adjustStockAndTransactions");
-        await PurchaseReturn.adjustStockAndTransactions(null, created, createdbyData);
-        console.log("🟢 SERVER: adjustStockAndTransactions completed");
-
-        const fresh = await PurchaseReturn.findById(created._id).populate(populateFields).lean();
-        console.log("🟢 SERVER: Purchase return saved successfully");
-        return formatReturn(fresh);
-      } catch (error: any) {
-        console.error("🔴 SERVER: Error in addPurchaseReturn");
-        console.error("🔴 SERVER: Error name:", error.name);
-        console.error("🔴 SERVER: Error message:", error.message);
-        console.error("🔴 SERVER: Error stack:", error.stack);
-        if (error.errors) {
-          console.error("🔴 SERVER: Validation errors:", error.errors);
-        }
-        throw error;
-      }
-    },
-
-    editPurchaseReturn: async (_: any, { id, input }: any, context: any) => {
+    editPurchaseReturn: async (_: any, { id, input, expectedUpdatedAt }: any, context: any) => {
+      dropDeviceNumber("purchasereturn", input);
+      const expected = parseExpectedUpdatedAt(expectedUpdatedAt);
       const sourceInv: any = await validateReturnQuantities(input, id);
       const oldRet = await PurchaseReturn.findById(id);
       if (!oldRet) throw new Error("Purchase Return not found");
+      const guardAt = await assertFresh(oldRet.updatedAt, expected, () => loadReturn(id));
 
       // Stock leaves the invoice's branch — same reason as on create.
       if (sourceInv?.branchid) input.branchid = sourceInv.branchid;
@@ -379,7 +401,8 @@ export const purchaseReturnResolvers = {
         },
       };
 
-      const updated = await PurchaseReturn.findByIdAndUpdate(id, { ...input, ...autoCreateData }, { new: true });
+      const updated = await updateByIdGuarded(PurchaseReturn, id, guardAt, { ...input, ...autoCreateData }, { new: true });
+      if (guardAt && !updated) throw await conflictError(() => loadReturn(id));
       if (updated) {
         await PurchaseReturn.adjustStockAndTransactions(oldRet, updated, userContext);
       }
@@ -387,10 +410,18 @@ export const purchaseReturnResolvers = {
       return fresh ? formatReturn(fresh) : null;
     },
 
-    deletePurchaseReturn: async (_: any, { id }: { id: string }) =>
-      !!(await PurchaseReturn.findByIdAndUpdate(id, { status: false })),
+    deletePurchaseReturn: async (_: any, { id, expectedUpdatedAt }: { id: string; expectedUpdatedAt?: string }) => {
+      const expected = parseExpectedUpdatedAt(expectedUpdatedAt);
+      if (expected) return deleteGuarded(PurchaseReturn, id, expected, () => loadReturn(id));
+      return !!(await PurchaseReturn.findByIdAndUpdate(id, { status: false }));
+    },
 
     resetPurchaseReturn: async (_: any, { id }: { id: string }) =>
       !!(await PurchaseReturn.findByIdAndUpdate(id, { status: true })),
+  },
+
+  PurchaseReturn: {
+    // ISO string (was epoch ms); clients send it back as expectedUpdatedAt.
+    updatedAt: (parent: any) => isoOf(parent?.updatedAt),
   },
 };

@@ -13,7 +13,7 @@ export const offlineDeviceTypeDefs = gql`
     createdby_type: String
     "ISO date"
     lastSeen: String
-    "Highest sequence used per doc type: { salesinvoice, salesorder, salesreturn, payment }"
+    "Highest sequence used per doc type: { salesinvoice, salesorder, salesreturn, payment, purchaseinvoice, purchaseorder, purchasereturn, stockadjustment, transferstock }"
     lastSeq: JSON
     "ISO date"
     createdAt: String

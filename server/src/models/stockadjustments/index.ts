@@ -1,4 +1,5 @@
 import mongoose, { Document, Types } from "mongoose";
+import { NUMERIC_COLLATION } from "../../utils/billnumber";
 
 export interface IStockAdjustmentItem {
   productid: Types.ObjectId;
@@ -12,6 +13,8 @@ export interface IStockAdjustment extends Document {
   adminid: Types.ObjectId;
   branchid: Types.ObjectId;
   vouchernumber: string;
+  clientRequestId?: string;
+  offlineNumber?: string;
   adjustmentdate: Date;
   type: "Shortage" | "Excess";
   reason: string;
@@ -39,6 +42,8 @@ const stockAdjustmentSchema = new mongoose.Schema(
     adminid: { type: mongoose.Schema.Types.ObjectId, ref: "Admin", required: true },
     branchid: { type: mongoose.Schema.Types.ObjectId, ref: "Branch", required: true },
     vouchernumber: { type: String, required: true },
+    clientRequestId: { type: String }, // offline sync de-duplication
+    offlineNumber: { type: String }, // provisional device number the document was made offline with
     adjustmentdate: { type: Date, required: true, default: Date.now },
     type: { type: String, enum: ["Shortage", "Excess"], required: true },
     reason: { type: String },
@@ -60,10 +65,12 @@ stockAdjustmentSchema.pre("validate", async function (next) {
   if (!this.vouchernumber) {
     try {
       const Model = mongoose.model("StockAdjustment");
+      // Highest main-series number; device numbers ("SA-A/000001") never match.
       const lastDoc = await Model.findOne({
         adminid: this.adminid,
-        branchid: this.branchid
-      }).sort({ createdAt: -1 });
+        branchid: this.branchid,
+        vouchernumber: { $regex: /^#SA\d{4,}$/ },
+      }).collation(NUMERIC_COLLATION).sort({ vouchernumber: -1 });
 
       let nextNum = 1;
       if (lastDoc && lastDoc.vouchernumber && /^#SA\d{4,}$/.test(lastDoc.vouchernumber)) {
@@ -76,5 +83,11 @@ stockAdjustmentSchema.pre("validate", async function (next) {
   }
   next();
 });
+
+// One document per offline request id; only rows that carry one are indexed.
+stockAdjustmentSchema.index(
+  { adminid: 1, clientRequestId: 1 },
+  { unique: true, partialFilterExpression: { clientRequestId: { $type: "string" } } }
+);
 
 export const StockAdjustment = mongoose.model<IStockAdjustment>("StockAdjustment", stockAdjustmentSchema);

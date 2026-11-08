@@ -62,6 +62,8 @@ const purchaseInvoiceSchema = new mongoose.Schema(
     billdate: { type: String, required: true },
     billtype: { type: String, required: true },
     billnumber: { type: String },
+    clientRequestId: { type: String }, // offline sync de-duplication
+    offlineNumber: { type: String }, // provisional device number the document was made offline with
     notes: { type: String },
 
     invoicetype: { type: String, required: true },
@@ -1028,6 +1030,12 @@ interface PurchaseInvoiceModel extends mongoose.Model<any> {
 purchaseInvoiceSchema.index({ adminid: 1, billnumber: -1 });
 purchaseInvoiceSchema.index({ adminid: 1, branchid: 1, status: 1 });
 purchaseInvoiceSchema.index({ partyacc: 1, status: 1 });
+
+// One document per offline request id; only rows that carry one are indexed.
+purchaseInvoiceSchema.index(
+  { adminid: 1, clientRequestId: 1 },
+  { unique: true, partialFilterExpression: { clientRequestId: { $type: "string" } } }
+);
 
 export const PurchaseInvoice = mongoose.model<any, PurchaseInvoiceModel>(
   "PurchaseInvoice",

@@ -4,6 +4,7 @@ import { manageStock, StockAction, getStockDetails } from "../../../utils/stockm
 import { ProductService } from "../../../models/products";
 import { containsRx, pageWindow, textMatch, notCleared } from "../../../utils/listquery";
 import { dmyOrDash, fixed2, searchAndFilterClauses, textOr } from "../transactions/listtext";
+import { assertFresh, conflictError, createOnce, parseExpectedUpdatedAt, raiseDeviceSeq, takeDeviceNumber, updateByIdGuarded } from "../../../utils/offlinesync";
 
 function normalizeId(value: any) {
   if (!value) return null;
@@ -97,12 +98,23 @@ const outAction = (type: string): StockAction => (type === "Excess" ? "TRANSFER_
 const effectSign = (type: string): 1 | -1 => (type === "Excess" ? 1 : -1);
 
 /** Delete & cancel share this: reverse the voucher's stock, then deactivate. */
-async function reverseAndDeactivate(id: any) {
+async function reverseAndDeactivate(id: any, expected: Date | null = null) {
   const adj: any = await StockAdjustment.findById(id);
+  const guardAt = adj ? await assertFresh(adj.updatedAt, expected, () => loadAdjustment(id)) : null;
   if (!adj || !adj.status) throw new Error("Adjustment not found or already deleted");
   // Reversing an Excess takes stock back out — make sure it is still there.
   const net = qtyByVariant(adj.items, (-effectSign(adj.type)) as 1 | -1);
   await assertNoNegative(net, adj.adminid, adj.branchid, "delete this adjustment");
+  if (guardAt) {
+    // Claim the unchanged voucher first so a stale delete moves no stock.
+    const claimed = await StockAdjustment.findOneAndUpdate(
+      { _id: id, updatedAt: guardAt, status: true },
+      { status: false, stockreversed: true }
+    );
+    if (!claimed) throw await conflictError(() => loadAdjustment(id));
+    await applyRows(adj.items, adj.adminid, adj.branchid, outAction(adj.type), false);
+    return true;
+  }
   await applyRows(adj.items, adj.adminid, adj.branchid, outAction(adj.type), false);
   adj.status = false;
   adj.stockreversed = true;
@@ -139,7 +151,7 @@ function buildStockAdjustmentQuery(filter: any): any {
   return query;
 }
 
-const formatAdjustment = (adj: any) => ({
+export const formatAdjustment = (adj: any) => ({
   ...adj,
   id: adj._id?.toString(),
   adminid: adj.adminid
@@ -181,6 +193,76 @@ async function adjustmentColumnClause(key: string, term: string): Promise<any | 
   }
   return null;
 }
+
+// Current voucher as the list returns it (for CONFLICT errors).
+const loadAdjustment = async (id: any) => {
+  const adj = await StockAdjustment.findById(id)
+    .populate("adminid", "name")
+    .populate("branchid", "branchname")
+    .populate("items.productid", "name")
+    .lean();
+  return adj ? formatAdjustment(adj) : null;
+};
+
+// Saved adjustment for an offline retry, looked up in the caller's own business.
+const findStockAdjustmentByRequest = async (adminid: string, requestId: string) => {
+  const doc: any = await StockAdjustment.findOne({ adminid, clientRequestId: requestId });
+  return doc ? { ...doc.toObject(), id: doc._id.toString() } : null;
+};
+
+async function createStockAdjustmentNow(_: any, { input }: any, context: any) {
+      try {
+        const adminId = normalizeId(input.adminid);
+        const branchId = normalizeId(input.branchid);
+        if (!adminId || !branchId) throw new Error("Admin ID and Branch ID are required");
+        // A device number ("SA-A/000012") is provisional; the main series numbers the voucher.
+        const deviceNo = takeDeviceNumber("stockadjustment", input, "vouchernumber");
+        delete input.vouchernumber;
+
+        const items = (input.items || []).map((item: any) => ({
+          ...item,
+          productid: normalizeId(item.productid),
+          variantid: normalizeId(item.variantid),
+        }));
+        if (!items.some((i: any) => Number(i.quantity) > 0)) {
+          throw new Error("Add at least one product with a quantity.");
+        }
+
+        // Validate EVERYTHING before the voucher is written — previously the
+        // voucher was saved first, so a failed stock check left an active
+        // voucher (and a used-up number) with no stock effect.
+        for (const item of items) {
+          if (Number(item.quantity) > 0) await resolveVariant(item, true);
+        }
+        if (input.type !== "Excess") {
+          await assertNoNegative(qtyByVariant(items, -1), adminId, branchId, "save this shortage");
+        }
+
+        const { user } = context;
+        const createdbyData = {
+          createdby_id: user?.id,
+          createdby_name: input.createdby_name || user?.name || user?.email,
+          createdby_type: user?.type || input.createdby_type || "admin",
+        };
+
+        const newAdj = await StockAdjustment.create({
+          ...input,
+          adminid: adminId,
+          branchid: branchId,
+          items,
+          stockreversed: false,
+          ...createdbyData,
+        });
+        await raiseDeviceSeq(adminId, deviceNo);
+
+        await applyRows(items, adminId, branchId, inAction(input.type), true);
+
+        return { ...newAdj.toObject(), id: newAdj._id.toString() };
+      } catch (err) {
+        console.error("Error creating stock adjustment:", err);
+        throw err;
+      }
+    }
 
 export const stockAdjustmentResolvers = {
   Query: {
@@ -266,60 +348,15 @@ export const stockAdjustmentResolvers = {
   },
 
   Mutation: {
-    createStockAdjustment: async (_: any, { input }: any, context: any) => {
+    createStockAdjustment: (_: any, args: any, context: any) =>
+      createOnce(context, args?.input, findStockAdjustmentByRequest, () => createStockAdjustmentNow(_, args, context)),
+
+    updateStockAdjustment: async (_: any, { id, input, expectedUpdatedAt }: any, context: any) => {
       try {
-        const adminId = normalizeId(input.adminid);
-        const branchId = normalizeId(input.branchid);
-        if (!adminId || !branchId) throw new Error("Admin ID and Branch ID are required");
-
-        const items = (input.items || []).map((item: any) => ({
-          ...item,
-          productid: normalizeId(item.productid),
-          variantid: normalizeId(item.variantid),
-        }));
-        if (!items.some((i: any) => Number(i.quantity) > 0)) {
-          throw new Error("Add at least one product with a quantity.");
-        }
-
-        // Validate EVERYTHING before the voucher is written — previously the
-        // voucher was saved first, so a failed stock check left an active
-        // voucher (and a used-up number) with no stock effect.
-        for (const item of items) {
-          if (Number(item.quantity) > 0) await resolveVariant(item, true);
-        }
-        if (input.type !== "Excess") {
-          await assertNoNegative(qtyByVariant(items, -1), adminId, branchId, "save this shortage");
-        }
-
-        const { user } = context;
-        const createdbyData = {
-          createdby_id: user?.id,
-          createdby_name: input.createdby_name || user?.name || user?.email,
-          createdby_type: user?.type || input.createdby_type || "admin",
-        };
-
-        const newAdj = await StockAdjustment.create({
-          ...input,
-          adminid: adminId,
-          branchid: branchId,
-          items,
-          stockreversed: false,
-          ...createdbyData,
-        });
-
-        await applyRows(items, adminId, branchId, inAction(input.type), true);
-
-        return { ...newAdj.toObject(), id: newAdj._id.toString() };
-      } catch (err) {
-        console.error("Error creating stock adjustment:", err);
-        throw err;
-      }
-    },
-
-    updateStockAdjustment: async (_: any, { id, input }: any, context: any) => {
-      try {
+        const expected = parseExpectedUpdatedAt(expectedUpdatedAt);
         const adj: any = await StockAdjustment.findById(id);
         if (!adj) throw new Error("Stock adjustment not found");
+        const guardAt = await assertFresh(adj.updatedAt, expected, () => loadAdjustment(id));
         // A deleted voucher's stock is already reversed — editing it would
         // reverse it a second time.
         if (!adj.status) throw new Error("This adjustment is deleted. Restore it before editing.");
@@ -347,21 +384,22 @@ export const stockAdjustmentResolvers = {
         qtyByVariant(newItems, effectSign(newType), net);
         await assertNoNegative(net, adj.adminid, adj.branchid, "update this adjustment");
 
+        const fields = {
+          adjustmentdate: input.adjustmentdate ?? adj.adjustmentdate,
+          type: newType,
+          reason: input.reason ?? adj.reason,
+          items: newItems,
+          totalamount: input.totalamount,
+          ...createdbyUpdate,
+        };
+        // A guarded edit claims the unchanged voucher before any stock moves.
+        const claimed = guardAt ? await updateByIdGuarded(StockAdjustment, id, guardAt, fields, { new: true }) : null;
+        if (guardAt && !claimed) throw await conflictError(() => loadAdjustment(id));
+
         await applyRows(adj.items, adj.adminid, adj.branchid, outAction(adj.type), false);
         await applyRows(newItems, adj.adminid, adj.branchid, inAction(newType), true);
 
-        const updated = await StockAdjustment.findByIdAndUpdate(
-          id,
-          {
-            adjustmentdate: input.adjustmentdate ?? adj.adjustmentdate,
-            type: newType,
-            reason: input.reason ?? adj.reason,
-            items: newItems,
-            totalamount: input.totalamount,
-            ...createdbyUpdate,
-          },
-          { new: true }
-        );
+        const updated = claimed || await StockAdjustment.findByIdAndUpdate(id, fields, { new: true });
 
         return { ...updated!.toObject(), id: updated!._id.toString() };
       } catch (err) {
@@ -372,9 +410,11 @@ export const stockAdjustmentResolvers = {
 
     // Delete now REVERSES the stock (it used to only flag the voucher, while
     // Restore re-applied it — every delete + restore double-counted).
-    deleteStockAdjustment: async (_: any, { id }: any) => reverseAndDeactivate(id),
+    deleteStockAdjustment: async (_: any, { id, expectedUpdatedAt }: any) =>
+      reverseAndDeactivate(id, parseExpectedUpdatedAt(expectedUpdatedAt)),
 
-    cancelStockAdjustment: async (_: any, { id }: any) => reverseAndDeactivate(id),
+    cancelStockAdjustment: async (_: any, { id, expectedUpdatedAt }: any) =>
+      reverseAndDeactivate(id, parseExpectedUpdatedAt(expectedUpdatedAt)),
 
     resetStockAdjustment: async (_: any, { id }: any) => {
       const adj: any = await StockAdjustment.findById(id);

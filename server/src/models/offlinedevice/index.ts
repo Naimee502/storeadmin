@@ -11,7 +11,7 @@ const offlineDeviceSchema = new mongoose.Schema(
     createdby_id: { type: mongoose.Schema.Types.ObjectId },
     createdby_type: { type: String },
     lastSeen: { type: Date },
-    // Highest sequence used per doc type: salesinvoice, salesorder, salesreturn, payment.
+    // Highest sequence used per doc type (OFFLINE_DOC_TYPES).
     lastSeq: { type: mongoose.Schema.Types.Mixed, default: {} },
   },
   { timestamps: true, minimize: false }

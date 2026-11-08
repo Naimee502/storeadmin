@@ -4,8 +4,13 @@ import { resolveTenant } from "./tenant";
 
 // Offline billing support: device-series numbers and edit-conflict checks.
 
-export type OfflineDocType = "salesinvoice" | "salesorder" | "salesreturn" | "payment";
-export const OFFLINE_DOC_TYPES: OfflineDocType[] = ["salesinvoice", "salesorder", "salesreturn", "payment"];
+export type OfflineDocType =
+  | "salesinvoice" | "salesorder" | "salesreturn" | "payment"
+  | "purchaseinvoice" | "purchaseorder" | "purchasereturn" | "stockadjustment" | "transferstock";
+export const OFFLINE_DOC_TYPES: OfflineDocType[] = [
+  "salesinvoice", "salesorder", "salesreturn", "payment",
+  "purchaseinvoice", "purchaseorder", "purchasereturn", "stockadjustment", "transferstock",
+];
 
 /** Device series code: A..Z, AA..ZZ, AAA..ZZZ. */
 export const DEVICE_CODE_RX = /^[A-Z]{1,3}$/;
@@ -15,6 +20,11 @@ const DEVICE_NUMBER_RX: Record<OfflineDocType, RegExp> = {
   salesorder: /^([A-Z]{1,3})\/(\d{6})$/,
   salesreturn: /^CN-([A-Z]{1,3})\/(\d{6})$/,
   payment: /^#PAY-([A-Z]{1,3})\/(\d{6})$/,
+  purchaseinvoice: /^([A-Z]{1,3})\/(\d{6})$/,
+  purchaseorder: /^([A-Z]{1,3})\/(\d{6})$/,
+  purchasereturn: /^DN-([A-Z]{1,3})\/(\d{6})$/,
+  stockadjustment: /^SA-([A-Z]{1,3})\/(\d{6})$/,
+  transferstock: /^TR-([A-Z]{1,3})\/(\d{6})$/,
 };
 
 export type DeviceNumber = { type: OfflineDocType; code: string; seq: number; value: string };
@@ -125,6 +135,16 @@ export const updateByIdGuarded = (model: any, id: any, guardAt: Date | null, upd
     ? model.findOneAndUpdate({ _id: id, updatedAt: guardAt }, update, options)
     : model.findByIdAndUpdate(id, update, options);
 
+/** Soft delete that only applies to the unchanged record; false when it is missing. */
+export async function deleteGuarded(model: any, id: any, expected: Date, loadCurrent: () => Promise<any>, update: any = { status: false }) {
+  const current: any = await model.findById(id).select("updatedAt").lean();
+  if (!current) return false;
+  const guardAt = await assertFresh(current.updatedAt, expected, loadCurrent);
+  const done = await updateByIdGuarded(model, id, guardAt, update);
+  if (!done) throw await conflictError(loadCurrent);
+  return true;
+}
+
 // Business of the signed-in user: admin = itself, everyone else = their admin.
 export const tenantOf = async (context: any): Promise<{ adminid: string; branchid?: string }> => {
   const user = context?.user;
@@ -143,12 +163,13 @@ export async function createOnce<T>(
   context: any,
   input: any,
   find: (adminid: string, requestId: string) => Promise<T | null>,
-  create: () => Promise<T>
+  create: () => Promise<T>,
+  tenantField = "adminid"
 ): Promise<T> {
   const requestId = input?.clientRequestId ? String(input.clientRequestId) : "";
   if (!requestId) return create();
   const { adminid } = await tenantOf(context);
-  if (input.adminid && String(input.adminid) !== adminid) {
+  if (input[tenantField] && String(input[tenantField]) !== adminid) {
     throw new ApolloError("This document belongs to another business.", "FORBIDDEN");
   }
   const key = `${adminid}:${requestId}`;

@@ -69,7 +69,9 @@ export const purchaseReturnTypeDefs = gql`
     createdby_type: String
     status: Boolean!
     createdAt: String
+    "ISO date"
     updatedAt: String
+    offlineNumber: String
   }
 
   input PurchaseReturnInput {
@@ -108,6 +110,8 @@ export const purchaseReturnTypeDefs = gql`
     createdby_name: String
     createdby_type: String
     status: Boolean
+    "Set by offline sync so a retried save returns the same document."
+    clientRequestId: String
   }
 
   input PurchaseReturnFilterInput {
@@ -134,8 +138,9 @@ export const purchaseReturnTypeDefs = gql`
 
   extend type Mutation {
     addPurchaseReturn(input: PurchaseReturnInput!): PurchaseReturn!
-    editPurchaseReturn(id: ID!, input: PurchaseReturnInput!): PurchaseReturn!
-    deletePurchaseReturn(id: ID!): Boolean!
+    "expectedUpdatedAt: optional; when it differs from the stored updatedAt the edit fails with CONFLICT."
+    editPurchaseReturn(id: ID!, input: PurchaseReturnInput!, expectedUpdatedAt: String): PurchaseReturn!
+    deletePurchaseReturn(id: ID!, expectedUpdatedAt: String): Boolean!
     resetPurchaseReturn(id: ID!): Boolean!
   }
 `;

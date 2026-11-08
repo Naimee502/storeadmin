@@ -35,6 +35,8 @@ const purchaseReturnSchema = new mongoose.Schema(
     returndate: { type: String, required: true },
     billtype: { type: String, required: true },
     billnumber: { type: String },                       // DN-000001
+    clientRequestId: { type: String }, // offline sync de-duplication
+    offlineNumber: { type: String }, // provisional device number the document was made offline with
     notes: { type: String },
     reason: { type: String },
 
@@ -441,6 +443,12 @@ purchaseReturnSchema.statics.adjustStockAndTransactions = async function (oldRet
 //     next(e);
 //   }
 // });
+
+// One document per offline request id; only rows that carry one are indexed.
+purchaseReturnSchema.index(
+  { adminid: 1, clientRequestId: 1 },
+  { unique: true, partialFilterExpression: { clientRequestId: { $type: "string" } } }
+);
 
 interface PurchaseReturnModel extends mongoose.Model<any> {
   adjustStockAndTransactions(oldDoc: any, newDoc: any, userContext?: any): Promise<void>;

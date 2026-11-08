@@ -116,7 +116,9 @@ export const purchaseInvoiceTypeDefs = gql`
     cancelledByName: String
     status: Boolean!
     createdAt: String
+    "ISO date"
     updatedAt: String
+    offlineNumber: String
   }
 
   input PurchaseInvoiceInput {
@@ -153,6 +155,8 @@ export const purchaseInvoiceTypeDefs = gql`
     createdby_name: String
     createdby_type: String
     status: Boolean
+    "Set by offline sync so a retried save returns the same document."
+    clientRequestId: String
   }
 
   input PurchaseInvoiceFilterInput {
@@ -185,11 +189,12 @@ export const purchaseInvoiceTypeDefs = gql`
 
   type Mutation {
     addPurchaseInvoice(input: PurchaseInvoiceInput!): PurchaseInvoice!
-    editPurchaseInvoice(id: ID!, input: PurchaseInvoiceInput!): PurchaseInvoice!
-    deletePurchaseInvoice(id: ID!): Boolean!
+    "expectedUpdatedAt: optional; when it differs from the stored updatedAt the edit fails with CONFLICT."
+    editPurchaseInvoice(id: ID!, input: PurchaseInvoiceInput!, expectedUpdatedAt: String): PurchaseInvoice!
+    deletePurchaseInvoice(id: ID!, expectedUpdatedAt: String): Boolean!
     resetPurchaseInvoice(id: ID!): Boolean!
-    cancelPurchaseInvoice(id: ID!, reason: String): PurchaseInvoice
-    reopenPurchaseInvoice(id: ID!): PurchaseInvoice
+    cancelPurchaseInvoice(id: ID!, reason: String, expectedUpdatedAt: String): PurchaseInvoice
+    reopenPurchaseInvoice(id: ID!, expectedUpdatedAt: String): PurchaseInvoice
     # Build a Purchase Invoice from a Purchase Order in one call — mirrors
     # convertSalesOrderToInvoice, so the server does the copying and all the
     # auto-posting (ledger / stock / payment) runs exactly as normal.

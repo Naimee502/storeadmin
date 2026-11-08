@@ -9,6 +9,7 @@ import { PurchaseReturn } from "../../../models/purchasereturn";
 import { assertInvoiceCancellable, assertInvoiceReopenable } from "../../../utils/invoicecancel";
 import { Account } from "../../../models/accounts";
 import { asText, dmyFromText, escapeRegex, notCleared, pageWindow, textMatch } from "../../../utils/listquery";
+import { assertFresh, conflictError, createOnce, deleteGuarded, dropDeviceNumber, isoOf, parseExpectedUpdatedAt, raiseDeviceSeq, takeDeviceNumber, updateByIdGuarded } from "../../../utils/offlinesync";
 
 // NOTE: the local per-invoice settled-amount helper was removed. Outstanding
 // now comes from utils/allocation, so the admin panel, the mobile app, the
@@ -58,7 +59,7 @@ const populateFields: any[] = [
 
 // Listing variant — each populated doc carries only what formatInvoice copies
 // out, instead of the whole party / unit / ledger document per line.
-const listPopulateFields: any[] = [
+export const listPopulateFields: any[] = [
   { path: "partyacc", select: "name accountname mobile address city state gstnumber" },
   { path: "productservice.productserviceid", select: "name productvariants._id productvariants.name" },
   { path: "productservice.purchaseunitid", select: "unitname" },
@@ -69,7 +70,7 @@ const listPopulateFields: any[] = [
 ];
 
 // ✅ Format invoice function
-const formatInvoice = (inv: any) => ({
+export const formatInvoice = (inv: any) => ({
   ...inv,
   id: inv._id.toString(),
   partyacc: toSimpleRef(inv.partyacc, ["accountname", "mobile", "address", "city", "state", "gstnumber"]),
@@ -107,7 +108,7 @@ const formatInvoice = (inv: any) => ({
 });
 
 /** Role and filter scoping shared by every purchase invoice list. */
-function buildPurchaseInvoiceQuery(filter: any, context: any): any {
+export function buildPurchaseInvoiceQuery(filter: any, context: any): any {
   const query: any = { status: true };
   const { user } = context;
 
@@ -273,6 +274,184 @@ function assertLineUnits(input: any) {
     );
   }
 }
+
+// Current invoice as the API returns it (for CONFLICT errors).
+const loadInvoice = async (id: any) => {
+  const inv = await PurchaseInvoice.findById(id).populate(populateFields).lean();
+  return inv ? formatInvoice(inv) : null;
+};
+
+/** Source order numbers for a set of invoices, fetched in one query. */
+export async function sourceOrderNoMap(invoices: any[]): Promise<Map<string, string | null>> {
+  const map = new Map<string, string | null>();
+  const orderIds = Array.from(new Set(invoices.map((inv: any) => refId(inv.sourceorderid)).filter(Boolean).map(String)));
+  if (!orderIds.length) return map;
+  try {
+    const orders: any[] = await PurchaseOrder.find({ _id: { $in: orderIds } }).select("billnumber").lean();
+    orders.forEach((o: any) => map.set(String(o._id), o.billnumber || null));
+  } catch {
+    /* a label is never worth failing the list over */
+  }
+  return map;
+}
+
+// Saved purchase invoice for an offline retry, looked up in the caller's own business.
+const findPurchaseInvoiceByRequest = async (adminid: string, requestId: string) => {
+  const doc: any = await PurchaseInvoice.findOne({ adminid, clientRequestId: requestId }).populate(populateFields).lean();
+  return doc ? formatInvoice(doc) : null;
+};
+
+async function addPurchaseInvoiceNow(_: any, { input, autoPayment }: any, context: any) {
+      assertLineUnits(input);
+      // A device number is provisional: moved to offlineNumber.
+      const deviceNo = takeDeviceNumber("purchaseinvoice", input);
+      try {
+        console.log("\n");
+        console.log("╔═══════════════════════════════════════════════════════╗");
+        console.log("║  🔵 ADD PURCHASE INVOICE - START                      ║");
+        console.log("╚═══════════════════════════════════════════════════════╝");
+
+        // ✅ Step 1: Extract user info from context
+        const { user } = context;
+        console.log("📌 Step 1: User from context");
+        console.log("   User ID:", user?.id);
+        console.log("   User Name:", user?.name || user?.email);
+        console.log("   User Type:", user?.type);
+
+        const createdbyData = {
+          createdby_id: user?.id,
+          createdby_name: input.createdby_name || user?.name || user?.email,
+          createdby_type: user?.type || input.createdby_type || 'admin',
+        };
+        console.log("✅ CreatedBy Data:", JSON.stringify(createdbyData, null, 2));
+
+        // ✅ Step 2: Validate input
+        console.log("\n📌 Step 2: Validate Input Data");
+        console.log("   Admin ID:", input.adminid);
+        console.log("   Branch ID:", input.branchid);
+        console.log("   Payment Type:", input.paymenttype);
+        console.log("   Party Account:", input.partyacc);
+        console.log("   Bill Number:", input.billnumber);
+        console.log("   Products Count:", input.productservice?.length || 0);
+        console.log("   Other Charges Count:", input.othercharges?.length || 0);
+
+        if (!input.adminid) {
+          throw new Error("❌ Admin ID is required");
+        }
+        if (!input.partyacc) {
+          throw new Error("❌ Party Account is required");
+        }
+        if (!input.productservice || input.productservice.length === 0) {
+          throw new Error("❌ At least one product is required");
+        }
+        console.log("✅ Input validation passed");
+
+        // ✅ Step 3: Fetch AdminSettings
+        console.log("\n📌 Step 3: Fetch AdminSettings");
+        const settings = await AdminSettings.getOrCreateForAdmin(input.adminid);
+        // Stock is the only auto-posting switch left; the journal always posts.
+        const autoCreateData = {
+          autocreate: { stock: settings?.autoCreateStockOnPurchaseInvoice ?? true },
+        };
+
+        // `autoPayment: false` means the money was already handled elsewhere,
+        // so this bill must not raise a second payment -- i.e. nothing paid here.
+        if (autoPayment === false) input.paid = 0;
+
+        // ✅ Step 4: Create Purchase Invoice in Database
+        console.log("\n📌 Step 4: Create Purchase Invoice in Database");
+        console.log("   Creating with data keys:", Object.keys({...input, ...createdbyData, ...autoCreateData}));
+
+        const created = await PurchaseInvoice.create({ ...input, ...createdbyData, ...autoCreateData });
+        await raiseDeviceSeq(input.adminid, deviceNo);
+
+        // Converting an order → invoice confirms the source order (canonical
+        // status), exactly as the sales side does.
+        if (input.sourceorderid) {
+          try {
+            await PurchaseOrder.findByIdAndUpdate(input.sourceorderid, {
+              $set: { isConverted: true, orderStatus: "confirmed" },
+            });
+          } catch (e) { /* best-effort */ }
+        }
+        console.log("✅ Invoice created successfully");
+        console.log("   Invoice ID:", created._id);
+        console.log("   CreatedBy ID:", created.createdby_id);
+        console.log("   CreatedBy Name:", created.createdby_name);
+        console.log("   CreatedBy Type:", created.createdby_type);
+        console.log("   AutoCreate:", created.autocreate);
+        console.log("   Products in invoice:", created.productservice?.length || 0);
+        console.log("   Other Charges in invoice:", created.othercharges?.length || 0);
+
+        // ✅ Step 5: Adjust Stock and Transactions
+        console.log("\n📌 Step 5: Adjust Stock and Transactions");
+        try {
+          await PurchaseInvoice.adjustStockAndTransactions(null, created, createdbyData);
+
+          // Apply any advance this party has already paid to the new bill.
+          // Allocation-only — the ledger was credited when the advance arrived, so
+          // no journal entry is created (Tally's bill-adjustment journal is net-zero
+          // for the same reason). Best-effort: never fail a valid invoice over this.
+          try {
+            const settings: any = await AdminSettings.getOrCreateForAdmin(created.adminid);
+            if (settings?.autoAdjustAdvanceOnInvoice !== false) {
+              const used = await autoAdjustAdvances({
+                invoiceid: created._id,
+                invoicemodel: "PurchaseInvoice",
+                partyid: created.partyacc,
+                adminid: created.adminid,
+              });
+              if (used > 0) console.log(`Applied advance of ${used} to PurchaseInvoice ${created.billnumber}`);
+            }
+          } catch (e: any) {
+            console.warn("Advance auto-adjust skipped:", e?.message);
+          }
+          console.log("✅ Stock and transactions adjusted successfully");
+        } catch (stockError: any) {
+          console.warn("⚠️ Stock adjustment warning:", stockError.message);
+          // Don't throw - just warn
+        }
+
+        // ✅ Step 6: Fetch and Format Invoice
+        console.log("\n📌 Step 6: Fetch and Format Invoice");
+        console.log("   Populating fields:", populateFields);
+
+        const invoice = await PurchaseInvoice.findById(created._id)
+          .populate(populateFields)
+          .lean() as any;
+
+        if (!invoice) {
+          throw new Error("❌ Failed to fetch created invoice");
+        }
+
+        console.log("✅ Invoice fetched successfully");
+        console.log("   Has partyacc:", !!(invoice?.partyacc));
+        console.log("   Has productservice:", !!(invoice?.productservice));
+        console.log("   Has othercharges:", !!(invoice?.othercharges));
+        console.log("   Has createdby_id:", !!(invoice?.createdby_id));
+
+        const formatted = formatInvoice(invoice);
+        console.log("✅ Invoice formatted successfully");
+
+        console.log("\n╔═══════════════════════════════════════════════════════╗");
+        console.log("║  ✅ ADD PURCHASE INVOICE - SUCCESS                    ║");
+        console.log("╚═══════════════════════════════════════════════════════╝\n");
+
+        return formatted;
+      } catch (error: any) {
+        console.error("\n");
+        console.error("╔═══════════════════════════════════════════════════════╗");
+        console.error("║  ❌ ERROR CREATING PURCHASE INVOICE                   ║");
+        console.error("╚═══════════════════════════════════════════════════════╝");
+        console.error("Error Type:", error.constructor.name);
+        console.error("Error Message:", error.message);
+        console.error("Error Stack:", error.stack);
+        console.error("Full Error Object:", JSON.stringify(error, null, 2));
+        console.error("Input that caused error:", JSON.stringify(input, null, 2));
+        console.error("");
+        throw error;
+      }
+    }
 
 export const purchaseInvoiceResolvers = {
   Query: {
@@ -488,156 +667,12 @@ export const purchaseInvoiceResolvers = {
     // `autoPayment` is an INTERNAL arg (not in the schema). false stops the
     // automatic payment posting, so the bill stays open for the supplier to be
     // paid from the Payments screen. See the sales side for the full note.
-    addPurchaseInvoice: async (_: any, { input, autoPayment }: any, context: any) => {
-      assertLineUnits(input);
-      try {
-        console.log("\n");
-        console.log("╔═══════════════════════════════════════════════════════╗");
-        console.log("║  🔵 ADD PURCHASE INVOICE - START                      ║");
-        console.log("╚═══════════════════════════════════════════════════════╝");
+    addPurchaseInvoice: (_: any, args: any, context: any) =>
+      createOnce(context, args?.input, findPurchaseInvoiceByRequest, () => addPurchaseInvoiceNow(_, args, context)),
 
-        // ✅ Step 1: Extract user info from context
-        const { user } = context;
-        console.log("📌 Step 1: User from context");
-        console.log("   User ID:", user?.id);
-        console.log("   User Name:", user?.name || user?.email);
-        console.log("   User Type:", user?.type);
-
-        const createdbyData = {
-          createdby_id: user?.id,
-          createdby_name: input.createdby_name || user?.name || user?.email,
-          createdby_type: user?.type || input.createdby_type || 'admin',
-        };
-        console.log("✅ CreatedBy Data:", JSON.stringify(createdbyData, null, 2));
-
-        // ✅ Step 2: Validate input
-        console.log("\n📌 Step 2: Validate Input Data");
-        console.log("   Admin ID:", input.adminid);
-        console.log("   Branch ID:", input.branchid);
-        console.log("   Payment Type:", input.paymenttype);
-        console.log("   Party Account:", input.partyacc);
-        console.log("   Bill Number:", input.billnumber);
-        console.log("   Products Count:", input.productservice?.length || 0);
-        console.log("   Other Charges Count:", input.othercharges?.length || 0);
-
-        if (!input.adminid) {
-          throw new Error("❌ Admin ID is required");
-        }
-        if (!input.partyacc) {
-          throw new Error("❌ Party Account is required");
-        }
-        if (!input.productservice || input.productservice.length === 0) {
-          throw new Error("❌ At least one product is required");
-        }
-        console.log("✅ Input validation passed");
-
-        // ✅ Step 3: Fetch AdminSettings
-        console.log("\n📌 Step 3: Fetch AdminSettings");
-        const settings = await AdminSettings.getOrCreateForAdmin(input.adminid);
-        // Stock is the only auto-posting switch left; the journal always posts.
-        const autoCreateData = {
-          autocreate: { stock: settings?.autoCreateStockOnPurchaseInvoice ?? true },
-        };
-
-        // `autoPayment: false` means the money was already handled elsewhere,
-        // so this bill must not raise a second payment -- i.e. nothing paid here.
-        if (autoPayment === false) input.paid = 0;
-
-        // ✅ Step 4: Create Purchase Invoice in Database
-        console.log("\n📌 Step 4: Create Purchase Invoice in Database");
-        console.log("   Creating with data keys:", Object.keys({...input, ...createdbyData, ...autoCreateData}));
-
-        const created = await PurchaseInvoice.create({ ...input, ...createdbyData, ...autoCreateData });
-
-        // Converting an order → invoice confirms the source order (canonical
-        // status), exactly as the sales side does.
-        if (input.sourceorderid) {
-          try {
-            await PurchaseOrder.findByIdAndUpdate(input.sourceorderid, {
-              $set: { isConverted: true, orderStatus: "confirmed" },
-            });
-          } catch (e) { /* best-effort */ }
-        }
-        console.log("✅ Invoice created successfully");
-        console.log("   Invoice ID:", created._id);
-        console.log("   CreatedBy ID:", created.createdby_id);
-        console.log("   CreatedBy Name:", created.createdby_name);
-        console.log("   CreatedBy Type:", created.createdby_type);
-        console.log("   AutoCreate:", created.autocreate);
-        console.log("   Products in invoice:", created.productservice?.length || 0);
-        console.log("   Other Charges in invoice:", created.othercharges?.length || 0);
-
-        // ✅ Step 5: Adjust Stock and Transactions
-        console.log("\n📌 Step 5: Adjust Stock and Transactions");
-        try {
-          await PurchaseInvoice.adjustStockAndTransactions(null, created, createdbyData);
-
-          // Apply any advance this party has already paid to the new bill.
-          // Allocation-only — the ledger was credited when the advance arrived, so
-          // no journal entry is created (Tally's bill-adjustment journal is net-zero
-          // for the same reason). Best-effort: never fail a valid invoice over this.
-          try {
-            const settings: any = await AdminSettings.getOrCreateForAdmin(created.adminid);
-            if (settings?.autoAdjustAdvanceOnInvoice !== false) {
-              const used = await autoAdjustAdvances({
-                invoiceid: created._id,
-                invoicemodel: "PurchaseInvoice",
-                partyid: created.partyacc,
-                adminid: created.adminid,
-              });
-              if (used > 0) console.log(`Applied advance of ${used} to PurchaseInvoice ${created.billnumber}`);
-            }
-          } catch (e: any) {
-            console.warn("Advance auto-adjust skipped:", e?.message);
-          }
-          console.log("✅ Stock and transactions adjusted successfully");
-        } catch (stockError: any) {
-          console.warn("⚠️ Stock adjustment warning:", stockError.message);
-          // Don't throw - just warn
-        }
-
-        // ✅ Step 6: Fetch and Format Invoice
-        console.log("\n📌 Step 6: Fetch and Format Invoice");
-        console.log("   Populating fields:", populateFields);
-
-        const invoice = await PurchaseInvoice.findById(created._id)
-          .populate(populateFields)
-          .lean() as any;
-
-        if (!invoice) {
-          throw new Error("❌ Failed to fetch created invoice");
-        }
-
-        console.log("✅ Invoice fetched successfully");
-        console.log("   Has partyacc:", !!(invoice?.partyacc));
-        console.log("   Has productservice:", !!(invoice?.productservice));
-        console.log("   Has othercharges:", !!(invoice?.othercharges));
-        console.log("   Has createdby_id:", !!(invoice?.createdby_id));
-
-        const formatted = formatInvoice(invoice);
-        console.log("✅ Invoice formatted successfully");
-
-        console.log("\n╔═══════════════════════════════════════════════════════╗");
-        console.log("║  ✅ ADD PURCHASE INVOICE - SUCCESS                    ║");
-        console.log("╚═══════════════════════════════════════════════════════╝\n");
-
-        return formatted;
-      } catch (error: any) {
-        console.error("\n");
-        console.error("╔═══════════════════════════════════════════════════════╗");
-        console.error("║  ❌ ERROR CREATING PURCHASE INVOICE                   ║");
-        console.error("╚═══════════════════════════════════════════════════════╝");
-        console.error("Error Type:", error.constructor.name);
-        console.error("Error Message:", error.message);
-        console.error("Error Stack:", error.stack);
-        console.error("Full Error Object:", JSON.stringify(error, null, 2));
-        console.error("Input that caused error:", JSON.stringify(input, null, 2));
-        console.error("");
-        throw error;
-      }
-    },
-
-    editPurchaseInvoice: async (_: any, { id, input }: any, context: any) => {
+    editPurchaseInvoice: async (_: any, { id, input, expectedUpdatedAt }: any, context: any) => {
+      dropDeviceNumber("purchaseinvoice", input);
+      const expected = parseExpectedUpdatedAt(expectedUpdatedAt);
       assertLineUnits(input);
       try {
         console.log("\n");
@@ -659,6 +694,7 @@ export const purchaseInvoiceResolvers = {
         if (!oldInv) {
           throw new Error("❌ Purchase invoice not found with ID: " + id);
         }
+        const guardAt = await assertFresh(oldInv.updatedAt, expected, () => loadInvoice(id));
         console.log("✅ Old invoice found");
         // A cancelled bill has no stock and no journal by design; editing it
         // would post both. Re-open it first — that is the deliberate act.
@@ -672,7 +708,8 @@ export const purchaseInvoiceResolvers = {
           autocreate: { stock: settings?.autoCreateStockOnPurchaseInvoice ?? true },
         };
 
-        const updated = await PurchaseInvoice.findByIdAndUpdate(id, { ...input, ...autoCreateData }, { new: true });
+        const updated = await updateByIdGuarded(PurchaseInvoice, id, guardAt, { ...input, ...autoCreateData }, { new: true });
+        if (guardAt && !updated) throw await conflictError(() => loadInvoice(id));
         if (!updated) {
           throw new Error("❌ Failed to update invoice");
         }
@@ -711,7 +748,9 @@ export const purchaseInvoiceResolvers = {
       }
     },
 
-    deletePurchaseInvoice: async (_: any, { id }: { id: string }) => {
+    deletePurchaseInvoice: async (_: any, { id, expectedUpdatedAt }: { id: string; expectedUpdatedAt?: string }) => {
+      const expected = parseExpectedUpdatedAt(expectedUpdatedAt);
+      if (expected) return deleteGuarded(PurchaseInvoice, id, expected, () => loadInvoice(id));
       const result = await PurchaseInvoice.findByIdAndUpdate(id, { status: false }, { new: true });
       return !!result;
     },
@@ -719,9 +758,11 @@ export const purchaseInvoiceResolvers = {
     // ── Cancel / re-open ──────────────────────────────────────────────────
     // Mirror of the sales side. Cancelling takes the purchased stock back OUT
     // and reverses the vendor's credit and any counter payment.
-    cancelPurchaseInvoice: async (_: any, { id, reason }: any, context: any) => {
+    cancelPurchaseInvoice: async (_: any, { id, reason, expectedUpdatedAt }: any, context: any) => {
+      const expected = parseExpectedUpdatedAt(expectedUpdatedAt);
       const oldInv = await PurchaseInvoice.findById(id);
       if (!oldInv) throw new Error("Purchase Invoice not found");
+      const guardAt = await assertFresh(oldInv.updatedAt, expected, () => loadInvoice(id));
 
       await assertInvoiceCancellable({
         inv: oldInv,
@@ -731,8 +772,10 @@ export const purchaseInvoiceResolvers = {
       });
 
       const user = context?.user;
-      const updated = await PurchaseInvoice.findByIdAndUpdate(
+      const updated = await updateByIdGuarded(
+        PurchaseInvoice,
         id,
+        guardAt,
         {
           cancelStatus: "cancelled",
           cancelReason: reason || "",
@@ -741,15 +784,18 @@ export const purchaseInvoiceResolvers = {
         },
         { new: true }
       );
+      if (guardAt && !updated) throw await conflictError(() => loadInvoice(id));
       if (updated) await PurchaseInvoice.adjustStockAndTransactions(oldInv, updated, null);
 
       const inv = await PurchaseInvoice.findById(id).populate(populateFields).lean();
       return inv ? formatInvoice(inv) : null;
     },
 
-    reopenPurchaseInvoice: async (_: any, { id }: { id: string }, context: any) => {
+    reopenPurchaseInvoice: async (_: any, { id, expectedUpdatedAt }: { id: string; expectedUpdatedAt?: string }, context: any) => {
+      const expected = parseExpectedUpdatedAt(expectedUpdatedAt);
       const oldInv = await PurchaseInvoice.findById(id);
       if (!oldInv) throw new Error("Purchase Invoice not found");
+      const guardAt = await assertFresh(oldInv.updatedAt, expected, () => loadInvoice(id));
       assertInvoiceReopenable(oldInv, "PurchaseInvoice");
 
       const user = context?.user;
@@ -758,11 +804,14 @@ export const purchaseInvoiceResolvers = {
         createdby_name: user?.name || user?.email,
         createdby_type: user?.type || "admin",
       };
-      const updated = await PurchaseInvoice.findByIdAndUpdate(
+      const updated = await updateByIdGuarded(
+        PurchaseInvoice,
         id,
+        guardAt,
         { cancelStatus: "open", cancelReason: null, cancelledAt: null, cancelledByName: null },
         { new: true }
       );
+      if (guardAt && !updated) throw await conflictError(() => loadInvoice(id));
       if (updated) await PurchaseInvoice.adjustStockAndTransactions(oldInv, updated, userContext);
 
       const inv = await PurchaseInvoice.findById(id).populate(populateFields).lean();
@@ -847,6 +896,8 @@ export const purchaseInvoiceResolvers = {
   },
 
   PurchaseInvoice: {
+    // ISO string (was epoch ms); clients send it back as expectedUpdatedAt.
+    updatedAt: (parent: any) => isoOf(parent?.updatedAt),
     outstanding: async (parent: any) =>
       getInvoiceOutstanding({ invoiceid: parent?.id, invoicemodel: "PurchaseInvoice" }),
     // Number of the Purchase Order this bill came from ("000001"). A

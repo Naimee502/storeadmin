@@ -4,6 +4,7 @@ import { isPurchaseOrderOnlyMode, adminIdOf } from "../../../utils/ordermode";
 import { getInvoiceOutstanding } from "../../../utils/allocation";
 import { Account } from "../../../models/accounts";
 import { asText, dmyFromText, escapeRegex, notCleared, pageWindow, textMatch } from "../../../utils/listquery";
+import { assertFresh, conflictError, createOnce, deleteGuarded, dropDeviceNumber, isoOf, parseExpectedUpdatedAt, raiseDeviceSeq, takeDeviceNumber, updateByIdGuarded } from "../../../utils/offlinesync";
 
 // Canonical status for a purchase order, deriving one for older records that
 // were written before orderStatus existed.
@@ -68,7 +69,7 @@ const populateFields = [
 // out (toSimpleRef keys + its `name` fallback; product name + variant names),
 // instead of the whole party / product / unit / ledger document per line.
 // Used ONLY by getPurchaseOrders; every other resolver keeps populateFields.
-const listPopulateFields: any[] = [
+export const listPopulateFields: any[] = [
   { path: "purchasemenid", select: "name" },
   { path: "partyacc", select: "name accountname mobile address city state gstnumber" },
   { path: "productservice.productserviceid", select: "name productvariants._id productvariants.name" },
@@ -80,7 +81,7 @@ const listPopulateFields: any[] = [
 ];
 
 // ✅ Format order function
-const formatOrder = (order: any) => ({
+export const formatOrder = (order: any) => ({
   ...order,
   id: order._id.toString(),
   purchasemenid: toSimpleRef(order.purchasemenid, ["name"]),
@@ -120,7 +121,7 @@ const formatOrder = (order: any) => ({
 });
 
 /** Role and filter scoping shared by every purchase order list. */
-async function buildPurchaseOrderQuery(filter: any, context: any): Promise<any> {
+export async function buildPurchaseOrderQuery(filter: any, context: any): Promise<any> {
   const query: any = { status: true };
   const { user } = context;
 
@@ -242,6 +243,57 @@ async function purchaseOrderColumnClause(key: string, term: string, base: any): 
 }
 
 // ✅ GraphQL resolvers
+// Current order as the API returns it (for CONFLICT errors).
+const loadOrder = async (id: any) => {
+  const order = await PurchaseOrder.findById(id).populate(populateFields).lean();
+  return order ? formatOrder(order) : null;
+};
+
+// Saved purchase order for an offline retry, looked up in the caller's own business.
+const findPurchaseOrderByRequest = async (adminid: string, requestId: string) => {
+  const doc: any = await PurchaseOrder.findOne({ adminid, clientRequestId: requestId }).populate(populateFields).lean();
+  return doc ? formatOrder(doc) : null;
+};
+
+async function addPurchaseOrderNow(_: any, { input }: any, context: any) {
+      try {
+        // ✅ Extract user info from context and populate createdby fields
+        const { user } = context;
+        const createdbyData = {
+          createdby_id: user?.id,
+          createdby_name: input.createdby_name || user?.name || user?.email,
+          createdby_type: user?.type || input.createdby_type || 'admin',
+        };
+
+        // A device number is provisional: moved to offlineNumber.
+        const deviceNo = takeDeviceNumber("purchaseorder", input);
+
+        console.log("=== Purchase Order Create ===");
+        console.log("User from context:", user);
+        console.log("CreatedbyData:", createdbyData);
+
+        const created = await PurchaseOrder.create({ ...input, ...createdbyData });
+        await raiseDeviceSeq(input.adminid, deviceNo);
+
+        console.log("Created Purchase Order:", {
+          id: created._id,
+          createdby_id: created.createdby_id,
+          createdby_name: created.createdby_name,
+          createdby_type: created.createdby_type
+        });
+
+        return await PurchaseOrder.findById(created._id)
+          .populate(populateFields)
+          .lean()
+          .then(formatOrder);
+      } catch (error: any) {
+        console.error("=== ERROR Creating Purchase Order ===");
+        console.error("Error message:", error.message);
+        console.error("Full error:", error);
+        throw error;
+      }
+    }
+
 export const purchaseOrderResolvers = {
   Query: {
     getPurchaseOrders: async (_: any, { filter = {} }: { filter?: any }, context: any) => {
@@ -336,49 +388,27 @@ export const purchaseOrderResolvers = {
   },
 
   Mutation: {
-    addPurchaseOrder: async (_: any, { input }: any, context: any) => {
-      try {
-        // ✅ Extract user info from context and populate createdby fields
-        const { user } = context;
-        const createdbyData = {
-          createdby_id: user?.id,
-          createdby_name: input.createdby_name || user?.name || user?.email,
-          createdby_type: user?.type || input.createdby_type || 'admin',
-        };
+    addPurchaseOrder: (_: any, args: any, context: any) =>
+      createOnce(context, args?.input, findPurchaseOrderByRequest, () => addPurchaseOrderNow(_, args, context)),
 
-        console.log("=== Purchase Order Create ===");
-        console.log("User from context:", user);
-        console.log("CreatedbyData:", createdbyData);
-
-        const created = await PurchaseOrder.create({ ...input, ...createdbyData });
-
-        console.log("Created Purchase Order:", {
-          id: created._id,
-          createdby_id: created.createdby_id,
-          createdby_name: created.createdby_name,
-          createdby_type: created.createdby_type
-        });
-
-        return await PurchaseOrder.findById(created._id)
-          .populate(populateFields)
-          .lean()
-          .then(formatOrder);
-      } catch (error: any) {
-        console.error("=== ERROR Creating Purchase Order ===");
-        console.error("Error message:", error.message);
-        console.error("Full error:", error);
-        throw error;
+    editPurchaseOrder: async (_: any, { id, input, expectedUpdatedAt }: any) => {
+      dropDeviceNumber("purchaseorder", input);
+      const expected = parseExpectedUpdatedAt(expectedUpdatedAt);
+      let guardAt: Date | null = null;
+      if (expected) {
+        const current: any = await PurchaseOrder.findById(id).select("updatedAt").lean();
+        if (current) guardAt = await assertFresh(current.updatedAt, expected, () => loadOrder(id));
       }
-    },
-
-    editPurchaseOrder: async (_: any, { id, input }: any) => {
-      const updated = await PurchaseOrder.findByIdAndUpdate(id, input, { new: true })
+      const updated = await updateByIdGuarded(PurchaseOrder, id, guardAt, input, { new: true })
         .populate(populateFields)
         .lean();
+      if (guardAt && !updated) throw await conflictError(() => loadOrder(id));
       return updated ? formatOrder(updated) : null;
     },
 
-    deletePurchaseOrder: async (_: any, { id }: { id: string }) => {
+    deletePurchaseOrder: async (_: any, { id, expectedUpdatedAt }: { id: string; expectedUpdatedAt?: string }) => {
+      const expected = parseExpectedUpdatedAt(expectedUpdatedAt);
+      if (expected) return deleteGuarded(PurchaseOrder, id, expected, () => loadOrder(id));
       return !!(await PurchaseOrder.findByIdAndUpdate(id, { status: false }));
     },
 
@@ -386,9 +416,11 @@ export const purchaseOrderResolvers = {
       return !!(await PurchaseOrder.findByIdAndUpdate(id, { status: true }));
     },
 
-    cancelPurchaseOrder: async (_: any, { id, reason }: { id: string; reason?: string }) => {
+    cancelPurchaseOrder: async (_: any, { id, reason, expectedUpdatedAt }: { id: string; reason?: string; expectedUpdatedAt?: string }) => {
+      const expected = parseExpectedUpdatedAt(expectedUpdatedAt);
       const existing = await PurchaseOrder.findById(id).lean() as any;
       if (!existing) throw new Error("Purchase Order not found");
+      const guardAt = await assertFresh(existing.updatedAt, expected, () => loadOrder(id));
       if (existing.isConverted) {
         // Purchase-order-only admins never see the invoice behind the order, so
         // "convert to invoice" language would mean nothing to them.
@@ -401,25 +433,33 @@ export const purchaseOrderResolvers = {
       if (existing.cancelStatus === "cancelled") {
         throw new Error("Order is already cancelled");
       }
-      const updated = await PurchaseOrder.findByIdAndUpdate(
+      const updated = await updateByIdGuarded(
+        PurchaseOrder,
         id,
+        guardAt,
         { cancelStatus: "cancelled", orderStatus: "cancelled", cancelReason: reason || "", cancelledAt: new Date() },
         { new: true }
       ).populate(populateFields).lean();
+      if (guardAt && !updated) throw await conflictError(() => loadOrder(id));
       return updated ? formatOrder(updated) : null;
     },
 
-    reopenPurchaseOrder: async (_: any, { id }: { id: string }) => {
+    reopenPurchaseOrder: async (_: any, { id, expectedUpdatedAt }: { id: string; expectedUpdatedAt?: string }) => {
+      const expected = parseExpectedUpdatedAt(expectedUpdatedAt);
       const existing = await PurchaseOrder.findById(id).lean() as any;
       if (!existing) throw new Error("Purchase Order not found");
+      const guardAt = await assertFresh(existing.updatedAt, expected, () => loadOrder(id));
       if (existing.cancelStatus !== "cancelled") {
         throw new Error("Order is not in cancelled state");
       }
-      const updated = await PurchaseOrder.findByIdAndUpdate(
+      const updated = await updateByIdGuarded(
+        PurchaseOrder,
         id,
+        guardAt,
         { cancelStatus: "open", orderStatus: existing.isConverted ? "confirmed" : "pending", cancelReason: null, cancelledAt: null },
         { new: true }
       ).populate(populateFields).lean();
+      if (guardAt && !updated) throw await conflictError(() => loadOrder(id));
       return updated ? formatOrder(updated) : null;
     },
 
@@ -466,6 +506,8 @@ export const purchaseOrderResolvers = {
   // for a purchase-order-only business, whose users have never seen an invoice
   // number and would only be confused by it. Same rule as the sales side.
   PurchaseOrder: {
+    // ISO string (was epoch ms); clients send it back as expectedUpdatedAt.
+    updatedAt: (parent: any) => isoOf(parent?.updatedAt),
     invoicenumber: async (parent: any) => {
       try {
         if (!parent?.isConverted) return null;

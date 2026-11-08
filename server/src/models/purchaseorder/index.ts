@@ -9,6 +9,8 @@ const purchaseOrderSchema = new mongoose.Schema(
     billdate: { type: String, required: true },
     billtype: { type: String, required: true },
     billnumber: { type: String }, // Auto-generated if not provided
+    clientRequestId: { type: String }, // offline sync de-duplication
+    offlineNumber: { type: String }, // provisional device number the document was made offline with
     notes: { type: String },
 
     ordertype: { type: String, default: "retail" },
@@ -101,5 +103,11 @@ purchaseOrderSchema.pre("save", async function (next) {
   }
   next();
 });
+
+// One document per offline request id; only rows that carry one are indexed.
+purchaseOrderSchema.index(
+  { adminid: 1, clientRequestId: 1 },
+  { unique: true, partialFilterExpression: { clientRequestId: { $type: "string" } } }
+);
 
 export const PurchaseOrder = mongoose.model("PurchaseOrder", purchaseOrderSchema);

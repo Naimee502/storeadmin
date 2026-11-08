@@ -2,6 +2,7 @@ import mongoose, { Model, Schema, Document, Types } from 'mongoose';
 import { ProductBranchStock } from '../productbranchstock';
 import { convertToBaseUnit } from '../../utils/unitconversation';
 import { ProductService } from '../products';
+import { NUMERIC_COLLATION } from '../../utils/billnumber';
 
 // ─── Interfaces ────────────────────────────────────────────────────────────────
 
@@ -16,6 +17,8 @@ export interface ITransferStockItem {
 
 interface ITransferStock extends Document {
   vouchernumber?: string;
+  clientRequestId?: string;
+  offlineNumber?: string;
   frombranchid: Types.ObjectId;
   tobranchid: Types.ObjectId;
   transferdate: string;
@@ -52,6 +55,8 @@ const transferStockItemSchema = new Schema<ITransferStockItem>(
 const transferStockSchema = new Schema<ITransferStock, TransferStockModel>(
   {
     vouchernumber: { type: String },
+    clientRequestId: { type: String }, // offline sync de-duplication
+    offlineNumber: { type: String }, // provisional device number the document was made offline with
     frombranchid:  { type: Schema.Types.ObjectId, ref: 'Branch', required: true },
     tobranchid:    { type: Schema.Types.ObjectId, ref: 'Branch', required: true },
     transferdate:  { type: String, required: true },
@@ -74,7 +79,10 @@ const transferStockSchema = new Schema<ITransferStock, TransferStockModel>(
 transferStockSchema.pre('save', async function (next) {
   if (!this.vouchernumber) {
     const Model = mongoose.model('TransferStock');
-    const last = await Model.findOne({ admin: this.admin }).sort({ createdAt: -1 });
+    // Highest main-series number; device numbers ("TR-A/000001") never match.
+    const last = await Model.findOne({ admin: this.admin, vouchernumber: { $regex: /^#TS\d{4,}$/ } })
+      .collation(NUMERIC_COLLATION)
+      .sort({ vouchernumber: -1 });
     let nextNum = 1;
     if (last?.vouchernumber && /^#TS\d{4,}$/.test(last.vouchernumber)) {
       nextNum = parseInt(last.vouchernumber.replace('#TS', ''), 10) + 1;
@@ -157,6 +165,12 @@ transferStockSchema.statics.adjustStock = async function (
     }
   }
 };
+
+// One document per offline request id; only rows that carry one are indexed.
+transferStockSchema.index(
+  { admin: 1, clientRequestId: 1 },
+  { unique: true, partialFilterExpression: { clientRequestId: { $type: "string" } } }
+);
 
 // ─── Export ───────────────────────────────────────────────────────────────────
 

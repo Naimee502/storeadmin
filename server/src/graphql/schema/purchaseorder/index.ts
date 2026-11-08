@@ -117,7 +117,9 @@ export const purchaseOrderTypeDefs = gql`
     cancelledAt: String
     status: Boolean!
     createdAt: String
+    "ISO date"
     updatedAt: String
+    offlineNumber: String
   }
 
   input PurchaseOrderInput {
@@ -154,6 +156,8 @@ export const purchaseOrderTypeDefs = gql`
     isConverted: Boolean
     orderStatus: String
     status: Boolean
+    "Set by offline sync so a retried save returns the same document."
+    clientRequestId: String
   }
 
   input PurchaseOrderFilterInput {
@@ -186,11 +190,12 @@ export const purchaseOrderTypeDefs = gql`
 
   extend type Mutation {
     addPurchaseOrder(input: PurchaseOrderInput!): PurchaseOrder!
-    editPurchaseOrder(id: ID!, input: PurchaseOrderInput!): PurchaseOrder!
-    deletePurchaseOrder(id: ID!): Boolean!
+    "expectedUpdatedAt: optional; when it differs from the stored updatedAt the edit fails with CONFLICT."
+    editPurchaseOrder(id: ID!, input: PurchaseOrderInput!, expectedUpdatedAt: String): PurchaseOrder!
+    deletePurchaseOrder(id: ID!, expectedUpdatedAt: String): Boolean!
     resetPurchaseOrder(id: ID!): Boolean!
-    cancelPurchaseOrder(id: ID!, reason: String): PurchaseOrder!
-    reopenPurchaseOrder(id: ID!): PurchaseOrder!
+    cancelPurchaseOrder(id: ID!, reason: String, expectedUpdatedAt: String): PurchaseOrder!
+    reopenPurchaseOrder(id: ID!, expectedUpdatedAt: String): PurchaseOrder!
     confirmPurchaseOrder(id: ID!): PurchaseOrder!
     markPurchaseOrderReceived(id: ID!, byId: ID, byName: String, byType: String): PurchaseOrder!
   }

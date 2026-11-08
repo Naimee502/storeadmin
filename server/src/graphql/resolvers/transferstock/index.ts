@@ -6,9 +6,10 @@ import { convertToBaseUnit } from "../../../utils/unitconversation";
 import { Branch } from "../../../models/branches";
 import { asText, containsRx, dmyFromText, escapeRegex, pageWindow, textMatch, notCleared } from "../../../utils/listquery";
 import { fixed2, searchAndFilterClauses, textOr } from "../transactions/listtext";
+import { assertFresh, conflictError, createOnce, isoOf, parseExpectedUpdatedAt, raiseDeviceSeq, takeDeviceNumber, updateByIdGuarded } from "../../../utils/offlinesync";
 
 /** Role and filter scope of the active transfer list (getTransferStocks and its page query). */
-function buildTransferQuery(adminId: any, frombranchid: any, context: any): any {
+export function buildTransferQuery(adminId: any, frombranchid: any, context: any): any {
   const filter: any = { status: true };
   const { user } = context;
 
@@ -157,6 +158,40 @@ async function assertDeltas(deltas: Map<string, Delta>, adminId: any, action: st
   }
 }
 
+// Current voucher as the list returns it (for CONFLICT errors).
+const loadTransfer = async (id: any) => {
+  const doc: any = await TransferStock.findById(id).populate({ path: "admin", select: "name email" }).lean();
+  return doc ? { ...doc, id: String(doc._id) } : null;
+};
+
+// Saved transfer for an offline retry, looked up in the caller's own business.
+const findTransferStockByRequest = async (adminid: string, requestId: string) =>
+  TransferStock.findOne({ admin: adminid, clientRequestId: requestId }).populate("admin");
+
+async function addTransferStockNow(_: any, { input }: any, context: any) {
+      const { user } = context;
+      // A device number ("TR-A/000012") is provisional; the main series numbers the voucher.
+      const deviceNo = takeDeviceNumber("transferstock", input, "vouchernumber");
+      delete input.vouchernumber;
+
+      // Validate before any DB write — always (it used to be skipped when
+      // input.admin was missing), and per variant across all lines.
+      if (!input.frombranchid || !input.tobranchid) throw new Error("From and To branch are required");
+      if (String(input.frombranchid) === String(input.tobranchid)) throw new Error("From and To branch cannot be the same");
+      await assertDeltas(await voucherDeltas(input, 1), input.admin, "save this transfer");
+
+      const createdbyData = {
+        createdby_id:   user?.id,
+        createdby_name: input.createdby_name || user?.name || user?.email,
+        createdby_type: user?.type || input.createdby_type || "admin",
+      };
+
+      const newDoc = await TransferStock.create({ ...input, ...createdbyData });
+      await raiseDeviceSeq(newDoc.admin, deviceNo);
+      await TransferStock.adjustStock(null, newDoc);
+      return await TransferStock.findById(newDoc._id).populate("admin");
+    }
+
 export const transferStockResolvers = {
   Query: {
     getTransferStocks: async (
@@ -233,29 +268,16 @@ export const transferStockResolvers = {
   },
 
   Mutation: {
-    addTransferStock: async (_: any, { input }: any, context: any) => {
-      const { user } = context;
+    addTransferStock: (_: any, args: any, context: any) =>
+      createOnce(context, args?.input, findTransferStockByRequest, () => addTransferStockNow(_, args, context), "admin"),
 
-      // Validate before any DB write — always (it used to be skipped when
-      // input.admin was missing), and per variant across all lines.
-      if (!input.frombranchid || !input.tobranchid) throw new Error("From and To branch are required");
-      if (String(input.frombranchid) === String(input.tobranchid)) throw new Error("From and To branch cannot be the same");
-      await assertDeltas(await voucherDeltas(input, 1), input.admin, "save this transfer");
-
-      const createdbyData = {
-        createdby_id:   user?.id,
-        createdby_name: input.createdby_name || user?.name || user?.email,
-        createdby_type: user?.type || input.createdby_type || "admin",
-      };
-
-      const newDoc = await TransferStock.create({ ...input, ...createdbyData });
-      await TransferStock.adjustStock(null, newDoc);
-      return await TransferStock.findById(newDoc._id).populate("admin");
-    },
-
-    editTransferStock: async (_: any, { id, input }: any, context: any) => {
+    editTransferStock: async (_: any, { id, input, expectedUpdatedAt }: any, context: any) => {
+      // Edits keep the voucher number.
+      delete input.vouchernumber;
+      const expected = parseExpectedUpdatedAt(expectedUpdatedAt);
       const oldDoc: any = await TransferStock.findById(id);
       if (!oldDoc) throw new Error("Transfer stock voucher not found");
+      const guardAt = await assertFresh(oldDoc.updatedAt, expected, () => loadTransfer(id));
       // A deleted voucher's stock is already reversed — editing it would
       // reverse it again.
       if (!oldDoc.status) throw new Error("This transfer is deleted. Restore it before editing.");
@@ -271,20 +293,25 @@ export const transferStockResolvers = {
         createdby_name: input.createdby_name || oldDoc.createdby_name || user?.name || user?.email,
       };
 
-      const newDoc = await TransferStock.findByIdAndUpdate(
+      const newDoc = await updateByIdGuarded(
+        TransferStock,
         id,
+        guardAt,
         { ...input, ...createdbyData },
         { new: true }
       );
+      if (guardAt && !newDoc) throw await conflictError(() => loadTransfer(id));
 
       if (oldDoc && newDoc) await TransferStock.adjustStock(oldDoc, newDoc);
 
       return await TransferStock.findById(newDoc?._id).populate("admin");
     },
 
-    deleteTransferStock: async (_: any, { id }: { id: string }) => {
+    deleteTransferStock: async (_: any, { id, expectedUpdatedAt }: { id: string; expectedUpdatedAt?: string }) => {
+      const expected = parseExpectedUpdatedAt(expectedUpdatedAt);
       const oldDoc: any = await TransferStock.findById(id);
       if (!oldDoc) throw new Error("Transfer stock voucher not found");
+      const guardAt = await assertFresh(oldDoc.updatedAt, expected, () => loadTransfer(id));
       // Already deleted → its stock was already reverted; a second delete
       // (double click, retried request) used to revert it again.
       if (!oldDoc.status) return true;
@@ -292,7 +319,9 @@ export const transferStockResolvers = {
       await assertDeltas(await voucherDeltas(oldDoc, -1), oldDoc.admin, "delete this transfer");
       // Flip status first (atomically, only if still active) so two concurrent
       // deletes can't both revert.
-      const flipped = await TransferStock.findOneAndUpdate({ _id: id, status: true }, { status: false }, { new: true });
+      const live: any = guardAt ? { _id: id, status: true, updatedAt: guardAt } : { _id: id, status: true };
+      const flipped = await TransferStock.findOneAndUpdate(live, { status: false }, { new: true });
+      if (guardAt && !flipped) throw await conflictError(() => loadTransfer(id));
       if (!flipped) return true;
       await TransferStock.adjustStock(oldDoc, null); // revert stock
       return true;
@@ -309,5 +338,10 @@ export const transferStockResolvers = {
       await TransferStock.adjustStock(null, result); // re-apply stock
       return true;
     },
+  },
+
+  TransferStock: {
+    // ISO string; clients send it back as expectedUpdatedAt.
+    updatedAt: (parent: any) => isoOf(parent?.updatedAt),
   },
 };

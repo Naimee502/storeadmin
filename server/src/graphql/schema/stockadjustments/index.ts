@@ -35,6 +35,7 @@ export const stockAdjustmentTypeDefs = gql`
     status: Boolean
     createdAt: Date
     updatedAt: Date
+    offlineNumber: String
   }
 
   type StockAdjustmentPage {
@@ -62,6 +63,10 @@ export const stockAdjustmentTypeDefs = gql`
     createdby_name: String
     createdby_type: String
     status: Boolean
+    "Offline device number (SA-A/000012) only; the main series numbers the voucher."
+    vouchernumber: String
+    "Set by offline sync so a retried save returns the same document."
+    clientRequestId: String
   }
 
   input StockAdjustmentFilterInput {
@@ -93,9 +98,10 @@ export const stockAdjustmentTypeDefs = gql`
 
   extend type Mutation {
     createStockAdjustment(input: StockAdjustmentInput!): StockAdjustment
-    updateStockAdjustment(id: ID!, input: StockAdjustmentUpdateInput!): StockAdjustment
-    deleteStockAdjustment(id: ID!): Boolean
-    cancelStockAdjustment(id: ID!): Boolean
+    "expectedUpdatedAt: optional; when it differs from the stored updatedAt the edit fails with CONFLICT."
+    updateStockAdjustment(id: ID!, input: StockAdjustmentUpdateInput!, expectedUpdatedAt: String): StockAdjustment
+    deleteStockAdjustment(id: ID!, expectedUpdatedAt: String): Boolean
+    cancelStockAdjustment(id: ID!, expectedUpdatedAt: String): Boolean
     resetStockAdjustment(id: ID!): Boolean
   }
 `;
