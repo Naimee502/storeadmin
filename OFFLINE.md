@@ -25,6 +25,13 @@ Goal: work like Vyapar. Every write is saved on the device first and synced to t
 ## Deploy
 Server first, then client (the client asks for `offlineBilling` and `syncPull`).
 
+## Phase 2 contract (purchase and stock)
+- `syncPull` adds `purchaseinvoice, purchaseorder, purchasereturn, stockadjustment, transferstock`, shaped like their list queries.
+- Their create mutations run through `createOnce` (`clientRequestId`, business from the login).
+- Device numbers stay provisional: `A/000123` purchase invoice and order, `DN-A/000012` purchase return, `SA-A/000012` stock adjustment, `TR-A/000012` transfer; the server moves them to `offlineNumber` and the main series numbers the document. Edits never take a device number.
+- Edit, cancel and delete of these documents accept `expectedUpdatedAt` (`CONFLICT` with `current`).
+- Local stock: purchase invoice adds, purchase return removes, adjustments add or remove, a transfer moves stock between branches; vendor balance follows purchase invoices, returns and payments.
+
 ## Phases
 1. Foundation: business switch, `syncPull`, `localdb`, local reads, hybrid numbers, disconnect alert, dashboard offline. Billing screens (invoice, order, POS, return, receipt).
 2. Purchase and stock: purchase invoice/order/return, stock adjustment, transfer.
