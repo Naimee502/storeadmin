@@ -257,7 +257,7 @@ export default function POSDashboard() {
     setBillNumber(getNextBillNumber(list));
   }, [isOrderMode, serverInvoices, serverOrders, offlineNo, noDevice]);
 
-  /* Keyboard: F2 search, F3 barcode, F4 customer, F8 hold, F9 recall, F10 clear, F12 pay, arrows + Enter on the item list */
+  /* Keyboard: F2 search, F3 barcode, F4 customer, Alt+N new party, F8 hold, F9 recall, F10 clear, F12 pay, arrows + Enter on the item list */
   const keys = useRef<any>({});
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -271,6 +271,7 @@ export default function POSDashboard() {
       else if (e.key === "F9") { e.preventDefault(); k.recallCart(); }
       else if (e.key === "F10") { e.preventDefault(); k.clearCart(); }
       else if (e.key === "F12") { e.preventDefault(); k.openPay(); }
+      else if (e.altKey && e.code === "KeyN") { e.preventDefault(); k.newParty(); }
       else if (e.key === "Escape") setPaymentOpen(false);
       else if (!k.busy && !inOther && (e.key === "ArrowDown" || e.key === "ArrowUp")) { e.preventDefault(); k.moveRow(e.key === "ArrowDown" ? 1 : -1); }
       else if (!k.busy && el === searchRef.current && e.key === "Enter") { e.preventDefault(); k.addActive(); }
@@ -778,6 +779,7 @@ export default function POSDashboard() {
   };
   keys.current = {
     holdCart, recallCart, clearCart, openPay,
+    newParty: () => setAddCustomerOpen(true),
     busy: paymentOpen,
     moveRow: (d: number) => {
       const next = Math.min(Math.max(rowIndex + d, 0), Math.max(sortedProducts.length - 1, 0));
@@ -1263,7 +1265,7 @@ export default function POSDashboard() {
         {/* ===== ACTION BAR ===== */}
         <div className="bg-white text-slate-800 border-t border-slate-300 px-3 h-12 flex items-center gap-2 shrink-0 overflow-x-auto hide-scrollbar">
           {[
-            { label: "+ New Party", on: () => setAddCustomerOpen(true), k: "" },
+            { label: "+ New Party", on: () => setAddCustomerOpen(true), k: "Alt+N" },
             { label: "Hold", on: holdCart, k: "F8" },
             { label: `Recall${heldCarts.length > 0 ? ` (${heldCarts.length})` : ""}`, on: recallCart, k: "F9" },
             { label: "Clear", on: clearCart, k: "F10" },
