@@ -36,6 +36,7 @@ const salesInvoiceSchema = new mongoose.Schema(
     billtype: { type: String, required: true },
     billnumber: { type: String },
     clientRequestId: { type: String }, // offline sync de-duplication
+    offlineNumber: { type: String }, // provisional device number the bill was made offline with
     notes: { type: String },
 
     invoicetype: { type: String, default: "retail" },

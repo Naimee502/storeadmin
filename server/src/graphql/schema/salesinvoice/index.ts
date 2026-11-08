@@ -128,6 +128,7 @@ export const salesInvoiceTypeDefs = gql`
     createdAt: String
     "ISO date"
     updatedAt: String
+    offlineNumber: String
   }
 
   input SalesInvoiceInput {

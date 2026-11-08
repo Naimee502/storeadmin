@@ -8,7 +8,7 @@ import { Transaction } from "../../../models/transactions";
 import { pushNotification } from "../../../models/notifications";
 import { isSalesOrderOnlyMode, adminIdOf } from "../../../utils/ordermode";
 import { activeFilters, asText, dmyFromText, notCleared, pageWindow, textMatch } from "../../../utils/listquery";
-import { assertFresh, checkDeviceNumber, conflictError, isoOf, parseExpectedUpdatedAt, raiseDeviceSeq, updateByIdGuarded } from "../../../utils/offlinesync";
+import { assertFresh, takeDeviceNumber, conflictError, isoOf, parseExpectedUpdatedAt, raiseDeviceSeq, updateByIdGuarded } from "../../../utils/offlinesync";
 
 // NOTE: local settled-amount helper removed — see utils/allocation.
 
@@ -900,8 +900,8 @@ export const salesOrderResolvers = {
         // stay unique across the app, admin panel and POS. Client-computed
         // numbers (from a possibly stale list) caused duplicates like SO-000001.
         // Only a registered offline device's own series number is kept.
-        const deviceNo = await checkDeviceNumber("salesorder", input.adminid, input.billnumber, SalesOrder);
-        if (!deviceNo) delete input.billnumber;
+        const deviceNo = takeDeviceNumber("salesorder", input);
+        delete input.billnumber;
 
         // Bill lines category-wise, then A-Z — whatever order the cart had.
         if (Array.isArray(input.productservice)) input.productservice = await sortLinesByCategory(input.productservice);

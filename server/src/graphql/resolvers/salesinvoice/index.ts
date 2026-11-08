@@ -15,7 +15,7 @@ import { partyStockEnabled, sellerPartyOf, assertPartyStockAvailable } from "../
 import { assertSalesStockAvailable } from "../../../utils/stockguard";
 import { SalesReturn } from "../../../models/salesreturn";
 import { assertInvoiceCancellable, assertInvoiceReopenable } from "../../../utils/invoicecancel";
-import { assertFresh, checkDeviceNumber, conflictError, isoOf, parseExpectedUpdatedAt, raiseDeviceSeq, updateByIdGuarded } from "../../../utils/offlinesync";
+import { assertFresh, takeDeviceNumber, conflictError, isoOf, parseExpectedUpdatedAt, raiseDeviceSeq, updateByIdGuarded } from "../../../utils/offlinesync";
 
 // NOTE: the local per-invoice settled-amount helper was removed. Outstanding
 // now comes from utils/allocation, so the admin panel, the mobile app, the
@@ -753,7 +753,7 @@ export const salesInvoiceResolvers = {
       }
       assertLineUnits(input);
       // Offline device-series number: must be a registered device and unused.
-      const deviceNo = await checkDeviceNumber("salesinvoice", input.adminid, input.billnumber, SalesInvoice);
+      const deviceNo = takeDeviceNumber("salesinvoice", input);
       // ✅ Extract user info from context and populate createdby fields
       // (resolves staff → real role + name, party → account name).
       const { user } = context;

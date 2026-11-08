@@ -7,6 +7,7 @@ Live multi-tenant billing SaaS. `client/` admin web (React 19, Vite, Apollo, Red
 - No data migrations or scripts on existing records. New fields have no default that changes old documents (Mongoose applies schema defaults on read).
 - Every record is tenant-scoped (`admin` or `adminid`). Never trust a client id over the login token for new code.
 - Deletes are soft (`status: false` or the model's own flag). "Clear" sets `cleared: true` and only applies to deleted records.
+- Bill and voucher numbers: only the main series is final; offline device numbers are provisional.
 - Offline / local-first work follows `OFFLINE.md`.
 
 ## Code style

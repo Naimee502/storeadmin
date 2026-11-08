@@ -128,6 +128,7 @@ export const salesOrderTypeDefs = gql`
     createdAt: String
     "ISO date"
     updatedAt: String
+    offlineNumber: String
   }
 
   input SalesOrderInput {

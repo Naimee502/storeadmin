@@ -16,7 +16,7 @@ import {
   type InvoiceModel,
 } from "../../../utils/allocation";
 import { containsRx, pageWindow, textMatch, notCleared } from "../../../utils/listquery";
-import { assertFresh, checkDeviceNumber, conflictError, isoOf, parseExpectedUpdatedAt, raiseDeviceSeq, updateByIdGuarded } from "../../../utils/offlinesync";
+import { assertFresh, takeDeviceNumber, conflictError, isoOf, parseExpectedUpdatedAt, raiseDeviceSeq, updateByIdGuarded } from "../../../utils/offlinesync";
 import { activeText, dmyOrDash, fixed2, num, searchAndFilterClauses, textOr } from "../transactions/listtext";
 
 // Recursively collect party ids under a root party (assignaccountid chain),
@@ -557,8 +557,8 @@ export const paymentResolvers = {
         if (existing) return formatPayment(existing);
       }
       // Only a registered device's own series code ("#PAY-A/000012") is kept; the server numbers everything else.
-      const deviceNo = await checkDeviceNumber("payment", input.adminid, input.paymentcode, Payment, "paymentcode");
-      if (!deviceNo) delete input.paymentcode;
+      const deviceNo = takeDeviceNumber("payment", input, "paymentcode");
+      delete input.paymentcode;
       const { user } = context;
       const createdbyData = {
         createdby_id: user?.id,

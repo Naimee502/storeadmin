@@ -77,6 +77,7 @@ export const salesReturnTypeDefs = gql`
     status: Boolean!
     createdAt: String
     updatedAt: String
+    offlineNumber: String
   }
 
   input SalesReturnInput {

@@ -45,34 +45,12 @@ export function deviceCodeIndex(code: string): number {
   return n - 1;
 }
 
-/**
- * When `value` is a device-series number: the device must belong to the
- * business and the number must not be used yet. Returns null for any other value.
- */
-export async function checkDeviceNumber(
-  type: OfflineDocType,
-  adminid: any,
-  value: any,
-  model: any,
-  field = "billnumber"
-): Promise<DeviceNumber | null> {
-  const parsed = parseDeviceNumber(type, value);
+// Device numbers are provisional: kept in offlineNumber, the main series numbers the doc.
+export function takeDeviceNumber(type: OfflineDocType, input: any, field = "billnumber"): DeviceNumber | null {
+  const parsed = parseDeviceNumber(type, input?.[field]);
   if (!parsed) return null;
-  const device = await OfflineDevice.exists({ adminid, code: parsed.code });
-  if (!device) {
-    throw new ApolloError(
-      `Number ${value} uses device series "${parsed.code}", which is not registered for this business.`,
-      "INVALID_DEVICE_NUMBER",
-      { number: value, code: parsed.code }
-    );
-  }
-  const dup = await model.exists({ adminid, [field]: value });
-  if (dup) {
-    throw new ApolloError(`Number ${value} is already used.`, "DUPLICATE_NUMBER", {
-      number: value,
-      existingId: String(dup._id),
-    });
-  }
+  input.offlineNumber = parsed.value;
+  delete input[field];
   return parsed;
 }
 

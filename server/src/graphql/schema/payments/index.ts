@@ -114,6 +114,7 @@ export const paymentTypeDefs = gql`
     createdAt: String
     "ISO date"
     updatedAt: String
+    offlineNumber: String
   }
 
   # Payment Input

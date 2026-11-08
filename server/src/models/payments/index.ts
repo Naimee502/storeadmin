@@ -107,6 +107,7 @@ const paymentSchema = new mongoose.Schema(
     updatedby: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
 
     clientRequestId: { type: String }, // offline sync de-duplication
+    offlineNumber: { type: String }, // provisional device number the doc was made offline with
 
     status: { type: Boolean, default: true },
   },

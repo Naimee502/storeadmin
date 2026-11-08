@@ -44,6 +44,7 @@ const salesReturnSchema = new mongoose.Schema(
     billtype: { type: String, required: true },
     billnumber: { type: String },                       // CN-000001 auto-generated
     clientRequestId: { type: String }, // offline sync de-duplication
+    offlineNumber: { type: String }, // provisional device number the doc was made offline with
     notes: { type: String },
     reason: { type: String },                           // why the return was made
 

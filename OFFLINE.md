@@ -4,8 +4,8 @@ Goal: work like Vyapar. Every write is saved on the device first and synced to t
 
 ## Decisions
 - Switch: `AdminSettings.offlineBilling` per business (Business Settings). Existing businesses: off until the admin turns it on (no default on the schema). New businesses: set `true` in `createAdmin`. Device setting in Settings: Business setting / On / Off.
-- Numbers (hybrid): online, the create is sent at once and the server's main number is used if it answers within 3 s; otherwise the bill takes the device series. Offline always uses the device series.
-- Device series: `A/000123` invoice and order, `CN-A/000012` sales return, `#PAY-A/000012` receipt. Codes come from `registerOfflineDevice` and are never reused.
+- Numbers: the business's main series is the only final number. Online, the create is sent at once and the server's number is used if it answers within 3 s. Offline (or no answer), the bill shows a provisional device number; on sync the server gives it the next main-series number and keeps the device number in `offlineNumber`.
+- Device numbers (provisional only): `A/000123` invoice and order, `CN-A/000012` sales return, `#PAY-A/000012` receipt. Codes come from `registerOfflineDevice` and are never reused.
 - Conflicts: the first change to reach the server wins; a later stale edit goes to "Needs review" (Apply mine / Discard mine). Edits send `expectedUpdatedAt`.
 - Server stays the source of truth for stock, journals and numbering; the device shows its own pending changes on top of the last synced data.
 
@@ -20,7 +20,7 @@ Goal: work like Vyapar. Every write is saved on the device first and synced to t
 - `AdminSettings.offlineBilling: Boolean` (read and update through the existing settings query/mutation).
 - `syncPull(collections: [String!]!, since: String): SyncPull!` → `{ serverTime, changes: [{ collection, docs: JSON, deletedIds: [ID!]!, nextSince }] }`. Docs are shaped like the module's list query items. Tenant comes from the login. `since` null means full pull. Max 5,000 docs per collection per call; `nextSince` set means pull that collection again from it.
 - Collections: `salesinvoice, salesorder, salesreturn, payment, product, account, ledger, unit, category, subcategory, brand, model, size, productgroup, branch, staff, pricelist, priceassignment, chargerule, adminsettings`; later `purchaseinvoice, purchaseorder, purchasereturn, stockadjustment, transferstock, expensenote, transaction`.
-- Creates accept `clientRequestId`; device numbers are validated (`INVALID_DEVICE_NUMBER`, `DUPLICATE_NUMBER`); edits accept `expectedUpdatedAt` (`CONFLICT` with `current`).
+- Creates accept `clientRequestId`; a device number sent as `billnumber`/`paymentcode` is moved to `offlineNumber` and the main series numbers the document. Edits accept `expectedUpdatedAt` (`CONFLICT` with `current`).
 
 ## Deploy
 Server first, then client (the client asks for `offlineBilling` and `syncPull`).

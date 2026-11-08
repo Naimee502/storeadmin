@@ -10,6 +10,7 @@ const salesOrderSchema = new mongoose.Schema(
     billtype: { type: String, required: true },
     billnumber: { type: String }, // Auto-generated if not provided
     clientRequestId: { type: String }, // offline sync de-duplication
+    offlineNumber: { type: String }, // provisional device number the bill was made offline with
     notes: { type: String },
 
     ordertype: { type: String, default: "retail" },

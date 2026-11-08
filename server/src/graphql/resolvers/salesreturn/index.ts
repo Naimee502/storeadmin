@@ -9,7 +9,7 @@ import { Account } from "../../../models/accounts";
 import { requireBackofficeTenant } from "../../../utils/tenant";
 import { SalesOrder } from "../../../models/salesorder";
 import { activeFilters, asText, dmyFromText, notCleared, pageWindow, textMatch } from "../../../utils/listquery";
-import { checkDeviceNumber, raiseDeviceSeq } from "../../../utils/offlinesync";
+import { takeDeviceNumber, raiseDeviceSeq } from "../../../utils/offlinesync";
 
 /** orderId → order billnumber, for invoices converted from a Sales Order. */
 async function orderNumbers(orderIds: any[]) {
@@ -513,7 +513,7 @@ export const salesReturnResolvers = {
           if (existing) return formatReturn(existing);
         }
         // Offline device-series number ("CN-A/000012"): registered device, unused.
-        const deviceNo = await checkDeviceNumber("salesreturn", input.adminid, input.billnumber, SalesReturn);
+        const deviceNo = takeDeviceNumber("salesreturn", input);
         const sourceInv = await validateReturnQuantities(input);
         // Stamp source bill number for friendly display
         if (sourceInv?.billnumber && !input.sourceBillNumber) {
