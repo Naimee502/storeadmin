@@ -148,15 +148,32 @@ export async function createOnce<T>(
   const requestId = input?.clientRequestId ? String(input.clientRequestId) : "";
   if (!requestId) return create();
   const { adminid } = await tenantOf(context);
+  if (input.adminid && String(input.adminid) !== adminid) {
+    throw new ApolloError("This document belongs to another business.", "FORBIDDEN");
+  }
   const key = `${adminid}:${requestId}`;
-  while (inFlight.has(key)) await inFlight.get(key)!.catch(() => undefined);
-  const existing = await find(adminid, requestId);
-  if (existing) return existing;
-  const run = create();
+  for (let running = inFlight.get(key); running; running = inFlight.get(key)) {
+    await running.catch(() => undefined);
+  }
+  // Registered with no await in between, so a concurrent call always waits for this one.
+  const run = (async () => {
+    const existing = await find(adminid, requestId);
+    if (existing) return existing;
+    try {
+      return await create();
+    } catch (e: any) {
+      // Another server instance saved it first: return that one.
+      if (/E11000/.test(String(e?.message))) {
+        const saved = await find(adminid, requestId);
+        if (saved) return saved;
+      }
+      throw e;
+    }
+  })();
   inFlight.set(key, run);
   try {
     return await run;
   } finally {
-    inFlight.delete(key);
+    if (inFlight.get(key) === run) inFlight.delete(key);
   }
 }
