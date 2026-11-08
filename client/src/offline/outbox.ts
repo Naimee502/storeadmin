@@ -1,6 +1,6 @@
 // Outbox of billing changes saved by the offline link, plus the sync engine and its store.
 import { gql, type ApolloClient, type NormalizedCacheObject } from "@apollo/client";
-import { META_STORE, OUTBOX_STORE, idbDelete, idbGet, idbGetAll, idbPut } from "./idb";
+import { META_STORE, OUTBOX_STORE, idbDelete, idbGet, idbGetAll, idbPut, idbUpdate } from "./localdb";
 import { currentUserKey } from "./userkey";
 import {
   byAge,
@@ -12,13 +12,17 @@ import {
   offlineIdFor,
   pickNext,
   withExpected,
+  withTimeout,
   type OutboxItem,
   type Plan,
+  type PushOutcome,
 } from "./core";
 
 export type { OutboxItem, OutboxStatus } from "./core";
 
 export interface OfflineSnapshot {
+  // Offline billing is active on this device.
+  enabled: boolean;
   online: boolean;
   syncing: boolean;
   // Items waiting to be sent.
@@ -39,6 +43,7 @@ const SENDING_STALE_MS = 60000;
 
 let client: ApolloClient<NormalizedCacheObject> | null = null;
 let snapshot: OfflineSnapshot = {
+  enabled: false,
   online: typeof navigator === "undefined" ? true : navigator.onLine !== false,
   syncing: false,
   pending: 0,
@@ -72,6 +77,8 @@ export const offlineStore = {
 };
 
 export const getOfflineClient = () => client;
+
+export const setEnabledFlag = (enabled: boolean) => snapshot.enabled !== enabled && setSnapshot({ enabled });
 
 // Called after a sync run that sent at least one item.
 export function onSyncComplete(cb: () => void): () => void {
@@ -127,11 +134,6 @@ function announce() {
   void refreshOutbox();
 }
 
-export async function enqueue(item: OutboxItem): Promise<void> {
-  await idbPut(OUTBOX_STORE, item);
-  announce();
-}
-
 // Writes a plan from core.planChange.
 export async function applyPlan(plan: Plan): Promise<void> {
   for (const id of plan.remove) await idbDelete(OUTBOX_STORE, id);
@@ -165,11 +167,6 @@ export async function loadIdMap(): Promise<Record<string, string>> {
   }
   idMapCache = { key, map };
   return map;
-}
-
-// Sync, from memory: real id for a temp id already synced in this tab or loaded before.
-export function mappedId(id: string): string | null {
-  return idMapCache?.key === idMapKey() ? idMapCache.map[id] ?? null : null;
 }
 
 async function addIdMapping(tempId: string, realId: string) {
@@ -237,8 +234,10 @@ function classify(e: any): Outcome {
   return { kind: "transient", message: ne?.message || e?.message || "Network error" };
 }
 
-async function sendItem(original: OutboxItem, map: Record<string, string>): Promise<"done" | "next" | "stop"> {
-  if (!client) return "stop";
+type SendResult = { r: "done" | "next" | "stop"; data?: any; error?: any };
+
+async function sendItem(original: OutboxItem, map: Record<string, string>): Promise<SendResult> {
+  if (!client) return { r: "stop" };
   const item = mapItemIds([original], map)[0] || original;
   const sending: OutboxItem = { ...item, sendingSince: Date.now(), attempts: item.attempts + 1 };
   await idbPut(OUTBOX_STORE, sending);
@@ -264,16 +263,43 @@ async function sendItem(original: OutboxItem, map: Record<string, string>): Prom
     }
     for (const c of changed) await idbPut(OUTBOX_STORE, c);
     announce();
-    return "done";
+    return { r: "done", data };
   } catch (e) {
     const out = classify(e);
-    const base: OutboxItem = { ...sending, sendingSince: null, lastError: out.message };
-    if (out.kind === "conflict") await idbPut(OUTBOX_STORE, { ...base, status: "review", conflict: out.current });
-    else if (out.kind === "failed") await idbPut(OUTBOX_STORE, { ...base, status: "failed" });
-    else await idbPut(OUTBOX_STORE, base);
+    // Merge onto the stored item: a device number may have been given while this was in flight.
+    await idbUpdate<OutboxItem>(OUTBOX_STORE, item.id, (cur) => {
+      if (!cur) return undefined;
+      const base: OutboxItem = { ...(normalizeItem(cur) || sending), sendingSince: null, attempts: sending.attempts, lastError: out.message };
+      if (out.kind === "conflict") return { ...base, status: "review", conflict: out.current };
+      if (out.kind === "failed") return { ...base, status: "failed" };
+      return base;
+    }).catch(() => {});
     announce();
-    return out.kind === "transient" ? "stop" : "next";
+    return { r: out.kind === "transient" ? "stop" : "next", error: e };
   }
+}
+
+// Sends one just-queued item now; `out` waits up to waitMs, `late` is the final answer.
+export function pushNow(item: OutboxItem, waitMs = 3000): { out: Promise<PushOutcome>; late: Promise<PushOutcome> } {
+  const late: Promise<PushOutcome> = client
+    ? loadIdMap()
+        .then((map) => sendItem(item, map))
+        .then((res): PushOutcome => (res.r === "done" ? { kind: "answered", data: res.data } : res.r === "next" ? { kind: "rejected", error: res.error } : { kind: "noNetwork" }))
+    : Promise.resolve({ kind: "noNetwork" });
+  void late.catch(() => null).finally(() => void syncNow());
+  return { out: withTimeout(late, waitMs), late };
+}
+
+// Gives a still-queued create its device number; null when it has already synced.
+export async function setCreateNumber(id: string, field: string, number: string | null): Promise<OutboxItem | null> {
+  if (!number) return (await findItem(id)) ?? null;
+  const out = await idbUpdate<OutboxItem>(OUTBOX_STORE, id, (cur) => {
+    const item = normalizeItem(cur);
+    if (!item) return undefined;
+    return { ...item, number, variables: { ...item.variables, input: { ...item.variables.input, [field]: number } } };
+  });
+  announce();
+  return out ?? null;
 }
 
 async function processQueue(): Promise<void> {
@@ -291,7 +317,7 @@ async function processQueue(): Promise<void> {
       }
       if (orphans.length) announce();
       if (!next) break;
-      const r = await sendItem(next, map);
+      const { r } = await sendItem(next, map);
       if (r === "done") synced = true;
       if (r === "stop") break;
     }

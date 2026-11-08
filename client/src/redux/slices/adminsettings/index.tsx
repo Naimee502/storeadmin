@@ -32,6 +32,7 @@ interface AdminSettings {
   printShowPartyBalance?: boolean;
   showPartyLiveLocation?: boolean;
   deleteInvoiceFromInsideOnly?: boolean;
+  offlineBilling?: boolean | null;
 }
 
 interface AdminSettingsState {

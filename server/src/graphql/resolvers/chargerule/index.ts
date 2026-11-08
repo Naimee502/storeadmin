@@ -1,9 +1,9 @@
 import { ChargeRule } from "../../../models/chargerule";
 import { notCleared } from "../../../utils/listquery";
 
-const populate = [{ path: "ledgerid", select: "ledgername" }];
+export const populate = [{ path: "ledgerid", select: "ledgername" }];
 
-const formatRule = (r: any) => {
+export const formatRule = (r: any) => {
   if (!r) return null;
   return {
     ...r,

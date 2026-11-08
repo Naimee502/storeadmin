@@ -3,7 +3,7 @@
 Goal: work like Vyapar. Every write is saved on the device first and synced to the server; the app keeps working without internet.
 
 ## Decisions
-- Switch: `AdminSettings.offlineBilling` per business. Existing businesses: off until the admin turns it on (no default on the schema). New businesses: set `true` when their settings row is created. A device switch can still turn it off on one device.
+- Switch: `AdminSettings.offlineBilling` per business (Business Settings). Existing businesses: off until the admin turns it on (no default on the schema). New businesses: set `true` in `createAdmin`. Device setting in Settings: Business setting / On / Off.
 - Numbers (hybrid): online, the create is sent at once and the server's main number is used if it answers within 3 s; otherwise the bill takes the device series. Offline always uses the device series.
 - Device series: `A/000123` invoice and order, `CN-A/000012` sales return, `#PAY-A/000012` receipt. Codes come from `registerOfflineDevice` and are never reused.
 - Conflicts: the first change to reach the server wins; a later stale edit goes to "Needs review" (Apply mine / Discard mine). Edits send `expectedUpdatedAt`.
@@ -18,9 +18,12 @@ Goal: work like Vyapar. Every write is saved on the device first and synced to t
 
 ## Server contract
 - `AdminSettings.offlineBilling: Boolean` (read and update through the existing settings query/mutation).
-- `syncPull(collections: [String!]!, since: String): SyncPull!` → `{ serverTime, changes: [{ collection, docs: JSON, deletedIds: [ID!]! }] }`. Docs are shaped like the module's list query items. Tenant comes from the login. `since` null means full pull.
+- `syncPull(collections: [String!]!, since: String): SyncPull!` → `{ serverTime, changes: [{ collection, docs: JSON, deletedIds: [ID!]!, nextSince }] }`. Docs are shaped like the module's list query items. Tenant comes from the login. `since` null means full pull. Max 5,000 docs per collection per call; `nextSince` set means pull that collection again from it.
 - Collections: `salesinvoice, salesorder, salesreturn, payment, product, account, ledger, unit, category, subcategory, brand, model, size, productgroup, branch, staff, pricelist, priceassignment, chargerule, adminsettings`; later `purchaseinvoice, purchaseorder, purchasereturn, stockadjustment, transferstock, expensenote, transaction`.
 - Creates accept `clientRequestId`; device numbers are validated (`INVALID_DEVICE_NUMBER`, `DUPLICATE_NUMBER`); edits accept `expectedUpdatedAt` (`CONFLICT` with `current`).
+
+## Deploy
+Server first, then client (the client asks for `offlineBilling` and `syncPull`).
 
 ## Phases
 1. Foundation: business switch, `syncPull`, `localdb`, local reads, hybrid numbers, disconnect alert, dashboard offline. Billing screens (invoice, order, POS, return, receipt).

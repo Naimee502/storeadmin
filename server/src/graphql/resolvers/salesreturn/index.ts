@@ -72,7 +72,7 @@ const populateFields = [
 // Listing variant for getSalesReturns: same paths, but each populated doc
 // carries ONLY the fields formatReturn copies out (its toSimpleRef falls back
 // to `name` for every key, so `name` is always selected).
-const listPopulateFields: any[] = [
+export const listPopulateFields: any[] = [
   { path: "salesmenid", select: "name" },
   { path: "partyacc", select: "name accountname mobile city" },
   { path: "productservice.productserviceid", select: "name productvariants._id productvariants.name" },
@@ -83,7 +83,7 @@ const listPopulateFields: any[] = [
   { path: "othercharges.ledgerid", select: "name ledgername" },
 ];
 
-const formatReturn = (r: any) => ({
+export const formatReturn = (r: any) => ({
   ...r,
   id: r._id.toString(),
   sourceInvoiceId: r.sourceInvoiceId?.toString?.() ?? r.sourceInvoiceId,
@@ -186,7 +186,7 @@ async function validateReturnQuantities(input: any, excludeReturnId?: string) {
 }
 
 /** Role and filter scoping shared by the sales return lists (moved out of getSalesReturns unchanged). */
-function buildReturnQuery(filter: any, context: any): any {
+export function buildReturnQuery(filter: any, context: any): any {
   const q: any = { status: true };
   const { user } = context;
 

@@ -5,7 +5,7 @@ import { clearBusinessMailer, getBusinessSmtp, sendTestMail } from "../../../uti
 import { Admin } from "../../../models/admin";
 import { Branch } from "../../../models/branches";
 
-const formatSettings = (s: any) =>
+export const formatSettings = (s: any) =>
   s
     ? {
         ...s,
@@ -47,6 +47,7 @@ const formatSettings = (s: any) =>
         salesmanOrderDiscountEnabled: !!s.salesmanOrderDiscountEnabled,
         directPartyOrdersOnly: !!s.directPartyOrdersOnly,
         trackPartyStock: !!s.trackPartyStock,
+        offlineBilling: !!s.offlineBilling,
       }
     : null;
 

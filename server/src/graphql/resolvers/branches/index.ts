@@ -10,6 +10,10 @@ import {
   type ColumnFilter,
 } from "../../../utils/listquery";
 
+// Admin fields the branch lists populate.
+export const BRANCH_LIST_ADMIN_FIELDS =
+  "name email subscriptionType subscribed subscribedAt subscriptionEnd transactionId businesstype isMultibranch isChannelCustomers allowedmodules needsReview rejected";
+
 const branchStatusText = { $cond: ["$status", "Active", "Inactive"] };
 
 // List column key -> stored field, for column filters.
@@ -57,7 +61,7 @@ export const branchResolvers = {
         .sort({ createdAt: 1, _id: 1 })
         .populate(
           "admin",
-          "name email subscriptionType subscribed subscribedAt subscriptionEnd transactionId businesstype isMultibranch isChannelCustomers allowedmodules needsReview rejected"
+          BRANCH_LIST_ADMIN_FIELDS
         );
     },
 
@@ -78,7 +82,7 @@ export const branchResolvers = {
           .limit(limit)
           .populate(
             "admin",
-            "name email subscriptionType subscribed subscribedAt subscriptionEnd transactionId businesstype isMultibranch isChannelCustomers allowedmodules needsReview rejected"
+            BRANCH_LIST_ADMIN_FIELDS
           ),
       ]);
       return { items, total };

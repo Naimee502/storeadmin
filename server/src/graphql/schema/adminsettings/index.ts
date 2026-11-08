@@ -78,6 +78,7 @@ export const adminSettingsTypeDefs = gql`
     partyManagesDownline: Boolean
     directPartyOrdersOnly: Boolean
     trackPartyStock: Boolean
+    offlineBilling: Boolean
     requirePartyApproval: Boolean
     enablePaymentDiscountCommission: Boolean
     showLastPaymentOnStatement: Boolean
@@ -326,6 +327,7 @@ export const adminSettingsTypeDefs = gql`
     partyManagesDownline: Boolean
     directPartyOrdersOnly: Boolean
     trackPartyStock: Boolean
+    offlineBilling: Boolean
     requirePartyApproval: Boolean
     enablePaymentDiscountCommission: Boolean
     showLastPaymentOnStatement: Boolean

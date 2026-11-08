@@ -1,6 +1,7 @@
-// Price-list lookup from the cached lists and assignments, same rules as the server's resolvePrice.
+// Price-list lookup from pulled (or cached) lists and assignments, same rules as the server's resolvePrice.
 import { GET_PRICE_ASSIGNMENTS, GET_PRICE_LIST_BY_ID } from "../graphql/queries/pricelists";
 import { getOfflineClient } from "./outbox";
+import { localDoc, localDocs } from "./localdb";
 
 export type LocalPrice =
   // Price found, or no list applies (price null: use the product's own rate).
@@ -37,8 +38,7 @@ export function resolvePriceLocally(v: {
   noStaffDiscount?: boolean;
 }): LocalPrice {
   if (!v.adminid) return { status: "unknown" };
-  const data = read(GET_PRICE_ASSIGNMENTS, { adminid: v.adminid });
-  const all: any[] | undefined = data?.getPriceAssignments;
+  const all: any[] | undefined = localDocs("priceassignment") ?? read(GET_PRICE_ASSIGNMENTS, { adminid: v.adminid })?.getPriceAssignments;
   if (!Array.isArray(all)) return { status: "unknown" };
   const active = all.filter((a) => a && a.status !== false);
   const of = (type: string, target: string) => active.filter((a) => a.targettype === type && String(a.targetid) === target);
@@ -52,8 +52,9 @@ export function resolvePriceLocally(v: {
   for (const a of picked) {
     const listId = idOf(a.pricelistid);
     if (!listId) continue;
-    const res = read(GET_PRICE_LIST_BY_ID, { id: listId });
-    // Not cached: the server might still match here.
+    const pulled = localDoc("pricelist", listId);
+    const res = Array.isArray(pulled?.items) ? { getPriceListById: pulled } : read(GET_PRICE_LIST_BY_ID, { id: listId });
+    // Not stored: the server might still match here.
     if (!res) return { status: "unknown" };
     const list = res.getPriceListById;
     if (!list) continue;

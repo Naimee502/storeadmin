@@ -1,23 +1,31 @@
-// Self-contained "Offline mode (this device)" switch for the settings screen.
-import { useState } from "react";
+// "Offline billing (this device)" override for the settings screen: follow the business, or force on / off.
+import { useState, useSyncExternalStore } from "react";
 import { WifiOff } from "lucide-react";
-import { isOfflineEnabled, setOfflineEnabled } from "./settings";
+import { getDeviceMode, modeStore, setDeviceMode, type DeviceMode } from "./settings";
+import { useAppSelector } from "../redux/hooks";
 import { countOutboxForCurrentUser } from "./outbox";
-import { clearAllCacheSnapshots } from "./persist";
+import { clearAllRecords } from "./localdb";
 import { unregisterServiceWorker } from "./sw";
 
+const OPTIONS: Array<[DeviceMode, string]> = [
+  ["follow", "Business setting"],
+  ["on", "On"],
+  ["off", "Off"],
+];
+
 export default function OfflineModeCard() {
-  const [enabled] = useState(isOfflineEnabled);
+  const mode = useSyncExternalStore(modeStore.subscribe, getDeviceMode);
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
+  const business = useAppSelector((s: any) => s.adminsettings?.settings?.offlineBilling === true);
+  const modeOn = (m: DeviceMode) => m === "on" || (m === "follow" && business);
+  const active = modeOn(mode);
 
-  const toggle = async () => {
-    if (busy) return;
+  const choose = async (next: DeviceMode) => {
+    if (busy || next === mode) return;
     setNote(null);
-    if (!enabled) {
-      if (!window.confirm("Turn on offline mode for this device? The page will reload.")) return;
-      setOfflineEnabled(true);
-      window.location.reload();
+    if (!active || modeOn(next)) {
+      setDeviceMode(next);
       return;
     }
     setBusy(true);
@@ -29,44 +37,47 @@ export default function OfflineModeCard() {
         // Storage unreadable: nothing can be synced from it either.
       }
       if (counts.mine > 0) {
-        setNote(`${counts.mine} saved document(s) are still waiting to sync or failed. Sync or discard them before turning offline mode off.`);
-        window.alert(`${counts.mine} saved document(s) have not reached the server yet. Sync or discard them first.`);
+        setNote(`${counts.mine} saved document(s) are still waiting to sync or failed. Sync or discard them before turning offline billing off.`);
         return;
       }
-      const extra = counts.others > 0 ? ` ${counts.others} document(s) saved by another login on this device will stay unsynced until offline mode is turned on again and that login signs in.` : "";
-      if (!window.confirm(`Turn off offline mode for this device? The page will reload.${extra}`)) return;
-      await clearAllCacheSnapshots();
+      if (!window.confirm("Turn off offline billing on this device? Data stored for offline use is removed.")) return;
+      setDeviceMode(next);
+      await clearAllRecords();
       unregisterServiceWorker();
-      setOfflineEnabled(false);
-      window.location.reload();
     } finally {
       setBusy(false);
     }
   };
 
   return (
-    <div className="flex items-center justify-between gap-3 rounded-md border border-slate-200 bg-white px-3 py-2 text-[13px]">
+    <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-slate-200 bg-white px-3 py-2 text-[13px]">
       <div className="flex min-w-0 items-start gap-2">
         <WifiOff size={16} className="mt-0.5 shrink-0 text-slate-500" />
         <div className="min-w-0">
-          <div className="font-medium text-slate-800">Offline mode (this device)</div>
+          <div className="font-medium text-slate-800">
+            Offline billing (this device) <span className={active ? "text-emerald-600" : "text-slate-500"}>· {active ? "On" : "Off"}</span>
+          </div>
           <div className="text-[12px] text-slate-500">
-            Keeps the app and recently viewed data on this browser and saves sales invoices, orders, returns and receipts made while offline, syncing them when the internet is back.
+            Sales invoices, orders, returns and receipts are saved on this browser first and sync when the internet is back. Business setting: {business ? "On" : "Off"}.
           </div>
           {note && <div className="mt-1 text-[12px] text-rose-600">{note}</div>}
         </div>
       </div>
-      <button
-        type="button"
-        role="switch"
-        aria-checked={enabled}
-        aria-label="Offline mode (this device)"
-        disabled={busy}
-        onClick={toggle}
-        className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors disabled:opacity-50 ${enabled ? "bg-indigo-600" : "bg-slate-300"}`}
-      >
-        <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${enabled ? "translate-x-4" : "translate-x-0.5"}`} />
-      </button>
+      <div role="radiogroup" aria-label="Offline billing (this device)" className="flex shrink-0 overflow-hidden rounded-md border border-slate-300">
+        {OPTIONS.map(([value, label]) => (
+          <button
+            key={value}
+            type="button"
+            role="radio"
+            aria-checked={mode === value}
+            disabled={busy}
+            onClick={() => void choose(value)}
+            className={`h-8 px-2.5 text-[12px] font-medium disabled:opacity-50 ${mode === value ? "bg-indigo-600 text-white" : "bg-white text-slate-700 hover:bg-slate-50"}`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
     </div>
   );
 }

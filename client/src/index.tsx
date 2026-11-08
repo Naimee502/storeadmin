@@ -8,8 +8,7 @@ import { PersistGate } from 'redux-persist/integration/react';
 import { ApolloProvider } from '@apollo/client';
 import client from './graphql/index.tsx';
 import { setBranchId } from './redux/slices/branch';
-import { isOfflineEnabled } from './offline/settings';
-import { bootOffline, cleanupOfflineArtifacts } from './offline/boot';
+import { startOffline } from './offline/boot';
 
 // Restore the saved branch before first render; the slice itself starts empty so logout can't revive it.
 const savedBranchId = localStorage.getItem('branchid');
@@ -28,10 +27,6 @@ const renderApp = () =>
     </StrictMode>
   );
 
-// Offline mode off (default): render straight away, as before.
-if (isOfflineEnabled()) {
-  bootOffline(client).finally(renderApp);
-} else {
-  cleanupOfflineArtifacts();
-  renderApp();
-}
+// Offline billing starts or stays idle on its own once the persisted settings load.
+startOffline(client);
+renderApp();

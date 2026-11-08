@@ -113,7 +113,7 @@ async function buildAccountsQuery(filter: any): Promise<any> {
 // Populated refs carry only what any client asks for (id + label).
 // The full Admin / Ledger / Branch / Staff docs were loaded for every
 // party on every list fetch and then discarded by GraphQL.
-const withAccountListRefs = (q: any) => q
+export const withAccountListRefs = (q: any) => q
   .populate({ path: "admin", select: "name email" })
   .populate({ path: "accountgroupid", select: "accountgroupname" })
   .populate({ path: "ledgerid", select: "ledgername openingbalance openingbalancetype" })

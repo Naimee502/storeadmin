@@ -1,33 +1,49 @@
-// Apollo link (offline mode only): queues billing changes without network, adds version checks, serves cached reads.
+// Apollo link: a pass-through while offline billing is off; when on, billing writes go local first and reads fall back to localdb.
 import { ApolloLink, Observable, gql, type FetchResult, type NextLink, type Operation } from "@apollo/client";
 import { print, type DocumentNode, type FieldNode } from "graphql";
 import {
+  DOC_TYPES,
   NUMBER_FIELD,
   OP_SPECS,
   collectOfflineIds,
+  docId,
   findQueuedCreate,
   isOfflineId,
   liveCreates,
+  newestFirst,
+  numberSource,
+  pageRows,
   parseDeviceNumber,
   planChange,
   replaceIds,
+  type DocType,
   type OpKind,
   type OpSpec,
   type OutboxItem,
   type Plan,
+  type PushOutcome,
 } from "./core";
 import { mainOperation, rootField, shapeBySelection, withExpectedUpdatedAt } from "./gql";
-import { applyPlan, getOfflineClient, isSending, loadIdMap, loadItems, newRequestId, syncNow, waitUntilNotSending } from "./outbox";
+import {
+  applyPlan,
+  discardItem,
+  getOfflineClient,
+  isSending,
+  loadIdMap,
+  loadItems,
+  newRequestId,
+  offlineStore,
+  pushNow,
+  refreshOutbox,
+  setCreateNumber,
+  syncNow,
+  waitUntilNotSending,
+} from "./outbox";
 import { getDeviceCode, nextDeviceNumber, noteUsedNumber } from "./device";
-import { buildRichDoc } from "./docs";
-import { scheduleCacheSave } from "./persist";
+import { buildRichDoc, withQueued } from "./docs";
+import { localDoc, localDocs, localReady } from "./localdb";
+import { isOfflineEnabled } from "./settings";
 import { currentUserKey } from "./userkey";
-import { GET_SALES_INVOICES_LIST } from "../graphql/queries/salesinvoice";
-import { GET_SALES_ORDERS_LIST } from "../graphql/queries/salesorder";
-import { GET_SALES_RETURNS_LIST } from "../graphql/queries/salesreturn";
-import { GET_PAYMENTS_LIST } from "../graphql/queries/payments";
-
-export { OFFLINE_ID_PREFIX } from "./core";
 
 // By-id queries answered from the outbox for documents not synced yet.
 const BY_ID_FIELDS = new Set(["getSalesInvoiceById", "getSalesOrderById", "getSalesReturnById", "getPaymentById"]);
@@ -67,26 +83,96 @@ function sendOnce(operation: Operation, forward: NextLink): Promise<FetchResult>
         last = r;
       },
       error: reject,
-      complete: () => {
-        scheduleCacheSave();
-        resolve(last ?? { data: null });
-      },
+      complete: () => resolve(last ?? { data: null }),
     });
   });
 }
 
-function passthrough(operation: Operation, forward: NextLink): Observable<FetchResult> {
-  return new Observable<FetchResult>((observer) => {
-    const sub = forward(operation).subscribe({
-      next: (r) => observer.next(r),
-      error: (e) => observer.error(e),
-      complete: () => {
-        scheduleCacheSave();
-        observer.complete();
-      },
-    });
-    return () => sub.unsubscribe();
-  });
+// ---------- Local reads ----------
+
+type Kind = "list" | "page" | "byId" | "one";
+type LocalSpec = { c: string; kind: Kind; typename: string; page?: string };
+
+const doc = (c: string, typename: string, list: string, page: string, byId: string): Record<string, LocalSpec> => ({
+  [list]: { c, kind: "list", typename },
+  [page]: { c, kind: "page", typename, page: `${typename}Page` },
+  [byId]: { c, kind: "byId", typename },
+});
+const list = (c: string, typename: string): LocalSpec => ({ c, kind: "list", typename });
+
+// Root query fields answered from localdb without network.
+const LOCAL_QUERIES: Record<string, LocalSpec> = {
+  ...doc("salesinvoice", "SalesInvoice", "getSalesInvoices", "getSalesInvoicesPage", "getSalesInvoiceById"),
+  ...doc("salesorder", "SalesOrder", "getSalesOrders", "getSalesOrdersPage", "getSalesOrderById"),
+  ...doc("salesreturn", "SalesReturn", "getSalesReturns", "getSalesReturnsPage", "getSalesReturnById"),
+  ...doc("payment", "Payment", "getPayments", "getPaymentsPage", "getPaymentById"),
+  getProductServices: list("product", "ProductService"),
+  getAccounts: list("account", "Account"),
+  getAccountLedgers: list("ledger", "AccountLedger"),
+  getUnits: list("unit", "Unit"),
+  getCategories: list("category", "Category"),
+  getSubCategories: list("subcategory", "SubCategory"),
+  getBrands: list("brand", "Brand"),
+  getModels: list("model", "Model"),
+  getSizes: list("size", "Size"),
+  getProductGroups: list("productgroup", "ProductGroup"),
+  getBranches: list("branch", "Branch"),
+  getStaffAccounts: list("staff", "StaffAccount"),
+  getPriceLists: list("pricelist", "PriceList"),
+  getPriceAssignments: list("priceassignment", "PriceAssignment"),
+  getChargeRules: list("chargerule", "ChargeRule"),
+  getPriceListById: { c: "pricelist", kind: "byId", typename: "PriceList" },
+  getAdminSettings: { c: "adminsettings", kind: "one", typename: "AdminSettings" },
+};
+
+export const isLocalQuery = (doc: DocumentNode) => !!LOCAL_QUERIES[rootField(doc)?.name.value ?? ""];
+
+const idOf = (v: any): string => (!v ? "" : typeof v === "string" ? v : String(v.id ?? v._id ?? ""));
+
+// Same scoping the screens send: branch, party and category; soft-deleted documents never show.
+function matches(d: any, vars: any, isDoc: boolean): boolean {
+  const f = vars?.filter || {};
+  if (isDoc && d?.status === false) return false;
+  if (typeof f.status === "boolean" && d?.status !== undefined && d.status !== f.status) return false;
+  for (const k of ["branchid", "partyacc", "partyid"]) {
+    if (isDoc && f[k] && d?.[k] !== undefined && idOf(d[k]) !== String(f[k])) return false;
+  }
+  const cat = vars?.categoryId;
+  const dcat = d?.categoryid ?? d?.categoryId;
+  if (cat && dcat !== undefined && idOf(dcat) !== String(cat)) return false;
+  return true;
+}
+
+const shape = (sel: any, d: any, typename: string) => ({ ...shapeBySelection(sel, d, "null"), __typename: d?.__typename || typename });
+
+function localResult(field: FieldNode, spec: LocalSpec, vars: any): any {
+  const all = localDocs(spec.c);
+  if (!all) return null;
+  const key = field.alias?.value ?? field.name.value;
+  const isDoc = (DOC_TYPES as string[]).includes(spec.c);
+  const source = offlineStore.getSnapshot().items;
+  const rows = (creates: boolean) => {
+    const own = all.filter((d) => matches(d, vars, isDoc));
+    return isDoc ? withQueued(spec.c as DocType, own, source, creates) : own;
+  };
+  if (spec.kind === "one") return all[0] ? { [key]: shape(field.selectionSet, all[0], spec.typename) } : null;
+  if (spec.kind === "byId") {
+    const id = String(vars?.id ?? "");
+    const d = isDoc ? rows(true).find((x) => docId(x) === id) : localDoc(spec.c, id);
+    return d ? { [key]: shape(field.selectionSet, d, spec.typename) } : null;
+  }
+  if (spec.kind === "page") {
+    // Online the list screens add queued new documents to page 1 themselves.
+    let sorted = newestFirst(rows(!isOnline()));
+    if (spec.c === "salesinvoice" && !vars?.filter?.includeCancelled) sorted = sorted.filter((d) => d.cancelStatus !== "cancelled");
+    const { items, total } = pageRows(sorted, vars || {});
+    const sel = field.selectionSet?.selections.find((s: any) => s.kind === "Field" && s.name.value === "items") as FieldNode | undefined;
+    return { [key]: { __typename: spec.page, items: items.map((d) => shape(sel?.selectionSet, d, spec.typename)), total } };
+  }
+  let out = isDoc ? newestFirst(rows(true)).reverse() : rows(true);
+  const limit = Number(vars?.limit) || 0;
+  if (limit > 0) out = out.slice(Number(vars?.offset) || 0, (Number(vars?.offset) || 0) + limit);
+  return { [key]: out.map((d) => shape(field.selectionSet, d, spec.typename)) };
 }
 
 function readFromCache(operation: Operation): any {
@@ -97,70 +183,12 @@ function readFromCache(operation: Operation): any {
   }
 }
 
-// Paged lists that can be served offline from the cached full list (newest first).
-const LOCAL_PAGES: Record<string, { list: DocumentNode; field: string; typename: string }> = {
-  getSalesInvoicesPage: { list: GET_SALES_INVOICES_LIST, field: "getSalesInvoices", typename: "SalesInvoicePage" },
-  getSalesOrdersPage: { list: GET_SALES_ORDERS_LIST, field: "getSalesOrders", typename: "SalesOrderPage" },
-  getSalesReturnsPage: { list: GET_SALES_RETURNS_LIST, field: "getSalesReturns", typename: "SalesReturnPage" },
-  getPaymentsPage: { list: GET_PAYMENTS_LIST, field: "getPayments", typename: "PaymentPage" },
-};
-
-// A page that was never loaded online: slice it out of the cached full list.
-function localPage(operation: Operation): any {
-  const root = rootField(operation.query);
-  const spec = root ? LOCAL_PAGES[root.name.value] : undefined;
-  if (!root || !spec) return null;
-  const v: any = operation.variables || {};
-  const { includeCancelled: _ignored, ...filter } = v.filter || {};
-  let rows: any[] | undefined;
-  try {
-    rows = (getOfflineClient()?.cache.readQuery({ query: spec.list, variables: { filter } }) as any)?.[spec.field];
-  } catch {
-    rows = undefined;
-  }
-  if (!Array.isArray(rows)) return null;
-  const terms = [String(v.search || ""), ...((v.columnFilters || []) as any[]).map((f) => String(f?.value || ""))]
-    .map((t) => t.trim().toLowerCase())
-    .filter(Boolean);
-  const matched = [...rows].reverse().filter((row) => {
-    if (!terms.length) return true;
-    const text = JSON.stringify(row).toLowerCase();
-    return terms.every((t) => text.includes(t));
-  });
-  const size = Math.min(Math.max(Number(v.pageSize) || 10, 1), 200);
-  const start = (Math.max(Number(v.page) || 1, 1) - 1) * size;
-  const itemsSel = root.selectionSet?.selections.find((s: any) => s.kind === "Field" && s.name.value === "items") as FieldNode | undefined;
-  const items = matched.slice(start, start + size).map((row) => shapeBySelection(itemsSel?.selectionSet, row));
-  const key = root.alias?.value ?? root.name.value;
-  return { [key]: { __typename: spec.typename, items, total: matched.length } };
-}
-
-// Queries: without network, answer from the cache when it has the full result.
-function queryWithFallback(operation: Operation, forward: NextLink, fallback: boolean): Observable<FetchResult> {
-  if (!fallback) return passthrough(operation, forward);
-  return new Observable<FetchResult>((observer) => {
-    let sub: { unsubscribe: () => void } | null = null;
-    const fromCache = (original: unknown) => {
-      const data = readFromCache(operation) ?? localPage(operation);
-      if (data) {
-        observer.next({ data });
-        observer.complete();
-      } else observer.error(original);
-    };
-    if (!isOnline()) {
-      fromCache(new Error("No internet connection"));
-      return;
-    }
-    sub = forward(operation).subscribe({
-      next: (r) => observer.next(r),
-      error: (e) => (isNoResponse(e) ? fromCache(e) : observer.error(e)),
-      complete: () => {
-        scheduleCacheSave();
-        observer.complete();
-      },
-    });
-    return () => sub?.unsubscribe();
-  });
+// Without network: localdb for registered queries, else whatever this session already loaded.
+async function answerLocally(operation: Operation): Promise<any> {
+  await Promise.all([localReady(), refreshOutbox()]);
+  const field = rootField(operation.query);
+  const spec = field ? LOCAL_QUERIES[field.name.value] : undefined;
+  return (field && spec ? localResult(field, spec, operation.variables) : null) ?? readFromCache(operation);
 }
 
 function cancelledOffline(items: OutboxItem[], offlineId: string): boolean {
@@ -170,27 +198,47 @@ function cancelledOffline(items: OutboxItem[], offlineId: string): boolean {
 }
 
 function handleQuery(operation: Operation, forward: NextLink): Observable<FetchResult> {
-  const ctx = operation.getContext();
-  const fallback = !ctx.offlineNoFallback;
-  const temps = collectOfflineIds(operation.variables);
-  if (!temps.size) return queryWithFallback(operation, forward, fallback);
-  // A synced temp id is swapped for the real one; an unsynced by-id read is answered from the outbox.
-  return fromPromise(async () => {
-    const map = await loadIdMap();
-    const field = rootField(operation.query);
-    const id = operation.variables?.id;
-    if (field && BY_ID_FIELDS.has(field.name.value) && isOfflineId(id) && !map[id]) {
-      const items = await loadItems();
-      const create = findQueuedCreate(items, id);
-      const key = field.alias?.value ?? field.name.value;
-      if (!create) return { data: { [key]: null } };
-      const rich = buildRichDoc(create, { cancelled: cancelledOffline(items, id) });
-      return { data: { [key]: shapeBySelection(field.selectionSet, rich, "null") } };
-    }
-    operation.variables = replaceIds(operation.variables, map);
-    return new Promise<FetchResult>((resolve, reject) => {
-      queryWithFallback(operation, forward, fallback).subscribe({ next: resolve, error: reject });
-    });
+  return new Observable<FetchResult>((observer) => {
+    let closed = false;
+    let sub: { unsubscribe: () => void } | null = null;
+    const done = (r: FetchResult) => {
+      if (closed) return;
+      observer.next(r);
+      observer.complete();
+    };
+    const local = (original: unknown) =>
+      answerLocally(operation).then(
+        (data) => (closed ? undefined : data ? done({ data }) : observer.error(original)),
+        () => !closed && observer.error(original)
+      );
+    const run = async () => {
+      if (collectOfflineIds(operation.variables).size) {
+        // A synced temp id is swapped for the real one; an unsynced by-id read is answered from the outbox.
+        const map = await loadIdMap();
+        const field = rootField(operation.query);
+        const id = operation.variables?.id;
+        if (field && BY_ID_FIELDS.has(field.name.value) && isOfflineId(id) && !map[id]) {
+          const items = await loadItems();
+          const create = findQueuedCreate(items, id);
+          const key = field.alias?.value ?? field.name.value;
+          const rich = create ? buildRichDoc(create, { cancelled: cancelledOffline(items, id) }) : null;
+          return done({ data: { [key]: rich ? shapeBySelection(field.selectionSet, rich, "null") : null } });
+        }
+        operation.variables = replaceIds(operation.variables, map);
+      }
+      if (closed) return;
+      if (!isOnline()) return void local(new Error("No internet connection"));
+      sub = forward(operation).subscribe({
+        next: (r) => observer.next(r),
+        error: (e) => (isNoResponse(e) ? void local(e) : observer.error(e)),
+        complete: () => observer.complete(),
+      });
+    };
+    run().catch((e) => !closed && observer.error(e));
+    return () => {
+      closed = true;
+      sub?.unsubscribe();
+    };
   });
 }
 
@@ -214,13 +262,29 @@ const stampFragment = (typename: string) => {
   return f;
 };
 
+const COLLECTION_OF_TYPE: Record<string, string> = { SalesInvoice: "salesinvoice", SalesOrder: "salesorder", SalesReturn: "salesreturn", Payment: "payment" };
+
+// Field of a document from the Apollo cache, else from pulled records.
+function knownField(typename: string, id: string, field: string): any {
+  try {
+    const data: any = getOfflineClient()?.cache.extract() || {};
+    const v = data[`${typename}:${id}`]?.[field];
+    if (v != null) return v;
+  } catch {
+    // Fall back to records.
+  }
+  return localDoc(COLLECTION_OF_TYPE[typename] || "", id)?.[field] ?? null;
+}
+
 function cachedUpdatedAt(typename: string, id: string): string | null {
   try {
     const r: any = getOfflineClient()?.cache.readFragment({ id: `${typename}:${id}`, fragment: stampFragment(typename) });
-    return typeof r?.updatedAt === "string" && r.updatedAt ? r.updatedAt : null;
+    if (typeof r?.updatedAt === "string" && r.updatedAt) return r.updatedAt;
   } catch {
-    return null;
+    // Fall back to records.
   }
+  const v = knownField(typename, id, "updatedAt");
+  return typeof v === "string" && v ? v : null;
 }
 
 // Keeps the cached version current after cancel/reopen, whose results do not select it.
@@ -237,15 +301,6 @@ function writeStamp(typename: string, id: string, updatedAt: unknown) {
   }
 }
 
-function cachedField(typename: string, id: string, field: string): any {
-  try {
-    const data: any = getOfflineClient()?.cache.extract() || {};
-    return data[`${typename}:${id}`]?.[field] ?? null;
-  } catch {
-    return null;
-  }
-}
-
 function makeItem(p: {
   spec: OpSpec;
   operation: Operation;
@@ -258,6 +313,8 @@ function makeItem(p: {
   number: string | null;
   expectedUpdatedAt: string | null;
   reason: string | null;
+  // Set when the item is pushed at once, so a background sync leaves it alone.
+  sending?: boolean;
 }): OutboxItem {
   const input = p.variables?.input || {};
   const label = p.spec.docType === "payment" ? (String(input.type || "").toLowerCase() === "receipt" ? "Receipt" : "Payment") : p.spec.label;
@@ -281,7 +338,7 @@ function makeItem(p: {
     lastError: p.reason,
     status: "pending",
     conflict: null,
-    sendingSince: null,
+    sendingSince: p.sending ? Date.now() : null,
     userKey: currentUserKey(),
     branchHeader: branchHeader(),
     typename: p.spec.typename,
@@ -301,32 +358,42 @@ function makeItem(p: {
 
 const resultKey = (field: FieldNode) => field.alias?.value ?? field.name.value;
 
-async function queueCreate(
-  operation: Operation,
-  field: FieldNode,
-  spec: OpSpec,
-  variables: Record<string, any>,
-  crid: string,
-  reason: string
-): Promise<FetchResult> {
+// A device number for a create: one typed from this device's series, else the next one; null without a code.
+async function deviceNumber(spec: OpSpec, given: unknown): Promise<string | null> {
+  const code = getDeviceCode();
+  if (code && parseDeviceNumber(spec.docType, given)?.code === code) {
+    await noteUsedNumber(spec.docType, given).catch(() => {});
+    return given as string;
+  }
+  return nextDeviceNumber(spec.docType).catch(() => null);
+}
+
+// Server rejected the change within the wait: forget it and show the server's error as today.
+async function rejected(item: OutboxItem, error: any): Promise<FetchResult> {
+  await discardItem(item.id).catch(() => {});
+  const errors = error?.graphQLErrors;
+  if (Array.isArray(errors) && errors.length) return { data: null, errors };
+  throw error;
+}
+
+const syntheticCreate = (field: FieldNode, item: OutboxItem): FetchResult => ({
+  data: { [resultKey(field)]: shapeBySelection(field.selectionSet, buildRichDoc(item), "null") },
+});
+
+// Local first: queue the create; online it is sent at once and keeps the server's number if answered within 3 s.
+async function createLocalFirst(operation: Operation, field: FieldNode, spec: OpSpec, variables: Record<string, any>, crid: string): Promise<FetchResult> {
   const nf = NUMBER_FIELD[spec.docType];
   const input = { ...variables.input };
   const items = await loadItems().catch(() => [] as OutboxItem[]);
   const existing = items.find((i) => i.id === crid);
+  // A create that points at an unsynced document waits in the queue behind it.
+  const unresolved = collectOfflineIds(variables).size > 0;
+  const push = isOnline() && !unresolved && !existing;
   let number: string | null = existing?.number ?? null;
-  if (!number) {
-    const given = input[nf];
-    const code = getDeviceCode();
-    if (code && parseDeviceNumber(spec.docType, given)?.code === code) {
-      number = given;
-      await noteUsedNumber(spec.docType, given).catch(() => {});
-    } else {
-      number = await nextDeviceNumber(spec.docType).catch(() => null);
-    }
-  }
+  if (!push && !number) number = await deviceNumber(spec, input[nf]);
   // No device code yet: the server numbers it on sync.
   if (number) input[nf] = number;
-  else delete input[nf];
+  else if (!push) delete input[nf];
   const item = makeItem({
     spec,
     operation,
@@ -338,12 +405,26 @@ async function queueCreate(
     clientRequestId: crid,
     number,
     expectedUpdatedAt: null,
-    reason,
+    reason: push ? null : unresolved ? "Waiting for an earlier document to sync" : "Saved while offline",
+    sending: push,
   });
   await applyPlan({ put: [item], remove: [], outcome: "queued" });
-  void syncNow();
-  const rich = buildRichDoc(item);
-  return { data: { [resultKey(field)]: shapeBySelection(field.selectionSet, rich, "null") } };
+  if (!push) {
+    void syncNow();
+    return syntheticCreate(field, item);
+  }
+  const { out, late } = pushNow(item);
+  const outcome = await out;
+  const source = numberSource(true, outcome.kind);
+  if (source === "server") return { data: { [resultKey(field)]: (outcome as Extract<PushOutcome, { kind: "answered" }>).data } };
+  if (source === "error") return rejected(item, (outcome as Extract<PushOutcome, { kind: "rejected" }>).error);
+  // No answer in time: the bill takes the device series and stays queued.
+  const numbered = await setCreateNumber(item.id, nf, await deviceNumber(spec, input[nf]));
+  if (numbered) return syntheticCreate(field, numbered);
+  // Synced while the number was being set: use the server's answer.
+  const final = await late;
+  if (final.kind === "answered") return { data: { [resultKey(field)]: final.data } };
+  return syntheticCreate(field, item);
 }
 
 // Only the fields the edit sent, so a cache write never touches the rest of the document.
@@ -458,19 +539,8 @@ async function handleChange(
   const items = await loadItems().catch(() => [] as OutboxItem[]);
   const queuedForTarget = items.some((i) => i.kind !== "create" && i.targetId === target);
 
-  if (online && !unresolved && !queuedForTarget) {
-    operation.query = withExpectedUpdatedAt(operation.query, { arg: !!expected, selectUpdatedAt: true });
-    operation.variables = expected ? { ...variables, expectedUpdatedAt: expected } : variables;
-    try {
-      const r = await sendOnce(operation, forward);
-      writeStamp(spec.typename, target, (r.data as any)?.[resultKey(field)]?.updatedAt);
-      return r;
-    } catch (e) {
-      if (!isNoResponse(e)) throw e;
-    }
-  }
-
-  const docNumber = cachedField(spec.typename, target, NUMBER_FIELD[spec.docType]);
+  const push = online && !unresolved && !queuedForTarget;
+  const docNumber = knownField(spec.typename, target, NUMBER_FIELD[spec.docType]);
   const base = makeItem({
     spec,
     operation,
@@ -482,54 +552,48 @@ async function handleChange(
     clientRequestId: null,
     number: typeof docNumber === "string" ? docNumber : null,
     expectedUpdatedAt: expected,
-    reason,
+    reason: push ? null : reason,
+    sending: push,
   });
   const plan = planChange(items, base);
   await applyPlan(plan);
-  void syncNow();
+  if (push && plan.put[0]) {
+    const outcome = await pushNow(plan.put[0]).out;
+    if (outcome.kind === "answered") {
+      writeStamp(spec.typename, target, outcome.data?.updatedAt);
+      return { data: { [resultKey(field)]: outcome.data } };
+    }
+    if (outcome.kind === "rejected") return rejected(base, outcome.error);
+  } else {
+    void syncNow();
+  }
   return syntheticChange(field, spec, spec.kind, target, variables, plan, items, base);
 }
 
 async function handleMutation(operation: Operation, forward: NextLink, field: FieldNode, spec: OpSpec): Promise<FetchResult> {
   const original = operation.variables || {};
   if (spec.kind !== "create") return handleChange(operation, forward, field, spec, original);
-
-  const input0 = original.input;
-  if (!input0 || typeof input0 !== "object") return sendOnce(operation, forward);
-  const map = await loadIdMap();
-  const variables = replaceIds(original, map);
+  if (!original.input || typeof original.input !== "object" || !getOfflineClient()) return sendOnce(operation, forward);
+  const variables = replaceIds(original, await loadIdMap());
   const crid: string = variables.input.clientRequestId || newRequestId();
-  const withId = { ...variables, input: { ...variables.input, clientRequestId: crid } };
-  // A create that points at an unsynced document waits in the queue behind it.
-  const unresolved = collectOfflineIds(withId).size > 0;
-  let reason = "Saved while offline";
-  if (isOnline() && !unresolved) {
-    operation.variables = withId;
-    try {
-      return await sendOnce(operation, forward);
-    } catch (e: any) {
-      if (!isNoResponse(e)) throw e;
-      reason = e?.message || "Network error";
-    }
-  } else if (unresolved) {
-    reason = "Waiting for an earlier document to sync";
-  }
-  return queueCreate(operation, field, spec, withId, crid, reason);
+  return createLocalFirst(operation, field, spec, { ...variables, input: { ...variables.input, clientRequestId: crid } }, crid);
 }
 
 export const offlineLink = new ApolloLink((operation, forward) => {
   const ctx = operation.getContext();
   if (ctx.offlineSync) {
-    // Replay from the outbox: send under the branch it was saved with.
+    // Replay from the outbox or a pull: send under the branch it was saved with.
     if (typeof ctx.offlineBranch === "string") {
       operation.setContext(({ headers = {} }: any) => ({ headers: { ...headers, "x-branch-id": ctx.offlineBranch } }));
     }
     return forward(operation);
   }
+  // Offline billing off: untouched.
+  if (!isOfflineEnabled()) return forward(operation);
   const op = mainOperation(operation.query);
   if (op?.operation === "query") return handleQuery(operation, forward);
   const field = op?.operation === "mutation" ? rootField(operation.query) : null;
   const spec = field ? OP_SPECS[field.name.value] : undefined;
-  if (!field || !spec) return passthrough(operation, forward);
+  if (!field || !spec) return forward(operation);
   return fromPromise(() => handleMutation(operation, forward, field, spec));
 });

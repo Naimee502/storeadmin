@@ -1,9 +1,8 @@
 // List-screen helpers: unsynced rows on page 1, badges and the no-network note (offline mode only).
 import { useMemo, type ReactNode } from "react";
-import { isOfflineEnabled } from "./settings";
 import { listOfflineDocs, queuedChangesFor } from "./docs";
 import { useOfflineSnapshot } from "./billing";
-import type { DocType, OutboxStatus } from "./core";
+import { findQueuedCreate, isOfflineId, type DocType, type OutboxStatus } from "./core";
 
 type Change = ReturnType<typeof queuedChangesFor>[number];
 
@@ -46,19 +45,19 @@ const withBadge = (value: ReactNode, badge: ReactNode) => (
   </span>
 );
 
-/**
- * Unsynced documents of a type for page 1 and helpers to mark rows.
- * With offline mode off: no rows, and decorate returns the row unchanged.
- */
+// Unsynced rows for page 1 and a row decorator; no-op when offline billing is off.
 export function useOfflineList(type: DocType, page: number) {
   const snap = useOfflineSnapshot();
-  const on = isOfflineEnabled();
-  const rows = useMemo<any[]>(() => (on && page === 1 ? listOfflineDocs(type, snap.items) : []), [on, page, type, snap.items]);
+  const on = snap.enabled || snap.items.length > 0;
+  // Without network the local page already holds them.
+  const rows = useMemo<any[]>(() => (on && snap.online && page === 1 ? listOfflineDocs(type, snap.items) : []), [on, snap.online, page, type, snap.items]);
   // Marks the given column of a built row: offline rows get their status, server rows their queued changes.
   const decorate = (row: any, key: string): any => {
     if (!on) return row;
-    if (row?.isOffline) {
-      return { ...row, [key]: withBadge("", <OfflineBadge status={row.offlineStatus} title={row.offlineError} />) };
+    const create = !row?.isOffline && isOfflineId(row?.id) ? findQueuedCreate(snap.items, row.id) : null;
+    if (row?.isOffline || create) {
+      const status = row?.offlineStatus ?? create?.status ?? "pending";
+      return { ...row, [key]: withBadge("", <OfflineBadge status={status} title={row?.offlineError ?? create?.lastError} />) };
     }
     const changes = typeof row?.id === "string" ? queuedChangesFor(row.id, snap.items) : [];
     if (!changes.length) return row;

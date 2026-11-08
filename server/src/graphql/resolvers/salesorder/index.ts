@@ -443,7 +443,7 @@ const populateFields: any[] = [
 // + the party's channelName). Used solely by getSalesOrders — the full
 // party / product / ledger / unit documents were being loaded for every line
 // of every order and then thrown away by formatOrder.
-const listPopulateFields: any[] = [
+export const listPopulateFields: any[] = [
   { path: "salesmenid", select: "name" },
   {
     path: "partyacc",
@@ -465,7 +465,7 @@ const loadOrder = async (id: any) => {
 };
 
 // ✅ Format order function
-const formatOrder = (order: any) => ({
+export const formatOrder = (order: any) => ({
   ...order,
   id: order._id.toString(),
   salesmenid: toSimpleRef(order.salesmenid, ["name"]),
@@ -649,7 +649,7 @@ const ORDER_COLUMN_KEYS = [
 ];
 
 /** Role, delivery and party filters shared by the sales order lists (moved out of getSalesOrders unchanged). */
-async function buildOrderQuery(filter: any, context: any): Promise<any> {
+export async function buildOrderQuery(filter: any, context: any): Promise<any> {
   const query: any = { status: true };
   const { user } = context;
 

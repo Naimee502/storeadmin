@@ -103,7 +103,7 @@ function mapVariantForResponse(v: any) {
 }
 
 /** Tenant, status and branch scoping shared by the product lists. */
-async function buildProductListQuery(filter: any, context: any) {
+export async function buildProductListQuery(filter: any, context: any) {
   // Tenant comes from the verified token for a back-office caller; the
   // adminid the client sent is discarded. A public storefront caller
   // (clientweb, no login) may name the store it is browsing, but only
@@ -164,8 +164,8 @@ async function buildProductListQuery(filter: any, context: any) {
   return { query, tenant, isPublic };
 }
 
-/** Product list find with the refs every list populates, newest first. */
-const buildProductsQuery = (q: any) => ProductService.find(q)
+/** The refs every product list populates, on a lean find. */
+export const withProductListRefs = (query: any) => query
     .populate({ path: "categoryid", select: "id categoryname image" })
     .populate({ path: "subcategoryid", select: "id subcategoryname image" })
     .populate({ path: "groupid", select: "id productgroupname" })
@@ -180,7 +180,10 @@ const buildProductsQuery = (q: any) => ProductService.find(q)
     .populate({ path: "salesaccountid", select: "id ledgername" })
     .populate({ path: "purchaseaccountid", select: "id ledgername" })
     .populate({ path: "serviceaccountid", select: "id ledgername" })
-    .lean()
+    .lean();
+
+/** Product list find with the refs every list populates, newest first. */
+const buildProductsQuery = (q: any) => withProductListRefs(ProductService.find(q))
     .sort({ createdAt: -1, _id: -1 });
 
 /** Per-variant stock lookup for a set of products, in one aggregate. */
@@ -242,7 +245,7 @@ async function stockLookup(products: any[], adminId: any, branchId: any) {
 }
 
 /** Adds stock to each variant and shapes products for the response. */
-async function mapProductsWithStock(products: any[], tenant: any, isPublic: boolean) {
+export async function mapProductsWithStock(products: any[], tenant: any, isPublic: boolean) {
   const adminId = tenant.adminid;
   const branchId = tenant.branchid;
   const stockFor = await stockLookup(products, adminId, branchId);

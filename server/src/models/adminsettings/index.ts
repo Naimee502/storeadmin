@@ -218,6 +218,8 @@ const adminSettingsSchema = new mongoose.Schema(
     // as always); an invoice to a sub-party moves stock from its parent party
     // to it and leaves the company's stock alone. Off = no party stock at all.
     trackPartyStock: { type: Boolean, default: false },
+    // No default: existing businesses stay off; new settings rows get true.
+    offlineBilling: { type: Boolean },
     // Self-registered customers land as "pending" and cannot sign in — on the
     // app or the website — until an admin approves them from Party Accounts.
     // Off by default: turning it on is a deliberate choice to gate signups.

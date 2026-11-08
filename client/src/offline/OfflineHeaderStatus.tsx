@@ -1,12 +1,12 @@
-// Header dot (Online / Offline) with the pending count; renders nothing when offline mode is off.
+// Header dot (Online / Offline) with the pending count; hidden while offline billing is off and nothing is queued.
 import { useSyncExternalStore } from "react";
-import { isOfflineEnabled } from "./settings";
 import { offlineStore } from "./outbox";
-import { openOfflinePanel, panelStore } from "./panel";
+import { openOfflinePanel, panelStore } from "./OfflineStatusBar";
 
-function HeaderStatus() {
+export default function OfflineHeaderStatus() {
   const snap = useSyncExternalStore(offlineStore.subscribe, offlineStore.getSnapshot);
   const open = useSyncExternalStore(panelStore.subscribe, panelStore.getSnapshot);
+  if (!snap.enabled && !snap.items.length) return null;
   const attention = snap.review.length + snap.failed.length;
   const tab = snap.review.length ? "review" : snap.failed.length ? "failed" : "waiting";
   return (
@@ -24,7 +24,3 @@ function HeaderStatus() {
   );
 }
 
-export default function OfflineHeaderStatus() {
-  if (!isOfflineEnabled()) return null;
-  return <HeaderStatus />;
-}

@@ -156,7 +156,7 @@ async function buildLedgerEntries(input: any) {
 // List queries only ever read the party's name and the ledgers' names (every
 // web/app query asks for { id name } / { id ledgername }). Populating the full
 // Account / Ledger documents for ~2000 payments made the list slow to load.
-const LIST_POPULATE: any[] = [
+export const LIST_POPULATE: any[] = [
   { path: "partyid", select: "name" },
   { path: "ledgerid", select: "ledgername" },
   { path: "counterledgerid", select: "ledgername" },
@@ -168,7 +168,7 @@ async function loadPayment(id: any) {
   return p ? formatPayment(p) : null;
 }
 
-function formatPayment(r: any) {
+export function formatPayment(r: any) {
   return {
     ...r,
     id: r._id.toString(),
@@ -250,7 +250,7 @@ async function prepareAllocation(input: any, excludePaymentId?: any) {
 }
 
 /** Role and filter scope of the payments list (getPayments and its page query). */
-async function buildPaymentQuery(filter: any, context: any): Promise<any> {
+export async function buildPaymentQuery(filter: any, context: any): Promise<any> {
   const query: any = { status: true };
   const { user } = context;
 

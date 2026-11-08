@@ -52,13 +52,6 @@ export const FIELD_BY_OPERATION: Record<string, string> = {
   AddSalesOrder: "addSalesOrder",
 };
 
-export const TYPENAME_BY_DOC: Record<DocType, string> = {
-  salesinvoice: "SalesInvoice",
-  salesorder: "SalesOrder",
-  salesreturn: "SalesReturn",
-  payment: "Payment",
-};
-
 export const NUMBER_FIELD: Record<DocType, "billnumber" | "paymentcode"> = {
   salesinvoice: "billnumber",
   salesorder: "billnumber",
@@ -225,14 +218,7 @@ export interface Plan {
 
 const isOpen = (i: OutboxItem) => i.sendingSince == null;
 
-/**
- * Applies a change (edit/cancel/reopen/delete or a create) to the queue.
- * Offline docs: edit replaces the queued create's input; delete drops the create and
- * its follow-ups; cancel is kept as a follow-up op (the server reverses stock and
- * journal and keeps the number); reopen cancels out a queued cancel.
- * Server docs: a second edit replaces a still-pending queued edit; delete replaces
- * the pending ops before it (keeping the oldest base version); cancel/reopen pair off.
- */
+// Merges a change into the queue (offline docs: edit/delete fold into the create; server docs: later ops replace pending ones).
 export function planChange(items: OutboxItem[], incoming: OutboxItem): Plan {
   const sorted = [...items].sort(byAge);
   if (incoming.kind === "create") return { put: [incoming], remove: [], outcome: "queued" };
@@ -347,18 +333,15 @@ export function pendingRefs(item: OutboxItem, map: Record<string, string>): stri
   return [...ids].filter((id) => id !== own && !map[id]);
 }
 
-/**
- * Next item to send: oldest pending one whose temp ids can be resolved and with no
- * older unsent item on the same document. Items that reference a temp id whose
- * create is gone are returned in `orphans`.
- */
+// Next item to send: oldest pending one with resolvable temp ids and nothing older on the same doc.
 export function pickNext(items: OutboxItem[], map: Record<string, string>): { next: OutboxItem | null; orphans: OutboxItem[] } {
   const sorted = [...items].sort(byAge);
   const orphans: OutboxItem[] = [];
   let next: OutboxItem | null = null;
   for (let idx = 0; idx < sorted.length; idx++) {
     const item = sorted[idx];
-    if (item.status !== "pending") continue;
+    // Skips an item being sent right now (e.g. a create waiting for its 3 s answer).
+    if (item.status !== "pending" || item.sendingSince != null) continue;
     const refs = pendingRefs(item, map);
     if (refs.some((r) => !findQueuedCreate(sorted, r))) {
       orphans.push(item);
@@ -413,12 +396,7 @@ export function lineBaseQty(line: any, variant?: any): number {
   return qty * Number(conv?.factor ?? 1);
 }
 
-/**
- * Stock change not yet on the server for one product variant (base units when
- * `variant` is given). Negative: queued sales invoices take stock out. Positive:
- * queued sales returns put it back. Orders and service bills move no stock.
- * Cancelled offline docs count zero. Only pending and review items count.
- */
+// Unsynced stock change for a variant: invoices negative, returns positive, orders/services zero.
 export function stockDelta(items: OutboxItem[], productId: string, variantId: string | null, branchId: string | null, variant?: any): number {
   let total = 0;
   for (const { item, cancelled } of liveCreates(items)) {
@@ -437,13 +415,7 @@ export function stockDelta(items: OutboxItem[], productId: string, variantId: st
   return total;
 }
 
-/**
- * Party outstanding change not yet on the server. Positive: the party owes more.
- * Invoice: + total minus what was received (credit = 0 received, as the server does).
- * Sales return: - total, unless refunded in cash/bank (refundMode auto) which nets 0.
- * Receipt: - (amount + discount + commission). Payment out / refund: + the same.
- * Orders: 0. Cancelled offline docs: 0. Only pending and review items count.
- */
+// Unsynced outstanding change: invoices add (total - received), returns and receipts subtract.
 export function partyDelta(items: OutboxItem[], partyId: string): number {
   let total = 0;
   for (const { item, cancelled } of liveCreates(items)) {
@@ -468,4 +440,104 @@ export function partyDelta(items: OutboxItem[], partyId: string): number {
     }
   }
   return total;
+}
+
+// ---------- Pull sync and local reads ----------
+
+export interface PullChange {
+  collection: string;
+  docs: any;
+  deletedIds?: string[] | null;
+  // Set when the server cut this collection at its cap: pull it again from here.
+  nextSince?: string | null;
+}
+
+export const recordKey = (collection: string, id: string) => `${collection}:${id}`;
+export const docId = (d: any): string => (d && (d.id ?? d._id) != null ? String(d.id ?? d._id) : "");
+
+function docsOf(v: any): any[] {
+  if (Array.isArray(v)) return v;
+  if (typeof v !== "string") return [];
+  try {
+    const parsed = JSON.parse(v);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+// Records to write and keys to drop for one syncPull result; a full pull also drops what it no longer sends (uncut collections only).
+export function planPull(existingKeys: Iterable<string>, changes: PullChange[] | null | undefined, full: boolean): { put: Record<string, any>; remove: string[] } {
+  const put: Record<string, any> = {};
+  const remove = new Set<string>();
+  const pulled = new Set<string>();
+  for (const ch of changes || []) {
+    if (!ch?.collection) continue;
+    if (!ch.nextSince) pulled.add(ch.collection);
+    for (const d of docsOf(ch.docs)) {
+      const id = docId(d);
+      if (id) put[recordKey(ch.collection, id)] = d;
+    }
+    for (const id of ch.deletedIds || []) {
+      const k = recordKey(ch.collection, String(id));
+      delete put[k];
+      remove.add(k);
+    }
+  }
+  if (full) {
+    for (const k of existingKeys) {
+      if (pulled.has(k.slice(0, k.indexOf(":"))) && !(k in put)) remove.add(k);
+    }
+  }
+  return { put, remove: [...remove] };
+}
+
+export function createdTime(d: any): number {
+  const v = d?.createdAt;
+  const n = typeof v === "number" ? v : typeof v === "string" && /^\d+$/.test(v) ? Number(v) : Date.parse(String(v ?? ""));
+  return Number.isFinite(n) ? n : 0;
+}
+
+export function newestFirst(rows: any[]): any[] {
+  return [...rows].sort((a, b) => createdTime(b) - createdTime(a) || (docId(b) > docId(a) ? 1 : docId(b) < docId(a) ? -1 : 0));
+}
+
+// One page of already sorted rows; search and column filter values match anywhere in the row.
+export function pageRows(rows: any[], v: { page?: number; pageSize?: number; search?: string; columnFilters?: any[] } = {}): { items: any[]; total: number } {
+  const terms = [String(v.search || ""), ...((v.columnFilters || []) as any[]).map((f) => String(f?.value ?? ""))]
+    .map((t) => t.trim().toLowerCase())
+    .filter(Boolean);
+  const matched = terms.length ? rows.filter((r) => terms.every((t) => JSON.stringify(r).toLowerCase().includes(t))) : rows;
+  const size = Math.min(Math.max(Number(v.pageSize) || 10, 1), 200);
+  const start = (Math.max(Number(v.page) || 1, 1) - 1) * size;
+  return { items: matched.slice(start, start + size), total: matched.length };
+}
+
+// ---------- Hybrid numbers ----------
+
+export type PushOutcome = { kind: "answered"; data: any } | { kind: "rejected"; error: any } | { kind: "timeout" } | { kind: "noNetwork" };
+
+// Resolves with the outcome, or "timeout" when it takes longer than ms.
+export function withTimeout(p: Promise<PushOutcome>, ms: number): Promise<PushOutcome> {
+  return new Promise((resolve) => {
+    const t = setTimeout(() => resolve({ kind: "timeout" }), ms);
+    p.then(
+      (r) => {
+        clearTimeout(t);
+        resolve(r);
+      },
+      () => {
+        clearTimeout(t);
+        resolve({ kind: "noNetwork" });
+      }
+    );
+  });
+}
+
+// Server answered in time: its document and main number; rejected: show the error; otherwise the device series.
+export function numberSource(online: boolean, outcome: PushOutcome["kind"] | null): "server" | "device" | "error" {
+  if (!online || !outcome) return "device";
+  if (outcome === "answered") return "server";
+  if (outcome === "rejected") return "error";
+  return "device";
 }

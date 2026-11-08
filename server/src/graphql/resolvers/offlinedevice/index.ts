@@ -4,7 +4,7 @@ import { resolveTenant } from "../../../utils/tenant";
 import { DEVICE_CODE_RX, OFFLINE_DOC_TYPES, deviceCodeFromIndex, deviceCodeIndex, isoOf } from "../../../utils/offlinesync";
 
 // Business of the signed-in user: admin = itself, everyone else = their admin.
-const tenantOf = async (context: any): Promise<{ adminid: string; branchid?: string }> => {
+export const tenantOf = async (context: any): Promise<{ adminid: string; branchid?: string }> => {
   const user = context?.user;
   if (!user?.id) throw new ApolloError("Please sign in again.", "UNAUTHENTICATED");
   if (user.type === "admin") return { adminid: String(user.id) };

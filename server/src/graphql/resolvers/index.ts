@@ -42,6 +42,7 @@ import { notificationResolvers } from "./notifications";
 import { accountDeletionResolvers } from "./accountdeletionrequest";
 import { commonResolvers } from "./common";
 import { offlineDeviceResolvers } from "./offlinedevice";
+import { syncResolvers } from "./sync";
 
 export const resolvers = [
   branchResolvers,
@@ -88,4 +89,5 @@ export const resolvers = [
   accountDeletionResolvers,
   commonResolvers,
   offlineDeviceResolvers,
+  syncResolvers,
 ];

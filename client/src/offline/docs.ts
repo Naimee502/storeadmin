@@ -1,19 +1,13 @@
-// Queued offline documents shaped like the server's list rows and by-id results (for lists, print and WhatsApp).
+// Queued offline documents shaped like server rows, and server documents with pending local changes on top.
 import type { DocumentNode } from "graphql";
-import { GET_SALES_INVOICE_BY_ID, GET_SALES_INVOICES_PAGE } from "../graphql/queries/salesinvoice";
-import { GET_SALES_ORDER_BY_ID, GET_SALES_ORDERS_PAGE } from "../graphql/queries/salesorder";
-import { GET_SALES_RETURN_BY_ID, GET_SALES_RETURNS_PAGE } from "../graphql/queries/salesreturn";
-import { GET_PAYMENT_BY_ID, GET_PAYMENTS_PAGE } from "../graphql/queries/payments";
-import { findQueuedCreate, isOfflineId, liveCreates, offlineIdFor, type DocType, type OutboxItem, type OutboxStatus } from "./core";
+import { GET_SALES_INVOICES_PAGE } from "../graphql/queries/salesinvoice";
+import { GET_SALES_ORDERS_PAGE } from "../graphql/queries/salesorder";
+import { GET_SALES_RETURNS_PAGE } from "../graphql/queries/salesreturn";
+import { GET_PAYMENTS_PAGE } from "../graphql/queries/payments";
+import { byAge, docId, liveCreates, offlineIdFor, type DocType, type OutboxItem, type OutboxStatus } from "./core";
 import { selectionAt, shapeBySelection } from "./gql";
 import { getOfflineClient, offlineStore } from "./outbox";
-
-const BY_ID: Record<DocType, DocumentNode> = {
-  salesinvoice: GET_SALES_INVOICE_BY_ID,
-  salesorder: GET_SALES_ORDER_BY_ID,
-  salesreturn: GET_SALES_RETURN_BY_ID,
-  payment: GET_PAYMENT_BY_ID,
-};
+import { localDoc, localDocs } from "./localdb";
 
 const PAGE: Record<DocType, DocumentNode> = {
   salesinvoice: GET_SALES_INVOICES_PAGE,
@@ -49,9 +43,29 @@ function cacheData(): CacheData {
 
 const idOf = (v: any): string => (!v ? "" : typeof v === "string" ? v : String(v.id ?? v._id ?? ""));
 
-// Cached entity by id, trying the likely typenames first.
+const COLLECTION_OF: Record<string, string> = {
+  Account: "account",
+  StaffAccount: "staff",
+  ProductService: "product",
+  Unit: "unit",
+  AccountLedger: "ledger",
+};
+
+function localVariant(id: string): any {
+  for (const p of localDocs("product") || []) {
+    const v = (p?.productvariants || []).find((x: any) => idOf(x) === id);
+    if (v) return v;
+  }
+  return null;
+}
+
+// Entity by id: pulled records first, then the Apollo cache (likely typenames first).
 function entity(data: CacheData, id: string, types: string[]): any {
   if (!id) return null;
+  for (const t of types) {
+    const d = COLLECTION_OF[t] ? localDoc(COLLECTION_OF[t], id) : t === "ProductVariant" ? localVariant(id) : null;
+    if (d) return d;
+  }
   for (const t of types) if (data[`${t}:${id}`]) return data[`${t}:${id}`];
   const suffix = `:${id}`;
   for (const k of Object.keys(data)) if (k.endsWith(suffix) && k !== "ROOT_QUERY") return data[k];
@@ -102,10 +116,7 @@ function scalars(input: Record<string, any>): Record<string, any> {
   return out;
 }
 
-/**
- * Full document (superset of the by-id fields) for a queued create, built from its
- * input plus cached party, product, unit and ledger names.
- */
+// Full document for a queued create, built from its input and cached names.
 export function buildRichDoc(
   item: OutboxItem,
   opts: { cancelled?: boolean; id?: string; data?: CacheData; input?: Record<string, any> } = {}
@@ -202,11 +213,7 @@ const metaOf = (d: any): OfflineDocMeta => ({
   offlineError: d.offlineError,
 });
 
-/**
- * Queued (not yet synced) documents of a type, newest first, shaped like the
- * module's page query rows plus { isOffline, offlineStatus, offlineItemId, offlineError }.
- * Includes failed and review creates; deleted ones are already gone from the queue.
- */
+// Unsynced documents of a type, newest first, shaped like page rows plus offline flags.
 export function listOfflineDocs(type: DocType, source: OutboxItem[] = items()): any[] {
   const sel = selectionAt(PAGE[type], ["items"]);
   const data = cacheData();
@@ -219,33 +226,50 @@ export function listOfflineDocs(type: DocType, source: OutboxItem[] = items()): 
     });
 }
 
-/**
- * A queued document by its offline id, shaped like the module's by-id query result
- * (GET_SALES_INVOICE_BY_ID etc.) plus the offline meta fields; null when not queued.
- */
-export function getOfflineDoc(id: string, source: OutboxItem[] = items()): any | null {
-  if (!isOfflineId(id)) return null;
-  const create = findQueuedCreate(source, id);
-  if (!create) return null;
-  const state = liveCreates(source, ["pending", "failed", "review"]).find((c) => c.item.id === create.id);
-  const rich = buildRichDoc(create, { cancelled: !!state?.cancelled });
-  return { ...withTypename(selectionAt(BY_ID[create.docType]), rich, create.typename), ...metaOf(rich) };
-}
-
-// Same as getOfflineDoc but every built field (a superset of the by-id query).
-export function getOfflineDocFull(id: string, source: OutboxItem[] = items()): any | null {
-  const create = isOfflineId(id) ? findQueuedCreate(source, id) : undefined;
-  if (!create) return null;
-  const state = liveCreates(source, ["pending", "failed", "review"]).find((c) => c.item.id === create.id);
-  return buildRichDoc(create, { cancelled: !!state?.cancelled });
-}
-
-/**
- * Queued changes to a server document (oldest first), e.g. to mark a list row as
- * "edited offline", "cancel pending" or "delete pending", or "needs review".
- */
+// Queued changes to a server document, oldest first (for row badges).
 export function queuedChangesFor(id: string, source: OutboxItem[] = items()): Array<Pick<OutboxItem, "id" | "kind" | "status" | "lastError">> {
   return source
     .filter((i) => i.kind !== "create" && i.targetId === id)
     .map((i) => ({ id: i.id, kind: i.kind, status: i.status, lastError: i.lastError }));
+}
+
+// A queued edit, cancel or re-open applied to a server document.
+function applyOp(doc: any, op: OutboxItem): any {
+  if (op.kind === "edit") {
+    const input = op.variables?.input || {};
+    const rich = buildRichDoc(op, { id: docId(doc), input });
+    const patch: any = {};
+    for (const k of Object.keys(input)) if (k !== "clientRequestId" && rich[k] !== undefined) patch[k] = rich[k];
+    return { ...doc, ...patch };
+  }
+  const cancelled = op.kind === "cancel";
+  if (!cancelled && op.kind !== "reopen") return doc;
+  const out = { ...doc, cancelStatus: cancelled ? "cancelled" : "open" };
+  if (op.docType === "salesorder") out.orderStatus = cancelled ? "cancelled" : "pending";
+  return out;
+}
+
+// Server documents with this device's pending changes applied; `creates` adds queued new ones.
+export function withQueued(type: DocType, docs: any[], source: OutboxItem[] = items(), creates = true): any[] {
+  const ops = new Map<string, OutboxItem[]>();
+  for (const i of [...source].sort(byAge)) {
+    if (i.kind === "create" || i.docType !== type || !i.targetId || (i.status !== "pending" && i.status !== "review")) continue;
+    ops.set(i.targetId, [...(ops.get(i.targetId) || []), i]);
+  }
+  const out: any[] = [];
+  for (const d of docs) {
+    const list = ops.get(docId(d));
+    if (!list) {
+      out.push(d);
+      continue;
+    }
+    if (list.some((o) => o.kind === "delete")) continue;
+    out.push(list.reduce(applyOp, d));
+  }
+  if (!creates) return out;
+  const data = cacheData();
+  for (const { item, cancelled } of liveCreates(source, ["pending", "failed", "review"])) {
+    if (item.docType === type) out.push(buildRichDoc(item, { cancelled, data }));
+  }
+  return out;
 }

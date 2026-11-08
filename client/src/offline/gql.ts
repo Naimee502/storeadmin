@@ -67,11 +67,7 @@ export function withExpectedUpdatedAt(doc: DocumentNode, opts: { arg: boolean; s
   return { ...doc, definitions: doc.definitions.map((d) => (d === op ? newOp : d)) };
 }
 
-/**
- * Builds a result in the shape of a selection set from a plain source object.
- * mode "null": every selected field is present (missing = null).
- * mode "omit": missing fields are left out, so a cache write never clobbers them.
- */
+// Shapes a source object by a selection set; "null" fills missing fields, "omit" leaves them out.
 export function shapeBySelection(sel: SelectionSetNode | undefined, src: any, mode: "null" | "omit" = "null"): any {
   if (src == null || typeof src !== "object") return src ?? null;
   const out: Record<string, any> = {};

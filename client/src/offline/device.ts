@@ -1,6 +1,6 @@
 // This browser's device code (A, B, …) per login and its own bill number series.
 import { gql } from "@apollo/client";
-import { META_STORE, idbDelete, idbGet, idbPut, idbUpdate } from "./idb";
+import { META_STORE, idbDelete, idbGet, idbPut, idbUpdate } from "./localdb";
 import { currentUserKey } from "./userkey";
 import { getOfflineClient, onSyncComplete } from "./outbox";
 import { bumpSeq, formatDeviceNumber, maxSeq, parseDeviceNumber, type DocType, type SeqMap } from "./core";
@@ -198,7 +198,7 @@ export async function nextDeviceNumber(type: DocType): Promise<string | null> {
   if (!d) return null;
   const key = seqKey(d);
   const rec = await idbUpdate<SeqRecord>(META_STORE, key, (cur) => ({ key, seqs: bumpSeq(cur?.seqs, type).seqs }));
-  return formatDeviceNumber(type, d.code, rec.seqs[type] || 0);
+  return formatDeviceNumber(type, d.code, rec?.seqs[type] || 0);
 }
 
 // Number the next nextDeviceNumber call would return (for display only).

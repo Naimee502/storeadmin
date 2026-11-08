@@ -1,5 +1,6 @@
 import { Admin } from "../../../models/admin";
 import { Channel } from "../../../models/channel";
+import { AdminSettings } from "../../../models/adminsettings";
 import { generateTokens, sendRefreshToken } from "../../../utils/auth";
 import { ApolloError } from "apollo-server-express";
 import { enforceLoginOtp } from "../../../utils/loginotp";
@@ -65,6 +66,11 @@ export const adminResolvers = {
         status: true
       });
       await endUserChannel.save();
+
+      // New businesses start with offline billing on; existing ones stay off.
+      const settings = await AdminSettings.getOrCreateForAdmin(admin._id);
+      settings.offlineBilling = true;
+      await settings.save();
 
       return admin;
     },

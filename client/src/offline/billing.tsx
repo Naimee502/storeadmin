@@ -3,27 +3,17 @@ import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { isOfflineEnabled } from "./settings";
 import { offlineStore, type OfflineSnapshot } from "./outbox";
 import { getDeviceCode, peekDeviceNumber } from "./device";
-import { pendingPartyDelta, pendingStockDelta } from "./overlay";
 import { isOfflineSaved } from "./saved";
-import type { DocType } from "./core";
+import { partyDelta, stockDelta, type DocType } from "./core";
 
 export function useOfflineSnapshot(): OfflineSnapshot {
   return useSyncExternalStore(offlineStore.subscribe, offlineStore.getSnapshot);
 }
 
-// True when offline mode is on and this browser has no network.
-export function useNoNetwork(): boolean {
-  const snap = useOfflineSnapshot();
-  return isOfflineEnabled() && !snap.online;
-}
-
-/**
- * Next device number to show and send while offline mode is on and there is no network.
- * number is null online or when off; noDevice is true when the device has no code yet.
- */
+// Device number for a new bill when offline; null online, noDevice when no code yet.
 export function useOfflineNumber(type: DocType, active = true): { number: string | null; noDevice: boolean } {
   const snap = useOfflineSnapshot();
-  const offline = isOfflineEnabled() && active && !snap.online;
+  const offline = snap.enabled && active && !snap.online;
   const [number, setNumber] = useState<string | null>(null);
   const [noDevice, setNoDevice] = useState(false);
   useEffect(() => {
@@ -66,7 +56,8 @@ export function adjustProductsStock(list: any[], branchId: string | null | undef
     if (!Array.isArray(variants) || !variants.length) return p;
     let touched = false;
     const next = variants.map((v: any) => {
-      const d = pendingStockDelta(idOf(p), idOf(v), branchId || null, { variant: v, items });
+      // Base units via the variant's unit conversions, same rule as utils/products/stockcheck.
+      const d = stockDelta(items, idOf(p), idOf(v), branchId || null, v);
       if (!d) return v;
       touched = true;
       return { ...v, currentstock: Number(v.currentstock ?? 0) + d };
@@ -81,18 +72,16 @@ export function adjustProductsStock(list: any[], branchId: string | null | undef
 // Stock overlay for screens that show or check stock; returns the input untouched when offline mode is off.
 export function useOfflineStock(list: any[], branchId: string | null | undefined): any[] {
   const snap = useOfflineSnapshot();
-  const on = isOfflineEnabled();
+  const on = snap.enabled;
   return useMemo(() => (on ? adjustProductsStock(list, branchId, snap.items) : list), [on, list, branchId, snap.items]);
 }
 
 // Unsynced change to a party's outstanding (0 when offline mode is off).
 export function useOfflinePartyDelta(partyId: string | null | undefined): number {
   const snap = useOfflineSnapshot();
-  if (!isOfflineEnabled() || !partyId) return 0;
-  return pendingPartyDelta(partyId, { items: snap.items });
+  if (!snap.enabled || !partyId) return 0;
+  return partyDelta(snap.items, partyId);
 }
-
-export const OFFLINE_SAVED_TEXT = "Saved offline — will sync automatically";
 
 // True when a save was queued on this device (offline id, or offline mode with no network).
 export function savedOffline(doc: any): boolean {

@@ -61,7 +61,7 @@ function buildStaffQuery(filter: any): any {
 }
 
 // Populated refs carry only what any client asks for (id + label).
-const withStaffListRefs = (q: any) => q
+export const withStaffListRefs = (q: any) => q
   .populate({ path: "admin", select: "name email" })
   .populate({ path: "branchid", select: "branchname" })
   .populate({ path: "accountgroupid", select: "accountgroupname" })

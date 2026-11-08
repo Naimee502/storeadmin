@@ -109,7 +109,7 @@ const populateFields: any[] = [
 // fields formatInvoice copies out. The full party / salesman / ledger / unit
 // documents were being loaded for every line of ~2000 invoices and then
 // thrown away by formatInvoice.
-const listPopulateFields: any[] = [
+export const listPopulateFields: any[] = [
   { path: "salesmenid", select: "name" },
   { path: "partyacc", select: "name accountname mobile address city state latitude longitude gstnumber" },
   { path: "productservice.productserviceid", select: "name imageurl productvariants._id productvariants.name" },
@@ -298,7 +298,7 @@ const notifyInvoiceEvent = async (doc: any, context: any, event: string) => {
 };
 
 // ✅ Format invoice function
-const formatInvoice = (inv: any) => ({
+export const formatInvoice = (inv: any) => ({
   ...inv,
   id: inv._id.toString(),
   salesmenid: toSimpleRef(inv.salesmenid, ["name"]),
@@ -363,7 +363,7 @@ function assertLineUnits(input: any) {
 }
 
 /** Role, delivery and party filters shared by every sales invoice list. Returns null when nothing can match. */
-async function buildInvoiceQuery(filter: any, context: any): Promise<any | null> {
+export async function buildInvoiceQuery(filter: any, context: any): Promise<any | null> {
   const query: any = { status: true };
   const { user } = context;
 
@@ -568,7 +568,7 @@ async function columnFilterClauses(filters: any[] = [], adminid?: any): Promise<
 }
 
 /** Source order numbers for a set of invoices, fetched in one query. */
-async function sourceOrderNoMap(invoices: any[]): Promise<Map<string, string | null>> {
+export async function sourceOrderNoMap(invoices: any[]): Promise<Map<string, string | null>> {
   const map = new Map<string, string | null>();
   const orderIds = Array.from(new Set(invoices.map((inv: any) => refId(inv.sourceorderid)).filter(Boolean).map(String)));
   if (!orderIds.length) return map;

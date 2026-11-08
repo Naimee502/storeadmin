@@ -28,6 +28,7 @@ const SETTINGS_FIELDS = `
   doubleDisplayPrice
   deliveryMode
   partyManagesDownline
+  offlineBilling
   directPartyOrdersOnly
   trackPartyStock
   requirePartyApproval
