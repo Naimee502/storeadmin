@@ -240,6 +240,11 @@ export function createOffline(opts: {
         const score = Object.keys(have).filter((a) => have[a] != null).length;
         if (score > bestScore) { best = k; bestScore = score; }
       }
+      // A by-id read (detail screen) is answered from the record any saved list holds.
+      if (!best && typeof want.id === 'string' && byId.has(want.id)) {
+        data[keyOf(f)] = fill(f.selectionSet, byId.get(want.id), snap, byId);
+        continue;
+      }
       if (!best) return null;
       const have = best === name ? {} : flat(JSON.parse(best.slice(name.length + 1, -1)));
       const v = root[best];

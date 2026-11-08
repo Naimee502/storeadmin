@@ -16,6 +16,7 @@ import { GET_OPEN_PUNCH } from './queries/attendance';
 import { GET_MY_EXPENSE_CLAIMS } from './queries/expenseclaims';
 import { GET_MY_SALES_RETURNS } from './queries/salesreturn';
 import { GET_MY_ANNOUNCEMENTS } from './queries/announcements';
+import { GET_SALESMAN_DASHBOARD } from './queries/salesmanreport';
 
 let _getToken: (() => string | null) | null = null;
 
@@ -134,6 +135,12 @@ export const apolloClient = new ApolloClient({
 
 offline.attach(apolloClient);
 
+// Today on the phone's calendar (same day the home screen asks for).
+const localDay = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
+
 // What each role's screens read, kept on the device so the app works offline like Vyapar (OFFLINE.md, "Apps").
 export function warmupFor(user: { id: string; role: string } | null, adminid: string | null) {
   if (!user?.id || !adminid) return [];
@@ -176,6 +183,7 @@ export function warmupFor(user: { id: string; role: string } | null, adminid: st
     { query: GET_ACCOUNTS, variables: user.role === 'salesman' ? { admin: adminid, salesmanid: id } : { admin: adminid } },
     { query: GET_SALES_ORDERS, variables: user.role === 'salesman' ? { adminid, salesmenid: id } : { adminid } },
     { query: GET_MY_SALES_RETURNS, variables: { adminid } },
+    ...(user.role === 'salesman' ? [{ query: GET_SALESMAN_DASHBOARD, variables: { adminid, salesmanid: id, date: localDay() } }] : []),
     { query: GET_CHANNELS, variables: { adminId: adminid } },
     { query: GET_ACCOUNT_GROUPS, variables: { adminId: adminid } },
     ...staff,
