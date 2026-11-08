@@ -8,6 +8,7 @@ import { Transaction } from "../../../models/transactions";
 import { pushNotification } from "../../../models/notifications";
 import { isSalesOrderOnlyMode, adminIdOf } from "../../../utils/ordermode";
 import { activeFilters, asText, dmyFromText, notCleared, pageWindow, textMatch } from "../../../utils/listquery";
+import { assertFresh, checkDeviceNumber, conflictError, isoOf, parseExpectedUpdatedAt, raiseDeviceSeq, updateByIdGuarded } from "../../../utils/offlinesync";
 
 // NOTE: local settled-amount helper removed — see utils/allocation.
 
@@ -457,6 +458,12 @@ const listPopulateFields: any[] = [
   { path: "othercharges.ledgerid", select: "name ledgername" },
 ];
 
+// Current order as the API returns it (for CONFLICT errors).
+const loadOrder = async (id: any) => {
+  const order = await SalesOrder.findById(id).populate(populateFields).lean();
+  return order ? formatOrder(order) : null;
+};
+
 // ✅ Format order function
 const formatOrder = (order: any) => ({
   ...order,
@@ -892,12 +899,15 @@ export const salesOrderResolvers = {
         // billnumber is ALWAYS generated server-side (pre-save hook) so numbers
         // stay unique across the app, admin panel and POS. Client-computed
         // numbers (from a possibly stale list) caused duplicates like SO-000001.
-        delete input.billnumber;
+        // Only a registered offline device's own series number is kept.
+        const deviceNo = await checkDeviceNumber("salesorder", input.adminid, input.billnumber, SalesOrder);
+        if (!deviceNo) delete input.billnumber;
 
         // Bill lines category-wise, then A-Z — whatever order the cart had.
         if (Array.isArray(input.productservice)) input.productservice = await sortLinesByCategory(input.productservice);
 
         const created = await SalesOrder.create({ ...input, ...createdbyData, ...lockedData });
+        await raiseDeviceSeq(input.adminid, deviceNo);
 
         console.log("Created Sales Order:", {
           id: created._id,
@@ -1043,7 +1053,13 @@ export const salesOrderResolvers = {
       }
     },
 
-    editSalesOrder: async (_: any, { id, input }: any, context: any) => {
+    editSalesOrder: async (_: any, { id, input, expectedUpdatedAt }: any, context: any) => {
+      const expected = parseExpectedUpdatedAt(expectedUpdatedAt);
+      let guardAt: Date | null = null;
+      if (expected) {
+        const current: any = await SalesOrder.findById(id).select("updatedAt").lean();
+        if (current) guardAt = await assertFresh(current.updatedAt, expected, () => loadOrder(id));
+      }
       // A customer editing their own order is held to the same stock rule as
       // placing it. Only when lines are actually being changed.
       const editorType = String(context?.user?.type || "");
@@ -1092,9 +1108,10 @@ export const salesOrderResolvers = {
       // Re-arrange category-wise / A-Z whenever the lines themselves are sent.
       if (Array.isArray(input.productservice)) input.productservice = await sortLinesByCategory(input.productservice);
 
-      const updated = await SalesOrder.findByIdAndUpdate(id, input, { new: true })
+      const updated = await updateByIdGuarded(SalesOrder, id, guardAt, input, { new: true })
         .populate(populateFields)
         .lean();
+      if (guardAt && !updated) throw await conflictError(() => loadOrder(id));
       // Skip the "updated" notification when this edit is the conversion sync
       // (invoice creation already sends "converted to invoice") — otherwise
       // every conversion would fire a redundant, confusing "updated" notif.
@@ -1104,7 +1121,13 @@ export const salesOrderResolvers = {
       return updated ? formatOrder(updated) : null;
     },
 
-    deleteSalesOrder: async (_: any, { id }: { id: string }, context: any) => {
+    deleteSalesOrder: async (_: any, { id, expectedUpdatedAt }: { id: string; expectedUpdatedAt?: string }, context: any) => {
+      const expected = parseExpectedUpdatedAt(expectedUpdatedAt);
+      let guardAt: Date | null = null;
+      if (expected) {
+        const current: any = await SalesOrder.findById(id).select("updatedAt").lean();
+        if (current) guardAt = await assertFresh(current.updatedAt, expected, () => loadOrder(id));
+      }
       // A party (app / website) may soft-delete only its OWN order, and only
       // while it is still Pending — nothing confirmed, converted to an
       // invoice, dispatched or cancelled. Admin / staff keep the old rule.
@@ -1119,12 +1142,16 @@ export const salesOrderResolvers = {
           || (existing.orderStatus && existing.orderStatus !== "pending")) {
           throw new Error("Only pending orders can be deleted. This order is already being processed.");
         }
-        const updated = await SalesOrder.findByIdAndUpdate(id, { status: false }, { new: true })
+        const updated = await updateByIdGuarded(SalesOrder, id, guardAt, { status: false }, { new: true })
           .populate(populateFields).lean();
+        if (guardAt && !updated) throw await conflictError(() => loadOrder(id));
         if (updated) await notifyOrderEvent(updated, context, "deleted by party");
         return !!updated;
       }
-      return !!(await SalesOrder.findByIdAndUpdate(id, { status: false }));
+      if (!guardAt) return !!(await SalesOrder.findByIdAndUpdate(id, { status: false }));
+      const done = await updateByIdGuarded(SalesOrder, id, guardAt, { status: false });
+      if (!done) throw await conflictError(() => loadOrder(id));
+      return true;
     },
 
     resetSalesOrder: async (_: any, { id }: { id: string }) => {
@@ -1135,9 +1162,11 @@ export const salesOrderResolvers = {
     // Refuses if the order has already been converted, since there is no
     // safe automatic reversal — the invoice would need to be returned via
     // the SalesReturn flow instead.
-    cancelSalesOrder: async (_: any, { id, reason }: { id: string; reason?: string }, context: any) => {
+    cancelSalesOrder: async (_: any, { id, reason, expectedUpdatedAt }: { id: string; reason?: string; expectedUpdatedAt?: string }, context: any) => {
+      const expected = parseExpectedUpdatedAt(expectedUpdatedAt);
       const existing = await SalesOrder.findById(id).lean() as any;
       if (!existing) throw new Error("Sales Order not found");
+      const guardAt = await assertFresh(existing.updatedAt, expected, () => loadOrder(id));
       if (existing.isConverted) {
         // Order-only admins never see the invoice behind the order, so
         // "convert to invoice" language would mean nothing to them — say what
@@ -1151,27 +1180,35 @@ export const salesOrderResolvers = {
       if (existing.cancelStatus === "cancelled") {
         throw new Error("Order is already cancelled");
       }
-      const updated = await SalesOrder.findByIdAndUpdate(
+      const updated = await updateByIdGuarded(
+        SalesOrder,
         id,
+        guardAt,
         { cancelStatus: "cancelled", orderStatus: "cancelled", cancelReason: reason || "", cancelledAt: new Date() },
         { new: true }
       ).populate(populateFields).lean();
+      if (guardAt && !updated) throw await conflictError(() => loadOrder(id));
       if (updated) await notifyOrderEvent(updated, context, "cancelled");
       return updated ? formatOrder(updated) : null;
     },
 
     // Re-open a cancelled order if it was cancelled by mistake.
-    reopenSalesOrder: async (_: any, { id }: { id: string }) => {
+    reopenSalesOrder: async (_: any, { id, expectedUpdatedAt }: { id: string; expectedUpdatedAt?: string }) => {
+      const expected = parseExpectedUpdatedAt(expectedUpdatedAt);
       const existing = await SalesOrder.findById(id).lean() as any;
       if (!existing) throw new Error("Sales Order not found");
+      const guardAt = await assertFresh(existing.updatedAt, expected, () => loadOrder(id));
       if (existing.cancelStatus !== "cancelled") {
         throw new Error("Order is not in cancelled state");
       }
-      const updated = await SalesOrder.findByIdAndUpdate(
+      const updated = await updateByIdGuarded(
+        SalesOrder,
         id,
+        guardAt,
         { cancelStatus: "open", orderStatus: existing.isConverted ? "confirmed" : "pending", cancelReason: null, cancelledAt: null },
         { new: true }
       ).populate(populateFields).lean();
+      if (guardAt && !updated) throw await conflictError(() => loadOrder(id));
       return updated ? formatOrder(updated) : null;
     },
 
@@ -1244,6 +1281,8 @@ export const salesOrderResolvers = {
   // the admin panel) so the app can show INV-000004 instead of the order's own
   // sequence. Looked up via the invoice's sourceorderid back-link.
   SalesOrder: {
+    // ISO string (was epoch ms); clients send it back as expectedUpdatedAt.
+    updatedAt: (parent: any) => isoOf(parent?.updatedAt),
     invoicenumber: async (parent: any) => {
       try {
       if (!parent?.isConverted) return null;

@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { NUMERIC_COLLATION } from "../../utils/billnumber";
 
 const paymentSchema = new mongoose.Schema(
   {
@@ -105,6 +106,8 @@ const paymentSchema = new mongoose.Schema(
 
     updatedby: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
 
+    clientRequestId: { type: String }, // offline sync de-duplication
+
     status: { type: Boolean, default: true },
   },
   { timestamps: true }
@@ -120,10 +123,11 @@ paymentSchema.pre("save", async function (next) {
     const query: any = {
       adminid: this.adminid,
       branchid: this.branchid,
-      paymentcode: { $regex: /^#PAY\d{4}$/ },
+      // 4+ digits so "#PAY10000" counts; device codes ("#PAY-A/000001") never match.
+      paymentcode: { $regex: /^#PAY\d{4,}$/ },
     };
 
-    const lastPayment = await Payment.findOne(query).sort({ paymentcode: -1 }).exec();
+    const lastPayment = await Payment.findOne(query).collation(NUMERIC_COLLATION).sort({ paymentcode: -1 }).exec();
     let nextNumber = 1;
     if (lastPayment?.paymentcode) {
       const lastNumber = parseInt(String(lastPayment.paymentcode).replace("#PAY", ""), 10);

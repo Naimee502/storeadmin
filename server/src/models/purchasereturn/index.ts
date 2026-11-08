@@ -9,6 +9,7 @@
 //                that debits Cash/Bank and credits the supplier.
 
 import mongoose from "mongoose";
+import { nextMainBillNumber } from "../../utils/billnumber";
 import { ProductBranchStock } from "../productbranchstock";
 import { ProductService } from "../products";
 import { convertToBaseUnit } from "../../utils/unitconversation";
@@ -102,15 +103,8 @@ const purchaseReturnSchema = new mongoose.Schema(
 
 purchaseReturnSchema.pre("save", async function (next) {
   if (!this.billnumber) {
-    const last = await mongoose.model("PurchaseReturn")
-      .findOne({ adminid: this.adminid })
-      .sort({ createdAt: -1 });
-    let nextNum = 1;
-    if (last && (last as any).billnumber) {
-      const num = parseInt(String((last as any).billnumber).replace(/\D/g, ""), 10);
-      if (!isNaN(num)) nextNum = num + 1;
-    }
-    this.billnumber = `DN-${nextNum.toString().padStart(6, "0")}`;
+    // Highest main-series "DN-<digits>" (numeric-aware sort).
+    this.billnumber = await nextMainBillNumber("PurchaseReturn", this.adminid, "DN-");
   }
   next();
 });

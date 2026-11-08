@@ -112,6 +112,7 @@ export const paymentTypeDefs = gql`
     updatedby: ID
     status: Boolean!
     createdAt: String
+    "ISO date"
     updatedAt: String
   }
 
@@ -145,6 +146,10 @@ export const paymentTypeDefs = gql`
     createdby_type: String
     updatedby: ID
     status: Boolean
+    "Kept only for an offline device number #PAY-<code>/<6 digits>; any other value is ignored and the server numbers it."
+    paymentcode: String
+    "Set by offline sync so a retried save returns the same document."
+    clientRequestId: String
   }
 
   # Payment Filter Input
@@ -195,8 +200,9 @@ export const paymentTypeDefs = gql`
   # Mutations
   type Mutation {
     addPayment(input: PaymentInput!): Payment!
-    editPayment(id: ID!, input: PaymentInput!): Payment!
-    deletePayment(id: ID!): Boolean!
+    "expectedUpdatedAt: optional; when it differs from the stored updatedAt the edit fails with CONFLICT."
+    editPayment(id: ID!, input: PaymentInput!, expectedUpdatedAt: String): Payment!
+    deletePayment(id: ID!, expectedUpdatedAt: String): Boolean!
     resetPayment(id: ID!): Boolean!
 
     # Re-spread an existing payment over different bills. Touches allocations

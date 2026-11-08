@@ -11,6 +11,7 @@
 // Accounting:    Debit "Sales Return" ledger + Output GST, Credit customer.
 
 import mongoose from "mongoose";
+import { nextMainBillNumber } from "../../utils/billnumber";
 import { ProductBranchStock } from "../productbranchstock";
 import { ProductService } from "../products";
 import { convertToBaseUnit } from "../../utils/unitconversation";
@@ -42,6 +43,7 @@ const salesReturnSchema = new mongoose.Schema(
     returndate: { type: String, required: true },      // YYYY-MM-DD
     billtype: { type: String, required: true },
     billnumber: { type: String },                       // CN-000001 auto-generated
+    clientRequestId: { type: String }, // offline sync de-duplication
     notes: { type: String },
     reason: { type: String },                           // why the return was made
 
@@ -112,15 +114,8 @@ const salesReturnSchema = new mongoose.Schema(
 // 🔢 Auto-generate CN bill number when blank
 salesReturnSchema.pre("save", async function (next) {
   if (!this.billnumber) {
-    const last = await mongoose.model("SalesReturn")
-      .findOne({ adminid: this.adminid })
-      .sort({ createdAt: -1 });
-    let nextNum = 1;
-    if (last && (last as any).billnumber) {
-      const num = parseInt(String((last as any).billnumber).replace(/\D/g, ""), 10);
-      if (!isNaN(num)) nextNum = num + 1;
-    }
-    this.billnumber = `CN-${nextNum.toString().padStart(6, "0")}`;
+    // Highest main-series "CN-<digits>"; device-series numbers are ignored.
+    this.billnumber = await nextMainBillNumber("SalesReturn", this.adminid, "CN-");
   }
   next();
 });

@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { nextMainBillNumber } from "../../utils/billnumber";
 
 const salesOrderSchema = new mongoose.Schema(
   {
@@ -118,19 +119,9 @@ const salesOrderSchema = new mongoose.Schema(
 salesOrderSchema.pre("save", async function (next) {
   if (!this.billnumber) {
     // Use the HIGHEST existing billnumber (not the latest createdAt) so numbers
-    // never repeat even if docs were inserted out of order. Zero-padded strings
-    // sort correctly as strings.
-    const lastOrder = await mongoose.model("SalesOrder")
-      .findOne({ adminid: this.adminid, billnumber: { $ne: null } })
-      .sort({ billnumber: -1 })
-      .select("billnumber")
-      .lean() as any;
-    let nextNum = 1;
-    if (lastOrder && lastOrder.billnumber) {
-      const lastNum = parseInt(lastOrder.billnumber, 10);
-      if (!isNaN(lastNum)) nextNum = lastNum + 1;
-    }
-    this.billnumber = nextNum.toString().padStart(6, "0");
+    // never repeat even if docs were inserted out of order. Numeric-aware sort;
+    // device-series numbers are ignored.
+    this.billnumber = await nextMainBillNumber("SalesOrder", this.adminid);
   }
   next();
 });

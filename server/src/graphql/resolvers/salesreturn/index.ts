@@ -9,6 +9,7 @@ import { Account } from "../../../models/accounts";
 import { requireBackofficeTenant } from "../../../utils/tenant";
 import { SalesOrder } from "../../../models/salesorder";
 import { activeFilters, asText, dmyFromText, notCleared, pageWindow, textMatch } from "../../../utils/listquery";
+import { checkDeviceNumber, raiseDeviceSeq } from "../../../utils/offlinesync";
 
 /** orderId → order billnumber, for invoices converted from a Sales Order. */
 async function orderNumbers(orderIds: any[]) {
@@ -504,6 +505,15 @@ export const salesReturnResolvers = {
   Mutation: {
     addSalesReturn: async (_: any, { input }: any, context: any) => {
       try {
+        // An offline sync retry carries the same id: return the return already saved.
+        if (input?.clientRequestId) {
+          const existing: any = await SalesReturn.findOne({ adminid: input.adminid, clientRequestId: String(input.clientRequestId) })
+            .populate(populateFields)
+            .lean();
+          if (existing) return formatReturn(existing);
+        }
+        // Offline device-series number ("CN-A/000012"): registered device, unused.
+        const deviceNo = await checkDeviceNumber("salesreturn", input.adminid, input.billnumber, SalesReturn);
         const sourceInv = await validateReturnQuantities(input);
         // Stamp source bill number for friendly display
         if (sourceInv?.billnumber && !input.sourceBillNumber) {
@@ -534,6 +544,7 @@ export const salesReturnResolvers = {
         };
 
         const created = await SalesReturn.create({ ...input, ...createdbyData, ...autoCreateData });
+        await raiseDeviceSeq(input.adminid, deviceNo);
 
         // ✅ Explicitly call adjustStockAndTransactions WITH userContext
         // (ensures Transaction/Payment Created By is never N/A)

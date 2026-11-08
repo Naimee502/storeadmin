@@ -1,5 +1,6 @@
 // models/purchaseinvoice.ts
 import mongoose from "mongoose";
+import { nextMainBillNumber } from "../../utils/billnumber";
 import { ProductBranchStock } from "../productbranchstock";
 import { ProductService } from "../products";
 import { convertToBaseUnit } from "../../utils/unitconversation";
@@ -146,19 +147,8 @@ purchaseInvoiceSchema.pre("save", async function (next) {
   if (!this.billnumber) {
     // Highest existing billnumber, not the latest createdAt — the createdAt
     // sort hands two invoices the same number when docs land out of order.
-    // Zero-padded strings sort correctly as strings.
-    const lastInvoice: any = await mongoose
-      .model("PurchaseInvoice")
-      .findOne({ adminid: this.adminid, billnumber: { $ne: null } })
-      .sort({ billnumber: -1 })
-      .select("billnumber")
-      .lean();
-    let nextNum = 1;
-    if (lastInvoice && lastInvoice.billnumber) {
-      const lastNum = parseInt(lastInvoice.billnumber, 10);
-      if (!isNaN(lastNum)) nextNum = lastNum + 1;
-    }
-    this.billnumber = nextNum.toString().padStart(6, "0");
+    // Numeric-aware sort; non-numeric numbers are ignored.
+    this.billnumber = await nextMainBillNumber("PurchaseInvoice", this.adminid);
   }
   next();
 });

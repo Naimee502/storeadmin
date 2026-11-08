@@ -16,6 +16,7 @@ import {
   type InvoiceModel,
 } from "../../../utils/allocation";
 import { containsRx, pageWindow, textMatch, notCleared } from "../../../utils/listquery";
+import { assertFresh, checkDeviceNumber, conflictError, isoOf, parseExpectedUpdatedAt, raiseDeviceSeq, updateByIdGuarded } from "../../../utils/offlinesync";
 import { activeText, dmyOrDash, fixed2, num, searchAndFilterClauses, textOr } from "../transactions/listtext";
 
 // Recursively collect party ids under a root party (assignaccountid chain),
@@ -160,6 +161,12 @@ const LIST_POPULATE: any[] = [
   { path: "ledgerid", select: "ledgername" },
   { path: "counterledgerid", select: "ledgername" },
 ];
+
+// Current payment as the API returns it (for CONFLICT errors).
+async function loadPayment(id: any) {
+  const p = await Payment.findById(id).populate("ledgerid").populate("counterledgerid").populate("partyid").lean();
+  return p ? formatPayment(p) : null;
+}
 
 function formatPayment(r: any) {
   return {
@@ -542,6 +549,16 @@ export const paymentResolvers = {
 
   Mutation: {
     addPayment: async (_: any, { input }: any, context: any) => {
+      // An offline sync retry carries the same id: return the payment already saved.
+      if (input?.clientRequestId) {
+        const existing: any = await Payment.findOne({ adminid: input.adminid, clientRequestId: String(input.clientRequestId) })
+          .populate("ledgerid").populate("counterledgerid").populate("partyid")
+          .lean();
+        if (existing) return formatPayment(existing);
+      }
+      // Only a registered device's own series code ("#PAY-A/000012") is kept; the server numbers everything else.
+      const deviceNo = await checkDeviceNumber("payment", input.adminid, input.paymentcode, Payment, "paymentcode");
+      if (!deviceNo) delete input.paymentcode;
       const { user } = context;
       const createdbyData = {
         createdby_id: user?.id,
@@ -567,6 +584,7 @@ export const paymentResolvers = {
 
       const prepared = await prepareAllocation(input);
       const created = await Payment.create({ ...prepared, ...createdbyData });
+      await raiseDeviceSeq(input.adminid, deviceNo);
 
       // ✅ Create journal entry. Party-based payment/receipt when a party + its
       // ledger exist; otherwise fall back to an expense-note settlement journal
@@ -689,9 +707,13 @@ export const paymentResolvers = {
       return formatPayment(populated);
     },
 
-    editPayment: async (_: any, { id, input }: any, context: any) => {
+    editPayment: async (_: any, { id, input, expectedUpdatedAt }: any, context: any) => {
+      const expected = parseExpectedUpdatedAt(expectedUpdatedAt);
+      // The number never changes on edit.
+      delete input.paymentcode;
       const existing = await Payment.findById(id);
       if (!existing) throw new Error("Payment not found");
+      const guardAt = await assertFresh(existing.updatedAt, expected, () => loadPayment(id));
 
       const { user } = context;
       const updatedbyData = {
@@ -699,7 +721,8 @@ export const paymentResolvers = {
       };
 
       const prepared = await prepareAllocation(input, id);
-      await Payment.findByIdAndUpdate(id, { ...prepared, ...updatedbyData }, { new: true });
+      const saved = await updateByIdGuarded(Payment, id, guardAt, { ...prepared, ...updatedbyData }, { new: true });
+      if (guardAt && !saved) throw await conflictError(() => loadPayment(id));
 
       // ✅ Update journal entry. Party-based when a party + ledger exist;
       // otherwise fall back to an expense-note settlement journal.
@@ -754,7 +777,18 @@ export const paymentResolvers = {
       return formatPayment(updated);
     },
 
-    deletePayment: async (_: any, { id }: any) => {
+    deletePayment: async (_: any, { id, expectedUpdatedAt }: any) => {
+      const expected = parseExpectedUpdatedAt(expectedUpdatedAt);
+      if (expected) {
+        const current: any = await Payment.findById(id);
+        if (!current) return false;
+        const guardAt = await assertFresh(current.updatedAt, expected, () => loadPayment(id));
+        // Payment first, so a lost race leaves the journal untouched.
+        const done = await updateByIdGuarded(Payment, id, guardAt, { status: false }, { new: true });
+        if (!done) throw await conflictError(() => loadPayment(id));
+        if (current.transactionid) await Transaction.findByIdAndUpdate(current.transactionid, { status: false });
+        return true;
+      }
       const payment = await Payment.findById(id);
       // Also deactivate the linked journal entry
       if (payment?.transactionid) {
@@ -821,5 +855,10 @@ export const paymentResolvers = {
       const result = await Payment.findByIdAndUpdate(id, { status: true }, { new: true });
       return !!result;
     },
+  },
+
+  Payment: {
+    // ISO string (was epoch ms); clients send it back as expectedUpdatedAt.
+    updatedAt: (parent: any) => isoOf(parent?.updatedAt),
   },
 };

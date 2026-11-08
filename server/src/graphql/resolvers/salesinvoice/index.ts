@@ -15,6 +15,7 @@ import { partyStockEnabled, sellerPartyOf, assertPartyStockAvailable } from "../
 import { assertSalesStockAvailable } from "../../../utils/stockguard";
 import { SalesReturn } from "../../../models/salesreturn";
 import { assertInvoiceCancellable, assertInvoiceReopenable } from "../../../utils/invoicecancel";
+import { assertFresh, checkDeviceNumber, conflictError, isoOf, parseExpectedUpdatedAt, raiseDeviceSeq, updateByIdGuarded } from "../../../utils/offlinesync";
 
 // NOTE: the local per-invoice settled-amount helper was removed. Outstanding
 // now comes from utils/allocation, so the admin panel, the mobile app, the
@@ -334,6 +335,12 @@ const formatInvoice = (inv: any) => ({
     };
   }) ?? []
 });
+
+// Current invoice as the API returns it (for CONFLICT errors).
+const loadInvoice = async (id: any) => {
+  const inv = await SalesInvoice.findById(id).populate(populateFields).lean();
+  return inv ? formatInvoice(inv) : null;
+};
 
 // ✅ GraphQL resolvers
 // Every line needs a unit. Without one the quantity cannot be converted to the
@@ -745,6 +752,8 @@ export const salesInvoiceResolvers = {
         if (existing) return formatInvoice(existing);
       }
       assertLineUnits(input);
+      // Offline device-series number: must be a registered device and unused.
+      const deviceNo = await checkDeviceNumber("salesinvoice", input.adminid, input.billnumber, SalesInvoice);
       // ✅ Extract user info from context and populate createdby fields
       // (resolves staff → real role + name, party → account name).
       const { user } = context;
@@ -789,6 +798,7 @@ export const salesInvoiceResolvers = {
 
       const created = await SalesInvoice.create({ ...input, ...createdbyData, ...autoCreateData });
       console.log("✅ Created invoice autocreate:", created.autocreate);
+      await raiseDeviceSeq(input.adminid, deviceNo);
 
       // Converting an order → invoice confirms the source order (canonical status).
       if (input.sourceorderid) {
@@ -1101,7 +1111,8 @@ export const salesInvoiceResolvers = {
       return await (salesInvoiceResolvers as any).Mutation.addSalesInvoice(_, { input, autoPayment }, context);
     },
 
-    editSalesInvoice: async (_: any, { id, input }: any, context: any) => {
+    editSalesInvoice: async (_: any, { id, input, expectedUpdatedAt }: any, context: any) => {
+      const expected = parseExpectedUpdatedAt(expectedUpdatedAt);
       assertLineUnits(input);
       const { user } = context;
       const userContext = {
@@ -1112,6 +1123,7 @@ export const salesInvoiceResolvers = {
 
       const oldInv = await SalesInvoice.findById(id);
       if (!oldInv) throw new Error("Invoice not found");
+      const guardAt = await assertFresh(oldInv.updatedAt, expected, () => loadInvoice(id));
       // Editing a cancelled bill would post stock and a journal for a document
       // that is supposed to have none. Re-open it first — that is the deliberate
       // act that puts it back in the books.
@@ -1151,7 +1163,8 @@ export const salesInvoiceResolvers = {
 
       if (Array.isArray(input.productservice)) input.productservice = await sortLinesByCategory(input.productservice);
 
-      const updated = await SalesInvoice.findByIdAndUpdate(id, { ...input, ...autoCreateData }, { new: true });
+      const updated = await updateByIdGuarded(SalesInvoice, id, guardAt, { ...input, ...autoCreateData }, { new: true });
+      if (guardAt && !updated) throw await conflictError(() => loadInvoice(id));
 
       if (updated) {
         await SalesInvoice.adjustStockAndTransactions(oldInv, updated, userContext);
@@ -1163,8 +1176,15 @@ export const salesInvoiceResolvers = {
       return inv ? formatInvoice(inv) : null;
     },
 
-    deleteSalesInvoice: async (_: any, { id }: { id: string }) => {
-      return !!(await SalesInvoice.findByIdAndUpdate(id, { status: false }));
+    deleteSalesInvoice: async (_: any, { id, expectedUpdatedAt }: { id: string; expectedUpdatedAt?: string }) => {
+      const expected = parseExpectedUpdatedAt(expectedUpdatedAt);
+      if (!expected) return !!(await SalesInvoice.findByIdAndUpdate(id, { status: false }));
+      const current: any = await SalesInvoice.findById(id).select("updatedAt").lean();
+      if (!current) return false;
+      const guardAt = await assertFresh(current.updatedAt, expected, () => loadInvoice(id));
+      const done = await updateByIdGuarded(SalesInvoice, id, guardAt, { status: false });
+      if (!done) throw await conflictError(() => loadInvoice(id));
+      return true;
     },
 
     // ── Cancel / re-open ──────────────────────────────────────────────────
@@ -1172,9 +1192,11 @@ export const salesInvoiceResolvers = {
     // it did to the books. Both directions go through the same hook the normal
     // save uses, so stock, journal and receipt can never be handled one way on
     // the way out and another on the way back.
-    cancelSalesInvoice: async (_: any, { id, reason }: any, context: any) => {
+    cancelSalesInvoice: async (_: any, { id, reason, expectedUpdatedAt }: any, context: any) => {
+      const expected = parseExpectedUpdatedAt(expectedUpdatedAt);
       const oldInv = await SalesInvoice.findById(id);
       if (!oldInv) throw new Error("Invoice not found");
+      const guardAt = await assertFresh(oldInv.updatedAt, expected, () => loadInvoice(id));
 
       await assertInvoiceCancellable({
         inv: oldInv,
@@ -1184,8 +1206,10 @@ export const salesInvoiceResolvers = {
       });
 
       const user = context?.user;
-      const updated = await SalesInvoice.findByIdAndUpdate(
+      const updated = await updateByIdGuarded(
+        SalesInvoice,
         id,
+        guardAt,
         {
           cancelStatus: "cancelled",
           cancelReason: reason || "",
@@ -1194,15 +1218,18 @@ export const salesInvoiceResolvers = {
         },
         { new: true }
       );
+      if (guardAt && !updated) throw await conflictError(() => loadInvoice(id));
       if (updated) await SalesInvoice.adjustStockAndTransactions(oldInv, updated, null);
 
       const inv = await SalesInvoice.findById(id).populate(populateFields).lean();
       return inv ? formatInvoice(inv) : null;
     },
 
-    reopenSalesInvoice: async (_: any, { id }: { id: string }, context: any) => {
+    reopenSalesInvoice: async (_: any, { id, expectedUpdatedAt }: { id: string; expectedUpdatedAt?: string }, context: any) => {
+      const expected = parseExpectedUpdatedAt(expectedUpdatedAt);
       const oldInv = await SalesInvoice.findById(id);
       if (!oldInv) throw new Error("Invoice not found");
+      const guardAt = await assertFresh(oldInv.updatedAt, expected, () => loadInvoice(id));
       assertInvoiceReopenable(oldInv, "SalesInvoice");
 
       // The goods went back on the shelf at cancel time, so re-opening takes
@@ -1229,11 +1256,14 @@ export const salesInvoiceResolvers = {
         createdby_name: user?.name || user?.email,
         createdby_type: user?.type || "admin",
       };
-      const updated = await SalesInvoice.findByIdAndUpdate(
+      const updated = await updateByIdGuarded(
+        SalesInvoice,
         id,
+        guardAt,
         { cancelStatus: "open", cancelReason: null, cancelledAt: null, cancelledByName: null },
         { new: true }
       );
+      if (guardAt && !updated) throw await conflictError(() => loadInvoice(id));
       if (updated) await SalesInvoice.adjustStockAndTransactions(oldInv, updated, userContext);
 
       const inv = await SalesInvoice.findById(id).populate(populateFields).lean();
@@ -1291,6 +1321,8 @@ export const salesInvoiceResolvers = {
   // Per-invoice outstanding (role-free). Only computed when `outstanding` is
   // selected (e.g. bill allocation), so listings pay no cost.
   SalesInvoice: {
+    // ISO string (was epoch ms); clients send it back as expectedUpdatedAt.
+    updatedAt: (parent: any) => isoOf(parent?.updatedAt),
     outstanding: async (parent: any) =>
       getInvoiceOutstanding({ invoiceid: parent?.id, invoicemodel: "SalesInvoice" }),
     // Number of the Sales Order this bill came from ("000009"). Order-only

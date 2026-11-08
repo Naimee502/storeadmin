@@ -1,5 +1,6 @@
 // models/salesinvoice.ts
 import mongoose from "mongoose";
+import { nextMainBillNumber } from "../../utils/billnumber";
 import { ProductBranchStock } from "../productbranchstock";
 import { ProductService } from "../products";
 import { convertToBaseUnit } from "../../utils/unitconversation";
@@ -133,13 +134,8 @@ const salesInvoiceSchema = new mongoose.Schema(
 
 salesInvoiceSchema.pre("save", async function (next) {
   if (!this.billnumber) {
-    const lastInvoice = await mongoose.model("SalesInvoice").findOne({ adminid: this.adminid }).sort({ createdAt: -1 });
-    let nextNum = 1;
-    if (lastInvoice && lastInvoice.billnumber) {
-      const lastNum = parseInt(lastInvoice.billnumber, 10);
-      if (!isNaN(lastNum)) nextNum = lastNum + 1;
-    }
-    this.billnumber = nextNum.toString().padStart(6, "0");
+    // Highest main-series number; device-series numbers are ignored.
+    this.billnumber = await nextMainBillNumber("SalesInvoice", this.adminid);
   }
   next();
 });

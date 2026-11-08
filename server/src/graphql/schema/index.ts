@@ -40,6 +40,7 @@ import { locationPingTypeDefs } from "./locationping";
 import { notificationTypeDefs } from "./notifications";
 import { accountDeletionTypeDefs } from "./accountdeletionrequest";
 import { commonTypeDefs } from "./common";
+import { offlineDeviceTypeDefs } from "./offlinedevice";
 
 export const typeDefs = [
   branchTypeDefs,
@@ -84,4 +85,5 @@ export const typeDefs = [
   notificationTypeDefs,
   accountDeletionTypeDefs,
   commonTypeDefs,
+  offlineDeviceTypeDefs,
 ];

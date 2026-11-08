@@ -126,6 +126,7 @@ export const salesInvoiceTypeDefs = gql`
     cancelledByName: String
     status: Boolean!
     createdAt: String
+    "ISO date"
     updatedAt: String
   }
 
@@ -204,11 +205,12 @@ export const salesInvoiceTypeDefs = gql`
   type Mutation {
     addSalesInvoice(input: SalesInvoiceInput!): SalesInvoice!
     convertSalesOrderToInvoice(id: ID!): SalesInvoice!
-    editSalesInvoice(id: ID!, input: SalesInvoiceInput!): SalesInvoice!
-    deleteSalesInvoice(id: ID!): Boolean!
+    "expectedUpdatedAt: optional; when it differs from the stored updatedAt the edit fails with CONFLICT."
+    editSalesInvoice(id: ID!, input: SalesInvoiceInput!, expectedUpdatedAt: String): SalesInvoice!
+    deleteSalesInvoice(id: ID!, expectedUpdatedAt: String): Boolean!
     resetSalesInvoice(id: ID!): Boolean!
-    cancelSalesInvoice(id: ID!, reason: String): SalesInvoice
-    reopenSalesInvoice(id: ID!): SalesInvoice
+    cancelSalesInvoice(id: ID!, reason: String, expectedUpdatedAt: String): SalesInvoice
+    reopenSalesInvoice(id: ID!, expectedUpdatedAt: String): SalesInvoice
     markSalesInvoiceDispatched(id: ID!, deliveryboyid: ID): SalesInvoice!
     markSalesInvoiceDelivered(id: ID!, byId: ID, byName: String, byType: String): SalesInvoice!
     assignInvoiceDeliveryBoy(id: ID!, deliveryboyid: ID!): SalesInvoice!

@@ -126,6 +126,7 @@ export const salesOrderTypeDefs = gql`
     deliveryboyid: ID
     status: Boolean!
     createdAt: String
+    "ISO date"
     updatedAt: String
   }
 
@@ -205,11 +206,12 @@ export const salesOrderTypeDefs = gql`
 
   extend type Mutation {
     addSalesOrder(input: SalesOrderInput!): SalesOrder!
-    editSalesOrder(id: ID!, input: SalesOrderInput!): SalesOrder!
-    deleteSalesOrder(id: ID!): Boolean!
+    "expectedUpdatedAt: optional; when it differs from the stored updatedAt the edit fails with CONFLICT."
+    editSalesOrder(id: ID!, input: SalesOrderInput!, expectedUpdatedAt: String): SalesOrder!
+    deleteSalesOrder(id: ID!, expectedUpdatedAt: String): Boolean!
     resetSalesOrder(id: ID!): Boolean!
-    cancelSalesOrder(id: ID!, reason: String): SalesOrder!
-    reopenSalesOrder(id: ID!): SalesOrder!
+    cancelSalesOrder(id: ID!, reason: String, expectedUpdatedAt: String): SalesOrder!
+    reopenSalesOrder(id: ID!, expectedUpdatedAt: String): SalesOrder!
     # Fulfilment transitions
     confirmSalesOrder(id: ID!): SalesOrder!
     markSalesOrderDispatched(id: ID!, deliveryboyid: ID): SalesOrder!

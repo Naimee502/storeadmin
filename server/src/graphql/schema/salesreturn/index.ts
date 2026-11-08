@@ -116,6 +116,8 @@ export const salesReturnTypeDefs = gql`
     createdby_name: String
     createdby_type: String
     status: Boolean
+    "Set by offline sync so a retried save returns the same document."
+    clientRequestId: String
   }
 
   input SalesReturnFilterInput {
