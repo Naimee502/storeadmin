@@ -33,6 +33,7 @@ export const GET_ATTENDANCE_LOGS = gql`
       punches {
         id
         type
+        offline
         timestamp
         latitude
         longitude
@@ -74,6 +75,7 @@ export const GET_ATTENDANCE_LOG_BY_ID = gql`
       punches {
         id
         type
+        offline
         timestamp
         latitude
         longitude
@@ -99,6 +101,7 @@ export const GET_MY_ATTENDANCE = gql`
       punches {
         id
         type
+        offline
         timestamp
         source
       }

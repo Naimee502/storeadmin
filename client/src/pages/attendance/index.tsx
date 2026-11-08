@@ -967,7 +967,7 @@ const Attendance: React.FC = () => {
   /* TAB: Punches                                                   */
 
   const punchRows = (punchesQ.data?.getAttendancePunches ?? []).map((p: any, i: number) => ({
-    ...p, seqNo: i+1, typeLabel: cap(p.type), sourceLabel: cap(p.source), address: p.address ?? "-", remarks: p.remarks ?? "-", when: fmtDate(p.timestamp) + " " + fmtTime(p.timestamp),
+    ...p, seqNo: i+1, typeLabel: cap(p.type), sourceLabel: cap(p.source) + (p.offline ? " · Offline punch" : ""), address: p.address ?? "-", remarks: p.remarks ?? "-", when: fmtDate(p.timestamp) + " " + fmtTime(p.timestamp),
   })).map((r: any) => ({ ...r, selfieCell: <SelfieThumb url={r.selfieUrl} caption={`${r.typeLabel} · ${r.when}`} /> }));
 
   const renderPunchesTab = () => (
