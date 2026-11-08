@@ -342,7 +342,7 @@ export default function CheckoutPage() {
                     <div key={line.lineId} className="flex items-center gap-3">
                       {line.imageurl ? (
                         <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-slate-100 bg-white p-1">
-                          <img src={line.imageurl} alt={line.name} className="h-full w-full object-contain" />
+                          <img src={line.imageurl} alt={line.name} onError={(e) => { e.currentTarget.style.display = "none"; }} className="h-full w-full object-contain" />
                         </div>
                       ) : (
                         <div

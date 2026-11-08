@@ -63,6 +63,11 @@ const first = segments[0] ?? null;
 const reserved = first && RESERVED_SEGMENTS.has(first) ? first : null;
 const storeSlug = reserved || customDomain ? null : first;
 
+// Images and the site stay available offline (public/sw.js).
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => navigator.serviceWorker.register("/sw.js").catch(() => undefined), { once: true });
+}
+
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <ApolloProvider client={apolloClient}>

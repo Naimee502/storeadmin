@@ -290,7 +290,7 @@ export default function OrderDetailPage() {
                 >
                   <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-slate-100 bg-brand-50">
                     {item.productserviceid?.imageurl ? (
-                      <img src={item.productserviceid.imageurl} alt="" className="h-full w-full object-contain" />
+                      <img src={item.productserviceid.imageurl} alt="" onError={(e) => { e.currentTarget.style.display = "none"; }} className="h-full w-full object-contain" />
                     ) : (
                       <Package className="h-5 w-5 text-brand-600" />
                     )}

@@ -65,7 +65,7 @@ export default function CartPage() {
                 <div key={line.lineId} className="flex gap-4 rounded-2xl border border-slate-100 p-4">
                   {line.imageurl ? (
                     <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-100 bg-white p-1.5">
-                      <img src={line.imageurl} alt={line.name} className="h-full w-full object-contain" />
+                      <img src={line.imageurl} alt={line.name} onError={(e) => { e.currentTarget.style.display = "none"; }} className="h-full w-full object-contain" />
                     </div>
                   ) : (
                     <div
