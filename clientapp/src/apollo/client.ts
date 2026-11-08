@@ -21,6 +21,8 @@ export const offline = createOffline({
   storage: AsyncStorage,
   getToken: () => (_getToken ? _getToken() : null),
   notify: (text) => Snackbar.show({ text, duration: Snackbar.LENGTH_LONG }),
+  // Loaded on use: uploadimage imports this file.
+  upload: (marker) => require('../utils/uploadimage').uploadPendingPhoto(marker),
 });
 
 const httpLink = createHttpLink({

@@ -9,10 +9,17 @@ export type OfflineStorage = {
 export type OfflineState = { online: boolean; pending: number; message: string };
 
 // Creates carry clientRequestId, so a retry or a timed-out request never saves twice.
-const CREATES: Record<string, string> = { AddSalesOrder: 'SalesOrder', AddPayment: 'Payment', AddSalesReturn: 'SalesReturn' };
-const QUEUED = new Set([...Object.keys(CREATES), 'EditSalesOrder', 'MarkSalesInvoiceDelivered', 'MarkSalesOrderDelivered', 'MarkVisit']);
+const CREATES: Record<string, string> = { AddSalesOrder: 'SalesOrder', AddPayment: 'Payment', AddSalesReturn: 'SalesReturn', AddExpenseClaim: 'ExpenseClaim' };
+const QUEUED = new Set([
+  ...Object.keys(CREATES), 'EditSalesOrder', 'MarkSalesInvoiceDelivered', 'MarkSalesOrderDelivered', 'MarkVisit',
+  'punch', 'EditExpenseClaim', 'CancelExpenseClaim', 'MarkAnnouncementRead', 'addLeaveRequest', 'cancelLeaveRequest',
+]);
 // List queries that show pending creates on top of the last synced rows.
-const LISTS: Record<string, string> = { getSalesOrders: 'AddSalesOrder', getPayments: 'AddPayment', getMySalesReturns: 'AddSalesReturn' };
+const LISTS: Record<string, string> = { getSalesOrders: 'AddSalesOrder', getPayments: 'AddPayment', getMySalesReturns: 'AddSalesReturn', getMyExpenseClaims: 'AddExpenseClaim' };
+// Status of a pending create when the type's status is not a plain flag.
+const PENDING_STATUS: Record<string, string> = { ExpenseClaim: 'pending' };
+// A photo taken offline: uploaded on sync before the entry that uses it (apps' uploadImage makes it).
+export const UPLOAD_PREFIX = 'pending-upload:';
 const PENDING_NUMBER = 'Pending sync';
 const TEMP = 'offline-';
 const QUEUE_KEY = 'offline:queue';
@@ -27,8 +34,27 @@ const newId = () => `${Date.now().toString(36)}${Math.random().toString(36).slic
 const opDef = (doc: any) => doc.definitions.find((d: any) => d.kind === 'OperationDefinition');
 const rootField = (doc: any) => opDef(doc).selectionSet.selections[0];
 const keyOf = (f: any) => f.alias?.value || f.name.value;
-const hasTemp = (v: any) => JSON.stringify(v ?? null).includes(`"${TEMP}`);
+const hasTemp = (v: any) => {
+  const s = JSON.stringify(v ?? null);
+  return s.includes(`"${TEMP}`) || s.includes(`"${UPLOAD_PREFIX}`);
+};
 const swapId = (v: any, from: string, to: string) => JSON.parse(JSON.stringify(v).split(from).join(to));
+
+// Replaces offline photo markers with uploaded URLs (each upload once).
+async function withUploads(v: any, upload: (marker: string) => Promise<string>): Promise<any> {
+  if (typeof v === 'string') return v.startsWith(UPLOAD_PREFIX) ? upload(v) : v;
+  if (Array.isArray(v)) {
+    const out = [];
+    for (const x of v) out.push(await withUploads(x, upload));
+    return out;
+  }
+  if (v && typeof v === 'object') {
+    const out: any = {};
+    for (const k of Object.keys(v)) out[k] = await withUploads(v[k], upload);
+    return out;
+  }
+  return v;
+}
 
 // User id from the JWT, so one user's queue and cache are never used by another.
 const uidOf = (token: string | null) => {
@@ -74,8 +100,10 @@ export function createOffline(opts: {
   storage: OfflineStorage;
   getToken: () => string | null;
   notify?: (message: string) => void;
+  // Uploads an offline photo marker and returns its URL (app only).
+  upload?: (marker: string) => Promise<string>;
 }) {
-  const { Observable, storage, getToken, notify } = opts;
+  const { Observable, storage, getToken, notify, upload } = opts;
   let client: any = null;
   let queue: Item[] = [];
   let state: OfflineState = { online: true, pending: 0, message: '' };
@@ -159,7 +187,8 @@ export function createOffline(opts: {
     id: `${TEMP}${item.id}`,
     billnumber: PENDING_NUMBER,
     paymentcode: PENDING_NUMBER,
-    status: true,
+    claimnumber: PENDING_NUMBER,
+    status: item.variables.input?.status ?? PENDING_STATUS[CREATES[item.name]] ?? true,
     cancelStatus: false,
     createdAt: item.at,
     updatedAt: item.at,
@@ -185,9 +214,19 @@ export function createOffline(opts: {
         // Old pending rows (saved in the cache) are replaced by the current queue.
         data[key] = [...rows, ...data[key].filter((r: any) => !String(r?.id || '').startsWith(TEMP))];
       }
+      // Punch state follows the last unsynced punch, so the screen never offers the same punch twice.
+      const punch = f.name.value === 'getOpenPunch' ? mine().filter((i) => i.name === 'punch').pop() : null;
+      if (punch) {
+        const p = punch.variables.input || {};
+        data[key] = p.type === 'out' ? null : fill(f.selectionSet, { __typename: 'AttendancePunch', id: `${TEMP}${punch.id}`, ...p }, entities, byId);
+      }
     }
     return { ...result, data };
   }
+
+  // A punch-state read with no saved copy can still be answered from the queue.
+  const onlyOpenPunch = (op: any) =>
+    mine().some((i) => i.name === 'punch') && opDef(op.query).selectionSet.selections.every((f: any) => f.name?.value === 'getOpenPunch');
 
   function answerTemp(op: any) {
     const entities = entitiesNow();
@@ -210,7 +249,9 @@ export function createOffline(opts: {
 
   async function enqueue(op: any, offlineNow: boolean) {
     const field = rootField(op.query);
-    const item: Item = { id: op.variables?.input?.clientRequestId || newId(), uid: uid(), name: op.operationName, query: print(op.query), variables: op.variables, at: new Date().toISOString() };
+    // A punch saved without network is flagged so the admin sees its time came from the phone.
+    const variables = op.operationName === 'punch' && op.variables?.input ? { ...op.variables, input: { ...op.variables.input, offline: true } } : op.variables;
+    const item: Item = { id: op.variables?.input?.clientRequestId || newId(), uid: uid(), name: op.operationName, query: print(op.query), variables, at: new Date().toISOString() };
     await loaded;
     queue.push(item);
     await saveQueue();
@@ -249,6 +290,11 @@ export function createOffline(opts: {
         const item = queue.find((i) => i.id === id);
         if (!item) continue;
         try {
+          if (JSON.stringify(item.variables).includes(`"${UPLOAD_PREFIX}`)) {
+            if (!upload) break;
+            item.variables = await withUploads(item.variables, upload);
+            await saveQueue();
+          }
           const res = await client.mutate({ mutation: parse(item.query), variables: item.variables, context: { offlineReplay: true } });
           queue = queue.filter((i) => i.id !== id);
           synced += 1;
@@ -319,7 +365,7 @@ export function createOffline(opts: {
           clearTimeout(timer);
           if (replay || !isNetworkError(e)) return observer.error(e);
           if (state.online) set({ online: false });
-          const local = kind === 'query' ? fromCache(op).then((r) => r && overlay(op, r)) : kind === 'mutation' && QUEUED.has(name) ? enqueue(op, true) : Promise.resolve(null);
+          const local = kind === 'query' ? fromCache(op).then((r) => (r ? overlay(op, r) : onlyOpenPunch(op) ? overlay(op, { data: {} }) : null)) : kind === 'mutation' && QUEUED.has(name) ? enqueue(op, true) : Promise.resolve(null);
           answer(local, e);
         },
         complete: () => { if (!done) observer.complete(); },

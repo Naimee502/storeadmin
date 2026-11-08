@@ -129,6 +129,14 @@ const encodePath = (path: string): string =>
 export const resolveMediaUrl = (url?: string | null, width?: ImageWidth): string => {
   const raw = String(url ?? '').trim();
   if (!raw) return '';
+  // Photo taken offline, not uploaded yet: show the file on the phone.
+  if (raw.startsWith('pending-upload:')) {
+    try {
+      return JSON.parse(decodeURIComponent(raw.slice('pending-upload:'.length))).uri || '';
+    } catch {
+      return '';
+    }
+  }
 
   const at = raw.indexOf('/uploads/');
   if (at === -1) return raw;
