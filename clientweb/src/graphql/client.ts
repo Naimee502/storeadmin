@@ -43,6 +43,8 @@ const apolloClient = new ApolloClient({
 });
 
 offline.attach(apolloClient);
-window.addEventListener("online", () => offline.flush());
+window.addEventListener("online", () => offline.setOnline(true));
+window.addEventListener("offline", () => offline.setOnline(false));
+if (!navigator.onLine) offline.setOnline(false);
 
 export default apolloClient;

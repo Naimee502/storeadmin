@@ -331,6 +331,11 @@ export function createOffline(opts: {
   return {
     link,
     flush,
+    // Device network signal (browser online/offline events), so the status changes without a request.
+    setOnline(online: boolean) {
+      if (online !== state.online) set({ online });
+      if (online) flush();
+    },
     attach(c: any) {
       client = c;
       setInterval(() => { if (mine().length) flush(); }, RETRY_MS);
