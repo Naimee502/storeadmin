@@ -1,11 +1,4 @@
-/**
- * Is a popup (modal, drawer, "Add customer" box, full-screen loader…) showing?
- *
- * Page-level shortcuts — Esc = Cancel, Ctrl/⌘+S = Save, list arrow keys — must
- * stand down while one is open, or Esc on a popup would also leave the form.
- * Some popups stay mounted and are only faded out (opacity-0 +
- * pointer-events-none), so being in the DOM is not enough: it must be visible.
- */
+// True while a visible popup is open, so page shortcuts stand down.
 export const OVERLAY_SELECTOR = '[role="dialog"], [aria-modal="true"], .fixed.inset-0';
 
 export const isOverlayOpen = (): boolean => {

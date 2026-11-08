@@ -51,7 +51,7 @@ const DeletedProducts = () => {
         : variants?.[0]?.productcode || "-",
       name: item.name,
 
-      // ✅ Show stock vertically
+      // Stock shown vertically
       currentstock: (
         <div>
           {variants?.map((variant: any, i: number) => (
@@ -134,7 +134,7 @@ const DeletedProducts = () => {
                   type: "success",
                 })
               );
-              navigate(-1); // go back
+              navigate(-1);
             } catch (error) {
               console.error("Reset failed", error);
               dispatch(

@@ -4,14 +4,7 @@ interface SelectedBranchState {
   branchId: string;
 }
 
-/**
- * Starts empty on purpose.
- *
- * Reading localStorage here evaluated ONCE at module load, so after a LOGOUT
- * (which resets every slice to its initialState) the old branch came back from
- * a value captured before the user even signed out. The saved branch is
- * restored explicitly at startup instead — see src/index.tsx.
- */
+// Starts empty so logout can't restore a stale branch; restored in src/index.tsx.
 const initialState: SelectedBranchState = {
   branchId: "",
 };

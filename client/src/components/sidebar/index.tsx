@@ -38,9 +38,7 @@ type SidebarLink = {
 };
 
 
-// Sidebar remounts on every route change (each page wraps HomeLayout), which
-// resets the menu scroll to top. Keep the last scroll position at module level
-// so the menu stays where the user left it after clicking a link.
+// Module-level so the menu scroll survives the remount on each route change.
 let savedSidebarScroll = 0;
 
 const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar, onHoverChange }) => {
@@ -61,8 +59,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar, onHoverChange 
   const isBranch = role === "branch";
   const isStaff = role === "staff";
 
-  // ── Strict hierarchical module allowance chain ──
-  // Level 1: Business / SaaS (admin.allowedmodules) — mandatory
+  // Module allowance chain: business → branch → staff
   const businessAllowed = admin?.allowedmodules;
 
   // Level 2: Branch-level override (only when logged in as branch or staff)
@@ -76,22 +73,14 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar, onHoverChange 
   // Level 3: Staff-level override (only when logged in as staff)
   const staffAllowed = isStaff ? staff?.allowedmodules : undefined;
 
-  // For admin: only businessAllowed matters (admin IS the business level)
-  // For branch: businessAllowed ∩ branchAllowed
-  // For staff: businessAllowed ∩ branchAllowed ∩ staffAllowed
   const isModuleAllowed = (moduleId: string) => {
     const mid = moduleId.toLowerCase();
     const includes = (arr: string[]) => arr.map((m: any) => m.toString().toLowerCase()).includes(mid);
 
-    // 0. Default-on system modules (e.g. "branches") bypass the business-level
-    // allowedmodules gate: they are never offered in the Admin Register module
-    // checklist, so a freshly registered admin's allowedmodules can never
-    // contain them. Branch/staff level restrictions below still apply.
+    // Default-on system modules skip the business gate (never offered in the checklist).
     if (DEFAULT_ON_MODULE_IDS.map((m) => m.toLowerCase()).includes(mid)) return true;
 
-    // 1. Business Level (SaaS) — Mandatory check for all roles.
-    // The Business Settings "Allowed Modules" checklist is authoritative: a
-    // module only appears in the sidebar if it is present in allowedmodules.
+    // 1. Business level, required for all roles
     if (businessAllowed && Array.isArray(businessAllowed)) {
       if (!includes(businessAllowed)) return false;
     }
@@ -131,8 +120,6 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar, onHoverChange 
       if (!isModuleAllowed(moduleId)) return false;
       if (moduleId === "announcements" && !announcementsUsed) return false;
 
-      // The "Allowed Modules" checklist is now the primary driver for sidebar visibility for all roles.
-      // This ensures that if a module is checked in the allowance list, it appears in the sidebar.
       return true;
     });
   };
@@ -153,7 +140,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar, onHoverChange 
     icon: <FaHome className="text-cyan-400 text-[15px] flex-shrink-0" />
   };
 
-  // Dynamic Sidebar Link Registry
+  // Sidebar link registry
   const ALL_LINKS: (SidebarLink & { roles: string[]; section?: string })[] = [
     { to: '/branches', label: 'Branches', icon: <FaCodeBranch className="text-amber-400 text-[15px] flex-shrink-0" />, moduleId: "branches", roles: ["admin"] },
     { to: '/categories', label: 'Categories', icon: <FaTags className="text-rose-400 text-[15px] flex-shrink-0" />, moduleId: "categories", roles: ["admin", "branch", "staff"] },

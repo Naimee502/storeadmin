@@ -9,7 +9,7 @@ const Loader: React.FC<LoaderProps> = ({ fullScreen = false }) => {
     <div
       className={`flex flex-col items-center justify-center ${
         fullScreen
-          ? "fixed inset-0 z-50 bg-white/80"  // Removed backdrop-blur-sm for no blur
+          ? "fixed inset-0 z-50 bg-white/80"
           : "py-6"
       }`}
     >

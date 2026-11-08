@@ -35,9 +35,7 @@ type SystemNotification = {
   accent: string; // tailwind bg for the icon chip
 };
 
-/** Bell icon with a dropdown of system notifications (low stock, pending
-    orders, pending leaves). Everything is derived from live data — no
-    separate notification store needed. */
+// Bell dropdown of alerts derived from live data (stock, pending orders, leaves).
 const NotificationBell: React.FC = () => {
   const navigate = useNavigate();
 
@@ -59,12 +57,12 @@ const NotificationBell: React.FC = () => {
     skip: !adminId,
   });
 
-  // ── Server event notifications (orders punched, conversions, payments) ──
+  // Server event notifications
   const eventFilter = { adminid: adminId, targettype: "admin", unreadOnly: true, limit: 30 };
   const eventsQ = useQuery(GET_NOTIFICATIONS, {
     variables: { filter: eventFilter },
     skip: !adminId,
-    pollInterval: 30000, // refresh every 30s
+    pollInterval: 30000,
     fetchPolicy: "network-only",
   });
   const [markRead] = useMutation(MARK_NOTIFICATION_READ);

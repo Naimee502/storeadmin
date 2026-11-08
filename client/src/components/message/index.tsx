@@ -8,9 +8,7 @@ const Message: React.FC = () => {
 
   useEffect(() => {
     if (message) {
-      // Errors now name every field that is wrong, which takes longer to
-      // read than a one-word "Saved". A message may also ask for its own
-      // time — see `duration` on the slice.
+      // Errors list every bad field, so they may need a longer duration.
       const timer = setTimeout(() => {
         dispatch(clearMessage());
       }, duration ?? (type === 'success' ? 3000 : 7000));

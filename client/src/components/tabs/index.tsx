@@ -38,7 +38,7 @@ export const TabsList: React.FC<TabsListProps> = ({ children, className }) => {
   );
 };
 
-// Tabs trigger (single tab button)
+// Tabs trigger
 interface TabsTriggerProps {
   value: string;
   children: React.ReactNode;
@@ -67,7 +67,7 @@ export const TabsTrigger: React.FC<TabsTriggerProps> = ({ value, children, class
   );
 };
 
-// Tabs content (conditional rendering)
+// Tabs content
 interface TabsContentProps {
   value: string;
   children: React.ReactNode;

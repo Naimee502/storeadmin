@@ -12,7 +12,7 @@ export interface Staff {
   commission: string;
   target: string;
   status: boolean;
-  role: string;         // ✅ Added role
+  role: string;
 }
 
 interface StaffState {

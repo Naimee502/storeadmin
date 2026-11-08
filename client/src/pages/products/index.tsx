@@ -23,8 +23,7 @@ const SERVER_FILTER_KEYS = ["code", "name", "status"];
 
 const ProductServices = () => {
   const actions = useAppSelector(state => selectModuleActions(state, "products"));
-  // Barcode lives with Unit Prices — hide the list barcode action when the
-  // user's form permissions allow none of the unit-price fields.
+  // Barcode lives with Unit Prices: hidden when no unit-price field is permitted.
   const productFormPerms = useAppSelector((state: any) => state.permissions.permissions?.formPermissions?.products || {});
   const canSeeBarcode = ["quantity", "unitprices_unitid", "mrp", "salesrate", "discount", "discounttype", "offerprice", "add_unit_price"]
     .some((f) => productFormPerms[f] !== false);
@@ -32,14 +31,12 @@ const ProductServices = () => {
   const dispatch = useAppDispatch();
   const apolloClient = useApolloClient();
 
-  // ?filter=lowstock (from the dashboard "Low Stock Alert" card) —
-  // show only products having a variant below its minimum stock
+  // ?filter=lowstock (dashboard card): only products with a variant below minimum stock.
   const location = useLocation();
   const isLowStockFilter =
     new URLSearchParams(location.search).get("filter") === "lowstock";
 
-  // One page from the server (the low-stock rule is applied there too).
-  // Export fetches the full records on click (exportLoader).
+  // One page from the server; Export fetches full records on click.
   const table = useServerTable("products", SERVER_FILTER_KEYS);
   const {
     items: productServiceList,
@@ -101,7 +98,7 @@ const ProductServices = () => {
         : variants?.[0]?.productcode || "-",
       name: item.name,
 
-      // ✅ Show stock vertically
+      // Stock shown vertically
       currentstock: (
         <div className="flex flex-col gap-0 text-xs">
           {variants?.map((variant: any, i: number) => (
@@ -143,11 +140,7 @@ const ProductServices = () => {
     };
   });
 
-  // Import and export live in useProductImportExport — it owns the template
-  // with its dropdowns, the four-sheet layout, image uploads, the dry run and
-  // the error report. The page only opens the dialog and refetches afterwards.
-  // The list only holds lite rows, so Export pulls the full records (same
-  // scope + the same low-stock filter) when it is clicked.
+  // Import/export live in useProductImportExport; Export pulls full records with the same filters.
   const exportLoader = useCallback(async () => {
     const { data: full } = await apolloClient.query({
       query: GET_PRODUCT_SERVICES,

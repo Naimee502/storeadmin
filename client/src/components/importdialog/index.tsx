@@ -4,15 +4,7 @@ import Button from "../button";
 import type { RowError } from "../../utils/excel/importproducts";
 import { CSV_LIMITATIONS } from "../../utils/excel/csvadapter";
 
-/**
- * The import screen.
- *
- * Deliberately not a raw file picker. Three things have to happen before
- * anyone uploads anything: they need the template (with the dropdowns), they
- * need to know xlsx and csv are not equivalent, and after upload they need to
- * see what is about to happen before it happens. Nothing is written until the
- * server's dry run comes back and the user approves the counts.
- */
+// Import screen: template first, then a server dry run the user approves before anything is written.
 
 export type ImportStage = "idle" | "reading" | "review" | "importing" | "done";
 export type ImportMode = "CREATE" | "UPSERT";
@@ -137,7 +129,7 @@ const ImportDialog: React.FC<ImportDialogProps> = ({
           </div>
 
           <div className="px-6 py-5 space-y-6 overflow-y-auto flex-1 min-h-0">
-            {/* ---------------- step 1: get a file ---------------- */}
+            {/* step 1: get a file */}
             {(stage === "idle" || stage === "reading") && (
               <>
                 <section>
@@ -251,7 +243,7 @@ const ImportDialog: React.FC<ImportDialogProps> = ({
               </>
             )}
 
-            {/* ---------------- review ---------------- */}
+            {/* review */}
             {(stage === "review" || stage === "importing" || stage === "done") && summary && (
               <section>
                 <div className="flex flex-wrap items-center gap-2 mb-4">

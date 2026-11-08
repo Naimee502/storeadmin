@@ -758,7 +758,7 @@ const AppRoutes = () => {
           </ProtectedRoutes>
         }
       />
-      {/* ---- Reports ---- */}
+      {/* Reports */}
       <Route
         path="/reports/sales"
         element={
@@ -943,7 +943,7 @@ const AppRoutes = () => {
           </ProtectedRoutes>
         }
       />
-      {/* ---- Price Lists ---- */}
+      {/* Price Lists */}
       <Route
         path="/pricelists"
         element={
@@ -992,7 +992,7 @@ const AppRoutes = () => {
           </ProtectedRoutes>
         }
       />
-      {/* ---- Attendance & Leave (consolidated) ---- */}
+      {/* Attendance & Leave */}
       <Route
         path="/attendance"
         element={
@@ -1009,7 +1009,7 @@ const AppRoutes = () => {
           </ProtectedRoutes>
         }
       />
-      {/* ---- Sales Return (Credit Note) ---- */}
+      {/* Sales Return (Credit Note) */}
       <Route
         path="/salesreturn"
         element={
@@ -1042,7 +1042,7 @@ const AppRoutes = () => {
           </ProtectedRoutes>
         }
       />
-      {/* ---- Purchase Return (Debit Note) ---- */}
+      {/* Purchase Return (Debit Note) */}
       <Route
         path="/purchasereturn"
         element={

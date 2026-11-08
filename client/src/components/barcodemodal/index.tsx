@@ -1,4 +1,3 @@
-// components/BarcodeModal.tsx
 import React, { useEffect, useState } from "react";
 import { Dialog } from "@headlessui/react";
 import Button from "../button";

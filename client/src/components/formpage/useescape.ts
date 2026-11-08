@@ -1,15 +1,7 @@
 import { useEffect, useRef } from "react";
 import { OVERLAY_SELECTOR, isOverlayOpen } from "./overlay";
 
-/**
- * Esc = go back / cancel, for any desktop screen (forms, detail views).
- *
- * Listens in the capture phase, before any field sees the key — dropdowns
- * (react-select) mark every Esc as handled, which would otherwise swallow it
- * whenever a select has focus. Esc is left alone only when it has something
- * of its own to close: an open dropdown, a popup, or a box marked
- * `data-own-esc` (e.g. the menu search, which clears itself).
- */
+// Esc = cancel; capture phase so react-select can't swallow it. Skipped when something else should close.
 export function useEscape(handler: () => void, enabled = true) {
   const ref = useRef(handler);
   ref.current = handler;
