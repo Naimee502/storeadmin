@@ -103,6 +103,17 @@ const ProductSection: React.FC<ProductSectionProps> = ({
   originalProducts,
 }) => {
   const normalizedProducts = productData.map(normalizeProduct);
+  // Product picker options; on sales forms nothing-in-stock items go to the bottom.
+  const variantOptions = (() => {
+    const opts = normalizedProducts.flatMap((p) =>
+      p.productvariants.map((v: any) => ({
+        value: `${p.id}--${v.id}`,
+        label: `${p.name} - ${v.name} - (Stock: ${v.currentstock ?? 0})`,
+        empty: Number(v.currentstock ?? 0) <= 0,
+      }))
+    );
+    return type === "sales" ? [...opts.filter((o) => !o.empty), ...opts.filter((o) => o.empty)] : opts;
+  })();
 
   // Short-stock flags for pre-filled lines (app/website orders), shown inline on each row.
   const shortfallByLine = useMemo(() => {
@@ -615,12 +626,7 @@ const ProductSection: React.FC<ProductSectionProps> = ({
                 purchaseunitid: purchaseUnitId,
               });
             }}
-            options={normalizedProducts.flatMap((p) =>
-              p.productvariants.map((v: any) => ({
-                value: `${p.id}--${v.id}`,
-                label: `${p.name} - ${v.name} - (Stock: ${v.currentstock ?? 0})`,
-              }))
-            )}
+            options={variantOptions}
             searchable
             addable
             onAddNew={() => navigate("/products")}
@@ -919,12 +925,7 @@ const ProductSection: React.FC<ProductSectionProps> = ({
                           <>
                             <Select
                               inputId={`product-select-${i}`}
-                              options={normalizedProducts.flatMap((prod) =>
-                                prod.productvariants.map((v: any) => ({
-                                  value: `${prod.id}--${v.id}`,
-                                  label: `${prod.name} - ${v.name} - (Stock: ${v.currentstock ?? 0})`,
-                                }))
-                              )}
+                              options={variantOptions}
                               value={normalizedProducts.flatMap((prod) =>
                                 prod.productvariants.map((v: any) => ({
                                   value: `${prod.id}--${v.id}`,

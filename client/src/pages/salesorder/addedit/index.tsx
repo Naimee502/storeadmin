@@ -156,8 +156,9 @@ const AddEditSalesOrder = () => {
       }
       if (salesOrders.length > 0) {
         const billNumbers = salesOrders.map((order) => order.billnumber);
-        const lastBillNumber = [...billNumbers].sort().pop();
-        const nextBillNumber = (parseInt(lastBillNumber || "0", 10) + 1)
+        // Main series only: offline device numbers ("A/000001") are not counted.
+        const lastBillNumber = Math.max(0, ...billNumbers.filter((n: any) => /^\d+$/.test(String(n ?? ""))).map(Number));
+        const nextBillNumber = (lastBillNumber + 1)
           .toString()
           .padStart(6, "0");
         setBillNumber(nextBillNumber);

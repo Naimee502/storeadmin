@@ -196,7 +196,7 @@ const AddEditDeliveryChallan = () => {
     <HomeLayout>
       <FormPage
         breadcrumb="Delivery Challans"
-        title={isEdit ? "Edit Delivery Challan" : "New Delivery Challan"}
+        title={isEdit ? "Edit Delivery Challan" : "Add Delivery Challan"}
         onSave={save}
         onCancel={() => navigate(-1)}
         saveLabel={isEdit ? "Update Challan" : "Save Challan"}
