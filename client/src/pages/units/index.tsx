@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { UQC_OPTIONS } from "../../utils/constants";
 import { useNavigate } from "react-router";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
@@ -29,7 +30,7 @@ const Units = () => {
   const { addUnitMutation, editUnitMutation, deleteUnitMutation } = useUnitMutations();
   const isLoading = useAppSelector((state) => state.loader.isLoading);
 
-  const [formValues, setFormValues] = useState({ unitname: "", status: true });
+  const [formValues, setFormValues] = useState({ unitname: "", uqc: "", status: true });
   const [formErrors, setFormErrors] = useState({});
   const [isEditing, setIsEditing] = useState(false);
   const [editingId, setEditingId] = useState(null);
@@ -48,7 +49,7 @@ const Units = () => {
   };
 
   const handleEdit = (row) => {
-    setFormValues({ unitname: row.unitname, status: row.status === "Active" });
+    setFormValues({ unitname: row.unitname, uqc: row.uqc || "", status: row.status === "Active" });
     setIsEditing(true);
     setEditingId(row.id);
   };
@@ -61,20 +62,20 @@ const Units = () => {
         await editUnitMutation({
           variables: {
             id: editingId,
-            input: { unitname: formValues.unitname, status: formValues.status, admin: adminId },
+            input: { unitname: formValues.unitname, uqc: formValues.uqc || null, status: formValues.status, admin: adminId },
           },
         });
         dispatch(showMessage({ message: "Unit updated successfully.", type: "success" }));
       } else {
         await addUnitMutation({
           variables: {
-            input: { unitname: formValues.unitname, status: formValues.status, admin: adminId },
+            input: { unitname: formValues.unitname, uqc: formValues.uqc || null, status: formValues.status, admin: adminId },
           },
         });
         dispatch(showMessage({ message: "Unit added successfully.", type: "success" }));
       }
       await refetch();
-      setFormValues({ unitname: "", status: true });
+      setFormValues({ unitname: "", uqc: "", status: true });
       setIsEditing(false);
       setEditingId(null);
     } catch (error) {
@@ -93,6 +94,7 @@ const Units = () => {
     { label: "Seq Number", key: "seqNo" },
     { label: "Unit Code", key: "unitcode" },
     { label: "Unit Name", key: "unitname" },
+    { label: "GST Unit", key: "uqc" },
     { label: "Status", key: "status" },
   ];
 
@@ -197,6 +199,8 @@ const Units = () => {
           isLoading={loading || isLoading}
           formFields={[
             { name: "unitname", label: "Unit Name", type: "text", placeholder: "Enter unit name" },
+            // GST unit code for e-Invoice / e-Way Bill.
+            { name: "uqc", label: "GST Unit (UQC)", type: "select", options: UQC_OPTIONS, searchable: true },
           ]}
           formValues={formValues}
           formErrors={formErrors}

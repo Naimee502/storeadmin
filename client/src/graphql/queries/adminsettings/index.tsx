@@ -52,6 +52,13 @@ const SETTINGS_FIELDS = `
   printShowEwayBillDistance
   printShowDeliveryDueDate
   printShowGstin
+  gstin
+  legalName
+  tradeName
+  gstAddress
+  gstCity
+  gstPincode
+  companyState
   printShowHsnColumn
   printShowGstColumn
   printShowTotalGst

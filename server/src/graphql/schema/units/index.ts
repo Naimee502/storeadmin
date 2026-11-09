@@ -22,6 +22,8 @@ export const unitTypeDefs = gql`
     id: ID!
     unitcode: String!
     unitname: String!
+    "GST unit code (UQC)."
+    uqc: String
     status: Boolean!
     admin: Admin
   }
@@ -32,6 +34,7 @@ export const unitTypeDefs = gql`
 
     clientRequestId: String
     unitname: String!
+    uqc: String
     status: Boolean!
     admin: ID
   }

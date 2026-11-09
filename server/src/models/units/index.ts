@@ -4,6 +4,8 @@ const unitSchema = new mongoose.Schema(
   {
     unitcode: { type: String },
     unitname: { type: String, required: true },
+    // GST unit code (UQC) for e-Invoice / e-Way Bill, e.g. PCS, KGS, BOX.
+    uqc: { type: String },
     status: Boolean,
 
     admin: {

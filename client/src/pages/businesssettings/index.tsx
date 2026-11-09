@@ -28,6 +28,7 @@ import {
   type ModuleAction,
 } from "../../config/modules";
 import FormPermissionsTab from "./formpermissionstab";
+import { stateOptions } from "../../utils/constants";
 
 // Strip Apollo's __typename before sending query data back as mutation input.
 const deepStripTypename = (value: any): any =>
@@ -346,6 +347,29 @@ const GeneralTab: React.FC<{ adminId?: string; dispatch: any; allowedModules?: s
           <Toggle label="Party login email OTP" hint="Customer login on the App & Website asks for a 4-digit OTP sent to the party's email." checked={!!draft.partyLoginEmailOtp} onChange={(v: boolean) => set("partyLoginEmailOtp", v)} />
           <Toggle label="New signups need approval" hint="Self-registered customers stay Pending and cannot log in until approved from Party Accounts." checked={!!draft.requirePartyApproval} onChange={(v: boolean) => set("requirePartyApproval", v)} />
         </Grid>
+      </Section>
+
+      <Section title="GST Profile (e-Invoice / e-Way Bill)">
+        <div className="text-[11px] leading-snug text-slate-400">
+          Seller details sent to the GST portal. Fill them as on your GST registration certificate.
+        </div>
+        <div className="grid grid-cols-1 gap-x-3 gap-y-2 md:grid-cols-4">
+          <FormField label="GSTIN" type="text" name="biz-gstin" placeholder="e.g. 24ABCDE1234F1Z5" value={draft.gstin ?? ""}
+            onChange={(e: any) => set("gstin", e.target.value.toUpperCase().replace(/\s/g, ""))} />
+          <FormField label="Legal Name" type="text" name="biz-legalname" value={draft.legalName ?? ""} onChange={(e: any) => set("legalName", e.target.value)} />
+          <FormField label="Trade Name" type="text" name="biz-tradename" value={draft.tradeName ?? ""} onChange={(e: any) => set("tradeName", e.target.value)} />
+          <FormField label="State" type="select" name="biz-state" value={draft.companyState ?? ""} options={stateOptions} searchable
+            onChange={(e: any) => set("companyState", e.target.value)} />
+          <div className="md:col-span-2">
+            <FormField label="Address" type="text" name="biz-gstaddress" value={draft.gstAddress ?? ""} onChange={(e: any) => set("gstAddress", e.target.value)} />
+          </div>
+          <FormField label="City" type="text" name="biz-gstcity" value={draft.gstCity ?? ""} onChange={(e: any) => set("gstCity", e.target.value)} />
+          <FormField label="Pincode" type="text" name="biz-gstpin" value={draft.gstPincode ?? ""}
+            onChange={(e: any) => set("gstPincode", e.target.value.replace(/\D/g, "").slice(0, 6))} />
+        </div>
+        {draft.gstin && !/^\d{2}[A-Z]{5}\d{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/.test(draft.gstin) && (
+          <div className="text-[12px] text-rose-600">This GSTIN does not look valid (15 characters, e.g. 24ABCDE1234F1Z5).</div>
+        )}
       </Section>
 
       <Section title="Invoice Print">

@@ -105,6 +105,13 @@ const adminSettingsSchema = new mongoose.Schema(
     // invoice and the accounts stay correct.
     doubleDisplayPrice: { type: Boolean, default: false },
     companyState: { type: String, default: "gujarat" }, // For IGST vs CGST/SGST detection
+    // GST profile used by e-Invoice / e-Way Bill (seller details). No defaults: blank until filled.
+    gstin: { type: String },
+    legalName: { type: String },
+    tradeName: { type: String },
+    gstAddress: { type: String },
+    gstCity: { type: String },
+    gstPincode: { type: String },
 
     /* ============================================================
        WEBSITE STOREFRONT — controls for the customer-facing website.

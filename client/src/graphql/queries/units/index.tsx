@@ -7,6 +7,7 @@ export const GET_UNITS = gql`
       id
       unitcode
       unitname
+      uqc
       status
       admin {
         id
@@ -24,6 +25,7 @@ export const GET_UNITS_LIST = gql`
       id
       unitcode
       unitname
+      uqc
       status
     }
   }
@@ -35,6 +37,7 @@ export const GET_DELETED_UNITS = gql`
       id
       unitcode
       unitname
+      uqc
       status
       admin {
         id
@@ -51,6 +54,7 @@ export const GET_UNIT_BY_ID = gql`
       id
       unitcode
       unitname
+      uqc
       status
       admin {
         id
@@ -76,6 +80,7 @@ export const GET_UNITS_PAGE = gql`
         id
         unitcode
         unitname
+        uqc
         status
       }
     }

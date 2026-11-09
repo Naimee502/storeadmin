@@ -108,6 +108,14 @@ export const adminSettingsTypeDefs = gql`
     printShowEwayBillDistance: Boolean
     printShowDeliveryDueDate: Boolean
     printShowGstin: Boolean
+    "GST profile for e-Invoice / e-Way Bill."
+    gstin: String
+    legalName: String
+    tradeName: String
+    gstAddress: String
+    gstCity: String
+    gstPincode: String
+    companyState: String
     printShowHsnColumn: Boolean
     printShowGstColumn: Boolean
     printShowTotalGst: Boolean
@@ -353,6 +361,14 @@ export const adminSettingsTypeDefs = gql`
     printShowEwayBillDistance: Boolean
     printShowDeliveryDueDate: Boolean
     printShowGstin: Boolean
+    "GST profile for e-Invoice / e-Way Bill."
+    gstin: String
+    legalName: String
+    tradeName: String
+    gstAddress: String
+    gstCity: String
+    gstPincode: String
+    companyState: String
     printShowHsnColumn: Boolean
     printShowGstColumn: Boolean
     printShowTotalGst: Boolean

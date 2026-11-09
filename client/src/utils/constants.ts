@@ -44,3 +44,15 @@ export const regionOptions = [
 
 // GST State options, kept separate from pricing Region.
 export const stateOptions = regionOptions;
+
+// GST unit codes (UQC) accepted by the e-Invoice and e-Way Bill portals.
+export const UQC_OPTIONS = [
+  ["PCS", "Pieces"], ["NOS", "Numbers"], ["KGS", "Kilograms"], ["GMS", "Grams"], ["QTL", "Quintal"], ["TON", "Tonnes"],
+  ["LTR", "Litres"], ["MLT", "Millilitre"], ["KLR", "Kilolitre"], ["MTR", "Metres"], ["CMS", "Centimetres"], ["KME", "Kilometre"],
+  ["SQM", "Square Metres"], ["SQF", "Square Feet"], ["SQY", "Square Yards"], ["CBM", "Cubic Metres"], ["CCM", "Cubic Centimetres"],
+  ["YDS", "Yards"], ["BOX", "Box"], ["CTN", "Cartons"], ["DOZ", "Dozens"], ["PAC", "Packs"], ["BAG", "Bags"], ["BAL", "Bale"],
+  ["BDL", "Bundles"], ["BKL", "Buckles"], ["BOU", "Billion of Units"], ["BTL", "Bottles"], ["BUN", "Bunches"], ["CAN", "Cans"],
+  ["DRM", "Drums"], ["GGK", "Great Gross"], ["GRS", "Gross"], ["GYD", "Gross Yards"], ["PRS", "Pairs"], ["ROL", "Rolls"],
+  ["SET", "Sets"], ["TBS", "Tablets"], ["TGM", "Ten Gross"], ["THD", "Thousands"], ["TUB", "Tubes"], ["UGS", "US Gallons"],
+  ["UNT", "Units"], ["OTH", "Others"],
+].map(([value, label]) => ({ value, label: `${value} - ${label}` }));
