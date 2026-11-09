@@ -4,12 +4,13 @@ import { AlertTriangle, CheckCircle2, Copy, Download, ExternalLink, X } from "lu
 import { GET_EINVOICE_EXPORT, GET_EWAYBILL_EXPORT } from "../../graphql/queries/salesinvoice";
 import { SAVE_INVOICE_GST_DETAILS } from "../../graphql/mutations/salesinvoice";
 import { SAVE_CHALLAN_EWAYBILL } from "../../graphql/mutations/deliverychallan";
-import { useAppDispatch } from "../../redux/hooks";
+import { useAppDispatch, useAppSelector } from "../../redux/hooks";
+import { selectModuleActions } from "../../redux/slices/permissions";
 import { showMessage } from "../../redux/slices/message";
 
 type Kind = "invoice" | "challan";
 const PORTAL = { einvoice: "https://einvoice1.gst.gov.in", ewaybill: "https://ewaybillgst.gov.in" };
-const input = "h-8 w-full rounded-md border border-slate-300 bg-white px-2 text-[13px] outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500";
+const input = "h-8 w-full rounded-md border border-slate-300 bg-white px-2 text-[13px] outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 disabled:bg-slate-50 disabled:text-slate-500";
 const btn = "inline-flex h-8 items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 text-[13px] font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50";
 const primary = "inline-flex h-8 items-center gap-1.5 rounded-md bg-indigo-600 px-3 text-[13px] font-semibold text-white hover:bg-indigo-700 disabled:opacity-50";
 
@@ -81,9 +82,17 @@ function ExportBlock({ title, portal, fileName, query, vars, wrap }: {
   );
 }
 
-/** e-Invoice and e-Way Bill for one invoice, or e-Way Bill for one challan. */
-export default function GstPanel({ kind, doc, onClose }: { kind: Kind; doc: any; onClose: () => void }) {
+/** e-Invoice and/or e-Way Bill for one invoice (each by its module), or e-Way Bill for one challan. */
+export default function GstPanel({ kind, doc, einvoice = true, ewaybill = true, onClose }: {
+  kind: Kind; doc: any; einvoice?: boolean; ewaybill?: boolean; onClose: () => void;
+}) {
+  const showEinv = kind === "invoice" && einvoice;
   const dispatch = useAppDispatch();
+  const einvActs = useAppSelector((s) => selectModuleActions(s, "einvoice"));
+  const ewbActs = useAppSelector((s) => selectModuleActions(s, "ewaybill"));
+  // Add for the first save, Edit once the portal's number is saved.
+  const einvWrite = showEinv && (doc.irn ? einvActs.showEdit : einvActs.showAdd);
+  const ewbWrite = ewaybill && (doc.ewaybillno ? ewbActs.showEdit : ewbActs.showAdd);
   const [saveInvoice, { loading: savingInv }] = useMutation(SAVE_INVOICE_GST_DETAILS, { refetchQueries: ["GetSalesInvoicesPage"] });
   const [saveChallan, { loading: savingCh }] = useMutation(SAVE_CHALLAN_EWAYBILL, { refetchQueries: ["GetDeliveryChallansPage"] });
   const [f, setF] = useState({
@@ -93,11 +102,23 @@ export default function GstPanel({ kind, doc, onClose }: { kind: Kind; doc: any;
   const set = (k: keyof typeof f) => (e: any) => setF((x) => ({ ...x, [k]: e.target.value }));
   const number = kind === "invoice" ? `INV-${doc.billnumber || ""}` : `DC-${doc.billnumber || doc.offlineNumber || ""}`;
   const cancelled = doc.irnStatus === "cancelled";
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
 
   const save = async (extra: Record<string, any> = {}) => {
     try {
       if (kind === "invoice") {
-        await saveInvoice({ variables: { id: doc.id, input: { ...f, ...extra }, expectedUpdatedAt: doc.updatedAt } });
+        const { irn, irnAckNo, irnAckDate, signedQr, ewaybillno, ewaybilldate, ewaybillvalidupto } = f;
+        // Send only the halves whose module is on; the server checks each.
+        const input = {
+          ...(einvWrite ? { irn, irnAckNo, irnAckDate, signedQr } : {}),
+          ...(ewbWrite ? { ewaybillno, ewaybilldate, ewaybillvalidupto } : {}),
+          ...extra,
+        };
+        await saveInvoice({ variables: { id: doc.id, input, expectedUpdatedAt: doc.updatedAt } });
       } else {
         await saveChallan({ variables: { id: doc.id, ewaybillno: f.ewaybillno, ewaybilldate: f.ewaybilldate, ewaybillvalidupto: f.ewaybillvalidupto, expectedUpdatedAt: doc.updatedAt } });
       }
@@ -109,11 +130,12 @@ export default function GstPanel({ kind, doc, onClose }: { kind: Kind; doc: any;
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-auto bg-slate-900/40 p-4" onClick={onClose}>
-      <div className="w-full max-w-2xl rounded-lg bg-white text-[13px] shadow-xl" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4" onClick={onClose}>
+      {/* Header and footer stay put; only the body scrolls. */}
+      <div className={`flex max-h-full w-full ${showEinv && ewaybill ? "max-w-6xl" : "max-w-2xl"} flex-col rounded-lg bg-white text-[13px] shadow-xl`} onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between border-b border-slate-200 px-4 py-2.5">
           <div className="font-semibold text-slate-800">
-            {kind === "invoice" ? "e-Invoice & e-Way Bill" : "e-Way Bill"} — {number}
+            {showEinv && ewaybill ? "e-Invoice & e-Way Bill" : showEinv ? "e-Invoice" : "e-Way Bill"} — {number}
             {doc.irn && (
               <span className={`ml-2 rounded px-1.5 py-0.5 text-[11px] font-semibold ${cancelled ? "bg-rose-50 text-rose-700" : "bg-emerald-50 text-emerald-700"}`}>
                 {cancelled ? "IRN cancelled" : "IRN generated"}
@@ -123,10 +145,10 @@ export default function GstPanel({ kind, doc, onClose }: { kind: Kind; doc: any;
           <button type="button" onClick={onClose} className="text-slate-500 hover:text-slate-800" aria-label="Close"><X size={16} /></button>
         </div>
 
-        <div className="space-y-5 p-4">
-          {kind === "invoice" && (
-            <section className="space-y-3">
-              {!doc.irn && (
+        <div className={`min-h-0 flex-1 gap-5 overflow-y-auto p-4 ${showEinv && ewaybill ? "grid grid-cols-1 lg:grid-cols-2" : "space-y-5"}`}>
+          {showEinv && (
+            <fieldset disabled={!einvWrite} className="min-w-0 space-y-3">
+              {!doc.irn && einvActs.showAdd && (
                 <ExportBlock
                   title="1. e-Invoice JSON"
                   portal={PORTAL.einvoice}
@@ -144,13 +166,13 @@ export default function GstPanel({ kind, doc, onClose }: { kind: Kind; doc: any;
                   <textarea className={`${input} h-16 py-1`} value={f.signedQr} onChange={set("signedQr")} placeholder="Paste the Signed QR Code text; it prints on the invoice" />
                 </label>
               </div>
-            </section>
+            </fieldset>
           )}
 
-          <section className="space-y-3">
-            {!doc.ewaybillno && (
+          {ewaybill && <fieldset disabled={!ewbWrite} className="min-w-0 space-y-3">
+            {!doc.ewaybillno && ewbActs.showAdd && (
               <ExportBlock
-                title={kind === "invoice" ? "2. e-Way Bill JSON" : "e-Way Bill JSON"}
+                title={showEinv ? "2. e-Way Bill JSON" : "e-Way Bill JSON"}
                 portal={PORTAL.ewaybill}
                 fileName={`ewaybill-${number}.json`}
                 query={GET_EWAYBILL_EXPORT}
@@ -162,12 +184,12 @@ export default function GstPanel({ kind, doc, onClose }: { kind: Kind; doc: any;
               <label>Date<input className={input} value={f.ewaybilldate} onChange={set("ewaybilldate")} placeholder="DD/MM/YYYY" /></label>
               <label>Valid Upto<input className={input} value={f.ewaybillvalidupto} onChange={set("ewaybillvalidupto")} placeholder="DD/MM/YYYY" /></label>
             </div>
-          </section>
+          </fieldset>}
         </div>
 
         <div className="flex items-center justify-between gap-2 border-t border-slate-200 px-4 py-2.5">
           <div>
-            {kind === "invoice" && doc.irn && !cancelled && (
+            {showEinv && doc.irn && !cancelled && einvActs.showEdit && (
               <button type="button" className={btn} onClick={() => window.confirm("Mark this IRN as cancelled? Cancel it on the portal first (within 24 hours).") && save({ irnStatus: "cancelled" })}>
                 Mark IRN cancelled
               </button>
@@ -175,7 +197,9 @@ export default function GstPanel({ kind, doc, onClose }: { kind: Kind; doc: any;
           </div>
           <div className="flex gap-2">
             <button type="button" className={btn} onClick={onClose}>Close</button>
-            <button type="button" className={primary} disabled={savingInv || savingCh} onClick={() => save()}>Save details</button>
+            {(einvWrite || ewbWrite) && (
+              <button type="button" className={primary} disabled={savingInv || savingCh} onClick={() => save()}>Save details</button>
+            )}
           </div>
         </div>
       </div>

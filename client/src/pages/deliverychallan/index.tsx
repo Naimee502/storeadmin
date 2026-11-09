@@ -94,6 +94,7 @@ const DeliveryChallans = () => {
   const { deleteDeliveryChallanMutation, markDeliveredMutation, markReturnedMutation } = useDeliveryChallanMutations();
   const [printing, setPrinting] = useState<any>(null);
   const [gstChallan, setGstChallan] = useState<any>(null);
+  const gstOn = useAppSelector((s) => selectIsModuleBusinessEnabled(s, "ewaybill"));
   const [copies, setCopies] = useState(3);
   const [showRate, setShowRate] = useState(false);
 
@@ -135,7 +136,7 @@ const DeliveryChallans = () => {
     { label: "Qty", key: "totalqty" },
     { label: "Vehicle", key: "vehiclenumber" },
     { label: "Value", key: "totalamount" },
-    { label: "E-Way Bill", key: "ewbCell" },
+    ...(gstOn ? [{ label: "E-Way Bill", key: "ewbCell" }] : []),
     { label: "Status", key: "challanStatus" },
   ];
 
@@ -207,7 +208,7 @@ const DeliveryChallans = () => {
         />
       </div>
 
-      {gstChallan && <GstPanel kind="challan" doc={gstChallan} onClose={() => setGstChallan(null)} />}
+      {gstChallan && <GstPanel kind="challan" doc={gstChallan} einvoice={false} ewaybill onClose={() => setGstChallan(null)} />}
       {printing && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40" onClick={() => setPrinting(null)}>
           <div className="w-80 rounded-lg bg-white p-4 text-[13px] shadow-xl" onClick={(e) => e.stopPropagation()}>

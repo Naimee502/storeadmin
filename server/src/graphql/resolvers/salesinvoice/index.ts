@@ -19,6 +19,8 @@ import { Admin } from "../../../models/admin";
 import { Branch } from "../../../models/branches";
 import { buildEInvoice, buildEWayBill, sellerOf } from "../../../utils/gst";
 import { requireBackofficeTenant, TenantError } from "../../../utils/tenant";
+import { assertModuleOn } from "../../../utils/modulegate";
+import { isActionAllowed } from "../../../utils/permissiongate";
 import { SalesReturn } from "../../../models/salesreturn";
 import { assertInvoiceCancellable, assertInvoiceReopenable } from "../../../utils/invoicecancel";
 import { assertFresh, createOnce, dropDeviceNumber, takeDeviceNumber, conflictError, isoOf, parseExpectedUpdatedAt, raiseDeviceSeq, updateByIdGuarded } from "../../../utils/offlinesync";
@@ -350,8 +352,23 @@ const GST_POPULATE: any[] = [
   { path: "productservice.salesunitid", select: "unitname uqc" },
 ];
 
-async function gstDoc(kind: "invoice" | "challan", id: string, context: any) {
+// e-Invoice or e-Way Bill module on, and Add (first time) or Edit (change saved details) allowed for this login.
+export async function assertGstOn(scope: any, moduleId: "einvoice" | "ewaybill", action: "add" | "edit") {
+  const label = moduleId === "einvoice" ? "e-Invoice" : "e-Way Bill";
+  const where = {
+    adminid: scope.adminid,
+    branchid: scope.userType === "admin" ? undefined : scope.branchid,
+    staffid: scope.userType === "staff" ? scope.userId : undefined,
+  };
+  await assertModuleOn(moduleId, label, where);
+  if (!(await isActionAllowed(moduleId, action, where))) {
+    throw new TenantError(`You do not have ${action === "add" ? "Add" : "Edit"} permission for ${label}.`);
+  }
+}
+
+async function gstDoc(kind: "invoice" | "challan", id: string, context: any, moduleId: "einvoice" | "ewaybill") {
   const scope = await requireBackofficeTenant(context);
+  await assertGstOn(scope, moduleId, "add");
   const Model: any = kind === "invoice" ? SalesInvoice : DeliveryChallan;
   const doc: any = await Model.findById(id).populate(GST_POPULATE).lean();
   if (!doc || String(doc.adminid) !== String(scope.adminid)) throw new TenantError("Document not found.", "BAD_USER_INPUT");
@@ -919,13 +936,13 @@ async function addSalesInvoiceNow(_: any, { input, autoPayment }: any, context: 
 export const salesInvoiceResolvers = {
   Query: {
     getEInvoiceExport: async (_: any, { invoiceId }: any, context: any) => {
-      const { doc, seller } = await gstDoc("invoice", invoiceId, context);
+      const { doc, seller } = await gstDoc("invoice", invoiceId, context, "einvoice");
       return exportOf(buildEInvoice(doc, seller));
     },
 
     getEWayBillExport: async (_: any, { sourceType, id }: any, context: any) => {
       const kind = sourceType === "challan" ? "challan" : "invoice";
-      const { doc, seller } = await gstDoc(kind, id, context);
+      const { doc, seller } = await gstDoc(kind, id, context, "ewaybill");
       return exportOf(buildEWayBill(doc, kind, seller));
     },
 
@@ -1369,8 +1386,15 @@ export const salesInvoiceResolvers = {
     // Details the GST portal returned (IRN, QR, e-Way Bill); only these fields are written.
     saveInvoiceGstDetails: async (_: any, { id, input }: any, context: any) => {
       const scope = await requireBackofficeTenant(context);
-      const inv: any = await SalesInvoice.findById(id).select("adminid").lean();
+      const inv: any = await SalesInvoice.findById(id).select("adminid irn ewaybillno").lean();
       if (!inv || String(inv.adminid) !== String(scope.adminid)) throw new TenantError("Invoice not found.", "BAD_USER_INPUT");
+      // Each half needs its own module; changing saved details or cancelling needs Edit.
+      if (["irn", "irnAckNo", "irnAckDate", "signedQr", "irnStatus"].some((k) => input?.[k] !== undefined)) {
+        await assertGstOn(scope, "einvoice", inv.irn || input?.irnStatus ? "edit" : "add");
+      }
+      if (["ewaybillno", "ewaybilldate", "ewaybillvalidupto"].some((k) => input?.[k] !== undefined)) {
+        await assertGstOn(scope, "ewaybill", inv.ewaybillno ? "edit" : "add");
+      }
       const allowed = ["irn", "irnAckNo", "irnAckDate", "signedQr", "irnStatus", "ewaybillno", "ewaybilldate", "ewaybillvalidupto"];
       const $set: any = {};
       for (const k of allowed) if (input?.[k] !== undefined) $set[k] = typeof input[k] === "string" ? input[k].trim() : input[k];

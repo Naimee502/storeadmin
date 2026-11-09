@@ -335,7 +335,9 @@ export const deliveryChallanResolvers = {
     },
 
     saveChallanEWayBill: async (_: any, { id, ewaybillno, ewaybilldate, ewaybillvalidupto }: any, context: any) => {
-      const { c } = await ownChallan(id, context);
+      const { scope, c } = await ownChallan(id, context, "print");
+      const { assertGstOn } = await import("../salesinvoice");
+      await assertGstOn(scope, "ewaybill", c.ewaybillno ? "edit" : "add");
       const no = String(ewaybillno || "").trim();
       if (no && !/^\d{12}$/.test(no)) throw new Error("E-Way Bill number must be 12 digits.");
       await DeliveryChallan.updateOne({ _id: c._id }, { $set: { ewaybillno: no, ewaybilldate: ewaybilldate || null, ewaybillvalidupto: ewaybillvalidupto || null } });

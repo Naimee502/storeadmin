@@ -246,6 +246,9 @@ const SalesInvoices = () => {
   const [printInvoice, setPrintInvoice] = useState<any>(null);
   // e-Invoice / e-Way Bill panel for one invoice.
   const [gstInvoice, setGstInvoice] = useState<any>(null);
+  const einvOn = useAppSelector((s) => selectIsModuleBusinessEnabled(s, "einvoice"));
+  const ewbOn = useAppSelector((s) => selectIsModuleBusinessEnabled(s, "ewaybill"));
+  const gstOn = einvOn || ewbOn;
   const [readyToPrint, setReadyToPrint] = useState(false);
 
   // React-to-Print hook setup
@@ -303,7 +306,7 @@ const SalesInvoices = () => {
     { label: "Total Amount", key: "totalamount" },
     { label: "Ordered By", key: "orderedByDisplay" },
     { label: "Order Status", key: "deliveryDisplay" },
-    { label: "GST", key: "gstCell" },
+    ...(gstOn ? [{ label: "GST", key: "gstCell" }] : []),
     { label: "Status", key: "status" },
   ];
 
@@ -336,7 +339,7 @@ const SalesInvoices = () => {
               : invoice.ewaybillno ? "bg-sky-50 text-sky-700 ring-sky-200" : "bg-white text-indigo-600 ring-indigo-200 hover:bg-indigo-50"
           }`}
         >
-          {invoice.irn && invoice.irnStatus !== "cancelled" ? "IRN ✓" : invoice.ewaybillno ? "EWB ✓" : "e-Invoice"}
+          {invoice.irn && invoice.irnStatus !== "cancelled" ? "IRN ✓" : invoice.ewaybillno ? "EWB ✓" : einvOn ? "e-Invoice" : "e-Way Bill"}
         </button>
       ),
       seqNo: index + 1,
@@ -492,7 +495,7 @@ const SalesInvoices = () => {
         )}
 
       </div>
-      {gstInvoice && <GstPanel kind="invoice" doc={gstInvoice} onClose={() => setGstInvoice(null)} />}
+      {gstInvoice && <GstPanel kind="invoice" doc={gstInvoice} einvoice={einvOn} ewaybill={ewbOn} onClose={() => setGstInvoice(null)} />}
     </HomeLayout>
   );
 };

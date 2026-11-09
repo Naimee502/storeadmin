@@ -135,6 +135,10 @@ const MODULE_LIST: ModuleDef[] = [
   // Accounting / cross-cutting
   { id: "transactions",  label: "Transactions",  section: "accounting", actions: CRUD_ACTIONS, inAdminRegister: true },
   { id: "payments",      label: "Payments",      section: "accounting", actions: CRUD_ACTIONS, inAdminRegister: true },
+  // GST portal work: e-Invoice (IRN, QR; turnover above Rs 5 crore) and e-Way Bill (goods above Rs 50,000).
+  // Add = make the JSON and save the portal's number the first time; Edit = change saved details or cancel the IRN.
+  { id: "einvoice",      label: "e-Invoice",     section: "accounting", actions: ["add", "edit"], inAdminRegister: true },
+  { id: "ewaybill",      label: "e-Way Bill",    section: "accounting", actions: ["add", "edit"], inAdminRegister: true },
   { id: "expensenote",   label: "Expense Notes", section: "accounting", actions: [...CRUD_ACTIONS, "claims"], inAdminRegister: true },
 
   // HR & Staff
