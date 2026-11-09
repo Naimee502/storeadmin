@@ -1032,10 +1032,8 @@ export default function POSDashboard() {
                       </span>
                       <div className="px-1.5 py-1 flex flex-col gap-0.5 flex-1">
                         <div className="font-semibold text-slate-800 text-[12px] leading-tight line-clamp-2 min-h-[2.1em]" title={p.name}>{p.name}</div>
-                        <div className="flex items-center gap-1 text-[10.5px] text-slate-500 min-w-0">
-                          <span className="font-mono shrink-0">{selectedVariant?.sku || "—"}</span>
-                          <span className="truncate">{[p.brandName, p.sizeName].filter(Boolean).join(" · ")}</span>
-                        </div>
+                        <div className="font-mono text-[9.5px] leading-none text-slate-400 truncate">{selectedVariant?.sku || "—"}</div>
+                        <div className="text-[10.5px] text-slate-500 truncate">{[p.brandName, p.sizeName].filter(Boolean).join(" · ") || "\u00a0"}</div>
                         <div className="flex items-baseline gap-1 font-mono">
                           <span className="font-bold text-slate-900 text-[12.5px]">₹{fmt(price)}</span>
                           {mrp > price && <span className="text-[10px] text-slate-400 line-through">{fmt(mrp)}</span>}
