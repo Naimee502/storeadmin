@@ -573,7 +573,7 @@ const DataTable: React.FC<DataTableProps> = ({
                                                 </button>
                                             )}
                                             {(typeof showClear === "function" ? showClear(row) : showClear) && (
-                                                <button onClick={() => onClear?.(row)} title="Clear (hide for good)" className="text-slate-500">
+                                                <button onClick={() => onClear?.(row)} title="Clear" className="text-slate-500">
                                                     <FaEraser />
                                                 </button>
                                             )}
