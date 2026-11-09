@@ -10,6 +10,8 @@ import {
   Minus,
   X as XIcon,
   Package,
+  LayoutGrid,
+  List as ListIcon,
 } from "lucide-react";
 
 import { useCategoriesQuery } from "../../graphql/hooks/categories";
@@ -155,7 +157,15 @@ export default function POSDashboard() {
   const barcodeRef = useRef<HTMLInputElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const customerRef = useRef<HTMLDivElement>(null);
-  const listRef = useRef<HTMLTableSectionElement>(null);
+  const listRef = useRef<HTMLElement | null>(null);
+  // List suits keyboard/scanner counters, grid suits touch; each device keeps its own choice.
+  const [view, setViewState] = useState<"list" | "grid">(() => {
+    try { return localStorage.getItem("pos:view") === "grid" ? "grid" : "list"; } catch { return "list"; }
+  });
+  const setView = (v: "list" | "grid") => {
+    setViewState(v);
+    try { localStorage.setItem("pos:view", v); } catch { /* storage blocked */ }
+  };
   // Item row picked with the arrow keys (Enter adds it) and save in progress.
   const [activeRow, setActiveRow] = useState(0);
   const [saving, setSaving] = useState(false);
@@ -779,6 +789,16 @@ export default function POSDashboard() {
     const sel = selectedUnits[p.id] ?? {};
     addToCart(p, sel.variantId ?? null, sel.unitId ?? null);
   };
+  const itemOf = (p: any) => {
+    const sel = selectedUnits[p.id] ?? {
+      variantId: p.variants?.[0]?.variantId,
+      unitId: p.variants?.[0]?.units?.[0]?.id,
+    };
+    const selectedVariant = p.variants.find((v: any) => v.variantId === sel.variantId) || p.variants[0];
+    const currentUnit = selectedVariant?.units?.find((u: any) => u.id === sel.unitId) || selectedVariant?.units?.[0];
+    const stock = selectedVariant?.currentstock ?? 0;
+    return { sel, selectedVariant, currentUnit, stock, outOfStock: stock <= 0, lowStock: stock > 0 && stock < 10 };
+  };
   keys.current = {
     holdCart, recallCart, clearCart, openPay,
     newParty: () => {
@@ -957,11 +977,100 @@ export default function POSDashboard() {
                 Item Selection
                 <span className="text-slate-500 font-normal">({sortedProducts.length} items)</span>
               </div>
-              <div className="text-[11px] text-slate-500 hidden md:block">
-                Click a row, or ↑↓ and Enter
+              <div className="flex items-center gap-3">
+                <span className="text-[11px] text-slate-500 hidden md:block">
+                  {view === "grid" ? "Tap a tile to add" : "Click a row, or ↑↓ and Enter"}
+                </span>
+                <div className="flex rounded border border-slate-300 overflow-hidden">
+                  {([["list", ListIcon, "List view"], ["grid", LayoutGrid, "Grid view"]] as const).map(([v, Icon, label]) => (
+                    <button
+                      key={v}
+                      type="button"
+                      title={label}
+                      aria-label={label}
+                      aria-pressed={view === v}
+                      onClick={() => setView(v)}
+                      className={`h-6 px-2 flex items-center gap-1 text-[11px] font-semibold cursor-pointer ${view === v ? "!bg-indigo-600 !text-white" : "bg-white text-slate-600 hover:bg-slate-100"}`}
+                    >
+                      <Icon size={13} />
+                      <span className="hidden sm:inline">{v === "list" ? "List" : "Grid"}</span>
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
 
+            {view === "grid" ? (
+            <div className="flex-1 overflow-auto p-2">
+              {sortedProducts.length === 0 ? (
+                <div className="text-center py-16 text-slate-400">No items found. Clear filters or refine your search.</div>
+              ) : (
+              <div ref={(el) => { listRef.current = el; }} className="grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-2">
+                {sortedProducts.map((p, idx) => {
+                  const { sel, selectedVariant, currentUnit, stock, outOfStock, lowStock } = itemOf(p);
+                  const price = currentUnit?.price ?? 0;
+                  const mrp = currentUnit?.mrp ?? 0;
+                  return (
+                    <div
+                      key={p.id}
+                      onClick={() => { setActiveRow(idx); if (!outOfStock) addToCart(p, sel.variantId, sel.unitId); }}
+                      className={`relative flex flex-col bg-white border rounded select-none ${
+                        idx === rowIndex ? "border-indigo-500 ring-1 ring-indigo-300" : "border-slate-300"
+                      } ${outOfStock ? "opacity-50 cursor-not-allowed" : "cursor-pointer hover:border-indigo-400 active:bg-indigo-50"}`}
+                    >
+                      <div className="h-24 bg-slate-50 border-b border-slate-200 flex items-center justify-center overflow-hidden rounded-t">
+                        {p.image ? (
+                          <img src={p.image} alt="" loading="lazy" className="max-h-full max-w-full object-contain" />
+                        ) : (
+                          <Package size={28} className="text-slate-300" />
+                        )}
+                      </div>
+                      <span className={`absolute top-1 left-1 px-1.5 rounded text-[10.5px] font-bold font-mono bg-white/90 border ${
+                        outOfStock ? "text-red-600 border-red-200" : lowStock ? "text-amber-600 border-amber-200" : "text-emerald-700 border-emerald-200"
+                      }`}>
+                        {outOfStock ? 0 : stock}
+                      </span>
+                      <div className="p-1.5 flex flex-col gap-1 flex-1">
+                        <div className="font-semibold text-slate-800 text-[12.5px] leading-tight line-clamp-2 min-h-[2.1em]" title={p.name}>{p.name}</div>
+                        <div className="text-[11px] text-slate-500 truncate">{[p.brandName, p.sizeName].filter(Boolean).join(" · ") || "\u00a0"}</div>
+                        <div className="flex items-baseline gap-1.5 font-mono">
+                          <span className="font-bold text-slate-900 text-[13px]">₹{fmt(price)}</span>
+                          {mrp > price && <span className="text-[10.5px] text-slate-400 line-through">{fmt(mrp)}</span>}
+                        </div>
+                        {p.variants.length > 1 && (
+                          <select
+                            className="h-7 w-full rounded border border-slate-300 bg-white px-1 text-[12px]"
+                            value={sel.variantId}
+                            onClick={(e) => e.stopPropagation()}
+                            onChange={(e) => onSelectVariant(p.id, e.target.value)}
+                          >
+                            {p.variants.map((v: any) => (
+                              <option key={v.variantId} value={v.variantId}>{v.name}</option>
+                            ))}
+                          </select>
+                        )}
+                        {selectedVariant?.units?.length > 1 ? (
+                          <select
+                            className="h-7 w-full rounded border border-slate-300 bg-white px-1 text-[12px]"
+                            value={sel.unitId}
+                            onClick={(e) => e.stopPropagation()}
+                            onChange={(e) => onSelectUnit(p.id, e.target.value)}
+                          >
+                            {selectedVariant.units.map((u: any) => (
+                              <option key={u.id} value={u.id}>{u.name}</option>
+                            ))}
+                          </select>
+                        ) : (
+                          <div className="text-[11px] text-slate-500 truncate">{currentUnit?.name || "\u00a0"}</div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              )}
+            </div>
+            ) : (
             <div className="flex-1 overflow-auto">
               <table className="w-full text-[12.5px] border-collapse">
                 <thead className="sticky top-0 z-10 bg-slate-50 text-slate-500 text-[10.5px] uppercase tracking-normal">
@@ -977,7 +1086,7 @@ export default function POSDashboard() {
                     <th className="px-2 py-1.5 w-16"></th>
                   </tr>
                 </thead>
-                <tbody ref={listRef}>
+                <tbody ref={(el) => { listRef.current = el; }}>
                   {sortedProducts.length === 0 && (
                     <tr>
                       <td colSpan={9} className="text-center py-16 text-slate-400">
@@ -987,21 +1096,7 @@ export default function POSDashboard() {
                   )}
 
                   {sortedProducts.map((p, idx) => {
-                    const defaultVariantId = p.variants?.[0]?.variantId;
-                    const defaultUnitId = p.variants?.[0]?.units?.[0]?.id;
-                    const sel = selectedUnits[p.id] ?? {
-                      variantId: defaultVariantId,
-                      unitId: defaultUnitId,
-                    };
-                    const selectedVariant =
-                      p.variants.find((v: any) => v.variantId === sel.variantId) ||
-                      p.variants[0];
-                    const currentUnit =
-                      selectedVariant?.units?.find((u: any) => u.id === sel.unitId) ||
-                      selectedVariant?.units?.[0];
-                    const stock = selectedVariant?.currentstock ?? 0;
-                    const outOfStock = stock <= 0;
-                    const lowStock = !outOfStock && stock < 10;
+                    const { sel, selectedVariant, currentUnit, stock, outOfStock, lowStock } = itemOf(p);
 
                     return (
                       <tr
@@ -1094,6 +1189,7 @@ export default function POSDashboard() {
                 </tbody>
               </table>
             </div>
+            )}
           </div>
 
           {/* VOUCHER (CART) */}
