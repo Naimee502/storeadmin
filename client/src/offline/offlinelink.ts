@@ -59,6 +59,7 @@ const BY_ID_FIELDS = new Set([
   "getPurchaseReturnById",
   "getStockAdjustmentById",
   "getTransferStockById",
+  "getDeliveryChallanById",
 ]);
 
 // Network failure with no HTTP response at all (not a GraphQL or HTTP error).
@@ -124,6 +125,7 @@ const LOCAL_QUERIES: Record<string, LocalSpec> = {
   ...doc("purchasereturn", "PurchaseReturn", "getPurchaseReturns", "getPurchaseReturnsPage", "getPurchaseReturnById"),
   ...doc("stockadjustment", "StockAdjustment", "getStockAdjustments", "getStockAdjustmentsPage", "getStockAdjustmentById"),
   ...doc("transferstock", "TransferStock", "getTransferStocks", "getTransferStocksPage", "getTransferStockById"),
+  ...doc("deliverychallan", "DeliveryChallan", "getDeliveryChallans", "getDeliveryChallansPage", "getDeliveryChallanById"),
   ...doc("expensenote", "ExpenseNote", "getExpenseNotes", "getExpenseNotesPage", "getExpenseNoteById"),
   ...doc("transaction", "Transaction", "getTransactions", "getTransactionsPage", "getTransactionById"),
   getProductServicesPage: { c: "product", kind: "page", typename: "ProductService", page: "ProductServicePage" },

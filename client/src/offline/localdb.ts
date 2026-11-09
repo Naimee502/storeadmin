@@ -37,6 +37,7 @@ export const COLLECTIONS = [
   "purchasereturn",
   "stockadjustment",
   "transferstock",
+  "deliverychallan",
   "expensenote",
   "transaction",
   "accountgroup",

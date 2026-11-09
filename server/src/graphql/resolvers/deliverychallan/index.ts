@@ -179,6 +179,11 @@ async function addNow(input: any, context: any) {
   await gate(scope, "add");
   const deviceNo = takeDeviceNumber("deliverychallan", input);
   const data: any = { ...input, adminid: scope.adminid };
+  // An order already billed: the invoice took the stock, so the challan goes against the invoice.
+  if (!data.sourceinvoiceid && data.sourceorderid) {
+    const billed: any = await SalesInvoice.findOne({ sourceorderid: data.sourceorderid, adminid: scope.adminid, status: true }).select("_id").lean();
+    if (billed) data.sourceinvoiceid = billed._id;
+  }
   // Only one live challan per invoice: it is the invoice's delivery document.
   if (data.sourceinvoiceid) {
     const inv: any = await SalesInvoice.findById(data.sourceinvoiceid).select("adminid branchid sourceorderid").lean();
@@ -209,9 +214,9 @@ async function addNow(input: any, context: any) {
 
 export const deliveryChallanResolvers = {
   Query: {
-    getDeliveryChallansPage: async (_: any, { branchid, page = 1, pageSize = 10, search = "", columnFilters = [] }: any, context: any) => {
+    getDeliveryChallansPage: async (_: any, { filter = {}, page = 1, pageSize = 10, search = "", columnFilters = [] }: any, context: any) => {
       const scope = await requireBackofficeTenant(context);
-      const clauses: any[] = [buildChallanQuery(scope, branchid)];
+      const clauses: any[] = [buildChallanQuery(scope, filter?.branchid)];
       const term = String(search || "").trim();
       if (term) {
         const any: any[] = [];
@@ -234,9 +239,9 @@ export const deliveryChallanResolvers = {
       return { items: rows.map(formatChallan), total };
     },
 
-    getDeletedDeliveryChallans: async (_: any, { branchid }: any, context: any) => {
+    getDeletedDeliveryChallans: async (_: any, { filter = {} }: any, context: any) => {
       const scope = await requireBackofficeTenant(context);
-      const q: any = { ...buildChallanQuery(scope, branchid), status: false, ...notCleared };
+      const q: any = { ...buildChallanQuery(scope, filter?.branchid), status: false, ...notCleared };
       const rows = await DeliveryChallan.find(q).sort({ updatedAt: -1 }).populate(challanPopulate).lean();
       return rows.map(formatChallan);
     },

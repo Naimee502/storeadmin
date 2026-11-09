@@ -108,6 +108,8 @@ const MODULE_LIST: ModuleDef[] = [
   { id: "salesorder",     label: "Sales Orders",    section: "sales", actions: ORDER_ACTIONS, inAdminRegister: true },
   { id: "salesinvoice",   label: "Sales Invoices",  section: "sales", actions: FULL_TXN_ACTIONS, inAdminRegister: true },
   { id: "salesreturn",    label: "Sales Returns",   section: "sales", actions: RETURN_TXN_ACTIONS, inAdminRegister: true },
+  // Goods sent with a challan (Rule 55); "convert" makes the invoice from it.
+  { id: "deliverychallan", label: "Delivery Challans", section: "sales", actions: ["add", "edit", "delete", "print", "convert", "reset"], inAdminRegister: true },
 
   // Point of Sale
   { id: "posdashboard",   label: "POS Dashboard",   section: "pos", actions: ["view"], inAdminRegister: true },

@@ -11,6 +11,7 @@ import { useProductServicesQuery } from "../../../graphql/hooks/products";
 import { useSalesInvoiceByIDQuery, useSalesInvoiceMutations, useSalesInvoicesListQuery, useSalesInvoicesQuery } from "../../../graphql/hooks/salesinvoice";
 import { formatDateDMY, todayYMD } from "../../../utils/helper";
 import { useSalesOrderByIDQuery, useSalesOrderMutations } from "../../../graphql/hooks/salesorder";
+import { useDeliveryChallanByIdQuery } from "../../../graphql/hooks/deliverychallan";
 import { useBranchesQuery } from "../../../graphql/hooks/branches";
 import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
 import { showMessage } from "../../../redux/slices/message";
@@ -41,6 +42,8 @@ const AddEditSalesInvoice = () => {
   const location = useLocation();
   const queryParams = new URLSearchParams(location.search);
   const orderId = queryParams.get("orderId");
+  // Convert a Delivery Challan (no source order) into its invoice.
+  const challanId = queryParams.get("challanId");
 
   const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
   const selectedBranchId = useAppSelector((state) => state.selectedBranch.branchId);
@@ -125,6 +128,7 @@ const AddEditSalesInvoice = () => {
   const { data } = useSalesInvoiceByIDQuery(id || "");
   // Fetch order if converting
   const { data: orderData } = useSalesOrderByIDQuery(orderId || "");
+  const { data: challanData } = useDeliveryChallanByIdQuery(challanId);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
 
   // Party Accounts
@@ -348,7 +352,31 @@ const AddEditSalesInvoice = () => {
         serviceaccountid: p.serviceaccountid?.id || null,
       }));
       setProducts(mappedProducts);
-    } else if (!isEdit && !orderId) {
+    } else if (!isEdit && challanData?.getDeliveryChallanById) {
+      // CONVERT FROM DELIVERY CHALLAN
+      const c = challanData.getDeliveryChallanById;
+      setPartyAccount({ id: c.partyacc?.id || "", name: c.partyacc?.accountname || c.partyacc?.name || "", mobile: c.partyacc?.mobile || "" });
+      setBillDate(todayYMD());
+      setNotes(c.notes || "");
+      setBillNumber(offlineNo || "");
+      setDeliveryDate(c.deliverydate || "");
+      setTransportName(c.transportname || "");
+      setVehicleNumber(c.vehiclenumber || "");
+      setEwayBillNo(c.ewaybillno || "");
+      setDistance(c.distance || "");
+      setProducts((c.productservice || []).map((p: any) => ({
+        productserviceid: p.productserviceid?.id || "",
+        variantid: p.variantid?.id || null,
+        salesunitid: p.salesunitid?.id || null,
+        productname: p.productserviceid?.name || "Unknown",
+        unitquantity: p.unitqty || 1,
+        quantity: p.qty || 0,
+        rate: p.rate || 0,
+        gst: p.gst || 0,
+        discount: p.discount || 0,
+        total: p.amount || 0,
+      })));
+    } else if (!isEdit && !orderId && !challanId) {
       // NEW INVOICE MODE - Auto-calculate next bill number
       // Offline mode without network: this device's own series.
       if (offlineNo || noDevice) {
@@ -366,7 +394,7 @@ const AddEditSalesInvoice = () => {
         setBillNumber("000001");
       }
     }
-  }, [isEdit, data, orderId, orderData, salesInvoices, offlineNo, noDevice]);
+  }, [isEdit, data, orderId, orderData, challanId, challanData, salesInvoices, offlineNo, noDevice]);
 
   useEffect(() => {
     let productsTotalCalc = 0;
@@ -548,6 +576,9 @@ const AddEditSalesInvoice = () => {
       (input as any).orderedby_name = o.createdby_name || null;
       (input as any).orderedby_type = o.createdby_type || null;
     }
+
+    // The challan already moved the stock; the server posts this invoice to the ledger only.
+    if (challanId) (input as any).sourcechallanid = challanId;
 
     console.log("Input Data:", JSON.stringify(input, null, 2));
 

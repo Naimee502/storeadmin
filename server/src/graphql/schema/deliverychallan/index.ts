@@ -89,14 +89,18 @@ export const deliveryChallanTypeDefs = gql`
     clientRequestId: String
   }
 
+  input DeliveryChallanFilterInput {
+    branchid: ID
+  }
+
   type DeliveryChallanPage {
     items: [DeliveryChallan!]!
     total: Int!
   }
 
   extend type Query {
-    getDeliveryChallansPage(branchid: ID, page: Int, pageSize: Int, search: String, columnFilters: [ColumnFilter!]): DeliveryChallanPage!
-    getDeletedDeliveryChallans(branchid: ID): [DeliveryChallan!]!
+    getDeliveryChallansPage(filter: DeliveryChallanFilterInput, page: Int, pageSize: Int, search: String, columnFilters: [ColumnFilter!]): DeliveryChallanPage!
+    getDeletedDeliveryChallans(filter: DeliveryChallanFilterInput): [DeliveryChallan!]!
     getDeliveryChallanById(id: ID!): DeliveryChallan
     "Unsaved challan filled from a Sales Order (sourceType: order) or Sales Invoice (invoice)."
     getDeliveryChallanDraft(sourceType: String!, sourceId: ID!): DeliveryChallan

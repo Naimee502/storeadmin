@@ -5,7 +5,7 @@ Goal: work like Vyapar. Every write is saved on the device first and synced to t
 ## Decisions
 - Always on: every device saves locally first and syncs; there is no business or device switch (`isOfflineEnabled()` returns true). `AdminSettings.offlineBilling` stays in the API but is unused.
 - Numbers: the business's main series is the only final number. Online, the create is sent at once and the server's number is used if it answers within 3 s. Offline (or no answer), the bill shows a provisional device number; on sync the server gives it the next main-series number and keeps the device number in `offlineNumber`.
-- Device numbers (provisional only): `A/000123` invoice and order, `CN-A/000012` sales return, `#PAY-A/000012` receipt. Codes come from `registerOfflineDevice` and are never reused.
+- Device numbers (provisional only): `A/000123` invoice and order, `CN-A/000012` sales return, `#PAY-A/000012` receipt, `DC-A/000012` delivery challan. Codes come from `registerOfflineDevice` and are never reused.
 - Conflicts: the first change to reach the server wins; a later stale edit goes to "Needs review" (Apply mine / Discard mine). Edits send `expectedUpdatedAt`.
 - Server stays the source of truth for stock, journals and numbering; the device shows its own pending changes on top of the last synced data.
 
@@ -19,7 +19,7 @@ Goal: work like Vyapar. Every write is saved on the device first and synced to t
 ## Server contract
 - `AdminSettings.offlineBilling: Boolean` (read and update through the existing settings query/mutation).
 - `syncPull(collections: [String!]!, since: String): SyncPull!` → `{ serverTime, changes: [{ collection, docs: JSON, deletedIds: [ID!]!, nextSince }] }`. Docs are shaped like the module's list query items. Tenant comes from the login. `since` null means full pull. Max 5,000 docs per collection per call; `nextSince` set means pull that collection again from it.
-- Collections: `salesinvoice, salesorder, salesreturn, payment, product, account, ledger, unit, category, subcategory, brand, model, size, productgroup, branch, staff, pricelist, priceassignment, chargerule, adminsettings`; later `purchaseinvoice, purchaseorder, purchasereturn, stockadjustment, transferstock, expensenote, transaction`.
+- Collections: `salesinvoice, salesorder, salesreturn, payment, product, account, ledger, unit, category, subcategory, brand, model, size, productgroup, branch, staff, pricelist, priceassignment, chargerule, adminsettings`; later `purchaseinvoice, purchaseorder, purchasereturn, stockadjustment, transferstock, expensenote, transaction, deliverychallan`.
 - Creates accept `clientRequestId`; a device number sent as `billnumber`/`paymentcode` is moved to `offlineNumber` and the main series numbers the document. Edits accept `expectedUpdatedAt` (`CONFLICT` with `current`).
 
 ## Apps (`clientapp`, `clientweb`)
@@ -63,6 +63,11 @@ Server first, then client (the client asks for `offlineBilling` and `syncPull`).
 - Edit, cancel and delete of these documents accept `expectedUpdatedAt` (`CONFLICT` with `current`).
 - Local stock: purchase invoice adds, purchase return removes, adjustments add or remove, a transfer moves stock between branches; vendor balance follows purchase invoices, returns and payments.
 
+## Delivery Challan (offline like the bills)
+- Server: `deliverychallan` model/resolvers, `createOnce` on add, `withOfflineActions` for edit, delete, delivered, returned; `syncPull` collection `deliverychallan`; device numbers `DC-A/000012`.
+- Stock leaves once: a challan made first takes the stock and the invoice made from it (`sourcechallanid`, also found through the order) posts the ledger only; a challan made from an invoice moves none. Returned or deleted puts the stock back.
+- Client: `DocType` `deliverychallan` in `core` (OP_SPECS, number, local stock), `docs`, `localdb`, `LOCAL_QUERIES`. The form reads the order or invoice from the device, so Dispatched -> challan works offline.
+
 ## Phases
 1. Foundation: business switch, `syncPull`, `localdb`, local reads, hybrid numbers, disconnect alert, dashboard offline. Billing screens (invoice, order, POS, return, receipt).
 2. Purchase and stock: purchase invoice/order/return, stock adjustment, transfer.
@@ -73,7 +78,7 @@ Server first, then client (the client asks for `offlineBilling` and `syncPull`).
 ## Status (handoff: read this first)
 Branch `feature/server-paging-clear-offline`. One commit per finished step; never commit `.DS_Store`, builds, `dist`, notes or test scripts.
 - Done and committed: Phases 1-3 (all billing, purchase, stock, masters, settings masters, expenses, status actions) and the apps (sales, payments, parties, visits, attendance, claims, leave, announcements, notifications). See "Online only, on purpose" for what stays online.
-- `client/src/offline` files: `core` (rules: doc types, numbers, local stock and balance), `outbox` (queue and push), `localdb` (IndexedDB and pull), `offlinelink` (Apollo link, local reads), `docs` + `gql` (collections and their queries), `device` (device code and numbers), `settings` (on/off), `boot` (start/stop and service worker), `billing` (screen hooks and helpers), `listing` (list badges), `localprice`, `userkey`, and the UI (`OfflineStatusBar`, `OfflineHeaderStatus`, `OfflineModeCard`). Add to these; do not add new files.
+- `client/src/offline` files: `core` (rules: doc types, numbers, local stock and balance), `outbox` (queue and push), `localdb` (IndexedDB and pull), `offlinelink` (Apollo link, local reads), `docs` + `gql` (collections and their queries), `device` (device code and numbers), `settings` (on/off), `boot` (start/stop and service worker), `billing` (screen hooks and helpers), `listing` (list badges), `localprice`, `userkey`, and the UI (`OfflineStatusBar`, `OfflineHeaderStatus`). Add to these; do not add new files.
 - Next: nothing planned. New modules follow the same pattern (server `withOfflineWrites`/`withOfflineActions`, `OP_SPECS` + `MASTER_TYPES` in `core`, a `syncPull` collection and `LOCAL_QUERIES` entry).
 - Checks: server `tsc` + `check-schema`; client `tsc` (many old errors in untouched pages; only touched files must be clean); `vite build` needs the Mac (node_modules are macOS binaries).
 - POS (`client/src/pages/posdashboard`): Tally-style voucher (compact). One header row (mode, barcode, search, bill no), category tabs, sub-category chips with a brand select, item list with ↑↓ + Enter, voucher with editable qty (decimals), rate and discount, F2 search, F3 barcode, F4 customer, Alt+N new party, F8 hold, F9 recall, F10 clear, F12 pay. Payment dialog takes cash (with change), UPI, card and bank in any mix; a mix is sent as `paymentsplit` and each part gets its own receipt; the rest stays on credit (not for the walk-in customer). `received` is now sent (it was not before). An account named "Walk-in" / "Cash customer" is picked by default.

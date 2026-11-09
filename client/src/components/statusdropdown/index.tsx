@@ -6,6 +6,7 @@ export type StatusOption = { label: string; value: string };
 // badge bg/text + a solid dot colour per status
 const STYLES: Record<string, { badge: string; dot: string }> = {
   pending:    { badge: "bg-amber-50 text-amber-700 ring-amber-200",  dot: "bg-amber-500" },
+  open:       { badge: "bg-sky-50 text-sky-700 ring-sky-200",        dot: "bg-sky-500" },
   confirmed:  { badge: "bg-blue-50 text-blue-700 ring-blue-200",     dot: "bg-blue-500" },
   dispatched: { badge: "bg-sky-50 text-sky-700 ring-sky-200",        dot: "bg-sky-500" },
   delivered:  { badge: "bg-green-50 text-green-700 ring-green-200",   dot: "bg-green-500" },

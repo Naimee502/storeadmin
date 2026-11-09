@@ -15,7 +15,7 @@ import { GET_SALES_INVOICE_BALANCE, GET_SALES_INVOICE_BY_ID } from "../../graphq
 import { useSalesReturnsQuery } from "../../graphql/hooks/salesreturn";
 import PrintableInvoice from "../../components/printinvoice";
 import { useReactToPrint } from "react-to-print";
-import { selectModuleActions } from "../../redux/slices/permissions";
+import { selectModuleActions, selectIsModuleBusinessEnabled } from "../../redux/slices/permissions";
 import { formatDateDMY } from "../../utils/helper";
 import { shareBlobOnWhatsApp, copyPartyNumberForPicker } from "../../utils/sharepdf";
 import { useServerTable, useServerPaging } from "../../hooks/useservertable";
@@ -39,6 +39,8 @@ const SalesInvoices = () => {
   const dispatch = useAppDispatch();
   const M = "salesinvoice";
   const actions = useAppSelector(state => selectModuleActions(state, M));
+  // Delivery Challans on: dispatch is done by making the challan, which then marks the invoice.
+  const challanOn = useAppSelector(state => selectIsModuleBusinessEnabled(state, "deliverychallan") && selectModuleActions(state, "deliverychallan").showAdd);
 
   // Lite listing; the full bill is fetched on Print / WhatsApp (see loadPrintable).
   const table = useServerTable("salesinvoice", SERVER_FILTER_KEYS);
@@ -80,6 +82,10 @@ const SalesInvoices = () => {
   const handleDeliveryChange = async (row: any, status: string) => {
     if (status === "cancelled") return handleCancel(row);
     if (status === "reopen") return handleReopen(row);
+    if (status === "dispatched" && challanOn) {
+      navigate(`/deliverychallan/addedit?from=invoice&id=${row.id}`);
+      return;
+    }
     try {
       if (status === "dispatched") await dispatchSalesInvoiceMutation({ variables: { id: row.id } });
       else if (status === "delivered") await deliverSalesInvoiceMutation({ variables: { id: row.id, byType: "admin" } });

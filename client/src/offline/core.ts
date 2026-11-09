@@ -10,6 +10,7 @@ export type DocType =
   | "purchasereturn"
   | "stockadjustment"
   | "transferstock"
+  | "deliverychallan"
   | MasterType;
 // Masters and expenses (Phase 3): no device numbers; named after their localdb collections.
 export type MasterType =
@@ -52,6 +53,7 @@ export const DOC_TYPES: DocType[] = [
   "purchasereturn",
   "stockadjustment",
   "transferstock",
+  "deliverychallan",
 ];
 export const OFFLINE_ID_PREFIX = "offline-";
 
@@ -130,6 +132,11 @@ export const OP_SPECS: Record<string, OpSpec> = {
   addTransferStock: spec("addTransferStock", "create", "transferstock", "TransferStock", "Transfer Stock"),
   editTransferStock: spec("editTransferStock", "edit", "transferstock", "TransferStock", "Transfer Stock"),
   deleteTransferStock: spec("deleteTransferStock", "delete", "transferstock", "TransferStock", "Transfer Stock"),
+  addDeliveryChallan: spec("addDeliveryChallan", "create", "deliverychallan", "DeliveryChallan", "Delivery Challan"),
+  editDeliveryChallan: spec("editDeliveryChallan", "edit", "deliverychallan", "DeliveryChallan", "Delivery Challan"),
+  deleteDeliveryChallan: spec("deleteDeliveryChallan", "delete", "deliverychallan", "DeliveryChallan", "Delivery Challan"),
+  markDeliveryChallanDelivered: action("markDeliveryChallanDelivered", "deliverychallan", "DeliveryChallan", "Delivery Challan", () => ({ challanStatus: "delivered" })),
+  markDeliveryChallanReturned: action("markDeliveryChallanReturned", "deliverychallan", "DeliveryChallan", "Delivery Challan", () => ({ challanStatus: "returned" })),
   addProductService: spec("addProductService", "create", "product", "ProductService", "Product"),
   updateProductService: spec("updateProductService", "edit", "product", "ProductService", "Product"),
   deleteProductService: spec("deleteProductService", "delete", "product", "ProductService", "Product"),
@@ -208,6 +215,7 @@ export const NUMBER_FIELD: Partial<Record<DocType, "billnumber" | "paymentcode" 
   purchasereturn: "billnumber",
   stockadjustment: "vouchernumber",
   transferstock: "vouchernumber",
+  deliverychallan: "billnumber",
 };
 
 // Their edit input type is partial, so an edit of a queued create keeps the create's other fields.
@@ -226,6 +234,7 @@ const DEVICE_NUMBER_RX: Partial<Record<DocType, RegExp>> = {
   purchasereturn: /^DN-([A-Z]{1,3})\/(\d{6})$/,
   stockadjustment: /^SA-([A-Z]{1,3})\/(\d{6})$/,
   transferstock: /^TR-([A-Z]{1,3})\/(\d{6})$/,
+  deliverychallan: /^DC-([A-Z]{1,3})\/(\d{6})$/,
 };
 
 const PREFIX: Partial<Record<DocType, string>> = {
@@ -238,6 +247,7 @@ const PREFIX: Partial<Record<DocType, string>> = {
   purchasereturn: "DN-",
   stockadjustment: "SA-",
   transferstock: "TR-",
+  deliverychallan: "DC-",
 };
 
 export const MAX_SEQ = 999999;
@@ -577,6 +587,9 @@ export function stockMoves(type: DocType, input: any): Array<[string, number, an
     return [[idOf(input?.frombranchid), -1, lines], [idOf(input?.tobranchid), 1, lines]];
   }
   if (type === "stockadjustment") return [[idOf(input?.branchid), input?.type === "Excess" ? 1 : -1, input?.items || []]];
+  // Stock leaves once: with the challan unless an invoice took it, and an invoice made from a challan moves none.
+  if (type === "deliverychallan") return input?.sourceinvoiceid ? [] : [[idOf(input?.branchid), -1, input?.productservice || []]];
+  if (type === "salesinvoice" && input?.sourcechallanid) return [];
   const sign = STOCK_SIGN[type];
   if (!sign || input?.isservice) return [];
   return [[idOf(input?.branchid), sign, input?.productservice || []]];

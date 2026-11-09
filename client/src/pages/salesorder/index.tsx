@@ -38,6 +38,8 @@ const SalesOrders = () => {
   const actions = useAppSelector(state => selectModuleActions(state, "salesorder"));
   // With invoicing on, confirming means "Convert to Invoice" (business-level, same for all roles).
   const salesInvoiceEnabled = useAppSelector(state => selectIsModuleBusinessEnabled(state, "salesinvoice"));
+  // Delivery Challans on: dispatch is done by making the challan, which then marks the order.
+  const challanOn = useAppSelector(state => selectIsModuleBusinessEnabled(state, "deliverychallan") && selectModuleActions(state, "deliverychallan").showAdd);
   const dispatch = useAppDispatch();
 
   const apolloClient = useApolloClient();
@@ -98,6 +100,11 @@ const SalesOrders = () => {
       if (status === "convert") {
         if (row.isConverted) { dispatch(showMessage({ message: "Order is already converted to an invoice.", type: "error" })); return; }
         navigate(`/salesinvoice/addedit?orderId=${row.id}`);
+        return;
+      }
+      if (status === "dispatched" && challanOn) {
+        // Already billed: the challan goes against the invoice, which took the stock.
+        navigate(row.invoiceid ? `/deliverychallan/addedit?from=invoice&id=${row.invoiceid}` : `/deliverychallan/addedit?from=order&id=${row.id}`);
         return;
       }
       if (status === "confirmed")       await confirmSalesOrderMutation({ variables: { id: row.id } });

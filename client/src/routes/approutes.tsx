@@ -98,6 +98,9 @@ import DeletedAttendanceEntries from "../pages/attendance/deletedentries";
 import SalesReturns from "../pages/salesreturn";
 import AddEditSalesReturn from "../pages/salesreturn/addedit";
 import DeletedSalesReturns from "../pages/salesreturn/deletedentries";
+import DeliveryChallans from "../pages/deliverychallan";
+import AddEditDeliveryChallan from "../pages/deliverychallan/addedit";
+import DeletedDeliveryChallans from "../pages/deliverychallan/deletedentries";
 import PurchaseReturns from "../pages/purchasereturn";
 import AddEditPurchaseReturn from "../pages/purchasereturn/addedit";
 import DeletedPurchaseReturns from "../pages/purchasereturn/deletedentries";
@@ -1009,6 +1012,11 @@ const AppRoutes = () => {
           </ProtectedRoutes>
         }
       />
+      {/* Delivery Challan */}
+      <Route path="/deliverychallan" element={<ProtectedRoutes><DeliveryChallans /></ProtectedRoutes>} />
+      <Route path="/deliverychallan/addedit" element={<ProtectedRoutes><AddEditDeliveryChallan /></ProtectedRoutes>} />
+      <Route path="/deliverychallan/addedit/:id" element={<ProtectedRoutes><AddEditDeliveryChallan /></ProtectedRoutes>} />
+      <Route path="/deliverychallan/deletedentries" element={<ProtectedRoutes><DeletedDeliveryChallans /></ProtectedRoutes>} />
       {/* Sales Return (Credit Note) */}
       <Route
         path="/salesreturn"

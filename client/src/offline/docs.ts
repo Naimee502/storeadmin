@@ -9,6 +9,7 @@ import { GET_PURCHASE_ORDERS_PAGE } from "../graphql/queries/purchaseorder";
 import { GET_PURCHASE_RETURNS_PAGE } from "../graphql/queries/purchasereturn";
 import { GET_STOCK_ADJUSTMENTS_PAGE } from "../graphql/queries/stockadjustments";
 import { GET_TRANSFER_STOCKS_PAGE } from "../graphql/queries/transferstock";
+import { GET_DELIVERY_CHALLANS_PAGE } from "../graphql/queries/deliverychallan";
 import { OP_SPECS, byAge, docId, isMasterType, isOrderType, liveCreates, offlineIdFor, type DocType, type OutboxItem, type OutboxStatus } from "./core";
 import { selectionAt, shapeBySelection } from "./gql";
 import { getOfflineClient, offlineStore } from "./outbox";
@@ -24,6 +25,7 @@ const PAGE: Partial<Record<DocType, DocumentNode>> = {
   purchasereturn: GET_PURCHASE_RETURNS_PAGE,
   stockadjustment: GET_STOCK_ADJUSTMENTS_PAGE,
   transferstock: GET_TRANSFER_STOCKS_PAGE,
+  deliverychallan: GET_DELIVERY_CHALLANS_PAGE,
 };
 
 const LINE_TYPENAME: Partial<Record<DocType, string>> = {
@@ -36,6 +38,7 @@ const LINE_TYPENAME: Partial<Record<DocType, string>> = {
   purchasereturn: "PurchaseReturnProductService",
   stockadjustment: "StockAdjustmentItem",
   transferstock: "TransferStockItem",
+  deliverychallan: "DeliveryChallanLine",
 };
 
 // Extra fields on every offline document.
@@ -244,6 +247,9 @@ export function buildRichDoc(
     doc.received = typeof input.received === "number" ? input.received : null;
   }
   if (item.docType === "salesreturn") doc.sourceOrderNumber = null;
+  if (item.docType === "deliverychallan") {
+    Object.assign(doc, { challanStatus: "open", stockapplied: !input.sourceinvoiceid, invoiceid: null, invoicenumber: null, sourceOrderNumber: null, sourceInvoiceNumber: null, offlineNumber: item.number ?? null });
+  }
   return doc;
 }
 

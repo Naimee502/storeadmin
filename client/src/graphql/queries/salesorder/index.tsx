@@ -371,6 +371,7 @@ export const GET_SALES_ORDERS_PAGE = gql`
         createdby_type
         deliveryStatus
         isConverted
+        invoiceid
         orderStatus
         cancelStatus
         status
