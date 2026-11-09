@@ -416,7 +416,7 @@ export default function OrderDetail() {
           >
             <Text style={[styles.cardTitle, { color: colors.text }]}>Items ({items.length})</Text>
             {items.map((item: any, idx: number) => (
-              <View key={item.productserviceid?.id ?? idx} style={[
+              <View key={`${item.productserviceid?.id ?? "line"}-${idx}`} style={[
                 styles.itemRow,
                 idx < items.length - 1 && { borderBottomWidth: 1, borderBottomColor: colors.border },
               ]}>

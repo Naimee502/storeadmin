@@ -290,7 +290,7 @@ export default function OrderDetailPage() {
             <div className="space-y-3">
               {items.map((item: any, idx: number) => (
                 <div
-                  key={item.productserviceid?.id ?? idx}
+                  key={`${item.productserviceid?.id ?? "line"}-${idx}`}
                   className={`flex items-center gap-3 pb-3 ${idx < items.length - 1 ? "border-b border-slate-100" : ""}`}
                 >
                   <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-slate-100 bg-brand-50">
