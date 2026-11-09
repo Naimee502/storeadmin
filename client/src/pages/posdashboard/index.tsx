@@ -1001,11 +1001,11 @@ export default function POSDashboard() {
             </div>
 
             {view === "grid" ? (
-            <div className="flex-1 overflow-auto p-2">
+            <div className="flex-1 overflow-auto p-1.5">
               {sortedProducts.length === 0 ? (
                 <div className="text-center py-16 text-slate-400">No items found. Clear filters or refine your search.</div>
               ) : (
-              <div ref={(el) => { listRef.current = el; }} className="grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-2">
+              <div ref={(el) => { listRef.current = el; }} className="grid grid-cols-[repeat(auto-fill,minmax(118px,1fr))] gap-1.5">
                 {sortedProducts.map((p, idx) => {
                   const { sel, selectedVariant, currentUnit, stock, outOfStock, lowStock } = itemOf(p);
                   const price = currentUnit?.price ?? 0;
@@ -1018,28 +1018,31 @@ export default function POSDashboard() {
                         idx === rowIndex ? "border-indigo-500 ring-1 ring-indigo-300" : "border-slate-300"
                       } ${outOfStock ? "opacity-50 cursor-not-allowed" : "cursor-pointer hover:border-indigo-400 active:bg-indigo-50"}`}
                     >
-                      <div className="h-24 bg-slate-50 border-b border-slate-200 flex items-center justify-center overflow-hidden rounded-t">
-                        {p.image ? (
-                          <img src={p.image} alt="" loading="lazy" className="max-h-full max-w-full object-contain" />
-                        ) : (
-                          <Package size={28} className="text-slate-300" />
+                      <div className="relative h-16 bg-slate-50 border-b border-slate-200 flex items-center justify-center overflow-hidden rounded-t">
+                        <Package size={22} className="text-slate-300" />
+                        {p.image && (
+                          // Covers the icon; hidden if the file is missing so the icon shows.
+                          <img src={p.image} alt="" loading="lazy" onError={(e) => { e.currentTarget.style.display = "none"; }} className="absolute inset-0 m-auto max-h-full max-w-full object-contain bg-slate-50" />
                         )}
                       </div>
-                      <span className={`absolute top-1 left-1 px-1.5 rounded text-[10.5px] font-bold font-mono bg-white/90 border ${
+                      <span className={`absolute top-0.5 left-0.5 px-1 rounded text-[10px] font-bold font-mono bg-white/90 border ${
                         outOfStock ? "text-red-600 border-red-200" : lowStock ? "text-amber-600 border-amber-200" : "text-emerald-700 border-emerald-200"
                       }`}>
                         {outOfStock ? 0 : stock}
                       </span>
-                      <div className="p-1.5 flex flex-col gap-1 flex-1">
-                        <div className="font-semibold text-slate-800 text-[12.5px] leading-tight line-clamp-2 min-h-[2.1em]" title={p.name}>{p.name}</div>
-                        <div className="text-[11px] text-slate-500 truncate">{[p.brandName, p.sizeName].filter(Boolean).join(" · ") || "\u00a0"}</div>
-                        <div className="flex items-baseline gap-1.5 font-mono">
-                          <span className="font-bold text-slate-900 text-[13px]">₹{fmt(price)}</span>
-                          {mrp > price && <span className="text-[10.5px] text-slate-400 line-through">{fmt(mrp)}</span>}
+                      <div className="px-1.5 py-1 flex flex-col gap-0.5 flex-1">
+                        <div className="font-semibold text-slate-800 text-[12px] leading-tight line-clamp-2 min-h-[2.1em]" title={p.name}>{p.name}</div>
+                        <div className="flex items-center gap-1 text-[10.5px] text-slate-500 min-w-0">
+                          <span className="font-mono shrink-0">{selectedVariant?.sku || "—"}</span>
+                          <span className="truncate">{[p.brandName, p.sizeName].filter(Boolean).join(" · ")}</span>
+                        </div>
+                        <div className="flex items-baseline gap-1 font-mono">
+                          <span className="font-bold text-slate-900 text-[12.5px]">₹{fmt(price)}</span>
+                          {mrp > price && <span className="text-[10px] text-slate-400 line-through">{fmt(mrp)}</span>}
                         </div>
                         {p.variants.length > 1 && (
                           <select
-                            className="h-7 w-full rounded border border-slate-300 bg-white px-1 text-[12px]"
+                            className="h-6 w-full rounded border border-slate-300 bg-white px-1 py-0 text-[11px] leading-none"
                             value={sel.variantId}
                             onClick={(e) => e.stopPropagation()}
                             onChange={(e) => onSelectVariant(p.id, e.target.value)}
@@ -1051,7 +1054,7 @@ export default function POSDashboard() {
                         )}
                         {selectedVariant?.units?.length > 1 ? (
                           <select
-                            className="h-7 w-full rounded border border-slate-300 bg-white px-1 text-[12px]"
+                            className="h-6 w-full rounded border border-slate-300 bg-white px-1 py-0 text-[11px] leading-none"
                             value={sel.unitId}
                             onClick={(e) => e.stopPropagation()}
                             onChange={(e) => onSelectUnit(p.id, e.target.value)}
@@ -1061,7 +1064,7 @@ export default function POSDashboard() {
                             ))}
                           </select>
                         ) : (
-                          <div className="text-[11px] text-slate-500 truncate">{currentUnit?.name || "\u00a0"}</div>
+                          <div className="text-[10.5px] text-slate-500 truncate">{currentUnit?.name || "\u00a0"}</div>
                         )}
                       </div>
                     </div>
@@ -1193,7 +1196,7 @@ export default function POSDashboard() {
           </div>
 
           {/* VOUCHER (CART) */}
-          <div className="lg:w-[460px] xl:w-[500px] shrink-0 bg-white border border-slate-300 flex flex-col min-h-[420px] lg:min-h-0">
+          <div className={`${view === "grid" ? "lg:w-[420px] xl:w-[440px]" : "lg:w-[460px] xl:w-[500px]"} shrink-0 bg-white border border-slate-300 flex flex-col min-h-[420px] lg:min-h-0`}>
             {/* Party */}
             <div ref={customerRef} className="p-2 border-b border-slate-300 bg-slate-50 shrink-0">
               <FormField
