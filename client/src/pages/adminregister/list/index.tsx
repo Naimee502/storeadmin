@@ -30,6 +30,7 @@ const AdminList = () => {
     companyName: string;
     mobile: string;
     address: string;
+    gstin: string;
     noOfBranches: number;
     subscriptionType: string;
     businesstype: string;
@@ -40,6 +41,7 @@ const AdminList = () => {
     companyName: "",
     mobile: "",
     address: "",
+    gstin: "",
     noOfBranches: 1,
     subscriptionType: "monthly",
     businesstype: "retail",
@@ -79,6 +81,7 @@ const AdminList = () => {
       companyName: raw.companyName || "",
       mobile: raw.mobile || "",
       address: raw.address || "",
+      gstin: raw.gstin || "",
       noOfBranches: Number(raw.noOfBranches) || 1,
       subscriptionType: raw.subscriptionType || "monthly",
       businesstype: raw.businesstype || "retail",
@@ -122,6 +125,7 @@ const AdminList = () => {
         companyName: "",
         mobile: "",
         address: "",
+        gstin: "",
         noOfBranches: 1,
         subscriptionType: "monthly",
         businesstype: "retail",
@@ -246,6 +250,13 @@ const AdminList = () => {
                 required
               />
             </div>
+
+            <FormField
+              label="GSTIN (optional)"
+              name="gstin"
+              value={formValues.gstin}
+              onChange={(e: any) => handleFormChange("gstin", e.target.value.toUpperCase().replace(/\s/g, "").slice(0, 15))}
+            />
 
             {/* Address — shown on the Sales Invoice print header */}
             <FormField

@@ -105,48 +105,40 @@ AdminSchema.pre("save", async function (next) {
   }
 });
 
-// ✅ Auto-create Account Groups & Ledgers AFTER Admin created
+// Default account groups and ledgers: every save adds only the ones this business is missing
+// (matched by name, any case, deleted ones included), so older businesses get new defaults and nothing is duplicated.
+const keyOf = (name: string) => String(name || "").trim().toLowerCase();
+
 AdminSchema.post("save", async function (doc, next) {
   try {
-    // ────────────────────────
-    // 1️⃣ Create Default Account Groups
-    // ────────────────────────
-    let groups = await AccountGroup.find({ admin: doc._id });
-
-    if (groups.length === 0) {
-      for (const g of defaultAccountGroups) {
-        const newGroup = new AccountGroup({
-          accountgroupname: g.name,
-          category: g.category,
-          admin: doc._id,
-        });
-        await newGroup.save();
+    const groups: any[] = await AccountGroup.find({ admin: doc._id }).select("accountgroupname").lean();
+    const groupIds = new Map(groups.map((g) => [keyOf(g.accountgroupname), g._id]));
+    for (const g of defaultAccountGroups) {
+      if (groupIds.has(keyOf(g.name))) continue;
+      try {
+        const created: any = await new AccountGroup({ accountgroupname: g.name, category: g.category, admin: doc._id }).save();
+        groupIds.set(keyOf(g.name), created._id);
+      } catch (e: any) {
+        if (!/E11000/.test(String(e?.message))) throw e;
       }
-      groups = await AccountGroup.find({ admin: doc._id });
     }
 
-    // ────────────────────────
-    // 2️⃣ Create Default Ledgers
-    // ────────────────────────
-    const ledgerExists = await AccountLedger.countDocuments({ admin: doc._id });
-
-    if (ledgerExists === 0) {
-      const groupMap = Object.fromEntries(
-        groups.map((g) => [g.accountgroupname.trim().toLowerCase(), g._id])
-      );
-
-      for (let i = 0; i < defaultLedgers.length; i++) {
-        const entry = defaultLedgers[i];
-        const groupId = groupMap[entry.group.trim().toLowerCase()] || groups[0]._id;
-
-        const ledger = new AccountLedger({
+    const ledgers: any[] = await AccountLedger.find({ admin: doc._id }).select("ledgername").lean();
+    const have = new Set(ledgers.map((l) => keyOf(l.ledgername)));
+    const fallbackGroup = groupIds.values().next().value;
+    for (const entry of defaultLedgers) {
+      if (have.has(keyOf(entry.name))) continue;
+      try {
+        await new AccountLedger({
           ledgername: entry.name,
-          accountgroupid: groupId,
+          accountgroupid: groupIds.get(keyOf(entry.group)) || fallbackGroup,
           admin: doc._id,
           branchid: null,
-        });
-
-        await ledger.save();
+        }).save();
+        have.add(keyOf(entry.name));
+      } catch (e: any) {
+        // Saved at the same moment by another request: already there.
+        if (!/E11000/.test(String(e?.message))) throw e;
       }
     }
 

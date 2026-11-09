@@ -26,6 +26,7 @@ export const GET_ADMINS = gql`
   query GetAdmins {
     getAdmins {
       ${ADMIN_FIELDS}
+      gstin
     }
   }
 `;

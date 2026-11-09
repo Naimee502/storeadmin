@@ -122,7 +122,9 @@ export const defaultLedgers = [
   { name: "Advance to Suppliers", group: "Loans & Advances (Assets)" },
   { name: "Advance from Customers", group: "Current Liabilities" },
 
-  // Sales / Purchase
+  // Sales / Purchase ("Sales" and "Purchase" are the ledgers the bills post to)
+  { name: "Sales", group: "Sales Account" },
+  { name: "Purchase", group: "Purchase Account" },
   { name: "Sales Account", group: "Sales Account" },
   { name: "Sales Return", group: "Sales Account" },     
   { name: "Purchase Account", group: "Purchase Account" },
@@ -159,6 +161,8 @@ export const defaultLedgers = [
   { name: "Other Income", group: "Indirect Income" },
   { name: "Discount Received", group: "Indirect Income" },
   { name: "Discount Allowed", group: "Indirect Expenses" },
+  // Bill-level discount on invoices and returns
+  { name: "Invoice Discount", group: "Indirect Expenses" },
 
   // Rounding
   { name: "Round Off", group: "Indirect Expenses" },

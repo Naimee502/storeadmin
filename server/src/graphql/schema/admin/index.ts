@@ -10,6 +10,8 @@ export const adminTypeDefs = gql`
     companyName: String!
     mobile: String!
     address: String
+    "GSTIN, kept in Business Settings → GST Profile."
+    gstin: String
     noOfBranches: Int!
     subscriptionType: String
     subscribed: Boolean!
@@ -32,6 +34,8 @@ export const adminTypeDefs = gql`
     companyName: String!
     mobile: String!
     address: String
+    "GSTIN, kept in Business Settings → GST Profile."
+    gstin: String
     noOfBranches: Int!
     subscriptionType: String
     businesstype: String
@@ -46,6 +50,8 @@ export const adminTypeDefs = gql`
     companyName: String
     mobile: String
     address: String
+    "GSTIN, kept in Business Settings → GST Profile."
+    gstin: String
     noOfBranches: Int
     subscriptionType: String
     businesstype: String

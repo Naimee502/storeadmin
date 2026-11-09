@@ -42,8 +42,9 @@ export const adminResolvers = {
       const existing = await Admin.findOne({ email: input.email });
       if (existing) throw new Error("Admin already exists");
 
+      const { gstin, ...adminInput } = input;
       const admin = new Admin({
-        ...input,
+        ...adminInput,
         subscribed: false,
         subscribedAt: null,
         subscriptionEnd: null,
@@ -70,6 +71,12 @@ export const adminResolvers = {
       // New businesses start with offline billing on; existing ones stay off.
       const settings = await AdminSettings.getOrCreateForAdmin(admin._id);
       settings.offlineBilling = true;
+      // GST profile starts from the registration details; the rest is filled in Business Settings.
+      if (gstin) {
+        settings.gstin = String(gstin).toUpperCase().replace(/\s/g, "");
+        settings.legalName = settings.legalName || admin.companyName;
+        settings.gstAddress = settings.gstAddress || admin.address;
+      }
       await settings.save();
 
       return admin;
@@ -93,6 +100,9 @@ export const adminResolvers = {
       if (typeof input.status === "boolean") admin.status = input.status;
 
       await admin.save();
+      if (input.gstin !== undefined) {
+        await AdminSettings.updateOne({ adminid: admin._id }, { $set: { gstin: String(input.gstin || "").toUpperCase().replace(/\s/g, "") } }, { upsert: true });
+      }
       return admin;
     },
 
@@ -227,6 +237,13 @@ export const adminResolvers = {
     resetAdmin: async (_: any, { id }: any) => {
       const result = await Admin.findByIdAndUpdate(id, { status: true }, { new: true });
       return !!result;
+    },
+  },
+
+  Admin: {
+    gstin: async (a: any) => {
+      const s: any = await AdminSettings.findOne({ adminid: a._id ?? a.id }).select("gstin").lean();
+      return s?.gstin ?? null;
     },
   },
 };

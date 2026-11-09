@@ -17,6 +17,7 @@ const AdminRegister = () => {
   const [companyName, setCompanyName] = useState("");
   const [mobile, setMobile] = useState("");
   const [address, setAddress] = useState("");
+  const [gstin, setGstin] = useState("");
   const [noOfBranches, setNoOfBranches] = useState<number>(1);
   const [subscription, setSubscription] = useState("monthly");
   const [businesstype, setBusinesstype] = useState("retail");
@@ -84,6 +85,7 @@ const AdminRegister = () => {
             companyName,
             mobile,
             address,
+            ...(gstin ? { gstin } : {}),
             noOfBranches: Number(noOfBranches),
             subscriptionType: subscription,
             businesstype,
@@ -174,6 +176,16 @@ const AdminRegister = () => {
                 />
               </div>
             </div>
+
+            {/* GSTIN (optional) — for e-Invoice / e-Way Bill; the full GST profile is in Business Settings */}
+            <FormField
+              label="GSTIN (optional)"
+              type="text"
+              name="gstin"
+              placeholder="e.g. 24ABCDE1234F1Z5"
+              value={gstin}
+              onChange={(e: any) => setGstin(e.target.value.toUpperCase().replace(/\s/g, "").slice(0, 15))}
+            />
 
             {/* Row 3: Address — used on Sales Invoice print header */}
             <FormField
