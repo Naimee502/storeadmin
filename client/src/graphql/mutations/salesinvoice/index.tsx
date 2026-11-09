@@ -213,3 +213,11 @@ export const REOPEN_SALES_INVOICE = gql`
     }
   }
 `;
+
+export const SAVE_INVOICE_GST_DETAILS = gql`
+  mutation SaveInvoiceGstDetails($id: ID!, $input: InvoiceGstInput!, $expectedUpdatedAt: String) {
+    saveInvoiceGstDetails(id: $id, input: $input, expectedUpdatedAt: $expectedUpdatedAt) {
+      id irn irnAckNo irnAckDate signedQr irnStatus ewaybillno ewaybilldate ewaybillvalidupto updatedAt
+    }
+  }
+`;

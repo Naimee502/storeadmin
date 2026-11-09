@@ -117,5 +117,7 @@ export const deliveryChallanTypeDefs = gql`
     resetDeliveryChallan(id: ID!): Boolean
     markDeliveryChallanDelivered(id: ID!, expectedUpdatedAt: String): DeliveryChallan
     markDeliveryChallanReturned(id: ID!, expectedUpdatedAt: String): DeliveryChallan
+    "Save the e-Way Bill the GST portal gave for this challan."
+    saveChallanEWayBill(id: ID!, ewaybillno: String!, ewaybilldate: String, ewaybillvalidupto: String, expectedUpdatedAt: String): DeliveryChallan
   }
 `;

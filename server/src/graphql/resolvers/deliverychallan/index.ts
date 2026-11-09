@@ -334,6 +334,14 @@ export const deliveryChallanResolvers = {
       return loadChallan(c._id);
     },
 
+    saveChallanEWayBill: async (_: any, { id, ewaybillno, ewaybilldate, ewaybillvalidupto }: any, context: any) => {
+      const { c } = await ownChallan(id, context);
+      const no = String(ewaybillno || "").trim();
+      if (no && !/^\d{12}$/.test(no)) throw new Error("E-Way Bill number must be 12 digits.");
+      await DeliveryChallan.updateOne({ _id: c._id }, { $set: { ewaybillno: no, ewaybilldate: ewaybilldate || null, ewaybillvalidupto: ewaybillvalidupto || null } });
+      return loadChallan(c._id);
+    },
+
     // Goods came back unsold: stock is restored. An invoiced challan needs a Sales Return instead.
     markDeliveryChallanReturned: async (_: any, { id }: any, context: any) => {
       const { c } = await ownChallan(id, context);

@@ -23,6 +23,7 @@ import { useInvoicePdf } from "../../components/invoicepdf";
 import { stateOptions } from "../../utils/constants";
 import { partyLabel } from "../../utils/partylabel";
 import { useOfflineList } from "../../offline/listing";
+import GstPanel from "../../components/gstpanel";
 
 // Party state is a slug; map it to its label for print.
 const stateLabel = (slug?: string) =>
@@ -243,6 +244,8 @@ const SalesInvoices = () => {
   // Use ref for the printable component
   const componentRef = useRef<HTMLDivElement>(null);
   const [printInvoice, setPrintInvoice] = useState<any>(null);
+  // e-Invoice / e-Way Bill panel for one invoice.
+  const [gstInvoice, setGstInvoice] = useState<any>(null);
   const [readyToPrint, setReadyToPrint] = useState(false);
 
   // React-to-Print hook setup
@@ -300,6 +303,7 @@ const SalesInvoices = () => {
     { label: "Total Amount", key: "totalamount" },
     { label: "Ordered By", key: "orderedByDisplay" },
     { label: "Order Status", key: "deliveryDisplay" },
+    { label: "GST", key: "gstCell" },
     { label: "Status", key: "status" },
   ];
 
@@ -321,6 +325,20 @@ const SalesInvoices = () => {
 
     return {
       ...invoice,
+      gstCell: invoice.isOffline ? "—" : (
+        <button
+          type="button"
+          onClick={() => setGstInvoice(invoice)}
+          title="e-Invoice / e-Way Bill"
+          className={`inline-flex h-6 items-center rounded px-2 text-[11px] font-semibold ring-1 ${
+            invoice.irn && invoice.irnStatus !== "cancelled"
+              ? "bg-emerald-50 text-emerald-700 ring-emerald-200"
+              : invoice.ewaybillno ? "bg-sky-50 text-sky-700 ring-sky-200" : "bg-white text-indigo-600 ring-indigo-200 hover:bg-indigo-50"
+          }`}
+        >
+          {invoice.irn && invoice.irnStatus !== "cancelled" ? "IRN ✓" : invoice.ewaybillno ? "EWB ✓" : "e-Invoice"}
+        </button>
+      ),
       seqNo: index + 1,
       // Party name and GSTIN only print if set on the party account.
       partyname: invoice.partyacc?.accountname || "",
@@ -474,6 +492,7 @@ const SalesInvoices = () => {
         )}
 
       </div>
+      {gstInvoice && <GstPanel kind="invoice" doc={gstInvoice} onClose={() => setGstInvoice(null)} />}
     </HomeLayout>
   );
 };

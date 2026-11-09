@@ -1,4 +1,5 @@
 import React, { forwardRef, useImperativeHandle, useRef } from "react";
+import QRCode from "qrcode";
 import { toWords } from "number-to-words";
 import { useAppSelector } from "../../redux/hooks";
 import { formatDateTimeDMY, formatDateDMY } from "../../utils/helper";
@@ -34,6 +35,12 @@ interface Invoice {
   vehiclenumber?: string;
   ewaybillno?: string;
   distance?: number;
+  // e-Invoice details from the GST portal.
+  irn?: string;
+  irnAckNo?: string;
+  irnAckDate?: string;
+  signedQr?: string;
+  irnStatus?: string;
   roundoff?: number;
   invoicediscount?: number;
   invoicediscounttype?: string;
@@ -58,6 +65,25 @@ const DEFAULT_TERMS =
   '2. Interest @18% p.a. will be charged if payment is not made within due date.\n' +
   '3. Our risk and responsibility ceases as soon as the goods leave our premises.\n' +
   '4. "Subject to RAJKOT Jurisdiction only. E.&.O.E"';
+
+/** Signed QR as an inline SVG, drawn synchronously so it is ready when the print starts. */
+function QrSvg({ text, size = 96 }: { text: string; size?: number }) {
+  let qr: any = null;
+  try {
+    qr = QRCode.create(text, { errorCorrectionLevel: "M" });
+  } catch {
+    return null;
+  }
+  const n = qr.modules.size;
+  let d = "";
+  for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) if (qr.modules.get(y, x)) d += `M${x} ${y}h1v1h-1z`;
+  return (
+    <svg width={size} height={size} viewBox={`-2 -2 ${n + 4} ${n + 4}`} shapeRendering="crispEdges">
+      <rect x={-2} y={-2} width={n + 4} height={n + 4} fill="#fff" />
+      <path d={d} fill="#000" />
+    </svg>
+  );
+}
 
 /* COMPONENT */
 const PrintableInvoice = forwardRef<HTMLDivElement, PrintableInvoiceProps>(
@@ -349,12 +375,30 @@ const PrintableInvoice = forwardRef<HTMLDivElement, PrintableInvoiceProps>(
                 {companyAddress || "---"}
                 <br />
                 {[branch?.city, companyMobile].filter(Boolean).join(" - ")}
+                {settings?.gstin && (
+                  <>
+                    <br />
+                    GSTIN: {settings.gstin}
+                  </>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* ---- e-Invoice (IRN + signed QR) ---- */}
+          {invoice.irn && invoice.irnStatus !== "cancelled" && (
+            <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "6px 8px", borderBottom: "1px solid #000", fontSize: 11 }}>
+              {invoice.signedQr && <QrSvg text={invoice.signedQr} />}
+              <div style={{ wordBreak: "break-all" }}>
+                <div><b>IRN:</b> {invoice.irn}</div>
+                {invoice.irnAckNo && <div><b>Ack No.:</b> {invoice.irnAckNo}</div>}
+                {invoice.irnAckDate && <div><b>Ack Date:</b> {invoice.irnAckDate}</div>}
               </div>
             </div>
           )}
 
           <div className="inv-titlebar">
-            <span>{memoLabel}</span>
+            <span>{invoice.irn && invoice.irnStatus !== "cancelled" ? "e-Invoice" : memoLabel}</span>
             <span>{title} &nbsp;|&nbsp; Original</span>
           </div>
 

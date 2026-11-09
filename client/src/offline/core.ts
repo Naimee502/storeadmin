@@ -137,6 +137,9 @@ export const OP_SPECS: Record<string, OpSpec> = {
   deleteDeliveryChallan: spec("deleteDeliveryChallan", "delete", "deliverychallan", "DeliveryChallan", "Delivery Challan"),
   markDeliveryChallanDelivered: action("markDeliveryChallanDelivered", "deliverychallan", "DeliveryChallan", "Delivery Challan", () => ({ challanStatus: "delivered" })),
   markDeliveryChallanReturned: action("markDeliveryChallanReturned", "deliverychallan", "DeliveryChallan", "Delivery Challan", () => ({ challanStatus: "returned" })),
+  // GST portal details typed in by the user: saved on the device, sent on sync.
+  saveInvoiceGstDetails: action("saveInvoiceGstDetails", "salesinvoice", "SalesInvoice", "Sales Invoice", (v) => ({ ...(v?.input || {}) })),
+  saveChallanEWayBill: action("saveChallanEWayBill", "deliverychallan", "DeliveryChallan", "Delivery Challan", (v) => ({ ewaybillno: v?.ewaybillno ?? null, ewaybilldate: v?.ewaybilldate ?? null, ewaybillvalidupto: v?.ewaybillvalidupto ?? null })),
   addProductService: spec("addProductService", "create", "product", "ProductService", "Product"),
   updateProductService: spec("updateProductService", "edit", "product", "ProductService", "Product"),
   deleteProductService: spec("deleteProductService", "delete", "product", "ProductService", "Product"),

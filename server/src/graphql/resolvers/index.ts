@@ -124,5 +124,5 @@ export const resolvers = [
   commonResolvers,
   offlineDeviceResolvers,
   syncResolvers,
-  withOfflineActions(deliveryChallanResolvers, DeliveryChallan, ["editDeliveryChallan", "deleteDeliveryChallan", "markDeliveryChallanDelivered", "markDeliveryChallanReturned"]),
+  withOfflineActions(deliveryChallanResolvers, DeliveryChallan, ["editDeliveryChallan", "deleteDeliveryChallan", "markDeliveryChallanDelivered", "markDeliveryChallanReturned", "saveChallanEWayBill"]),
 ];

@@ -36,6 +36,8 @@ export const DELIVERY_CHALLAN_FIELDS = `
   transportname
   vehiclenumber
   ewaybillno
+  ewaybilldate
+  ewaybillvalidupto
   distance
   deliverydate
   stockapplied

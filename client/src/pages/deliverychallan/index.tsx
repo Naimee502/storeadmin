@@ -11,6 +11,7 @@ import { useServerTable, useServerPaging } from "../../hooks/useservertable";
 import { formatDateDMY } from "../../utils/helper";
 import { partyLabel } from "../../utils/partylabel";
 import { useOfflineList } from "../../offline/listing";
+import GstPanel from "../../components/gstpanel";
 
 export const CHALLAN_REASONS = [
   { value: "sale", label: "Sale" },
@@ -92,6 +93,7 @@ const DeliveryChallans = () => {
   const offline = useOfflineList("deliverychallan", table.page);
   const { deleteDeliveryChallanMutation, markDeliveredMutation, markReturnedMutation } = useDeliveryChallanMutations();
   const [printing, setPrinting] = useState<any>(null);
+  const [gstChallan, setGstChallan] = useState<any>(null);
   const [copies, setCopies] = useState(3);
   const [showRate, setShowRate] = useState(false);
 
@@ -133,6 +135,7 @@ const DeliveryChallans = () => {
     { label: "Qty", key: "totalqty" },
     { label: "Vehicle", key: "vehiclenumber" },
     { label: "Value", key: "totalamount" },
+    { label: "E-Way Bill", key: "ewbCell" },
     { label: "Status", key: "challanStatus" },
   ];
 
@@ -147,6 +150,16 @@ const DeliveryChallans = () => {
     totalitem: c.productservice?.length || 0,
     totalqty: c.productservice?.reduce((s: number, l: any) => s + Number(l.qty || 0), 0) || 0,
     vehiclenumber: c.vehiclenumber || "—",
+    ewbCell: c.isOffline ? "—" : (
+      <button
+        type="button"
+        onClick={() => setGstChallan(c)}
+        title="e-Way Bill"
+        className={`inline-flex h-6 items-center rounded px-2 text-[11px] font-semibold ring-1 ${c.ewaybillno ? "bg-sky-50 text-sky-700 ring-sky-200" : "bg-white text-indigo-600 ring-indigo-200 hover:bg-indigo-50"}`}
+      >
+        {c.ewaybillno ? c.ewaybillno : "e-Way Bill"}
+      </button>
+    ),
     challanStatus: (
       <StatusDropdown current={c.challanStatus || "open"} options={optionsFor(c)} onSelect={(v) => onStatus(c, v)} />
     ),
@@ -194,6 +207,7 @@ const DeliveryChallans = () => {
         />
       </div>
 
+      {gstChallan && <GstPanel kind="challan" doc={gstChallan} onClose={() => setGstChallan(null)} />}
       {printing && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40" onClick={() => setPrinting(null)}>
           <div className="w-80 rounded-lg bg-white p-4 text-[13px] shadow-xl" onClick={(e) => e.stopPropagation()}>

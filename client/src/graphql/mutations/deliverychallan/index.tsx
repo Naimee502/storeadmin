@@ -31,3 +31,8 @@ export const MARK_DELIVERY_CHALLAN_RETURNED = gql`
     markDeliveryChallanReturned(id: $id, expectedUpdatedAt: $expectedUpdatedAt) { ${DELIVERY_CHALLAN_FIELDS} }
   }
 `;
+export const SAVE_CHALLAN_EWAYBILL = gql`
+  mutation SaveChallanEWayBill($id: ID!, $ewaybillno: String!, $ewaybilldate: String, $ewaybillvalidupto: String, $expectedUpdatedAt: String) {
+    saveChallanEWayBill(id: $id, ewaybillno: $ewaybillno, ewaybilldate: $ewaybilldate, ewaybillvalidupto: $ewaybillvalidupto, expectedUpdatedAt: $expectedUpdatedAt) { ${DELIVERY_CHALLAN_FIELDS} }
+  }
+`;

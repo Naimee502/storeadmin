@@ -59,6 +59,13 @@ export const GET_SALES_INVOICES = gql`
       transportname
       vehiclenumber
       ewaybillno
+      ewaybilldate
+      ewaybillvalidupto
+      irn
+      irnAckNo
+      irnAckDate
+      signedQr
+      irnStatus
       distance
       roundoff
       invoicediscount
@@ -208,6 +215,13 @@ export const GET_DELETED_SALES_INVOICES = gql`
       transportname
       vehiclenumber
       ewaybillno
+      ewaybilldate
+      ewaybillvalidupto
+      irn
+      irnAckNo
+      irnAckDate
+      signedQr
+      irnStatus
       distance
       roundoff
       invoicediscount
@@ -304,6 +318,13 @@ export const GET_SALES_INVOICE_BY_ID = gql`
       transportname
       vehiclenumber
       ewaybillno
+      ewaybilldate
+      ewaybillvalidupto
+      irn
+      irnAckNo
+      irnAckDate
+      signedQr
+      irnStatus
       distance
       roundoff
       invoicediscount
@@ -363,6 +384,9 @@ export const GET_SALES_INVOICES_PAGE = gql`
         createdby_name
         createdby_type
         deliveryStatus
+        irn
+        irnStatus
+        ewaybillno
         cancelStatus
         status
         createdAt
@@ -370,5 +394,17 @@ export const GET_SALES_INVOICES_PAGE = gql`
         updatedAt
       }
     }
+  }
+`;
+
+export const GET_EINVOICE_EXPORT = gql`
+  query GetEInvoiceExport($invoiceId: ID!) {
+    getEInvoiceExport(invoiceId: $invoiceId) { ready errors warnings json }
+  }
+`;
+
+export const GET_EWAYBILL_EXPORT = gql`
+  query GetEWayBillExport($sourceType: String!, $id: ID!) {
+    getEWayBillExport(sourceType: $sourceType, id: $id) { ready errors warnings json }
   }
 `;
