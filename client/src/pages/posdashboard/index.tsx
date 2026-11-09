@@ -1196,7 +1196,7 @@ export default function POSDashboard() {
           </div>
 
           {/* VOUCHER (CART) */}
-          <div className={`${view === "grid" ? "lg:w-[420px] xl:w-[440px]" : "lg:w-[460px] xl:w-[500px]"} shrink-0 bg-white border border-slate-300 flex flex-col min-h-[420px] lg:min-h-0`}>
+          <div className="lg:w-[460px] xl:w-[500px] shrink-0 bg-white border border-slate-300 flex flex-col min-h-[420px] lg:min-h-0">
             {/* Party */}
             <div ref={customerRef} className="p-2 border-b border-slate-300 bg-slate-50 shrink-0">
               <FormField
