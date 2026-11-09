@@ -35,7 +35,6 @@ import {
 } from "../../config/modules";
 import { findSectionPerms, resolveAction } from "../../redux/slices/permissions";
 import FormPermissionsTab from "../businesssettings/formpermissionstab";
-import OfflineModeCard from "../../offline/OfflineModeCard";
 
 type TabKey =
   | "general"
@@ -189,7 +188,6 @@ const Settings = () => {
           <div className="rounded-lg border border-slate-200 bg-white p-3 text-[13px] text-slate-600">
             You don't have permission to open Settings.
           </div>
-          <OfflineModeCard />
         </div>
       </HomeLayout>
     );
@@ -199,7 +197,6 @@ const Settings = () => {
     <HomeLayout>
       <div className="w-full p-4 space-y-3">
         <h1 className="text-base font-semibold text-slate-900">Settings</h1>
-        <OfflineModeCard />
 
         {/* ── GLOBAL Selection Dropdown ── */}
         <div className="rounded-lg border border-slate-200 bg-white p-3">

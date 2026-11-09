@@ -1,7 +1,6 @@
 // Sync side panel (opened from the header dot) and the disconnect alert.
 import { useEffect, useState, useSyncExternalStore } from "react";
-import { Check, RefreshCw, RotateCcw, Trash2, WifiOff, X } from "lucide-react";
-import { isOfflineEnabled, setDeviceMode } from "./settings";
+import { Check, RefreshCw, RotateCcw, Trash2, X } from "lucide-react";
 import { offlineActions, offlineStore, type OutboxItem } from "./outbox";
 import { useAppDispatch } from "../redux/hooks";
 import { showMessage } from "../redux/slices/message";
@@ -381,53 +380,16 @@ function Panel({ tab }: { tab: PanelTab }) {
   );
 }
 
-// Once per disconnect: a toast when offline billing is on, else an offer to turn it on for this device.
+// Once per disconnect: bills keep saving on this device.
 function DisconnectAlert() {
   const dispatch = useAppDispatch();
-  const [ask, setAsk] = useState(false);
   useEffect(() => {
-    const onOffline = () => {
-      if (isOfflineEnabled()) {
-        dispatch(showMessage({ message: "You're offline — bills are saved on this device and will sync.", type: "success", duration: 5000 }));
-      } else {
-        setAsk(true);
-      }
-    };
-    const onOnline = () => setAsk(false);
+    const onOffline = () =>
+      dispatch(showMessage({ message: "You're offline — bills are saved on this device and will sync.", type: "success", duration: 5000 }));
     window.addEventListener("offline", onOffline);
-    window.addEventListener("online", onOnline);
-    return () => {
-      window.removeEventListener("offline", onOffline);
-      window.removeEventListener("online", onOnline);
-    };
+    return () => window.removeEventListener("offline", onOffline);
   }, [dispatch]);
-  if (!ask) return null;
-  return (
-    <div className="fixed inset-0 z-[70] grid place-items-center bg-slate-900/40 p-4">
-      <div role="dialog" aria-modal="true" className="w-full max-w-sm space-y-3 rounded-lg bg-white p-4 text-[13px] shadow-xl">
-        <div className="flex items-center gap-2 font-semibold text-slate-900">
-          <WifiOff size={16} className="text-rose-500" /> No internet. Turn on offline billing for this device?
-        </div>
-        <div className="text-[12px] text-slate-500">Only data already synced or loaded on this device will be available.</div>
-        <div className="flex justify-end gap-2">
-          <button type="button" onClick={() => setAsk(false)} className={`${outline} h-8`}>
-            Not now
-          </button>
-          <button
-            type="button"
-            autoFocus
-            onClick={() => {
-              setDeviceMode("on");
-              setAsk(false);
-            }}
-            className={`${primary} h-8`}
-          >
-            OK
-          </button>
-        </div>
-      </div>
-    </div>
-  );
+  return null;
 }
 
 export default function OfflineStatusBar() {

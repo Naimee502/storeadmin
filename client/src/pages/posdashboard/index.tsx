@@ -1062,7 +1062,7 @@ export default function POSDashboard() {
                         </td>
                         <td className="px-2 py-1.5 text-right font-mono">
                           {outOfStock ? (
-                            <span className="text-red-600 font-bold">Nil</span>
+                            <span className="text-red-600 font-bold">0</span>
                           ) : (
                             <span className={lowStock ? "text-amber-600 font-bold" : "text-emerald-700 font-semibold"}>
                               {stock}

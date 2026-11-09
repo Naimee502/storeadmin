@@ -3,7 +3,7 @@
 Goal: work like Vyapar. Every write is saved on the device first and synced to the server; the app keeps working without internet.
 
 ## Decisions
-- Switch: `AdminSettings.offlineBilling` per business (Business Settings). Existing businesses: off until the admin turns it on (no default on the schema). New businesses: set `true` in `createAdmin`. Device setting in Settings: Business setting / On / Off.
+- Always on: every device saves locally first and syncs; there is no business or device switch (`isOfflineEnabled()` returns true). `AdminSettings.offlineBilling` stays in the API but is unused.
 - Numbers: the business's main series is the only final number. Online, the create is sent at once and the server's number is used if it answers within 3 s. Offline (or no answer), the bill shows a provisional device number; on sync the server gives it the next main-series number and keeps the device number in `offlineNumber`.
 - Device numbers (provisional only): `A/000123` invoice and order, `CN-A/000012` sales return, `#PAY-A/000012` receipt. Codes come from `registerOfflineDevice` and are never reused.
 - Conflicts: the first change to reach the server wins; a later stale edit goes to "Needs review" (Apply mine / Discard mine). Edits send `expectedUpdatedAt`.
