@@ -5,6 +5,7 @@ import DataTable from "../../../components/datatable";
 import HomeLayout from "../../../layouts/home";
 import { showMessage } from "../../../redux/slices/message";
 import { useDeletedDeliveryChallansQuery, useDeliveryChallanMutations } from "../../../graphql/hooks/deliverychallan";
+import { useClearDeleted } from "../../../graphql/hooks/common";
 import { formatDateDMY } from "../../../utils/helper";
 import { partyLabel } from "../../../utils/partylabel";
 import { challanNo, reasonLabel } from "..";
@@ -15,6 +16,7 @@ const DeletedDeliveryChallans = () => {
   const actions = useAppSelector((s) => selectModuleActions(s, "deliverychallan"));
   const { data, refetch } = useDeletedDeliveryChallansQuery();
   const { resetDeliveryChallanMutation } = useDeliveryChallanMutations();
+  const clear = useClearDeleted("deliverychallan", refetch, "delivery challan");
 
   const rows = (data?.getDeletedDeliveryChallans || []).map((c: any, i: number) => ({
     ...c,
@@ -49,6 +51,7 @@ const DeletedDeliveryChallans = () => {
           showExport={false}
           showReset={actions.canReset}
           showDeleted={false}
+          {...clear}
           onReset={async (row) => {
             if (!window.confirm(`Restore ${row.billnumber}? Its stock goes out again.`)) return;
             try {

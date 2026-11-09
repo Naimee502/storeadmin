@@ -171,7 +171,7 @@ const MODULE_LIST: ModuleDef[] = [
 const CLEARABLE_MODULE_IDS = [
   "categories", "subcategories", "brands", "models", "productgroups", "sizes", "units",
   "products", "accountgroups", "accountledgers", "staffaccounts", "accounts", "branches",
-  "salesorder", "salesinvoice", "salesreturn", "purchaseorder", "purchaseinvoice", "purchasereturn",
+  "salesorder", "salesinvoice", "salesreturn", "deliverychallan", "purchaseorder", "purchaseinvoice", "purchasereturn",
   "transferstock", "stockadjustments", "channels", "salesroutes", "pricelists", "priceassignments",
   "chargerules", "transactions", "payments", "expensenote", "attendance", "announcements",
 ];

@@ -34,6 +34,7 @@ export const CLEAR_TARGETS: Record<string, ClearTarget> = {
   salesorder: { model: "SalesOrder", tenant: "adminid" },
   purchaseorder: { model: "PurchaseOrder", tenant: "adminid" },
   salesreturn: { model: "SalesReturn", tenant: "adminid" },
+  deliverychallan: { model: "DeliveryChallan", tenant: "adminid" },
   purchasereturn: { model: "PurchaseReturn", tenant: "adminid" },
   transferstock: { model: "TransferStock", tenant: "admin" },
   stockadjustments: { model: "StockAdjustment", tenant: "adminid" },
