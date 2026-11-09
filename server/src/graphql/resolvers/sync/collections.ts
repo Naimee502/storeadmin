@@ -38,6 +38,8 @@ import { AccountGroup } from "../../../models/accountgroups";
 import { Channel } from "../../../models/channel";
 import { SalesRoute } from "../../../models/salesroutes";
 import { Holiday, LeaveType } from "../../../models/attendance";
+import { DeliveryChallan } from "../../../models/deliverychallan";
+import { buildChallanQuery, formatChallan, challanPopulate } from "../deliverychallan";
 import { buildPurchaseInvoiceQuery, formatInvoice as formatPurchaseInvoice, listPopulateFields as purchaseInvoiceRefs } from "../purchaseinvoice";
 import { buildPurchaseOrderQuery, formatOrder as formatPurchaseOrder, listPopulateFields as purchaseOrderRefs } from "../purchaseorder";
 import { buildPurchaseReturnQuery, formatReturn as formatPurchaseReturn, listPopulateFields as purchaseReturnRefs } from "../purchasereturn";
@@ -145,6 +147,13 @@ export const SYNC_COLLECTIONS: Record<string, SyncCollection> = {
     scope: async (ctx) => withoutStatus(buildPurchaseReturnQuery({ adminid: ctx.adminid }, ctx.context)),
     find: (f) => PurchaseReturn.find(f).populate(purchaseReturnRefs).lean(),
     shape: (docs) => docs.map(formatPurchaseReturn),
+  },
+  deliverychallan: {
+    model: DeliveryChallan,
+    tenant: "adminid",
+    scope: async (ctx) => withoutStatus(buildChallanQuery({ adminid: ctx.adminid })),
+    find: (f) => DeliveryChallan.find(f).populate(challanPopulate).lean(),
+    shape: (docs) => docs.map(formatChallan),
   },
   stockadjustment: {
     model: StockAdjustment,

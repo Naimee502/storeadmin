@@ -110,6 +110,7 @@ export const salesInvoiceTypeDefs = gql`
     createdby_name: String
     createdby_type: String
     sourceorderid: ID
+    sourcechallanid: ID
     # Source Sales Order number ("000009"), resolved from sourceorderid.
     # Order-only businesses label the bill with this instead of the invoice no.
     sourceorderno: String
@@ -179,6 +180,7 @@ export const salesInvoiceTypeDefs = gql`
     createdby_name: String
     createdby_type: String
     sourceorderid: ID
+    sourcechallanid: ID
     orderedby_id: ID
     orderedby_name: String
     orderedby_type: String

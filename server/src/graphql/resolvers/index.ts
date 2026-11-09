@@ -43,6 +43,8 @@ import { accountDeletionResolvers } from "./accountdeletionrequest";
 import { commonResolvers } from "./common";
 import { offlineDeviceResolvers } from "./offlinedevice";
 import { syncResolvers } from "./sync";
+import { deliveryChallanResolvers } from "./deliverychallan";
+import { DeliveryChallan } from "../../models/deliverychallan";
 
 import { withOfflineActions, withOfflineWrites } from "../../utils/offlinesync";
 import { SalesOrder } from "../../models/salesorder";
@@ -122,4 +124,5 @@ export const resolvers = [
   commonResolvers,
   offlineDeviceResolvers,
   syncResolvers,
+  withOfflineActions(deliveryChallanResolvers, DeliveryChallan, ["editDeliveryChallan", "deleteDeliveryChallan", "markDeliveryChallanDelivered", "markDeliveryChallanReturned"]),
 ];

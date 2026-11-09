@@ -42,6 +42,7 @@ import { accountDeletionTypeDefs } from "./accountdeletionrequest";
 import { commonTypeDefs } from "./common";
 import { offlineDeviceTypeDefs } from "./offlinedevice";
 import { syncTypeDefs } from "./sync";
+import { deliveryChallanTypeDefs } from "./deliverychallan";
 
 export const typeDefs = [
   branchTypeDefs,
@@ -88,4 +89,5 @@ export const typeDefs = [
   commonTypeDefs,
   offlineDeviceTypeDefs,
   syncTypeDefs,
+  deliveryChallanTypeDefs,
 ];

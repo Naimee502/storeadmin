@@ -24,6 +24,8 @@ const salesInvoiceSchema = new mongoose.Schema(
     // Original order creator (when this invoice was converted from a sales order).
     // createdby_* = who made the invoice (e.g. branch); orderedby_* = who placed the order (e.g. party).
     sourceorderid: { type: mongoose.Schema.Types.ObjectId, ref: "SalesOrder" },
+    // Challan the goods left with; when it moved stock, this invoice does not.
+    sourcechallanid: { type: mongoose.Schema.Types.ObjectId, ref: "DeliveryChallan" },
     orderedby_id: { type: mongoose.Schema.Types.ObjectId },
     orderedby_name: { type: String },
     orderedby_type: { type: String },

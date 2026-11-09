@@ -13,6 +13,8 @@ import {
 } from "../../../utils/allocation";
 import { partyStockEnabled, sellerPartyOf, assertPartyStockAvailable } from "../../../utils/partystock";
 import { assertSalesStockAvailable } from "../../../utils/stockguard";
+import { challanForInvoice } from "../deliverychallan";
+import { DeliveryChallan } from "../../../models/deliverychallan";
 import { SalesReturn } from "../../../models/salesreturn";
 import { assertInvoiceCancellable, assertInvoiceReopenable } from "../../../utils/invoicecancel";
 import { assertFresh, createOnce, dropDeviceNumber, takeDeviceNumber, conflictError, isoOf, parseExpectedUpdatedAt, raiseDeviceSeq, updateByIdGuarded } from "../../../utils/offlinesync";
@@ -602,6 +604,13 @@ async function addSalesInvoiceNow(_: any, { input, autoPayment }: any, context: 
       const autoCreateData = {
         autocreate: { stock: settings?.autoCreateStockOnSalesInvoice ?? true },
       };
+      // Goods that already left with a challan: this invoice posts the ledger only.
+      const challan: any = await challanForInvoice(input);
+      if (challan) {
+        if (challan.challanStatus === "returned") throw new Error("That delivery challan was returned; it cannot be invoiced.");
+        input.sourcechallanid = challan._id;
+        if (challan.stockapplied) autoCreateData.autocreate.stock = false;
+      }
 
       // `autoPayment: false` means the caller already collected the money
       // elsewhere (an order converted to an invoice), so this bill must not
@@ -1140,6 +1149,12 @@ export const salesInvoiceResolvers = {
       const autoCreateData = {
         autocreate: { stock: settings?.autoCreateStockOnSalesInvoice ?? true },
       };
+      // The challan link is fixed at create; its stock was moved by the challan.
+      input.sourcechallanid = oldInv.sourcechallanid ?? null;
+      if (oldInv.sourcechallanid) {
+        const c: any = await DeliveryChallan.findById(oldInv.sourcechallanid).select("stockapplied").lean();
+        if (c?.stockapplied) autoCreateData.autocreate.stock = false;
+      }
 
       // Same guard as create, but netting off what this invoice already held —
       // the stock hook restores the old lines before deducting the new ones, so
