@@ -11,6 +11,7 @@ import { AppHeader, DynamicFlashList, OrdersSummaryCard, ALL_TIME, inRange, rang
 import { GET_SALES_ORDERS } from '../../../../apollo/queries/accounts';
 import { formatINR, formatDate, formatBillNumber, parseServerDate, pendingBadge } from '../../../../utils';
 import type { RootState } from '../../../../store/rootreducer';
+import { useOrderOnlyMode } from '../../../../apollo/hooks/admin';
 
 type FilterKey = 'all' | 'pending' | 'confirmed' | 'dispatched' | 'delivered' | 'cancelled';
 
@@ -56,6 +57,8 @@ function getStatus(o: any): FilterKey {
 export default function SalesmanOrders() {
   const navigation = useNavigation<any>();
   const { colors, isDark } = useTheme();
+  const orderOnly = useOrderOnlyMode();
+  const filters = orderOnly ? FILTERS.filter((f) => f.key !== 'dispatched' && f.key !== 'delivered') : FILTERS;
   const user   = useSelector((s: RootState) => s.auth.user);
   const tenant = useSelector((s: RootState) => s.tenant);
   const [filter, setFilter] = useState<FilterKey>('all');
@@ -135,7 +138,7 @@ export default function SalesmanOrders() {
       <AppHeader label="My Orders" />
 
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipList} style={styles.chipScroll}>
-        {FILTERS.map((f) => {
+        {filters.map((f) => {
           const active = filter === f.key;
           const count  = counts[f.key];
           return (

@@ -51,8 +51,12 @@ function getStatus(order: any): Status {
   return "Pending";
 }
 
-function OrderTimeline({ status }: { status: Status }) {
-  const config = TIMELINE[status] ?? TIMELINE.Pending;
+function OrderTimeline({ status, orderOnly }: { status: Status; orderOnly?: boolean }) {
+  const base = TIMELINE[status] ?? TIMELINE.Pending;
+  // Invoicing off: no dispatch or delivery, so the order ends at Confirmed.
+  const config = orderOnly && status !== "Cancelled"
+    ? { steps: ["Order Placed", "Confirmed"], current: Math.min(base.current, 1) }
+    : base;
   const colour = STATUS_COLOR[status] ?? "#16a34a";
   return (
     <div className="pl-1">
@@ -162,12 +166,13 @@ export default function OrderDetailPage() {
   const isDownlineOrder = !!order.partyacc?.id && order.partyacc.id !== account?.id;
   const canAct = manageDownline && isDownlineOrder;
 
+  // Invoicing off: a confirmed order is final for the party (the server enforces it too).
   const canEdit =
-    canEditOrder(order) && (isOwnOrder || canAct);
+    canEditOrder(order) && (salesInvoiceEnabled || status === "Pending") && (isOwnOrder || canAct);
   const canConvert = salesInvoiceEnabled && !order.isConverted && status !== "Cancelled" && canAct;
-  const canConfirm = !salesInvoiceEnabled && !order.isConverted && status !== "Cancelled" && canAct;
-  const canDispatch = canAct && (status === "Pending" || status === "Confirmed");
-  const canDeliver = canAct && status !== "Delivered" && status !== "Cancelled";
+  const canConfirm = !salesInvoiceEnabled && !order.isConverted && status === "Pending" && canAct;
+  const canDispatch = salesInvoiceEnabled && canAct && (status === "Pending" || status === "Confirmed");
+  const canDeliver = salesInvoiceEnabled && canAct && status !== "Delivered" && status !== "Cancelled";
   // Own order, still Pending → the party may delete it (soft delete; the
   // server enforces the same rule).
   const canDelete = isOwnOrder && canEditOrder(order) && status === "Pending";
@@ -276,7 +281,7 @@ export default function OrderDetailPage() {
           {/* Timeline */}
           <div className="rounded-2xl border border-slate-100 p-5">
             <h2 className="mb-4 text-sm font-bold text-ink-900">Order Status</h2>
-            <OrderTimeline status={status} />
+            <OrderTimeline status={status} orderOnly={!salesInvoiceEnabled} />
           </div>
 
           {/* Items */}

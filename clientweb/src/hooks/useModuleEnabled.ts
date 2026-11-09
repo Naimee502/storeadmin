@@ -28,6 +28,9 @@ export function useModuleEnabled(moduleId: string): boolean {
  */
 export const usePaymentsEnabled = (): boolean => useModuleEnabled("payments");
 
+/** Sales Invoice off: orders use three statuses (Pending, Confirmed, Cancelled); no dispatch or delivery. */
+export const useOrderOnlyMode = (): boolean => !useModuleEnabled("salesinvoice");
+
 /**
  * Business Settings → Modules → "Announcements". Opt-in: off means no
  * Announcements link, page or unread count anywhere on the site.

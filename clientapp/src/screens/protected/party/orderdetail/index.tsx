@@ -50,9 +50,13 @@ function getStatus(order: any): string {
   return 'Pending';
 }
 
-function OrderTimeline({ status }: { status: string }) {
+function OrderTimeline({ status, orderOnly }: { status: string; orderOnly?: boolean }) {
   const { colors } = useTheme();
-  const config = TIMELINE[status] ?? TIMELINE.Pending;
+  const base = TIMELINE[status] ?? TIMELINE.Pending;
+  // Invoicing off: no dispatch or delivery, so the order ends at Confirmed.
+  const config = orderOnly && status !== 'Cancelled'
+    ? { steps: ['Order Placed', 'Confirmed'], current: Math.min(base.current, 1) }
+    : base;
   const colour = STATUS_COLOR[status] ?? colors.brand;
   return (
     <View style={styles.timeline}>
@@ -194,11 +198,13 @@ export default function OrderDetail() {
   //  - salesman: any order they manage
   //  - party: their OWN order, plus downline orders when downline is on
   const isOwnOrder  = !!order && order?.partyacc?.id === user?.id;
-  const canEdit     = !!order && !isInvoice && !order.isConverted && status !== 'Cancelled' && (
+  // Invoicing off: a confirmed order is final for the party and salesman (the server enforces it too).
+  const canEdit     = !!order && !isInvoice && !order.isConverted && status !== 'Cancelled'
+    && (salesInvoiceEnabled || status === 'Pending') && (
     role === 'salesman' ||
     (role === 'party' && (isOwnOrder || (manageDownline && isDownlineOrder)))
   );
-  const canDispatch = canAct && (status === 'Pending' || status === 'Confirmed');
+  const canDispatch = salesInvoiceEnabled && canAct && (status === 'Pending' || status === 'Confirmed');
   // Party can delete (soft) its OWN order while it is still Pending — same
   // rule the server enforces. Deleted orders drop out of My Orders.
   const canDelete = role === 'party' && isOwnOrder && !isInvoice && !order?.isConverted
@@ -238,7 +244,7 @@ export default function OrderDetail() {
   const canReturn = salesReturnEnabled && !!order && !!returnInvoiceId && status !== 'Cancelled'
     && order?.cancelStatus !== 'cancelled'
     && (role === 'salesman' || role === 'deliveryboy');
-  const canDeliver  = canAct && status !== 'Delivered' && status !== 'Cancelled';
+  const canDeliver  = salesInvoiceEnabled && canAct && status !== 'Delivered' && status !== 'Cancelled';
 
   const handleConvert = () => {
     if (punchBlocked) { Alert.alert('Punch in required', 'Please punch in from the Attendance tab first.'); return; }
@@ -401,7 +407,7 @@ export default function OrderDetail() {
             style={[styles.card, { backgroundColor: colors.cardGlass, borderColor: colors.border }]}
           >
             <Text style={[styles.cardTitle, { color: colors.text }]}>Order Status</Text>
-            <OrderTimeline status={status} />
+            <OrderTimeline status={status} orderOnly={!salesInvoiceEnabled} />
           </Animated.View>
 
           {/* Items */}

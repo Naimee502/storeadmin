@@ -112,7 +112,11 @@ const BusinessSettings = () => {
             </div>
 
             {tab === "general" && (
-              <GeneralTab adminId={selectedAdminId} dispatch={dispatch} />
+              <GeneralTab
+                adminId={selectedAdminId}
+                dispatch={dispatch}
+                allowedModules={adminsData?.getAdmins?.find((a: any) => a.id === selectedAdminId)?.allowedmodules ?? admin?.allowedmodules}
+              />
             )}
             {tab === "modules" && (
               <ModulesTab adminId={selectedAdminId} dispatch={dispatch} />
@@ -166,9 +170,10 @@ const defaultSmtpPort = (host: string): number => {
   return 465;
 };
 
-const GeneralTab: React.FC<{ adminId?: string; dispatch: any }> = ({
+const GeneralTab: React.FC<{ adminId?: string; dispatch: any; allowedModules?: string[] | null }> = ({
   adminId,
   dispatch,
+  allowedModules,
 }) => {
   const { admin: loggedInAdmin } = useAppSelector((s: any) => s.auth);
   const { data, refetch } = useAdminSettingsQuery(adminId);
@@ -219,8 +224,39 @@ const GeneralTab: React.FC<{ adminId?: string; dispatch: any }> = ({
     }
   };
 
+  // Invoicing off (no allowed list means every module is on): stock toggles that would surprise an order-only business.
+  const hasModule = (m: string) => !Array.isArray(allowedModules) || allowedModules.some((x) => String(x).toLowerCase() === m);
+  const invoiceOff = !hasModule("salesinvoice");
+  const stockWarnings = invoiceOff
+    ? [
+        draft.autoCreateStockOnSalesInvoice && "Auto-deduct stock on Sales Invoice is on: stock goes down when an order is confirmed.",
+        draft.restrictQuantityByStock !== false && "Restrict customer order qty by stock is on: parties cannot order items with no stock.",
+        draft.displayStockOnWebsite && "Show stock on App / Website is on: parties see stock and \"Out of stock\".",
+      ].filter(Boolean) as string[]
+    : [];
+
   return (
     <div className="space-y-3">
+      {stockWarnings.length > 0 && (
+        <div className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-[13px] text-amber-900">
+          <div className="font-semibold">
+            Sales Invoice is off ({hasModule("payments") ? "Orders + Payments" : "Orders only"}), but stock settings are still on
+          </div>
+          <ul className="mt-1 list-disc pl-5 space-y-0.5">
+            {stockWarnings.map((w) => <li key={w}>{w}</li>)}
+          </ul>
+          <div className="mt-2 flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setDraft((d: any) => ({ ...d, autoCreateStockOnSalesInvoice: false, restrictQuantityByStock: false, displayStockOnWebsite: false }))}
+              className="inline-flex h-8 items-center rounded-md bg-amber-600 px-3 text-[13px] font-semibold text-white hover:bg-amber-700"
+            >
+              Turn these off
+            </button>
+            <span className="text-[12px] text-amber-800">Then click Save Business Settings. Keep them on only if this business tracks stock.</span>
+          </div>
+        </div>
+      )}
       {/* Grouped by area, 4 per row; details on hover. */}
       <Section title="Stock & Inventory">
         <Grid>

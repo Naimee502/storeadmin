@@ -6,7 +6,7 @@ import { Account } from "../../../models/accounts";
 import { Payment } from "../../../models/payments";
 import { Transaction } from "../../../models/transactions";
 import { pushNotification } from "../../../models/notifications";
-import { isSalesOrderOnlyMode, adminIdOf } from "../../../utils/ordermode";
+import { isSalesOrderOnlyMode, salesOrderMode, adminIdOf } from "../../../utils/ordermode";
 import { activeFilters, asText, dmyFromText, notCleared, pageWindow, textMatch } from "../../../utils/listquery";
 import { assertFresh, createOnce, dropDeviceNumber, takeDeviceNumber, conflictError, isoOf, parseExpectedUpdatedAt, raiseDeviceSeq, updateByIdGuarded } from "../../../utils/offlinesync";
 
@@ -23,7 +23,8 @@ const autoInvoiceIfOrderOnly = async (order: any, context: any) => {
     return;
   }
   if (order.cancelStatus === "cancelled") return;
-  const orderOnly = await isSalesOrderOnlyMode(order.adminid);
+  // Orders-only (payments off too): nothing to collect, so no invoice and no ledger.
+  const orderOnly = (await salesOrderMode(order.adminid)) === "orderspayments";
   console.log(
     `[order-only] SO-${order.billnumber}: adminid=${order.adminid} orderOnlyMode=${orderOnly}` +
     (orderOnly ? " → creating hidden Sales Invoice" : " → salesinvoice module is ON, no auto-invoice")
@@ -42,6 +43,23 @@ const autoInvoiceIfOrderOnly = async (order: any, context: any) => {
   );
 };
 
+
+// Invoicing off: once the shop confirms, the party and field staff can no longer change the order.
+const assertOpenForField = async (id: string, context: any) => {
+  const t = String(context?.user?.type || "");
+  if (t !== "party" && t !== "account" && t !== "staff") return;
+  const o: any = await SalesOrder.findById(id).select("adminid orderStatus").lean();
+  if (!o || (o.orderStatus || "pending") === "pending") return;
+  if ((await salesOrderMode(o.adminid)) === "full") return;
+  throw new Error("This order is confirmed and can no longer be changed. Please contact the shop.");
+};
+
+// Invoicing off keeps three statuses (Pending, Confirmed, Cancelled); dispatch and delivery are not used.
+const assertDeliveryFlow = async (adminid: any) => {
+  if ((await salesOrderMode(adminid)) !== "full") {
+    throw new Error("Dispatch and delivery are not used while invoicing is off.");
+  }
+};
 
 // Resolve who created a doc into a proper { name, type }: staff token →
 // real role (salesman/staff/deliveryboy) + name; party token → account name.
@@ -1057,6 +1075,7 @@ export const salesOrderResolvers = {
 
     editSalesOrder: async (_: any, { id, input, expectedUpdatedAt }: any, context: any) => {
       dropDeviceNumber("salesorder", input);
+      await assertOpenForField(id, context);
       const expected = parseExpectedUpdatedAt(expectedUpdatedAt);
       let guardAt: Date | null = null;
       if (expected) {
@@ -1125,6 +1144,7 @@ export const salesOrderResolvers = {
     },
 
     deleteSalesOrder: async (_: any, { id, expectedUpdatedAt }: { id: string; expectedUpdatedAt?: string }, context: any) => {
+      await assertOpenForField(id, context);
       const expected = parseExpectedUpdatedAt(expectedUpdatedAt);
       let guardAt: Date | null = null;
       if (expected) {
@@ -1170,6 +1190,7 @@ export const salesOrderResolvers = {
       const existing = await SalesOrder.findById(id).lean() as any;
       if (!existing) throw new Error("Sales Order not found");
       const guardAt = await assertFresh(existing.updatedAt, expected, () => loadOrder(id));
+      await assertOpenForField(id, context);
       if (existing.isConverted) {
         // Order-only admins never see the invoice behind the order, so
         // "convert to invoice" language would mean nothing to them — say what
@@ -1196,12 +1217,16 @@ export const salesOrderResolvers = {
     },
 
     // Re-open a cancelled order if it was cancelled by mistake.
-    reopenSalesOrder: async (_: any, { id, expectedUpdatedAt }: { id: string; expectedUpdatedAt?: string }) => {
+    reopenSalesOrder: async (_: any, { id, expectedUpdatedAt }: { id: string; expectedUpdatedAt?: string }, context: any) => {
       const expected = parseExpectedUpdatedAt(expectedUpdatedAt);
       const existing = await SalesOrder.findById(id).lean() as any;
       if (!existing) throw new Error("Sales Order not found");
       const guardAt = await assertFresh(existing.updatedAt, expected, () => loadOrder(id));
-      if (existing.cancelStatus !== "cancelled") {
+      // Orders-only: nothing was posted, so the shop may take a confirmed order back to Pending.
+      const backToPending = existing.cancelStatus !== "cancelled" && existing.orderStatus === "confirmed" && !existing.isConverted
+        && !["party", "account", "staff"].includes(String(context?.user?.type || ""))
+        && (await salesOrderMode(existing.adminid)) === "orders";
+      if (existing.cancelStatus !== "cancelled" && !backToPending) {
         throw new Error("Order is not in cancelled state");
       }
       const updated = await updateByIdGuarded(
@@ -1235,6 +1260,7 @@ export const salesOrderResolvers = {
       const existing = await SalesOrder.findById(id).lean() as any;
       if (!existing) throw new Error("Sales Order not found");
       if (existing.cancelStatus === "cancelled") throw new Error("Order is cancelled.");
+      await assertDeliveryFlow(existing.adminid);
       await autoInvoiceIfOrderOnly(existing, context);
       const update: any = { deliveryStatus: "dispatched", orderStatus: "dispatched" };
       if (deliveryboyid) update.deliveryboyid = deliveryboyid;
@@ -1249,6 +1275,7 @@ export const salesOrderResolvers = {
       const existing = await SalesOrder.findById(id).lean() as any;
       if (!existing) throw new Error("Sales Order not found");
       if (existing.cancelStatus === "cancelled") throw new Error("Order is cancelled.");
+      await assertDeliveryFlow(existing.adminid);
       await autoInvoiceIfOrderOnly(existing, context);
       const user = context?.user;
       const deliveredAt = new Date();
@@ -1268,6 +1295,9 @@ export const salesOrderResolvers = {
     },
 
     assignOrderDeliveryBoy: async (_: any, { id, deliveryboyid }: any, context: any) => {
+      const current: any = await SalesOrder.findById(id).select("adminid").lean();
+      if (!current) throw new Error("Sales Order not found");
+      await assertDeliveryFlow(current.adminid);
       await syncInvoiceFromOrder(id, { deliveryboyid, deliveryStatus: "dispatched" });
       const updated = await SalesOrder.findByIdAndUpdate(
         id,

@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { usePaymentsEnabled, useAnnouncementsEnabled } from "../../hooks/useModuleEnabled";
+import { usePaymentsEnabled, useAnnouncementsEnabled, useOrderOnlyMode } from "../../hooks/useModuleEnabled";
 import { GET_MY_ANNOUNCEMENTS } from "../../graphql/queries/announcements";
 import { Navigate, useNavigate, useSearchParams, Link } from "react-router";
 import { useQuery } from "@apollo/client";
@@ -99,6 +99,8 @@ export default function AccountPage() {
   const tabParam = searchParams.get("tab") as Tab | null;
   // Payments module off → no Payments tab, and ?tab=payments falls back to the dashboard.
   const paymentsEnabled = usePaymentsEnabled();
+  const orderOnly = useOrderOnlyMode();
+  const filters = orderOnly ? FILTERS.filter((f) => f.key !== "dispatched" && f.key !== "delivered") : FILTERS;
   // Announcements module (opt-in) → its own entry in the account menu.
   const announcementsEnabled = useAnnouncementsEnabled();
   const { data: annData } = useQuery(GET_MY_ANNOUNCEMENTS, {
@@ -448,7 +450,7 @@ export default function AccountPage() {
                 )}
 
                 <div className="mb-5 flex gap-2 overflow-x-auto pb-1">
-                  {FILTERS.map((f) => {
+                  {filters.map((f) => {
                     const active = filter === f.key;
                     const count = (counts as any)[f.key];
                     return (

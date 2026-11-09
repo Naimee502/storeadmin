@@ -48,6 +48,16 @@ const isModuleDisabled = async (adminid: any, moduleId: string): Promise<boolean
 export const isSalesOrderOnlyMode = (adminid: any) =>
   isModuleDisabled(adminid, "salesinvoice");
 
+/**
+ * Sales order mode from the modules: "full" (invoicing on), "orderspayments"
+ * (invoice off, payments on: a confirmed order posts to the ledger) or
+ * "orders" (both off: orders are plain records, nothing posts).
+ */
+export const salesOrderMode = async (adminid: any): Promise<"full" | "orders" | "orderspayments"> => {
+  if (!(await isSalesOrderOnlyMode(adminid))) return "full";
+  return (await isModuleDisabled(adminid, "payments")) ? "orders" : "orderspayments";
+};
+
 /** Purchase side: the "purchaseinvoice" module is switched off for this admin. */
 export const isPurchaseOrderOnlyMode = (adminid: any) =>
   isModuleDisabled(adminid, "purchaseinvoice");

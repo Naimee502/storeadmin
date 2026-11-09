@@ -33,6 +33,9 @@ export const useModuleEnabled = (moduleId: string): boolean => {
  * "Collected" figures on their dashboards. PAYMENT_SCREENS below is also
  * dropped from the navigators, so nothing can reach them by a stale link.
  */
+/** Sales Invoice off: orders use three statuses (Pending, Confirmed, Cancelled); no dispatch or delivery. */
+export const useOrderOnlyMode = (): boolean => !useModuleEnabled('salesinvoice');
+
 export const PAYMENTS_MODULE = 'payments';
 export const usePaymentsEnabled = (): boolean => useModuleEnabled(PAYMENTS_MODULE);
 

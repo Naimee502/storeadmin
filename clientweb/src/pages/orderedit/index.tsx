@@ -11,7 +11,8 @@ import { useDownline } from "../../hooks/useDownline";
 import { GET_SALES_ORDER_BY_ID, EDIT_SALES_ORDER, GET_SALES_ORDERS, GET_ACCOUNT, RESOLVE_PRICE } from "../../graphql/queries/accounts";
 import apolloClient from "../../graphql/client";
 import { formatPrice } from "../../utils/format";
-import { canEditOrder, formatBillNumber } from "../../utils/orders";
+import { canEditOrder, formatBillNumber, orderStatus } from "../../utils/orders";
+import { useOrderOnlyMode } from "../../hooks/useModuleEnabled";
 import { useImageFallback } from "../../utils/useimagefallback";
 import ProductImageViewer, { productImages } from "../../components/productimageviewer";
 
@@ -72,6 +73,7 @@ export default function OrderEditPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { isLoggedIn, account } = useAuth();
+  const orderOnly = useOrderOnlyMode();
   const { adminid, branchid, displayProductPrice, restrictQuantityByStock } = useTenant();
   const { products, categories } = useCatalog();
   const { isOwnOrDownline, manageDownline } = useDownline();
@@ -300,7 +302,9 @@ export default function OrderEditPage() {
     );
   }
 
-  if (!canEditOrder(order)) {
+  // Invoicing off: only a Pending order can be changed by the party.
+  const lockedConfirmed = orderOnly && canEditOrder(order) && orderStatus(order) !== "pending";
+  if (!canEditOrder(order) || lockedConfirmed) {
     return (
       <div>
         <Breadcrumb items={[{ label: "My Account", to: "/account" }, { label: "Edit Order" }]} />
@@ -308,7 +312,9 @@ export default function OrderEditPage() {
           <Lock className="h-14 w-14 text-slate-300" />
           <h1 className="mt-4 text-xl font-bold text-ink-900">This order can't be edited</h1>
           <p className="mt-1 text-sm text-slate-500">
-            {order.isConverted
+            {lockedConfirmed
+              ? "The shop has confirmed it. Please contact the shop to change it."
+              : order.isConverted
               ? "It's already been converted to an invoice."
               : "It has been cancelled."}
           </p>

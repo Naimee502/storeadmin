@@ -80,7 +80,9 @@ const SalesOrders = () => {
     if (salesInvoiceEnabled) {
       if (!order.isConverted && actions.showConvert) opts.push({ label: "Convert to Invoice", value: "convert" });
     } else {
-      if (actions.showConvert) opts.push({ label: "Confirmed", value: "confirmed" });
+      // Invoicing off: only Pending, Confirmed and Cancelled; dispatch and delivery are not used.
+      if (actions.showConvert) opts.push({ label: "Confirmed", value: "confirmed" }, { label: "Cancelled", value: "cancelled" });
+      return opts;
     }
     if (actions.showConvert) {
       opts.push(
