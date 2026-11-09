@@ -18,6 +18,7 @@ import { Payment } from "../payments";
 import { getOrCreateAccount } from "../../utils/helper";
 import { AccountLedger } from "../accountledgers";
 import { Account } from "../accounts";
+import { purchaseIgstLedger } from "../purchaseinvoice";
 
 const purchaseReturnSchema = new mongoose.Schema(
   {
@@ -194,6 +195,7 @@ purchaseReturnSchema.statics.adjustStockAndTransactions = async function (oldRet
     const created = await getOrCreateAccount("Purchase Return", "other", newRet.adminid, newRet.branchid);
     purchaseReturnLedger = { _id: created.ledgerid } as any;
   }
+  const igstLedger = await purchaseIgstLedger(newRet.adminid, newRet.branchid, newRet.partyacc);
 
   for (const item of newRet.productservice) {
     const qty = Number(item.qty);
@@ -218,7 +220,9 @@ purchaseReturnSchema.statics.adjustStockAndTransactions = async function (oldRet
       entries.push({ ledgerid: purchaseReturnLedger._id, debit: 0, credit: taxable, remarks: remark });
     }
 
-    if (gstAmt > 0) {
+    if (gstAmt > 0 && igstLedger) {
+      entries.push({ ledgerid: igstLedger, debit: 0, credit: gstAmt, remarks: `Reversal of IGST on ${productName}` });
+    } else if (gstAmt > 0) {
       const cgst = await AccountLedger.findOne({ ledgername: "Input CGST", admin: newRet.adminid });
       const sgst = await AccountLedger.findOne({ ledgername: "Input SGST", admin: newRet.adminid });
       if (cgst && sgst) {
@@ -246,7 +250,9 @@ purchaseReturnSchema.statics.adjustStockAndTransactions = async function (oldRet
           remarks: charge.remarks || charge.ledgername || "Reversal of Other Charge",
         });
 
-        if (charge.gstamount > 0) {
+        if (charge.gstamount > 0 && igstLedger) {
+          entries.push({ ledgerid: igstLedger, debit: 0, credit: charge.gstamount, remarks: `Reversal of IGST on ${charge.ledgername || "Other Charge"}` });
+        } else if (charge.gstamount > 0) {
           const cgst = await AccountLedger.findOne({ ledgername: "Input CGST", admin: newRet.adminid });
           const sgst = await AccountLedger.findOne({ ledgername: "Input SGST", admin: newRet.adminid });
 

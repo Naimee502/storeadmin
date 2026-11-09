@@ -370,6 +370,12 @@ const GeneralTab: React.FC<{ adminId?: string; dispatch: any; allowedModules?: s
         {draft.gstin && !/^\d{2}[A-Z]{5}\d{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/.test(draft.gstin) && (
           <div className="text-[12px] text-rose-600">This GSTIN does not look valid (15 characters, e.g. 24ABCDE1234F1Z5).</div>
         )}
+        <Grid>
+          <Toggle label="GST by state (IGST for other-state party)" checked={draft.gstStateSplit === true} onChange={(v: boolean) => set("gstStateSplit", v)} />
+        </Grid>
+        <div className="text-[11px] leading-snug text-slate-400">
+          On: purchases from another state post Input IGST, and bill forms show CGST / SGST or IGST. Applies to bills saved from now on.
+        </div>
       </Section>
 
       <Section title="Invoice Print">
@@ -384,6 +390,7 @@ const GeneralTab: React.FC<{ adminId?: string; dispatch: any; allowedModules?: s
           <Toggle label="HSN column" checked={draft.printShowHsnColumn !== false} onChange={(v: boolean) => set("printShowHsnColumn", v)} />
           <Toggle label="GST% column" checked={draft.printShowGstColumn !== false} onChange={(v: boolean) => set("printShowGstColumn", v)} />
           <Toggle label="Total GST" checked={draft.printShowTotalGst !== false} onChange={(v: boolean) => set("printShowTotalGst", v)} />
+          <Toggle label="CGST / SGST / IGST" checked={draft.printShowTaxSplit === true} onChange={(v: boolean) => set("printShowTaxSplit", v)} />
         </Grid>
         <div className="pt-1">
           <FormField

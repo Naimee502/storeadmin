@@ -115,10 +115,12 @@ export const adminSettingsTypeDefs = gql`
     gstAddress: String
     gstCity: String
     gstPincode: String
+    gstStateSplit: Boolean
     companyState: String
     printShowHsnColumn: Boolean
     printShowGstColumn: Boolean
     printShowTotalGst: Boolean
+    printShowTaxSplit: Boolean
 
     supportEmail: String
     supportPhone: String
@@ -368,10 +370,12 @@ export const adminSettingsTypeDefs = gql`
     gstAddress: String
     gstCity: String
     gstPincode: String
+    gstStateSplit: Boolean
     companyState: String
     printShowHsnColumn: Boolean
     printShowGstColumn: Boolean
     printShowTotalGst: Boolean
+    printShowTaxSplit: Boolean
 
     supportEmail: String
     supportPhone: String

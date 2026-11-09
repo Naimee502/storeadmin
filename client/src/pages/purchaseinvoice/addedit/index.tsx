@@ -9,7 +9,7 @@ import { useParams, useNavigate, useLocation } from "react-router";
 import { useAccountsLiteQuery } from "../../../graphql/hooks/accounts";
 import { useProductServicesQuery } from "../../../graphql/hooks/products";
 import { usePurchaseInvoiceByIDQuery, usePurchaseInvoiceMutations, usePurchaseInvoicesListQuery, usePurchaseInvoicesQuery } from "../../../graphql/hooks/purchaseinvoice";
-import { getLastPartyDocRows } from "../../../utils/helper";
+import { getLastPartyDocRows, gstSplit } from "../../../utils/helper";
 import { usePurchaseOrderByIDQuery, usePurchaseOrderMutations } from "../../../graphql/hooks/purchaseorder";
 import { useBranchesQuery } from "../../../graphql/hooks/branches";
 import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
@@ -33,6 +33,7 @@ const AddEditPurchaseInvoice = () => {
 
   // Business setting: delete invoices only from inside the invoice (still needs Delete permission).
   const deleteInsideOnly = useAppSelector((state: any) => !!state.adminsettings.settings?.deleteInvoiceFromInsideOnly);
+  const settings = useAppSelector((state: any) => state.adminsettings.settings);
   const canDeleteInvoice = useAppSelector(state => selectModuleActions(state, "purchaseinvoice")).showDelete;
   const [deletingInvoice, setDeletingInvoice] = useState(false);
   const { editPurchaseOrderMutation } = usePurchaseOrderMutations();
@@ -774,6 +775,12 @@ const AddEditPurchaseInvoice = () => {
               {isFieldEnabled("productstotal") && <FormField label="Products Total" name="productsTotal" onChange={() => ""} type="text" value={productsTotal.toFixed(2)} disabled />}
               {isFieldEnabled("totaldiscount") && <FormField label="Total Discount" name="totalDiscount" onChange={() => ""} type="text" value={totalDiscount.toFixed(2)} disabled />}
               {isFieldEnabled("taxamount") && <FormField label="Tax Amount" name="taxAmount" onChange={() => ""} type="text" value={taxAmount.toFixed(2)} disabled />}
+              {settings?.gstStateSplit === true && isFieldEnabled("taxsplit") && (() => {
+                // Shown only with "GST by state" on in Business Settings.
+                const t = gstSplit(settings?.companyState, partyAccount?.state, taxAmount);
+                return <FormField label={t.inter ? "IGST" : "CGST + SGST"} name="taxSplit" onChange={() => ""} type="text" disabled
+                  value={t.inter ? t.igst.toFixed(2) : `${t.cgst.toFixed(2)} + ${t.sgst.toFixed(2)}`} />;
+              })()}
               {isFieldEnabled("summary_othercharges") && <FormField label="Other Charges" name="otherCharges" onChange={() => ""} type="text" value={otherCharges.reduce((sum, c) => sum + (c.totalamount || 0), 0).toFixed(2)} disabled />}
 
               {isFieldEnabled("invoicediscount") && <div className="flex gap-1.5 items-end">

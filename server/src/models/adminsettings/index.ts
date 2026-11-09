@@ -112,6 +112,8 @@ const adminSettingsSchema = new mongoose.Schema(
     gstAddress: { type: String },
     gstCity: { type: String },
     gstPincode: { type: String },
+    // Opt-in (no default, old admins unchanged): IGST for inter-state purchases and the tax split in forms.
+    gstStateSplit: { type: Boolean },
 
     /* ============================================================
        WEBSITE STOREFRONT — controls for the customer-facing website.
@@ -195,6 +197,7 @@ const adminSettingsSchema = new mongoose.Schema(
     printShowHsnColumn: { type: Boolean, default: true },
     printShowGstColumn: { type: Boolean, default: true },
     printShowTotalGst: { type: Boolean, default: true },
+    printShowTaxSplit: { type: Boolean }, // CGST / SGST / IGST amounts; opt-in
 
     /* ============================================================
        FULFILMENT — who delivers orders for this business.

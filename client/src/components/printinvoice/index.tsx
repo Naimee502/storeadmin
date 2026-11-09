@@ -2,7 +2,7 @@ import React, { forwardRef, useImperativeHandle, useRef } from "react";
 import QRCode from "qrcode";
 import { toWords } from "number-to-words";
 import { useAppSelector } from "../../redux/hooks";
-import { formatDateTimeDMY, formatDateDMY } from "../../utils/helper";
+import { formatDateTimeDMY, formatDateDMY, gstSplit } from "../../utils/helper";
 
 /* TYPES */
 interface Product {
@@ -24,6 +24,7 @@ interface Invoice {
   partyacc: string;
   partyname?: string;
   placeofsupply?: string;
+  partystate?: string;
   gstin?: string;
   productservice?: Product[];
   totalamount?: number;
@@ -500,6 +501,16 @@ const PrintableInvoice = forwardRef<HTMLDivElement, PrintableInvoiceProps>(
                 <span className="lbl">Total Discount</span>
                 <span>{mask(totalDiscount).toFixed(2)}</span>
               </div>
+              {settings?.printShowTaxSplit === true && (() => {
+                const t = gstSplit(settings?.companyState, invoice.partystate, totalGST);
+                const rows = t.inter ? [["IGST", t.igst]] : [["CGST", t.cgst], ["SGST", t.sgst]];
+                return rows.map(([lbl, v]) => (
+                  <div className="inv-totals-row" key={lbl as string}>
+                    <span className="lbl">{lbl}</span>
+                    <span>{mask(v as number).toFixed(2)}</span>
+                  </div>
+                ));
+              })()}
               {settings?.printShowTotalGst !== false && (
                 <div className="inv-totals-row">
                   <span className="lbl">Total GST</span>

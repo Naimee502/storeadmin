@@ -223,3 +223,11 @@ export const compareStatementRows = (
   if (comparable && x.ref && y.ref) return String(x.ref).localeCompare(String(y.ref));
   return 0;
 };
+
+// CGST + SGST inside the state, IGST across states; same rule as the server journal.
+export const gstSplit = (companyState: any, partyState: any, gst: number) => {
+  const theirs = String(partyState || "gujarat").toLowerCase();
+  const inter = theirs !== "default" && theirs !== String(companyState || "gujarat").toLowerCase();
+  const cgst = inter ? 0 : Math.round((gst / 2) * 100) / 100;
+  return { inter, igst: inter ? gst : 0, cgst, sgst: inter ? 0 : Math.round((gst - cgst) * 100) / 100 };
+};

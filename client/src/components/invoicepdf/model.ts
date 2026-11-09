@@ -1,5 +1,5 @@
 import { toWords } from "number-to-words";
-import { formatDateTimeDMY, formatDateDMY } from "../../utils/helper";
+import { formatDateTimeDMY, formatDateDMY, gstSplit } from "../../utils/helper";
 
 /** Invoice PDF data resolved up front; keep in step with components/printinvoice. */
 
@@ -23,6 +23,7 @@ export interface PdfInvoice {
   partyacc: string;
   partyname?: string;
   placeofsupply?: string;
+  partystate?: string;
   gstin?: string;
   productservice?: PdfProduct[];
   amountinwords?: string;
@@ -195,6 +196,11 @@ export const buildInvoicePdfModel = (
     { label: "Sub Total", value: money(productsTotal) },
     { label: "Total Discount", value: money(totalDiscount) },
   ];
+  if (settings?.printShowTaxSplit === true) {
+    const t = gstSplit(settings?.companyState, invoice.partystate, totalGST);
+    if (t.inter) totals.push({ label: "IGST", value: money(t.igst) });
+    else totals.push({ label: "CGST", value: money(t.cgst) }, { label: "SGST", value: money(t.sgst) });
+  }
   if (settings?.printShowTotalGst !== false) {
     totals.push({ label: "Total GST", value: money(totalGST) });
   }

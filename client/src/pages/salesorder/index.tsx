@@ -296,6 +296,7 @@ const SalesOrders = () => {
       partyname: order.partyacc?.accountname || "",
       gstin: order.partyacc?.gstnumber || "",
       placeofsupply: [order.partyacc?.city, stateLabel(order.partyacc?.state)].filter(Boolean).join(" - "),
+      partystate: order.partyacc?.state || "",
       partyacc: partyLabel(order.partyacc) || "N/A",
       totalitem: (order.productservice || []).length,
       totalqty,

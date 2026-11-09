@@ -348,6 +348,7 @@ const SalesInvoices = () => {
       gstin: invoice.partyacc?.gstnumber || "",
       // Place of Supply = party City - State (GST jurisdiction).
       placeofsupply: [invoice.partyacc?.city, stateLabel(invoice.partyacc?.state)].filter(Boolean).join(" - "),
+      partystate: invoice.partyacc?.state || "",
       partyacc: partyLabel(invoice.partyacc) || "N/A",
       totalitem: (invoice.productservice || []).length,
       totalqty,

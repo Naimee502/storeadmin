@@ -16,6 +16,20 @@ import { AdminSettings } from "../adminsettings";
 // cannot cover: a product line saved without a purchase account (whose cost used
 // to be dropped from the journal entirely), and an "other charge" folded into
 // cost rather than posted to its own ledger.
+// Inter-state vendor → Input IGST, only once the admin turns on "GST by state"; off keeps CGST + SGST as before.
+export async function purchaseIgstLedger(adminid: any, branchid: any, partyacc: any): Promise<any> {
+  const settings: any = await AdminSettings.getOrCreateForAdmin(adminid);
+  if (settings?.gstStateSplit !== true) return null;
+  const party: any = partyacc ? await Account.findById(partyacc).select("state").lean() : null;
+  // Same rule as sales: a party with no state counts as Gujarat.
+  const theirs = String(party?.state || "gujarat").toLowerCase();
+  if (theirs === "default" || theirs === String(settings.companyState || "gujarat").toLowerCase()) return null;
+  const igst: any = await AccountLedger.findOne({ ledgername: "Input IGST", admin: adminid }).select("_id").lean();
+  if (igst) return igst._id;
+  const acc: any = await getOrCreateAccount("Input IGST", "assets", adminid, branchid);
+  return acc?.ledgerid || acc?._id || null;
+}
+
 async function getDefaultPurchaseLedgerId(adminid: any, _branchid: any): Promise<any> {
   // The seeded chart of accounts already carries a "Purchase Account" ledger.
   // Prefer it — minting our own would put a second cost head in the P&L beside
@@ -183,6 +197,7 @@ export async function buildPurchaseInvoiceJournal(newInv: any) {
   // off, each keeps its own ledger. GST never folds -- it is claimable input
   // tax, not a cost.
   const foldSettings: any = await AdminSettings.getOrCreateForAdmin(newInv.adminid);
+  const igstLedger = await purchaseIgstLedger(newInv.adminid, newInv.branchid, newInv.partyacc);
   const foldIntoPurchase = !!foldSettings?.enablePaymentDiscountCommission;
   // Resolved lazily and remembered: most bills have a purchase account on every
   // line and no charge to fold, so they never need this at all. Calling it
@@ -224,7 +239,10 @@ export async function buildPurchaseInvoiceJournal(newInv: any) {
       totalDebit += taxable;
     }
 
-    if (gstAmt > 0) {
+    if (gstAmt > 0 && igstLedger) {
+      entries.push({ ledgerid: igstLedger, debit: gstAmt, credit: 0, remarks: `IGST on ${productName}` });
+      totalDebit += gstAmt;
+    } else if (gstAmt > 0) {
       const cgst = await AccountLedger.findOne({ ledgername: "Input CGST", admin: newInv.adminid });
       const sgst = await AccountLedger.findOne({ ledgername: "Input SGST", admin: newInv.adminid });
       if (cgst && sgst) {
@@ -257,7 +275,9 @@ export async function buildPurchaseInvoiceJournal(newInv: any) {
         });
       }
       const gst = parseFloat((Number(charge.gstamount) || 0).toFixed(2));
-      if (gst > 0) {
+      if (gst > 0 && igstLedger) {
+        entries.push({ ledgerid: igstLedger, debit: gst, credit: 0, remarks: `IGST on ${chargeName}` });
+      } else if (gst > 0) {
         const cgst = await AccountLedger.findOne({ ledgername: "Input CGST", admin: newInv.adminid });
         const sgst = await AccountLedger.findOne({ ledgername: "Input SGST", admin: newInv.adminid });
         if (cgst && sgst) {
@@ -556,6 +576,7 @@ let totalDebit = 0;
   // off, each keeps its own ledger. GST never folds -- it is claimable input
   // tax, not a cost.
   const foldSettings: any = await AdminSettings.getOrCreateForAdmin(newInv.adminid);
+  const igstLedger = await purchaseIgstLedger(newInv.adminid, newInv.branchid, newInv.partyacc);
   const foldIntoPurchase = !!foldSettings?.enablePaymentDiscountCommission;
   // Resolved lazily and remembered: most bills have a purchase account on every
   // line and no charge to fold, so they never need this at all. Calling it
@@ -606,7 +627,10 @@ for (const item of newInv.productservice) {
   }
 
   // ===================== INPUT GST LEDGERS =====================
-  if (gstAmt > 0) {
+  if (gstAmt > 0 && igstLedger) {
+    entries.push({ ledgerid: igstLedger, debit: gstAmt, credit: 0, remarks: `IGST on ${productName}` });
+    totalDebit += gstAmt;
+  } else if (gstAmt > 0) {
     const cgst = await AccountLedger.findOne({
       ledgername: "Input CGST",
       admin: newInv.adminid,
@@ -672,7 +696,9 @@ for (const item of newInv.productservice) {
         });
       }
       const gst = parseFloat((Number(charge.gstamount) || 0).toFixed(2));
-      if (gst > 0) {
+      if (gst > 0 && igstLedger) {
+        entries.push({ ledgerid: igstLedger, debit: gst, credit: 0, remarks: `IGST on ${chargeName}` });
+      } else if (gst > 0) {
         const cgst = await AccountLedger.findOne({ ledgername: "Input CGST", admin: newInv.adminid });
         const sgst = await AccountLedger.findOne({ ledgername: "Input SGST", admin: newInv.adminid });
         if (cgst && sgst) {

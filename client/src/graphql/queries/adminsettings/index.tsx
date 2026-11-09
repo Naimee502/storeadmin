@@ -58,10 +58,12 @@ const SETTINGS_FIELDS = `
   gstAddress
   gstCity
   gstPincode
+  gstStateSplit
   companyState
   printShowHsnColumn
   printShowGstColumn
   printShowTotalGst
+  printShowTaxSplit
   supportEmail
   supportPhone
   supportWhatsapp

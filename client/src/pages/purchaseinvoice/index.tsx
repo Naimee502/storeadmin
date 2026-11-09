@@ -241,6 +241,7 @@ const PurchaseInvoices = () => {
       partyname: invoice.partyacc?.accountname || "",
       gstin: invoice.partyacc?.gstnumber || "",
       placeofsupply: [invoice.partyacc?.city, stateLabel(invoice.partyacc?.state)].filter(Boolean).join(" - "),
+      partystate: invoice.partyacc?.state || "",
       partyacc: partyLabel(invoice.partyacc) || "N/A",
       totalitem: invoice.productservice?.length || 0,
       totalqty,
