@@ -152,7 +152,12 @@ async function syncSource(challan: any, event: "dispatched" | "delivered", conte
 
 // Module switch and role permission, checked here too (hidden buttons are not a lock).
 async function gate(scope: any, action: string) {
-  const where = { adminid: scope.adminid, branchid: scope.branchid, staffid: scope.userType === "staff" ? scope.userId : undefined };
+  // Same as the admin panel: a branch's own module list applies to branch and staff logins, not to the admin.
+  const where = {
+    adminid: scope.adminid,
+    branchid: scope.userType === "admin" ? undefined : scope.branchid,
+    staffid: scope.userType === "staff" ? scope.userId : undefined,
+  };
   await assertModuleOn("deliverychallan", "Delivery Challans", where);
   if (!(await isActionAllowed("deliverychallan", action, where))) {
     throw new TenantError("You do not have permission for this Delivery Challan action.");
