@@ -111,6 +111,14 @@ export const salesInvoiceTypeDefs = gql`
     createdby_type: String
     sourceorderid: ID
     sourcechallanid: ID
+    "e-Invoice details from the GST portal."
+    irn: String
+    irnAckNo: String
+    irnAckDate: String
+    signedQr: String
+    irnStatus: String
+    ewaybilldate: String
+    ewaybillvalidupto: String
     # Source Sales Order number ("000009"), resolved from sourceorderid.
     # Order-only businesses label the bill with this instead of the invoice no.
     sourceorderno: String
@@ -231,5 +239,32 @@ export const salesInvoiceTypeDefs = gql`
     markSalesInvoiceDispatched(id: ID!, deliveryboyid: ID, expectedUpdatedAt: String): SalesInvoice!
     markSalesInvoiceDelivered(id: ID!, byId: ID, byName: String, byType: String, expectedUpdatedAt: String): SalesInvoice!
     assignInvoiceDeliveryBoy(id: ID!, deliveryboyid: ID!, expectedUpdatedAt: String): SalesInvoice!
+    "Save the IRN / QR / e-Way Bill details the GST portal gave for this invoice."
+    saveInvoiceGstDetails(id: ID!, input: InvoiceGstInput!, expectedUpdatedAt: String): SalesInvoice!
+  }
+
+  input InvoiceGstInput {
+    irn: String
+    irnAckNo: String
+    irnAckDate: String
+    signedQr: String
+    irnStatus: String
+    ewaybillno: String
+    ewaybilldate: String
+    ewaybillvalidupto: String
+  }
+
+  "An e-Invoice / e-Way Bill JSON for the portal, with what blocks it (errors) and what to check (warnings)."
+  type GstExport {
+    ready: Boolean!
+    errors: [String!]!
+    warnings: [String!]!
+    json: JSON
+  }
+
+  extend type Query {
+    getEInvoiceExport(invoiceId: ID!): GstExport!
+    "sourceType: invoice or challan."
+    getEWayBillExport(sourceType: String!, id: ID!): GstExport!
   }
 `;

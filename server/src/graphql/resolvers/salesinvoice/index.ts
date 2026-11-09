@@ -15,6 +15,10 @@ import { partyStockEnabled, sellerPartyOf, assertPartyStockAvailable } from "../
 import { assertSalesStockAvailable } from "../../../utils/stockguard";
 import { challanForInvoice } from "../deliverychallan";
 import { DeliveryChallan } from "../../../models/deliverychallan";
+import { Admin } from "../../../models/admin";
+import { Branch } from "../../../models/branches";
+import { buildEInvoice, buildEWayBill, sellerOf } from "../../../utils/gst";
+import { requireBackofficeTenant, TenantError } from "../../../utils/tenant";
 import { SalesReturn } from "../../../models/salesreturn";
 import { assertInvoiceCancellable, assertInvoiceReopenable } from "../../../utils/invoicecancel";
 import { assertFresh, createOnce, dropDeviceNumber, takeDeviceNumber, conflictError, isoOf, parseExpectedUpdatedAt, raiseDeviceSeq, updateByIdGuarded } from "../../../utils/offlinesync";
@@ -339,6 +343,33 @@ export const formatInvoice = (inv: any) => ({
 });
 
 // Current invoice as the API returns it (for CONFLICT errors).
+// Bill with what the GST JSON needs: full party, product variants (HSN) and units (UQC).
+const GST_POPULATE: any[] = [
+  { path: "partyacc", select: "name mobile gstnumber address city state pincode" },
+  { path: "productservice.productserviceid", select: "name productvariants._id productvariants.name productvariants.hsncode" },
+  { path: "productservice.salesunitid", select: "unitname uqc" },
+];
+
+async function gstDoc(kind: "invoice" | "challan", id: string, context: any) {
+  const scope = await requireBackofficeTenant(context);
+  const Model: any = kind === "invoice" ? SalesInvoice : DeliveryChallan;
+  const doc: any = await Model.findById(id).populate(GST_POPULATE).lean();
+  if (!doc || String(doc.adminid) !== String(scope.adminid)) throw new TenantError("Document not found.", "BAD_USER_INPUT");
+  const [settings, admin, branch] = await Promise.all([
+    AdminSettings.getOrCreateForAdmin(doc.adminid),
+    Admin.findById(doc.adminid).select("companyName address mobile").lean(),
+    doc.branchid ? Branch.findById(doc.branchid).select("address city pincode").lean() : null,
+  ]);
+  return { doc, seller: sellerOf(settings, admin, branch) };
+}
+
+const exportOf = ({ payload, check }: any) => ({
+  ready: check.errors.length === 0,
+  errors: check.errors,
+  warnings: check.warnings,
+  json: check.errors.length === 0 ? payload : null,
+});
+
 const loadInvoice = async (id: any) => {
   const inv = await SalesInvoice.findById(id).populate(populateFields).lean();
   return inv ? formatInvoice(inv) : null;
@@ -887,6 +918,17 @@ async function addSalesInvoiceNow(_: any, { input, autoPayment }: any, context: 
 
 export const salesInvoiceResolvers = {
   Query: {
+    getEInvoiceExport: async (_: any, { invoiceId }: any, context: any) => {
+      const { doc, seller } = await gstDoc("invoice", invoiceId, context);
+      return exportOf(buildEInvoice(doc, seller));
+    },
+
+    getEWayBillExport: async (_: any, { sourceType, id }: any, context: any) => {
+      const kind = sourceType === "challan" ? "challan" : "invoice";
+      const { doc, seller } = await gstDoc(kind, id, context);
+      return exportOf(buildEWayBill(doc, kind, seller));
+    },
+
     getSalesInvoices: async (_: any, { filter = {} }: { filter?: any }, context: any) => {
       const query = await buildInvoiceQuery(filter, context);
       if (!query) return [];
@@ -1322,6 +1364,21 @@ export const salesInvoiceResolvers = {
       await syncOrderFromInvoice(id, { orderStatus: "delivered", deliveryStatus: "delivered", deliveredAt, ...by });
       await notifyInvoiceEvent(updated, context, "delivered");
       return formatInvoice(updated);
+    },
+
+    // Details the GST portal returned (IRN, QR, e-Way Bill); only these fields are written.
+    saveInvoiceGstDetails: async (_: any, { id, input }: any, context: any) => {
+      const scope = await requireBackofficeTenant(context);
+      const inv: any = await SalesInvoice.findById(id).select("adminid").lean();
+      if (!inv || String(inv.adminid) !== String(scope.adminid)) throw new TenantError("Invoice not found.", "BAD_USER_INPUT");
+      const allowed = ["irn", "irnAckNo", "irnAckDate", "signedQr", "irnStatus", "ewaybillno", "ewaybilldate", "ewaybillvalidupto"];
+      const $set: any = {};
+      for (const k of allowed) if (input?.[k] !== undefined) $set[k] = typeof input[k] === "string" ? input[k].trim() : input[k];
+      if ($set.irn && !/^[0-9a-f]{64}$/i.test($set.irn)) throw new Error("IRN must be 64 letters/digits as shown on the portal.");
+      if ($set.ewaybillno && !/^\d{12}$/.test($set.ewaybillno)) throw new Error("E-Way Bill number must be 12 digits.");
+      if ($set.irn && !$set.irnStatus) $set.irnStatus = "generated";
+      await SalesInvoice.updateOne({ _id: id }, { $set });
+      return loadInvoice(id);
     },
 
     assignInvoiceDeliveryBoy: async (_: any, { id, deliveryboyid }: any, context: any) => {

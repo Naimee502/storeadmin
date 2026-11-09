@@ -55,6 +55,8 @@ export const deliveryChallanTypeDefs = gql`
     transportname: String
     vehiclenumber: String
     ewaybillno: String
+    ewaybilldate: String
+    ewaybillvalidupto: String
     distance: Float
     deliverydate: String
     stockapplied: Boolean
@@ -84,6 +86,8 @@ export const deliveryChallanTypeDefs = gql`
     transportname: String
     vehiclenumber: String
     ewaybillno: String
+    ewaybilldate: String
+    ewaybillvalidupto: String
     distance: Float
     deliverydate: String
     clientRequestId: String

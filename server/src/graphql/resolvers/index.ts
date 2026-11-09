@@ -88,7 +88,7 @@ export const resolvers = [
   uploadResolvers,
   withOfflineWrites(productServiceResolvers, { model: ProductService, typename: "ProductService", tenant: "adminid", add: "addProductService", edit: "updateProductService", del: "deleteProductService" }),
   productImportResolvers,
-  withOfflineActions(salesInvoiceResolvers, SalesInvoice, ["markSalesInvoiceDispatched", "markSalesInvoiceDelivered", "assignInvoiceDeliveryBoy"]),
+  withOfflineActions(salesInvoiceResolvers, SalesInvoice, ["markSalesInvoiceDispatched", "markSalesInvoiceDelivered", "assignInvoiceDeliveryBoy", "saveInvoiceGstDetails"]),
   purchaseInvoiceResolvers,
   transferStockResolvers,
   adminResolvers,

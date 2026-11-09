@@ -52,6 +52,8 @@ const deliveryChallanSchema = new mongoose.Schema(
     transportname: { type: String },
     vehiclenumber: { type: String },
     ewaybillno: { type: String },
+    ewaybilldate: { type: String },
+    ewaybillvalidupto: { type: String },
     distance: { type: Number },
     deliverydate: { type: String },
 

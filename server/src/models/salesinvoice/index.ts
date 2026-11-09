@@ -108,6 +108,14 @@ const salesInvoiceSchema = new mongoose.Schema(
 
     // Fulfilment / delivery lifecycle (invoice = the document that is dispatched).
     deliveryStatus: { type: String, enum: ["pending", "dispatched", "delivered"], default: "pending" },
+    // e-Invoice (IRN) and e-Way Bill details as returned by the GST portal.
+    irn: { type: String },
+    irnAckNo: { type: String },
+    irnAckDate: { type: String },
+    signedQr: { type: String },
+    irnStatus: { type: String, enum: ["generated", "cancelled"] },
+    ewaybilldate: { type: String },
+    ewaybillvalidupto: { type: String },
     deliveredAt: { type: Date },
     deliveredById: { type: mongoose.Schema.Types.ObjectId },
     deliveredByName: { type: String },
