@@ -99,7 +99,7 @@ const DeliveryChallans = () => {
     if (c.isOffline || c.challanStatus === "returned" || !actions.showEdit) return [];
     const opts: { label: string; value: string }[] = [];
     if (c.challanStatus !== "delivered") opts.push({ label: "Delivered", value: "delivered" });
-    if (!c.invoiceid) opts.push({ label: "Returned (goods back)", value: "returned" });
+    if (!c.invoiceid) opts.push({ label: "Returned", value: "returned" });
     if (invoiceOn && !c.invoiceid && !c.sourceinvoiceid && c.reason === "sale" && actions.showConvert) {
       opts.push({ label: "Convert to Invoice", value: "convert" });
     }
@@ -168,6 +168,8 @@ const DeliveryChallans = () => {
           data={rows}
           serverPaging={serverPaging}
           showPrint={actions.showPrint}
+          // Convert to Invoice lives in the status menu, only for challans not made from an invoice.
+          showConvert={false}
           onAdd={() => navigate("/deliverychallan/addedit")}
           onEdit={(row) => {
             if (row.raw?.invoiceid || row.raw?.challanStatus === "returned") {
