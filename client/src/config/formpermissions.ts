@@ -303,6 +303,47 @@ export const FORM_PERMISSIONS_CONFIG: FormConfig[] = [
     ],
   },
   {
+    moduleId: "deliverychallan", // Delivery Challan
+    label: "Delivery Challan Fields",
+    sections: [
+      {
+        id: "main_details",
+        label: "Main Details",
+        fields: [
+          { id: "partyacc", label: "Party (Consignee)" },
+          { id: "billdate", label: "Challan Date" },
+          { id: "billnumber", label: "Challan Number" },
+          { id: "reason", label: "Reason" },
+          { id: "notes", label: "Notes" },
+        ],
+      },
+      {
+        id: "add_products",
+        label: "Add Products",
+        fields: [
+          { id: "product", label: "Product" },
+          { id: "unit", label: "Unit" },
+          { id: "quantity", label: "Quantity" },
+          { id: "rate", label: "Rate" },
+          { id: "discount", label: "Discount" },
+          { id: "gst", label: "GST %" },
+          { id: "add_product_button", label: "Add Button" },
+        ],
+      },
+      {
+        id: "transport_delivery",
+        label: "Transport & Delivery",
+        fields: [
+          { id: "transportname", label: "Transport Name" },
+          { id: "vehiclenumber", label: "Vehicle Number" },
+          { id: "ewaybillno", label: "E-Way Bill No." },
+          { id: "distance", label: "Distance (km)" },
+          { id: "deliverydate", label: "Delivery Date" },
+        ],
+      },
+    ],
+  },
+  {
     moduleId: "salesreturn", // Sales Return
     label: "Sales Return Fields",
     sections: [

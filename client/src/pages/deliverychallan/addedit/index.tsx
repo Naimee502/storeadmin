@@ -45,6 +45,9 @@ const AddEditDeliveryChallan = () => {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const { addDeliveryChallanMutation, editDeliveryChallanMutation } = useDeliveryChallanMutations();
+  // Business Settings → Business Form Permissions → Delivery Challan Fields.
+  const formPerms = useAppSelector((s) => s.permissions.permissions?.formPermissions?.deliverychallan || {});
+  const on = (field: string) => formPerms[field] !== false;
 
   const { type, branch, staff } = useAppSelector((s) => s.auth);
   const selectedBranchId = useAppSelector((s) => s.selectedBranch.branchId);
@@ -209,7 +212,7 @@ const AddEditDeliveryChallan = () => {
               </p>
             )}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <FormField
+              {on("partyacc") && <FormField
                 label="Party (Consignee)"
                 name="party"
                 type="select"
@@ -221,10 +224,10 @@ const AddEditDeliveryChallan = () => {
                 options={accountOptions}
                 error={errors.party}
                 searchable
-              />
-              <FormField label="Challan Date" name="billDate" type="date" value={billDate} onChange={(ev: any) => setBillDate(ev.target.value)} error={errors.billDate} />
-              <FormField label="Challan No." name="billNumber" type="text" value={billNumber || (isEdit ? "" : "Auto")} onChange={() => {}} disabled />
-              <FormField
+              />}
+              {on("billdate") && <FormField label="Challan Date" name="billDate" type="date" value={billDate} onChange={(ev: any) => setBillDate(ev.target.value)} error={errors.billDate} />}
+              {on("billnumber") && <FormField label="Challan No." name="billNumber" type="text" value={billNumber || (isEdit ? "" : "Auto")} onChange={() => {}} disabled />}
+              {on("reason") && <FormField
                 label="Reason"
                 name="reason"
                 type="select"
@@ -232,7 +235,7 @@ const AddEditDeliveryChallan = () => {
                 onChange={(ev: any) => setReason(ev.target.value)}
                 options={CHALLAN_REASONS}
                 disabled={!!source.sourceorderid || !!source.sourceinvoiceid}
-              />
+              />}
               <OfflineNumberNote show={!isEdit && noDevice} />
             </div>
             {errors.products && <p className="text-[12px] text-rose-600">{errors.products}</p>}
@@ -253,15 +256,15 @@ const AddEditDeliveryChallan = () => {
           <fieldset className="border rounded-xl p-4">
             <legend className="text-sm font-medium px-2">Transport</legend>
             <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-              <FormField label="Transport Name" name="transportname" type="text" value={transport.transportname} onChange={setT("transportname")} />
-              <FormField label="Vehicle Number" name="vehiclenumber" type="text" value={transport.vehiclenumber} onChange={setT("vehiclenumber")} />
-              <FormField label="E-Way Bill No." name="ewaybillno" type="text" value={transport.ewaybillno} onChange={setT("ewaybillno")} />
-              <FormField label="Distance (km)" name="distance" type="number" value={transport.distance} onChange={setT("distance")} />
-              <FormField label="Delivery Date" name="deliverydate" type="date" value={transport.deliverydate} onChange={setT("deliverydate")} />
+              {on("transportname") && <FormField label="Transport Name" name="transportname" type="text" value={transport.transportname} onChange={setT("transportname")} />}
+              {on("vehiclenumber") && <FormField label="Vehicle Number" name="vehiclenumber" type="text" value={transport.vehiclenumber} onChange={setT("vehiclenumber")} />}
+              {on("ewaybillno") && <FormField label="E-Way Bill No." name="ewaybillno" type="text" value={transport.ewaybillno} onChange={setT("ewaybillno")} />}
+              {on("distance") && <FormField label="Distance (km)" name="distance" type="number" value={transport.distance} onChange={setT("distance")} />}
+              {on("deliverydate") && <FormField label="Delivery Date" name="deliverydate" type="date" value={transport.deliverydate} onChange={setT("deliverydate")} />}
             </div>
-            <div className="mt-4">
+            {on("notes") && <div className="mt-4">
               <FormField label="Notes" name="notes" type="text" value={notes} onChange={(ev: any) => setNotes(ev.target.value)} />
-            </div>
+            </div>}
             <p className="mt-3 text-[13px] text-slate-600">
               Value of goods: <span className="font-semibold text-slate-900">₹{totals.amount.toFixed(2)}</span>
               {totals.amount > 50000 && <span className="ml-2 text-amber-700">Above ₹50,000 — an e-way bill is needed.</span>}
