@@ -68,6 +68,10 @@ Server first, then client (the client asks for `offlineBilling` and `syncPull`).
 - Stock leaves once: a challan made first takes the stock and the invoice made from it (`sourcechallanid`, also found through the order) posts the ledger only; a challan made from an invoice moves none. Returned or deleted puts the stock back.
 - Client: `DocType` `deliverychallan` in `core` (OP_SPECS, number, local stock), `docs`, `localdb`, `LOCAL_QUERIES`. The form reads the order or invoice from the device, so Dispatched -> challan works offline.
 
+## GST e-Invoice / e-Way Bill
+- Server builds the portal JSON (`utils/gst`: NIC e-Invoice 1.1, e-Way Bill bulk) with errors and warnings; it needs the network. The IRN / QR / e-Way Bill numbers the user types are offline actions (`saveInvoiceGstDetails`, `saveChallanEWayBill`) and sync later.
+- Seller details come from Business Settings → GST Profile; units carry a UQC (guessed from the name when blank). A GSP connection (one-click IRN) is the next step and needs a GSP account.
+
 ## Phases
 1. Foundation: business switch, `syncPull`, `localdb`, local reads, hybrid numbers, disconnect alert, dashboard offline. Billing screens (invoice, order, POS, return, receipt).
 2. Purchase and stock: purchase invoice/order/return, stock adjustment, transfer.
