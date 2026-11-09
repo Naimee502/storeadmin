@@ -164,6 +164,9 @@ const MODULE_LIST: ModuleDef[] = [
   { id: "reports.delivery",   label: "Delivery Boy Report",  section: "reports", actions: REPORT_ACTIONS, inAdminRegister: true },
   { id: "reports.analytical", label: "Analytical Reports",  section: "reports", actions: REPORT_ACTIONS, inAdminRegister: true },
   { id: "reports.attendance", label: "Attendance & Leave Reports", section: "reports", actions: REPORT_ACTIONS, inAdminRegister: true },
+  { id: "reports.deliverychallan", label: "Delivery Challan Reports", section: "reports", actions: REPORT_ACTIONS, inAdminRegister: true },
+  { id: "reports.einvoice",   label: "e-Invoice Reports",   section: "reports", actions: REPORT_ACTIONS, inAdminRegister: true },
+  { id: "reports.ewaybill",   label: "e-Way Bill Reports",  section: "reports", actions: REPORT_ACTIONS, inAdminRegister: true },
 
   // System (always granted, never gated by allowedmodules)
   { id: "branches",      label: "Branches",        section: "system", actions: CRUD_ACTIONS, inAdminRegister: false },

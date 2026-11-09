@@ -53,3 +53,28 @@ export const GST_REPORT_TRANSACTIONS = gql`
     }
   }
 `;
+
+// e-Invoice / e-Way Bill reports: GST portal details per invoice.
+export const GST_PORTAL_REPORT_INVOICES = gql`
+  query GstPortalReportInvoices($filter: SalesInvoiceFilterInput) {
+    getSalesInvoices(filter: $filter) {
+      id
+      billnumber
+      billdate
+      partyacc { id accountname mobile city state gstnumber }
+      totalgst
+      totalamount
+      vehiclenumber
+      irn
+      irnAckNo
+      irnAckDate
+      irnStatus
+      ewaybillno
+      ewaybilldate
+      ewaybillvalidupto
+      sourcechallanid
+      cancelStatus
+      status
+    }
+  }
+`;

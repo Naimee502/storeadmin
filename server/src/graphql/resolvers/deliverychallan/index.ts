@@ -244,6 +244,19 @@ export const deliveryChallanResolvers = {
       return { items: rows.map(formatChallan), total };
     },
 
+    getDeliveryChallans: async (_: any, { filter = {} }: any, context: any) => {
+      const scope = await requireBackofficeTenant(context);
+      const q: any = buildChallanQuery(scope, filter?.branchid);
+      // billdate is text "YYYY-MM-DD"; \uffff keeps the whole To day.
+      if (filter?.billdateFrom || filter?.billdateTo) {
+        q.billdate = {};
+        if (filter.billdateFrom) q.billdate.$gte = String(filter.billdateFrom).slice(0, 10);
+        if (filter.billdateTo) q.billdate.$lte = `${String(filter.billdateTo).slice(0, 10)}\uffff`;
+      }
+      const rows = await DeliveryChallan.find(q).sort({ billdate: -1, _id: -1 }).populate(challanPopulate).lean();
+      return rows.map(formatChallan);
+    },
+
     getDeletedDeliveryChallans: async (_: any, { filter = {} }: any, context: any) => {
       const scope = await requireBackofficeTenant(context);
       const q: any = { ...buildChallanQuery(scope, filter?.branchid), status: false, ...notCleared };

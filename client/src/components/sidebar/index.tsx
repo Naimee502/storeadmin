@@ -105,6 +105,12 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar, onHoverChange,
   const annActions = useAppSelector((state) => selectModuleActions(state, "announcements"));
   const announcementsUsed = annActions.showAdd || annActions.showEdit || annActions.showDelete || annActions.canReset;
 
+  const REPORT_NEEDS: Record<string, string> = {
+    "reports.deliverychallan": "deliverychallan",
+    "reports.einvoice": "einvoice",
+    "reports.ewaybill": "ewaybill",
+  };
+
   const FEATURE_TO_MODULES: Record<string, string[]> = {
     enableGst: ["reports.gst"],
   };
@@ -120,6 +126,9 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar, onHoverChange,
       }
 
       if (!isModuleAllowed(moduleId)) return false;
+      // These reports also need their own module switched on.
+      const needs = REPORT_NEEDS[moduleId];
+      if (needs && !isModuleAllowed(needs)) return false;
       if (moduleId === "announcements" && !announcementsUsed) return false;
 
       return true;
@@ -189,6 +198,9 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar, onHoverChange,
     { to: '/reports/salesmanfield', label: 'Salesman Field Report', icon: <FaRoute className="text-cyan-400 text-[15px] flex-shrink-0" />, moduleId: "reports.salesmanfield", roles: ["admin", "branch", "staff"], section: "Reports" },
     { to: '/reports/deliveryboy', label: 'Delivery Boy Report', icon: <FaExchangeAlt className="text-lime-400 text-[15px] flex-shrink-0" />, moduleId: "reports.delivery", roles: ["admin", "branch", "staff"], section: "Reports" },
     { to: '/reports/analytical', label: 'Analytical Reports', icon: <FaChartLine className="text-emerald-400 text-[15px] flex-shrink-0" />, moduleId: "reports.analytical", roles: ["admin", "branch", "staff"], section: "Reports" },
+    { to: '/reports/deliverychallan', label: 'Delivery Challan Report', icon: <FaTruck className="text-sky-400 text-[15px] flex-shrink-0" />, moduleId: "reports.deliverychallan", roles: ["admin", "branch", "staff"], section: "Reports" },
+    { to: '/reports/einvoice', label: 'e-Invoice Report', icon: <FaFileInvoiceDollar className="text-indigo-400 text-[15px] flex-shrink-0" />, moduleId: "reports.einvoice", roles: ["admin", "branch", "staff"], section: "Reports" },
+    { to: '/reports/ewaybill', label: 'e-Way Bill Report', icon: <FaTruck className="text-amber-400 text-[15px] flex-shrink-0" />, moduleId: "reports.ewaybill", roles: ["admin", "branch", "staff"], section: "Reports" },
     { to: '/reports/attendance', label: 'Attendance & Leave', icon: <FaCalendarCheck className="text-orange-400 text-[15px] flex-shrink-0" />, moduleId: "reports.attendance", roles: ["admin", "branch", "staff"], section: "Reports" },
   ];
 

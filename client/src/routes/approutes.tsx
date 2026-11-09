@@ -73,6 +73,8 @@ import SalesmanReports from "../pages/reports/salesman";
 import SalesmanFieldReport from "../pages/reports/salesmanfield";
 import DeliveryBoyReport from "../pages/reports/deliveryboy";
 import AttendanceReports from "../pages/reports/attendance";
+import DeliveryChallanReports from "../pages/reports/deliverychallan";
+import GstPortalReports from "../pages/reports/gstportal";
 import AccountLedgers from "../pages/accountledgers";
 import DeletedAccountLedgers from "../pages/accountledgers/deletedentries";
 import AnalyticalReports from "../pages/reports/analytics";
@@ -850,6 +852,9 @@ const AppRoutes = () => {
           </ProtectedRoutes>
         }
       />
+      <Route path="/reports/deliverychallan" element={<ProtectedRoutes><DeliveryChallanReports /></ProtectedRoutes>} />
+      <Route path="/reports/einvoice" element={<ProtectedRoutes><GstPortalReports key="einvoice" kind="einvoice" /></ProtectedRoutes>} />
+      <Route path="/reports/ewaybill" element={<ProtectedRoutes><GstPortalReports key="ewaybill" kind="ewaybill" /></ProtectedRoutes>} />
       <Route
         path="/reports/attendance"
         element={

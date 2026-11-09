@@ -95,6 +95,8 @@ export const deliveryChallanTypeDefs = gql`
 
   input DeliveryChallanFilterInput {
     branchid: ID
+    billdateFrom: String
+    billdateTo: String
   }
 
   type DeliveryChallanPage {
@@ -103,6 +105,8 @@ export const deliveryChallanTypeDefs = gql`
   }
 
   extend type Query {
+    "Every active challan in the date range (reports)."
+    getDeliveryChallans(filter: DeliveryChallanFilterInput): [DeliveryChallan!]!
     getDeliveryChallansPage(filter: DeliveryChallanFilterInput, page: Int, pageSize: Int, search: String, columnFilters: [ColumnFilter!]): DeliveryChallanPage!
     getDeletedDeliveryChallans(filter: DeliveryChallanFilterInput): [DeliveryChallan!]!
     getDeliveryChallanById(id: ID!): DeliveryChallan

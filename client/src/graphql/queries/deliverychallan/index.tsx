@@ -83,3 +83,12 @@ export const GET_DELIVERY_CHALLAN_DRAFT = gql`
     }
   }
 `;
+
+// Reports: every active challan in the date range (answered from the device offline).
+export const GET_DELIVERY_CHALLANS_REPORT = gql`
+  query GetDeliveryChallansReport($filter: DeliveryChallanFilterInput) {
+    getDeliveryChallans(filter: $filter) {
+      ${DELIVERY_CHALLAN_FIELDS}
+    }
+  }
+`;
