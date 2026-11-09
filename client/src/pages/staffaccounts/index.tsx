@@ -21,6 +21,8 @@ import {
   FaPercent,
   FaBullseye,
   FaMoneyBillWave,
+  FaPlus,
+  FaTrashRestore,
 } from "react-icons/fa";
 
 import { useImageUpload } from "../../graphql/hooks/uploads";
@@ -56,6 +58,18 @@ const StaffAccounts = () => {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const formRef = useRef<HTMLFormElement>(null);
+  // Alt+N saves the form, like Add New on other lists (⌥N on a Mac types "˜", so match the key position).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!e.altKey || (e.code !== "KeyN" && e.key !== "˜")) return;
+      e.preventDefault();
+      e.stopPropagation();
+      formRef.current?.requestSubmit();
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, []);
 
   const { type, admin, branch } = useAppSelector((state: any) => state.auth);
   const adminId =
@@ -334,13 +348,14 @@ const StaffAccounts = () => {
         {/* Quick add / edit card — compact, Enter saves (Tally style) */}
         <FormDensityContext.Provider value="compact">
         <form
+          ref={formRef}
           onSubmit={(e) => {
             e.preventDefault();
             handleFormSubmit();
           }}
           className="rounded-lg border border-slate-200 bg-white"
         >
-          <div className="flex items-center gap-2 border-b border-slate-100 px-3 py-1.5">
+          <div className="flex items-center gap-2 border-b border-slate-100 px-3 py-2">
             <h2 className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
               {isEditing ? `Edit staff${formValues.name ? ` — ${formValues.name}` : ""}` : "Add staff"}
             </h2>
@@ -349,17 +364,27 @@ const StaffAccounts = () => {
                 <button
                   type="button"
                   onClick={resetForm}
-                  className="inline-flex h-7 items-center rounded-md border border-slate-300 bg-white px-2.5 text-[12px] font-medium text-slate-700 hover:bg-slate-50"
+                  className="inline-flex h-8 items-center rounded-md border border-slate-300 bg-white px-3 text-[13px] font-medium text-slate-700 hover:bg-slate-50"
                 >
                   Cancel edit
                 </button>
               )}
               <button
-                type="submit"
-                className="inline-flex h-7 items-center gap-1.5 rounded-md bg-indigo-600 px-3 text-[12px] font-semibold text-white shadow-sm hover:bg-indigo-700"
+                type="button"
+                onClick={() => navigate("/staffaccounts/deletedentries")}
+                title="Deleted entries"
+                className="inline-flex h-8 items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 text-[13px] font-medium text-slate-700 hover:bg-slate-50"
               >
+                <FaTrashRestore className="text-rose-500" /> Deleted
+              </button>
+              <button
+                type="submit"
+                title={`${isEditing ? "Update" : "Add"} staff (Enter or Alt+N)`}
+                className="inline-flex h-8 items-center gap-1.5 rounded-md bg-indigo-600 px-3.5 text-[13px] font-semibold text-white shadow-sm hover:bg-indigo-700"
+              >
+                {!isEditing && <FaPlus className="text-[10px]" />}
                 {isEditing ? "Update Staff" : "Add Staff"}
-                <kbd className="rounded border border-white/40 px-1 text-[10px] font-medium leading-4 text-white/80">Enter</kbd>
+                <kbd className="ml-1 rounded border border-white/40 px-1 text-[10px] font-medium leading-4 text-white/80">Alt+N</kbd>
               </button>
             </div>
           </div>
@@ -576,7 +601,8 @@ const StaffAccounts = () => {
               await refetch();
             }
           }}
-          onShowDeleted={() => navigate("/staffaccounts/deletedentries")}
+          // Deleted sits on the form header above.
+          showDeleted={false}
           onImport={() => fileInputRef.current?.click()}
           serverPaging={serverPaging}
           isLoading={loading || isLoading}
