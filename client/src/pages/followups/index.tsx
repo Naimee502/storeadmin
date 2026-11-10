@@ -1,5 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router";
+import FormField from "../../components/formfiled";
+import { partyLabel } from "../../utils/partylabel";
+import { useAddNew } from "../../hooks/useaddnew";
 import { CheckCircle2, MessageCircle, Phone, Plus } from "lucide-react";
 import HomeLayout from "../../layouts/home";
 import { useAppDispatch, useAppSelector } from "../../redux/hooks";
@@ -62,6 +65,7 @@ export function FollowupDialog({ leadId, onClose }: { leadId?: string; onClose: 
   const { addFollowup } = useLeadMutations();
   const { data: leadsData } = useLeadsQuery(!!leadId);
   const { data: staffData } = useStaffListQuery();
+  const addLead = useAddNew("/leads/addedit", ["GetLeads", "GetLeadsPage"]);
   const authType = useAppSelector((s: any) => s.auth.type);
   const [f, setF] = useState({ leadid: leadId || "", type: "call", dueAt: tomorrow10(), note: "", assignedto: "" });
   const [saving, setSaving] = useState(false);
@@ -89,28 +93,17 @@ export function FollowupDialog({ leadId, onClose }: { leadId?: string; onClose: 
       <div className="w-full max-w-md space-y-3 rounded-lg bg-white p-4 text-[13px] shadow-xl" onClick={(e) => e.stopPropagation()}>
         <div className="font-semibold text-slate-800">Book a Follow Up</div>
         {!leadId && (
-          <label className="block">Lead
-            <select className={input} value={f.leadid} onChange={set("leadid")}>
-              <option value="">Select lead</option>
-              {(leadsData?.getLeads || []).map((l: any) => <option key={l.id} value={l.id}>{[l.name, l.mobile, l.city].filter(Boolean).join(" - ")}</option>)}
-            </select>
-          </label>
+          <FormField label="Lead" name="leadid" type="select" searchable addable onAddNew={addLead} value={f.leadid}
+            options={(leadsData?.getLeads || []).map((l: any) => ({ value: l.id, label: partyLabel({ name: l.name, mobile: l.mobile, city: l.city }) }))}
+            onChange={set("leadid")} />
         )}
         <div className="grid grid-cols-2 gap-2">
-          <label>Type
-            <select className={input} value={f.type} onChange={set("type")}>
-              {FOLLOWUP_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
-            </select>
-          </label>
+          <FormField label="Type" name="type" type="select" searchable value={f.type} options={FOLLOWUP_TYPES} onChange={set("type")} />
           <label>When<input type="datetime-local" className={input} value={f.dueAt} onChange={set("dueAt")} /></label>
         </div>
         {authType !== "staff" && (
-          <label className="block">Assign to
-            <select className={input} value={f.assignedto} onChange={set("assignedto")}>
-              <option value="">Me / lead owner</option>
-              {(staffData?.getStaffAccounts || []).map((s: any) => <option key={s.id} value={s.id}>{s.name}</option>)}
-            </select>
-          </label>
+          <FormField label="Assign To" name="assignedto" type="select" searchable placeholder="Me / lead owner" value={f.assignedto}
+            options={(staffData?.getStaffAccounts || []).map((s: any) => ({ value: s.id, label: s.name }))} onChange={set("assignedto")} />
         )}
         <label className="block">Note<input className={input} value={f.note} onChange={set("note")} placeholder="What to talk about" /></label>
         <div className="flex justify-end gap-2">
@@ -163,11 +156,8 @@ export function CompleteDialog({ followup, onClose }: { followup: any; onClose: 
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4" onClick={onClose}>
       <div className="w-full max-w-md space-y-3 rounded-lg bg-white p-4 text-[13px] shadow-xl" onClick={(e) => e.stopPropagation()}>
         <div className="font-semibold text-slate-800">Done — {leadName(followup)}</div>
-        <label className="block">Outcome
-          <select className={input} value={outcome} onChange={(e) => setOutcome(e.target.value)}>
-            {OUTCOMES.map((o) => <option key={o} value={o}>{o}</option>)}
-          </select>
-        </label>
+        <FormField label="Outcome" name="outcome" type="select" searchable value={outcome}
+          options={OUTCOMES.map((o) => ({ value: o, label: o }))} onChange={(e: any) => setOutcome(e.target.value)} />
         <label className="block">Note<input className={input} value={note} onChange={(e) => setNote(e.target.value)} placeholder="What was discussed" /></label>
         <label className="flex items-center gap-2">
           <input type="checkbox" checked={next} onChange={(e) => setNext(e.target.checked)} />
@@ -175,9 +165,7 @@ export function CompleteDialog({ followup, onClose }: { followup: any; onClose: 
         </label>
         {next && (
           <div className="grid grid-cols-2 gap-2">
-            <select className={input} value={nextType} onChange={(e) => setNextType(e.target.value)}>
-              {FOLLOWUP_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
-            </select>
+            <FormField label="" name="nextType" type="select" searchable value={nextType} options={FOLLOWUP_TYPES} onChange={(e: any) => setNextType(e.target.value)} />
             <input type="datetime-local" className={input} value={nextDue} onChange={(e) => setNextDue(e.target.value)} />
           </div>
         )}
@@ -253,7 +241,15 @@ const Followups = () => {
     return g;
   }, [data, search]);
 
-  const list = groups[tab] || [];
+  const all = groups[tab] || [];
+  // Same pager as the other lists, in memory (follow ups are read from the device).
+  const [page, setPage] = useState(1);
+  const [size, setSize] = useState(10);
+  useEffect(() => setPage(1), [tab, search, size]);
+  const pages = Math.max(1, Math.ceil(all.length / size));
+  const cur = Math.min(page, pages);
+  const list = all.slice((cur - 1) * size, cur * size);
+  const near = Array.from({ length: pages }, (_, i) => i + 1).filter((p) => p === 1 || p === pages || Math.abs(p - cur) <= 1);
 
   return (
     <HomeLayout>
@@ -293,6 +289,24 @@ const Followups = () => {
             />
           ))}
         </div>
+        {all.length > 0 && (
+          <div className="mt-3 flex flex-wrap items-center gap-3 text-[12px] text-slate-500">
+            <span>{(cur - 1) * size + 1}–{Math.min(cur * size, all.length)} of {all.length}</span>
+            <select value={size} onChange={(e) => setSize(Number(e.target.value))} className="h-7 rounded border border-slate-300 bg-white px-1.5 text-[12px] outline-none" title="Rows per page">
+              {[10, 25, 50, 100].map((n) => <option key={n} value={n}>{n} / page</option>)}
+            </select>
+            <div className="ml-auto flex items-center gap-1">
+              <button type="button" onClick={() => setPage(cur - 1)} disabled={cur <= 1} className="h-7 rounded border border-slate-300 bg-white px-2 hover:bg-slate-50 disabled:opacity-40">‹ Prev</button>
+              {near.map((p, i) => (
+                <span key={p} className="flex items-center gap-1">
+                  {i > 0 && p - near[i - 1] > 1 && <span className="px-1">…</span>}
+                  <button type="button" onClick={() => setPage(p)} className={`h-7 min-w-7 rounded px-2 ${p === cur ? "bg-indigo-600 font-semibold text-white" : "border border-slate-300 bg-white hover:bg-slate-50"}`}>{p}</button>
+                </span>
+              ))}
+              <button type="button" onClick={() => setPage(cur + 1)} disabled={cur >= pages} className="h-7 rounded border border-slate-300 bg-white px-2 hover:bg-slate-50 disabled:opacity-40">Next ›</button>
+            </div>
+          </div>
+        )}
       </div>
       {adding && <FollowupDialog onClose={() => setAdding(false)} />}
       {doneOf && <CompleteDialog followup={doneOf} onClose={() => setDoneOf(null)} />}

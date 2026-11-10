@@ -12,6 +12,9 @@ export type DocType =
   | "transferstock"
   | "deliverychallan"
   | "quotation"
+  | "workorder"
+  | "production"
+  | "jobcard"
   | MasterType;
 // Masters and expenses (Phase 3): no device numbers; named after their localdb collections.
 export type MasterType =
@@ -36,10 +39,16 @@ export type MasterType =
   | "holiday"
   | "leavetype"
   | "lead"
-  | "followup";
+  | "followup"
+  | "bom"
+  | "appointment"
+  | "contract"
+  | "membershipplan"
+  | "membership";
 export const MASTER_TYPES: MasterType[] = [
   "product", "account", "ledger", "unit", "category", "subcategory", "brand", "model", "size", "productgroup", "expensenote", "transaction",
-  "accountgroup", "channel", "chargerule", "pricelist", "priceassignment", "salesroute", "holiday", "leavetype", "lead", "followup",
+  "accountgroup", "channel", "chargerule", "pricelist", "priceassignment", "salesroute", "holiday", "leavetype", "lead", "followup", "bom",
+  "appointment", "contract", "membershipplan", "membership",
 ];
 export const isMasterType = (t: string): t is MasterType => (MASTER_TYPES as string[]).includes(t);
 // "action": a status change (confirm, dispatch, deliver, assign) whose local effect is `patch`.
@@ -58,6 +67,9 @@ export const DOC_TYPES: DocType[] = [
   "transferstock",
   "deliverychallan",
   "quotation",
+  "workorder",
+  "production",
+  "jobcard",
 ];
 export const OFFLINE_ID_PREFIX = "offline-";
 
@@ -147,6 +159,9 @@ export const OP_SPECS: Record<string, OpSpec> = {
   addProductService: spec("addProductService", "create", "product", "ProductService", "Product"),
   updateProductService: spec("updateProductService", "edit", "product", "ProductService", "Product"),
   deleteProductService: spec("deleteProductService", "delete", "product", "ProductService", "Product"),
+  addService: spec("addService", "create", "product", "ProductService", "Service"),
+  updateService: spec("updateService", "edit", "product", "ProductService", "Service"),
+  deleteService: spec("deleteService", "delete", "product", "ProductService", "Service"),
   addAccount: spec("addAccount", "create", "account", "Account", "Account"),
   editAccount: spec("editAccount", "edit", "account", "Account", "Account"),
   deleteAccount: spec("deleteAccount", "delete", "account", "Account", "Account"),
@@ -199,6 +214,33 @@ export const OP_SPECS: Record<string, OpSpec> = {
   editQuotation: spec("editQuotation", "edit", "quotation", "Quotation", "Quotation"),
   deleteQuotation: spec("deleteQuotation", "delete", "quotation", "Quotation", "Quotation"),
   setQuotationStatus: action("setQuotationStatus", "quotation", "Quotation", "Quotation", (v) => ({ quotationStatus: v?.quotationStatus, statusreason: v?.statusreason ?? null })),
+  addBom: spec("addBom", "create", "bom", "Bom", "Bill of Materials"),
+  editBom: spec("editBom", "edit", "bom", "Bom", "Bill of Materials"),
+  deleteBom: spec("deleteBom", "delete", "bom", "Bom", "Bill of Materials"),
+  addWorkOrder: spec("addWorkOrder", "create", "workorder", "WorkOrder", "Work Order"),
+  editWorkOrder: spec("editWorkOrder", "edit", "workorder", "WorkOrder", "Work Order"),
+  deleteWorkOrder: spec("deleteWorkOrder", "delete", "workorder", "WorkOrder", "Work Order"),
+  setWorkOrderStatus: action("setWorkOrderStatus", "workorder", "WorkOrder", "Work Order", (v) => ({ workStatus: v?.workStatus })),
+  addProductionEntry: spec("addProductionEntry", "create", "production", "ProductionEntry", "Production Entry"),
+  editProductionEntry: spec("editProductionEntry", "edit", "production", "ProductionEntry", "Production Entry"),
+  deleteProductionEntry: spec("deleteProductionEntry", "delete", "production", "ProductionEntry", "Production Entry"),
+  addAppointment: spec("addAppointment", "create", "appointment", "Appointment", "Appointment"),
+  editAppointment: spec("editAppointment", "edit", "appointment", "Appointment", "Appointment"),
+  deleteAppointment: spec("deleteAppointment", "delete", "appointment", "Appointment", "Appointment"),
+  setAppointmentStatus: action("setAppointmentStatus", "appointment", "Appointment", "Appointment", (v) => ({ apptStatus: v?.apptStatus, ...(v?.invoiceid ? { invoiceid: v.invoiceid } : {}) })),
+  addJobCard: spec("addJobCard", "create", "jobcard", "JobCard", "Job Card"),
+  editJobCard: spec("editJobCard", "edit", "jobcard", "JobCard", "Job Card"),
+  deleteJobCard: spec("deleteJobCard", "delete", "jobcard", "JobCard", "Job Card"),
+  setJobCardStatus: action("setJobCardStatus", "jobcard", "JobCard", "Job Card", (v) => ({ jobStatus: v?.jobStatus, ...(v?.invoiceid ? { invoiceid: v.invoiceid } : {}) })),
+  addContract: spec("addContract", "create", "contract", "Contract", "AMC / Warranty"),
+  editContract: spec("editContract", "edit", "contract", "Contract", "AMC / Warranty"),
+  deleteContract: spec("deleteContract", "delete", "contract", "Contract", "AMC / Warranty"),
+  addMembershipPlan: spec("addMembershipPlan", "create", "membershipplan", "MembershipPlan", "Membership Plan"),
+  editMembershipPlan: spec("editMembershipPlan", "edit", "membershipplan", "MembershipPlan", "Membership Plan"),
+  deleteMembershipPlan: spec("deleteMembershipPlan", "delete", "membershipplan", "MembershipPlan", "Membership Plan"),
+  addMembership: spec("addMembership", "create", "membership", "Membership", "Membership"),
+  editMembership: spec("editMembership", "edit", "membership", "Membership", "Membership"),
+  deleteMembership: spec("deleteMembership", "delete", "membership", "Membership", "Membership"),
   addLead: spec("addLead", "create", "lead", "Lead", "Lead"),
   editLead: spec("editLead", "edit", "lead", "Lead", "Lead"),
   deleteLead: spec("deleteLead", "delete", "lead", "Lead", "Lead"),
@@ -238,6 +280,9 @@ export const NUMBER_FIELD: Partial<Record<DocType, "billnumber" | "paymentcode" 
   transferstock: "vouchernumber",
   deliverychallan: "billnumber",
   quotation: "billnumber",
+  workorder: "billnumber",
+  production: "billnumber",
+  jobcard: "billnumber",
 };
 
 // Their edit input type is partial, so an edit of a queued create keeps the create's other fields.
@@ -258,6 +303,9 @@ const DEVICE_NUMBER_RX: Partial<Record<DocType, RegExp>> = {
   transferstock: /^TR-([A-Z]{1,3})\/(\d{6})$/,
   deliverychallan: /^DC-([A-Z]{1,3})\/(\d{6})$/,
   quotation: /^QT-([A-Z]{1,3})\/(\d{6})$/,
+  workorder: /^WO-([A-Z]{1,3})\/(\d{6})$/,
+  production: /^PE-([A-Z]{1,3})\/(\d{6})$/,
+  jobcard: /^JC-([A-Z]{1,3})\/(\d{6})$/,
 };
 
 const PREFIX: Partial<Record<DocType, string>> = {
@@ -272,6 +320,9 @@ const PREFIX: Partial<Record<DocType, string>> = {
   transferstock: "TR-",
   deliverychallan: "DC-",
   quotation: "QT-",
+  workorder: "WO-",
+  production: "PE-",
+  jobcard: "JC-",
 };
 
 export const MAX_SEQ = 999999;
@@ -613,6 +664,11 @@ export function stockMoves(type: DocType, input: any): Array<[string, number, an
   if (type === "stockadjustment") return [[idOf(input?.branchid), input?.type === "Excess" ? 1 : -1, input?.items || []]];
   // Stock leaves once: with the challan unless an invoice took it, and an invoice made from a challan moves none.
   if (type === "deliverychallan") return input?.sourceinvoiceid ? [] : [[idOf(input?.branchid), -1, input?.productservice || []]];
+  if (type === "jobcard") return [[idOf(input?.branchid), -1, (input?.spares || []).filter((l: any) => l?.productserviceid)]];
+  if (type === "production") {
+    const b = idOf(input?.branchid);
+    return [[b, -1, input?.components || []], [b, 1, input?.outputs || []], [b, 1, input?.byproducts || []]];
+  }
   if (type === "salesinvoice" && input?.sourcechallanid) return [];
   const sign = STOCK_SIGN[type];
   if (!sign || input?.isservice) return [];

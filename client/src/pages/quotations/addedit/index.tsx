@@ -266,7 +266,7 @@ const AddEditQuotation = () => {
               {on("billdate") && <FormField label="Quotation Date" name="billdate" type="date" value={f.billdate} onChange={set("billdate")} error={errors.billdate} />}
               {on("validtill") && <FormField label="Valid Till" name="validtill" type="date" value={f.validtill} onChange={set("validtill")} />}
               {on("contactperson") && <FormField label="Kind Attention" name="contactperson" type="text" value={f.contactperson} onChange={set("contactperson")} />}
-              {on("subject") && <div className="md:col-span-4"><FormField label="Subject" name="subject" type="text" value={f.subject} onChange={set("subject")} placeholder="e.g. Quotation for 250 kVA transformer" /></div>}
+              {on("subject") && <div className="md:col-span-4"><FormField label="Subject" name="subject" type="text" value={f.subject} onChange={set("subject")} placeholder="Subject" /></div>}
               <OfflineNumberNote show={!isEdit && noDevice} />
             </div>
             {on("intro") && <FormField label="Opening Text" name="intro" type="text" multiline value={f.intro} onChange={set("intro")} placeholder={settings?.quoteIntro || "Thank you for your enquiry. We are pleased to quote as below:"} />}

@@ -2,6 +2,7 @@ import { useState } from "react";
 import HomeLayout from "../../layouts/home";
 import reactLogo from '../../assets/react.svg'
 import { useAppSelector } from "../../redux/hooks";
+import FormField from "../../components/formfiled";
 
 const Profile = () => {
   const authUserName = useAppSelector((state) => state.auth.name);
@@ -122,25 +123,9 @@ const Profile = () => {
   
             {/* Country Dropdown */}
             <div className="flex flex-col items-start">
-              <label className="mb-1 text-gray-700 font-medium">Country</label>
-              <div className="relative w-full">
-                <select
-                  className="w-full appearance-none px-5 py-3 pe-8 text-base border border-gray-300 rounded-lg focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-200"
-                  value={country}
-                  onChange={(e) => setCountry(e.target.value)}
-                >
-                  <option value="">Select Country</option>
-                  <option value="India">India</option>
-                  <option value="USA">USA</option>
-                  <option value="UK">UK</option>
-                  <option value="Canada">Canada</option>
-                  <option value="Australia">Australia</option>
-                </select>
-                <div className="pointer-events-none absolute inset-y-0 right-6 flex items-center">
-                  <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                  </svg>
-                </div>
+              <div className="w-full">
+                <FormField label="Country" name="country" type="select" value={country}
+                  options={["India", "USA", "UK", "Canada", "Australia"].map((c) => ({ value: c, label: c }))} onChange={(e: any) => setCountry(e.target.value || "")} />
               </div>
             </div>
   

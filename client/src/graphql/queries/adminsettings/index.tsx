@@ -62,6 +62,7 @@ const SETTINGS_FIELDS = `
   crmStages { key label kind }
   crmSources
   crmLostReasons
+  customFieldDefs { key label entity type options print required }
   companyState
   printShowHsnColumn
   printShowGstColumn

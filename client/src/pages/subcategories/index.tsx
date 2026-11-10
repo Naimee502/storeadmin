@@ -16,7 +16,8 @@ import { useImageUpload } from "../../graphql/hooks/uploads";
 import { selectModuleActions } from "../../redux/slices/permissions";
 import CategoryReorder from "../../components/categoryreorder";
 import { useReorderSubCategories } from "../../graphql/hooks/subcategories";
-import { FaSort, FaTags, FaChevronDown } from "react-icons/fa";
+import { FaSort } from "react-icons/fa";
+import FormField from "../../components/formfiled";
 
 const SubCategories = () => {
   const actions = useAppSelector(state => selectModuleActions(state, "subcategories"));
@@ -413,24 +414,9 @@ const SubCategories = () => {
           header={
             <label className="block">
               <span className="mb-0.5 block text-[12px] font-medium text-slate-600">Category</span>
-              <div className="relative">
-                <FaTags className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
-                <select
-                  value={reorderCategoryId}
-                  onChange={(e) => setReorderCategoryId(e.target.value)}
-                  className="h-8 w-full cursor-pointer appearance-none rounded-md border border-slate-300 bg-white pl-8 pr-8 text-[13px] font-medium text-slate-800 hover:border-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                >
-                  {categoriesWithSubs.map((c: any) => {
-                    const count = subCategoryList.filter((s: any) => s.category?.id === c.id).length;
-                    return (
-                      <option key={c.id} value={c.id}>
-                        {c.categoryname} ({count})
-                      </option>
-                    );
-                  })}
-                </select>
-                <FaChevronDown className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-500" size={12} />
-              </div>
+              <FormField label="" name="reorderCategoryId" type="select" value={reorderCategoryId}
+                options={categoriesWithSubs.map((c: any) => ({ value: c.id, label: `${c.categoryname} (${subCategoryList.filter((s: any) => s.category?.id === c.id).length})` }))}
+                onChange={(e: any) => e.target.value && setReorderCategoryId(e.target.value)} />
             </label>
           }
           categories={subCategoryList

@@ -234,40 +234,19 @@ const Login = () => {
           </div>
 
           {/* Tabs */}
-          <div className="mb-5 grid w-full grid-cols-3 gap-1 rounded-lg bg-slate-100 p-1">
-            <button
-              type="button"
-              className={`h-8 w-full rounded-md px-2 text-[13px] font-medium transition-colors ${
-                loginType === "branch"
-                  ? "bg-white text-indigo-700 shadow-sm ring-1 ring-slate-200"
-                  : "text-slate-600 hover:text-slate-900"
-              }`}
-              onClick={() => { setLoginType("branch"); resetOtpStep(); }}
-            >
-              Branch Login
-            </button>
-            <button
-              type="button"
-              className={`h-8 w-full rounded-md px-2 text-[13px] font-medium transition-colors ${
-                loginType === "staff"
-                  ? "bg-white text-indigo-700 shadow-sm ring-1 ring-slate-200"
-                  : "text-slate-600 hover:text-slate-900"
-              }`}
-              onClick={() => { setLoginType("staff"); resetOtpStep(); }}
-            >
-              Staff Login
-            </button>
-            <button
-              type="button"
-              className={`h-8 w-full rounded-md px-2 text-[13px] font-medium transition-colors ${
-                loginType === "admin"
-                  ? "bg-white text-indigo-700 shadow-sm ring-1 ring-slate-200"
-                  : "text-slate-600 hover:text-slate-900"
-              }`}
-              onClick={() => { setLoginType("admin"); resetOtpStep(); }}
-            >
-              Admin Login
-            </button>
+          <div className="mb-5 flex w-full justify-center gap-2 border-b border-slate-200 sm:gap-4">
+            {([["branch", "Branch Login"], ["staff", "Staff Login"], ["admin", "Admin Login"]] as const).map(([kind, label]) => (
+              <button
+                key={kind}
+                type="button"
+                className={`-mb-px border-b-2 px-4 py-2 text-[14px] font-medium transition-colors ${
+                  loginType === kind ? "border-indigo-600 text-indigo-700" : "border-transparent text-slate-500 hover:text-slate-800"
+                }`}
+                onClick={() => { setLoginType(kind); resetOtpStep(); }}
+              >
+                {label}
+              </button>
+            ))}
           </div>
 
           <form

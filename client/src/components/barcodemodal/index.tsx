@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Dialog } from "@headlessui/react";
 import Button from "../button";
+import FormField from "../formfiled";
 
 interface BarcodeModalProps {
   isOpen: boolean;
@@ -36,18 +37,8 @@ const BarcodeModal: React.FC<BarcodeModalProps> = ({ isOpen, onClose, onPrint, b
         <Dialog.Title>Enter Barcode Quantity</Dialog.Title>
         {barcodeOptions && barcodeOptions.length > 0 && (
           <div className="mt-4">
-            <label className="text-sm font-medium text-gray-700">Select Unit</label>
-            <select
-              className="border mt-1 p-2 w-full rounded"
-              value={selectedBarcode}
-              onChange={(e) => setSelectedBarcode(e.target.value)}
-            >
-              {barcodeOptions.map((opt, i) => (
-                <option key={i} value={opt.barcode}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
+            <FormField label="Select Unit" name="selectedBarcode" type="select" value={selectedBarcode}
+              options={barcodeOptions.map((opt) => ({ value: opt.barcode, label: opt.label }))} onChange={(e: any) => e.target.value && setSelectedBarcode(e.target.value)} />
           </div>
         )}
         <div className="mt-4">

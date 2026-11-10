@@ -473,6 +473,7 @@ export const FORM_PERMISSIONS_CONFIG: FormConfig[] = [
           { id: "groupid", label: "Product Group" },
           { id: "modelid", label: "Model" },
           { id: "sizeid", label: "Size" },
+          { id: "itemtype", label: "Item Type (raw material, finished…)" },
           { id: "description", label: "Description" },
         ],
       },
@@ -733,5 +734,58 @@ export const FORM_PERMISSIONS_CONFIG: FormConfig[] = [
         ],
       },
     ],
-  }
+  },
+  {
+    moduleId: "services",
+    label: "Service Form",
+    sections: [
+      {
+        id: "general",
+        label: "General Details",
+        fields: [
+          { id: "categoryid", label: "Category" },
+          { id: "description", label: "Description" },
+          { id: "serviceaccount", label: "Service Account" },
+        ],
+      },
+      {
+        id: "pricing",
+        label: "Price & Tax",
+        fields: [
+          { id: "pricingunit", label: "Price Basis" },
+          { id: "gst", label: "GST %" },
+          { id: "saccode", label: "SAC Code" },
+          { id: "taxinclusive", label: "Rate Includes GST" },
+          { id: "visitcharge", label: "Visit Charge" },
+          { id: "uom", label: "Unit of Measure" },
+        ],
+      },
+      {
+        id: "booking",
+        label: "Booking",
+        fields: [
+          { id: "duration", label: "Duration" },
+          { id: "bufferminutes", label: "Buffer Minutes" },
+          { id: "capacity", label: "Capacity Per Slot" },
+          { id: "requiresappointment", label: "Requires Appointment" },
+          { id: "locationType", label: "Where Done" },
+          { id: "availabilityslots", label: "Availability Slots" },
+          { id: "staffids", label: "Staff Who Can Do It" },
+          { id: "commission", label: "Staff Commission %" },
+        ],
+      },
+      {
+        id: "after_service",
+        label: "After Service",
+        fields: [
+          { id: "nextduedays", label: "Next Service Due (Days)" },
+          { id: "warrantydays", label: "Warranty (Days)" },
+          { id: "isRecurring", label: "Recurring" },
+          { id: "materials", label: "Materials Used" },
+          { id: "checklist", label: "Checklist" },
+          { id: "remarks", label: "Remarks" },
+        ],
+      },
+    ],
+  },
 ];

@@ -9,10 +9,14 @@ import { showMessage } from "../../redux/slices/message";
 import { useServerPaging, useServerTable, useSessionState } from "../../hooks/useservertable";
 import { formatDateDMY, timeMs } from "../../utils/helper";
 import { isOfflineId } from "../../offline/core";
+import FormField from "../../components/formfiled";
+import { useOfflineList } from "../../offline/listing";
+import { partyLabel } from "../../utils/partylabel";
+
 import { ShortcutButton } from "../followups";
 import { useLeadMutations, useLeadsPageQuery, useLeadsQuery, useCrmLists, leadNo, type CrmStage } from "../../graphql/hooks/lead";
 
-const SERVER_FILTER_KEYS = ["leadnumber", "name", "company", "mobile", "city", "source", "stage", "owner"];
+const SERVER_FILTER_KEYS = ["leadnumber", "partyacc", "company", "source", "stage", "owner", "nextfollowup"];
 const TEMP_STYLE: Record<string, string> = {
   hot: "bg-rose-50 text-rose-700 ring-rose-200",
   warm: "bg-amber-50 text-amber-700 ring-amber-200",
@@ -88,9 +92,10 @@ export function LostReasonDialog({ lead, stage, onDone }: { lead: any; stage: Cr
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4" onClick={() => onDone(false)}>
       <div className="w-full max-w-sm rounded-lg bg-white p-4 text-[13px] shadow-xl" onClick={(e) => e.stopPropagation()}>
         <div className="mb-3 font-semibold text-slate-800">Why was {lead.name} lost?</div>
-        <select className="mb-2 h-8 w-full rounded-md border border-slate-300 px-2" value={reason} onChange={(e) => setReason(e.target.value)}>
-          {lostReasons.map((r: string) => <option key={r} value={r}>{r}</option>)}
-        </select>
+        <div className="mb-2">
+          <FormField label="" name="lostreason" type="select" searchable value={reason}
+            options={lostReasons.map((r: string) => ({ value: r, label: r }))} onChange={(e: any) => setReason(e.target.value)} />
+        </div>
         {reason === "Other" && (
           <input className="mb-2 h-8 w-full rounded-md border border-slate-300 px-2" placeholder="Reason" value={other} onChange={(e) => setOther(e.target.value)} />
         )}
@@ -194,16 +199,15 @@ const Leads = () => {
   const table = useServerTable("leads", SERVER_FILTER_KEYS);
   const { items, total, loading, refetch } = useLeadsPageQuery(table.variables);
   const serverPaging = useServerPaging(table, total, loading);
+  const offline = useOfflineList("lead", table.page);
   const { data: allData } = useLeadsQuery(view !== "board");
   const { deleteLead } = useLeadMutations();
 
   const columns = [
     { label: "Seq", key: "seqNo" },
     { label: "Lead No", key: "leadnumber" },
-    { label: "Name", key: "name" },
+    { label: "Lead", key: "partyacc" },
     { label: "Company", key: "company" },
-    { label: "Mobile", key: "mobile" },
-    { label: "City", key: "city" },
     { label: "Source", key: "source" },
     { label: "Stage", key: "stage" },
     { label: "Owner", key: "owner" },
@@ -211,17 +215,15 @@ const Leads = () => {
     { label: "Contact", key: "contact" },
   ];
 
-  const rows = items.map((l: any, i: number) => {
+  const buildRow = (l: any, i: number) => {
     const st = stageOf(l.stage);
     const overdue = timeMs(l.nextfollowupAt) < Date.now();
     return {
       id: l.id,
-      seqNo: table.offset + i + 1,
+      seqNo: i >= 0 ? table.offset + i + 1 : "",
       leadnumber: leadNo(l),
-      name: l.name,
+      partyacc: partyLabel({ name: l.name, mobile: l.mobile, city: l.city }),
       company: l.company || "—",
-      mobile: l.mobile || "—",
-      city: l.city || "—",
       source: l.source || "—",
       stage: <span className={`rounded px-2 py-0.5 text-[11px] font-semibold ring-1 ${STAGE_STYLE[st?.kind || "open"]}`}>{st?.label || l.stage}</span>,
       owner: l.ownerid?.name || "—",
@@ -236,7 +238,9 @@ const Leads = () => {
       ) : "—",
       raw: l,
     };
-  });
+  };
+  const serverRows = items.map((l: any, i: number) => offline.decorate(buildRow(l, i), "seqNo"));
+  const rows = offline.rows.length ? [...offline.rows.map((l: any) => offline.decorate(buildRow(l, -1), "seqNo")), ...serverRows] : serverRows;
 
   const toggle = (
     <div className="inline-flex h-8 overflow-hidden rounded-md border border-slate-300 text-[13px]">

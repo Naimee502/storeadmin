@@ -9,6 +9,8 @@ export const GET_PRODUCT_SERVICES = gql`
       branchid
       isservice
       isserialised
+      itemtype
+      customfields { key value }
       name
       description
       imageurl
@@ -39,6 +41,8 @@ export const GET_PRODUCT_SERVICES = gql`
         duration { amount unit }
         requiresappointment
         availabilityslots { day from to }
+        gst saccode pricingunit taxinclusive visitcharge nextduedays warrantydays staffids commission capacity bufferminutes checklist
+        materials { productserviceid variantid salesunitid qty }
         locationType
         isRecurring
         recurrence { interval count }
@@ -190,6 +194,8 @@ export const GET_PRODUCT_SERVICE_BY_ID = gql`
       branchid
       isservice
       isserialised
+      itemtype
+      customfields { key value }
       name
       description
       imageurl

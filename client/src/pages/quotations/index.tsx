@@ -14,7 +14,7 @@ import { formatDateDMY, gstSplit } from "../../utils/helper";
 import { partyLabel } from "../../utils/partylabel";
 import { useCompany } from "../deliverychallan";
 
-const SERVER_FILTER_KEYS = ["billnumber", "customer", "billdate", "subject", "quotationStatus", "totalamount"];
+const SERVER_FILTER_KEYS = ["billnumber", "partyacc", "billdate", "subject", "validtill", "quotationStatus", "totalamount"];
 
 const esc = (v: any) => String(v ?? "").replace(/[&<>"]/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[ch] as string));
 const money = (n: any) => Number(n || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -52,12 +52,20 @@ export function printQuotation(q: any, company: any, settings: any, products: an
   const main = lines.filter((l: any) => !l.optional);
   const optional = lines.filter((l: any) => l.optional);
   const head = `<tr><th>#</th>${showImg ? "<th></th>" : ""}<th>Description</th>${showHsn ? "<th>HSN/SAC</th>" : ""}<th class="r">Qty</th><th>Unit</th><th class="r">Rate</th>${showDisc ? '<th class="r">Disc.</th>' : ""}${showGst ? '<th class="r">GST%</th>' : ""}<th class="r">Amount</th></tr>`;
+  const printDefs = (s.customFieldDefs || []).filter((d: any) => d.entity === "product" && d.print);
+  const specsOf = (prod: any) =>
+    printDefs
+      .map((d: any) => [d.label, (prod?.customfields || []).find((c: any) => c.key === d.key)?.value])
+      .filter(([, v]: any) => v)
+      .map(([k, v]: any) => `${esc(k)}: ${esc(v)}`)
+      .join(" · ");
   const row = (l: any, i: number) => {
     const prod = productOf(l.productserviceid?.id);
+    const specs = specsOf(prod);
     const v = variantOf(l);
     const img = prod?.imageurl || prod?.imageurls?.[0] || "";
     return `<tr><td>${i + 1}</td>${showImg ? `<td>${img ? `<img src="${esc(img)}" style="width:42px;height:42px;object-fit:cover"/>` : ""}</td>` : ""}
-      <td><b>${esc(l.productserviceid?.name || "")}${l.variantid?.name ? ` - ${esc(l.variantid.name)}` : ""}</b>${l.description ? `<div class="desc">${nl(l.description)}</div>` : ""}</td>
+      <td><b>${esc(l.productserviceid?.name || "")}${l.variantid?.name ? ` - ${esc(l.variantid.name)}` : ""}</b>${specs ? `<div class="desc">${specs}</div>` : ""}${l.description ? `<div class="desc">${nl(l.description)}</div>` : ""}</td>
       ${showHsn ? `<td>${esc(v?.hsncode || "")}</td>` : ""}<td class="r">${esc(l.qty)}</td><td>${esc(l.unitqty && l.unitqty !== 1 ? `${l.unitqty} ` : "")}${esc(l.salesunitid?.unitname || "")}</td>
       <td class="r">${money(l.rate)}</td>${showDisc ? `<td class="r">${l.discount ? money(l.discount) : ""}</td>` : ""}${showGst ? `<td class="r">${esc(l.gst || 0)}</td>` : ""}<td class="r">${money(l.amount)}</td></tr>`;
   };
@@ -170,7 +178,7 @@ const Quotations = () => {
     { label: "Seq", key: "seqNo" },
     { label: "Quotation No", key: "billnumber" },
     { label: "Date", key: "billdate" },
-    { label: "Customer", key: "customer" },
+    { label: "Customer", key: "partyacc" },
     { label: "Subject", key: "subject" },
     { label: "Valid Till", key: "validtill" },
     { label: "Amount", key: "totalamount" },
@@ -184,7 +192,7 @@ const Quotations = () => {
       seqNo: i >= 0 ? table.offset + i + 1 : "",
       billnumber: quotationNo(q),
       billdate: formatDateDMY(q.billdate),
-      customer: q.partyacc ? partyLabel(q.partyacc) : [customerOf(q).name, customerOf(q).mobile].filter(Boolean).join(" - ") || "—",
+      partyacc: q.partyacc ? partyLabel(q.partyacc) : partyLabel({ name: customerOf(q).name, mobile: customerOf(q).mobile, city: q.customercity || q.leadid?.city }) || "—",
       subject: q.subject || "—",
       validtill: q.validtill ? <span className={expired ? "font-semibold text-rose-600" : ""}>{formatDateDMY(q.validtill)}{expired ? " (expired)" : ""}</span> : "—",
       totalamount: `₹${money(q.totalamount)}`,
@@ -234,7 +242,7 @@ const Quotations = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4" onClick={() => setRejecting(null)}>
           <div className="w-full max-w-sm space-y-3 rounded-lg bg-white p-4 text-[13px] shadow-xl" onClick={(e) => e.stopPropagation()}>
             <div className="font-semibold text-slate-800">Why was {quotationNo(rejecting)} rejected?</div>
-            <input className="h-8 w-full rounded-md border border-slate-300 px-2" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g. Price too high" autoFocus />
+            <input className="h-8 w-full rounded-md border border-slate-300 px-2" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Reason" autoFocus />
             <div className="flex justify-end gap-2">
               <button type="button" className="h-8 rounded-md border border-slate-300 px-3" onClick={() => setRejecting(null)}>Cancel</button>
               <button

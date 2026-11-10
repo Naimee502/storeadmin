@@ -61,6 +61,9 @@ const BY_ID_FIELDS = new Set([
   "getTransferStockById",
   "getDeliveryChallanById",
   "getQuotationById",
+  "getWorkOrderById",
+  "getProductionEntryById",
+  "getJobCardById",
 ]);
 
 // Network failure with no HTTP response at all (not a GraphQL or HTTP error).
@@ -138,6 +141,8 @@ const LOCAL_QUERIES: Record<string, LocalSpec> = {
   getSizesPage: { c: "size", kind: "page", typename: "Size", page: "SizePage" },
   getProductGroupsPage: { c: "productgroup", kind: "page", typename: "ProductGroup", page: "ProductGroupPage" },
   getProductServiceById: { c: "product", kind: "byId", typename: "ProductService" },
+  getServicesPage: { c: "product", kind: "page", typename: "ProductService", page: "ProductServicePage" },
+  getServiceById: { c: "product", kind: "byId", typename: "ProductService" },
   getAccountById: { c: "account", kind: "byId", typename: "Account" },
   getAccountLedgerById: { c: "ledger", kind: "byId", typename: "AccountLedger" },
   getUnitById: { c: "unit", kind: "byId", typename: "Unit" },
@@ -171,6 +176,15 @@ const LOCAL_QUERIES: Record<string, LocalSpec> = {
   getChannelById: { c: "channel", kind: "byId", typename: "Channel" },
   ...doc("salesroute", "SalesRoute", "getSalesRoutes", "getSalesRoutesPage", "getSalesRouteById"),
   ...doc("quotation", "Quotation", "getQuotations", "getQuotationsPage", "getQuotationById"),
+  ...doc("bom", "Bom", "getBoms", "getBomsPage", "getBomById"),
+  ...doc("workorder", "WorkOrder", "getWorkOrders", "getWorkOrdersPage", "getWorkOrderById"),
+  ...doc("production", "ProductionEntry", "getProductionEntries", "getProductionEntriesPage", "getProductionEntryById"),
+  ...doc("appointment", "Appointment", "getAppointments", "getAppointmentsPage", "getAppointmentById"),
+  ...doc("jobcard", "JobCard", "getJobCards", "getJobCardsPage", "getJobCardById"),
+  ...doc("contract", "Contract", "getContracts", "getContractsPage", "getContractById"),
+  ...doc("membership", "Membership", "getMemberships", "getMembershipsPage", "getMembershipById"),
+  getMembershipPlans: list("membershipplan", "MembershipPlan"),
+  getMembershipPlanById: { c: "membershipplan", kind: "byId", typename: "MembershipPlan" },
   ...doc("lead", "Lead", "getLeads", "getLeadsPage", "getLeadById"),
   ...doc("followup", "Followup", "getFollowups", "getFollowupsPage", "getFollowupById"),
   getHolidays: list("holiday", "Holiday"),
@@ -187,7 +201,7 @@ const idOf = (v: any): string => (!v ? "" : typeof v === "string" ? v : String(v
 
 // Same scoping the screens send: branch, party and category; soft-deleted documents never show.
 // Filter fields a master list compares by value (party/vendor type, branch, group, category, channel).
-const MASTER_FILTER_KEYS = ["type", "branchid", "accountgroupid", "category", "categoryid", "channel", "leadid"];
+const MASTER_FILTER_KEYS = ["type", "branchid", "accountgroupid", "category", "categoryid", "channel", "leadid", "staffid", "partyacc"];
 const same = (a: any, b: any) => idOf(a).toLowerCase() === String(b).toLowerCase();
 
 function matches(d: any, vars: any, isDoc: boolean, master = false): boolean {
@@ -197,9 +211,12 @@ function matches(d: any, vars: any, isDoc: boolean, master = false): boolean {
     if (typeof f.status !== "boolean" && d?.status === false) return false;
     for (const k of MASTER_FILTER_KEYS) if (f[k] && d?.[k] !== undefined && d[k] !== null && !same(d[k], f[k])) return false;
   }
+  if (typeof f.isservice === "boolean" && !!d?.isservice !== f.isservice) return false;
   if (isDoc && d?.status === false) return false;
   if (typeof f.status === "boolean" && d?.status !== undefined && d.status !== f.status) return false;
   for (const k of ["branchid", "partyacc", "partyid", "leadid"]) {
+    // A document saved with no branch belongs to every branch.
+    if (k === "branchid" && !d?.[k]) continue;
     if (isDoc && f[k] && d?.[k] !== undefined && idOf(d[k]) !== String(f[k])) return false;
   }
   // Transfer lists take the branch as a top-level argument.
@@ -211,7 +228,7 @@ function matches(d: any, vars: any, isDoc: boolean, master = false): boolean {
 }
 
 // Collections a bare id on an offline master can point at.
-const REF_COLLECTIONS = ["unit", "category", "subcategory", "brand", "model", "size", "productgroup", "ledger", "account", "branch", "staff", "product", "lead"];
+const REF_COLLECTIONS = ["bom", "membershipplan", "unit", "category", "subcategory", "brand", "model", "size", "productgroup", "ledger", "account", "branch", "staff", "product", "lead"];
 function refById(id: string): any {
   for (const c of REF_COLLECTIONS) {
     const d = localDoc(c, id);

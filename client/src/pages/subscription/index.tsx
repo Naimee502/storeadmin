@@ -95,16 +95,9 @@ const Subscription = () => {
             />
 
             <div className="mb-10">
-              <label className="block text-sm font-medium mb-1">Subscription Type</label>
-              <select
-                className="w-full border rounded p-2"
-                value={subscriptionType}
-                onChange={(e) => setSubscriptionType(e.target.value)}
-              >
-                <option value="monthly">Monthly (₹1499)</option>
-                <option value="yearly">Yearly (₹9999)</option>
-                <option value="lifetime">Lifetime (₹150000)</option>
-              </select>
+              <FormField label="Subscription Type" name="subscriptionType" type="select" value={subscriptionType}
+                options={[{ value: "monthly", label: "Monthly (₹1499)" }, { value: "yearly", label: "Yearly (₹9999)" }, { value: "lifetime", label: "Lifetime (₹150000)" }]}
+                onChange={(e: any) => e.target.value && setSubscriptionType(e.target.value)} />
             </div>
 
             <Button

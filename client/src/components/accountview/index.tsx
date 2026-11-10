@@ -2,6 +2,7 @@
 import React, { useMemo, useState } from "react";
 import { useNavigate } from "react-router";
 import { formatINR } from "../../utils/helper";
+import FormField from "../formfiled";
 
 // ── dates
 export const parseServerDate = (d: any): Date | null => {
@@ -52,13 +53,10 @@ const useDateFilter = () => {
   const bounds = presetBounds(preset, from, to);
   const ui = (
     <div className="flex flex-wrap items-center gap-2">
-      <select
-        value={preset}
-        onChange={(e) => setPreset(e.target.value as Preset)}
-        className="h-8 rounded-md border border-slate-300 bg-white px-2 text-[13px]"
-      >
-        {PRESETS.map((p) => <option key={p.key} value={p.key}>{p.label}</option>)}
-      </select>
+      <div className="w-44">
+        <FormField label="" name="preset" type="select" value={preset}
+          options={PRESETS.map((p) => ({ value: p.key, label: p.label }))} onChange={(e: any) => setPreset((e.target.value || PRESETS[0].key) as Preset)} />
+      </div>
       {preset === "custom" && (
         <>
           <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="h-8 rounded-md border border-slate-300 px-2 text-[13px]" />
@@ -178,10 +176,10 @@ export const OrdersTable: React.FC<{
       <div className="mb-2 flex flex-wrap items-center gap-2">
         {ui}
         {partyOptions && partyOptions.length > 0 && (
-          <select value={party} onChange={(e) => setParty(e.target.value)} className="h-8 rounded-md border border-slate-300 bg-white px-2 text-[13px]">
-            <option value="">All parties</option>
-            {partyOptions.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-          </select>
+          <div className="w-64">
+            <FormField label="" name="party" type="select" placeholder="All parties" value={party}
+              options={partyOptions.map((p) => ({ value: p.id, label: p.name }))} onChange={(e: any) => setParty(e.target.value || "")} />
+          </div>
         )}
         <div className="ml-auto"><Search value={q} onChange={setQ} placeholder="Search bill no / party" /></div>
       </div>

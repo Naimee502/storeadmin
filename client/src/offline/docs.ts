@@ -11,6 +11,9 @@ import { GET_STOCK_ADJUSTMENTS_PAGE } from "../graphql/queries/stockadjustments"
 import { GET_TRANSFER_STOCKS_PAGE } from "../graphql/queries/transferstock";
 import { GET_DELIVERY_CHALLANS_PAGE } from "../graphql/queries/deliverychallan";
 import { GET_QUOTATIONS_PAGE } from "../graphql/queries/quotation";
+import { GET_LEADS_PAGE } from "../graphql/queries/lead";
+import { GET_APPOINTMENTS_PAGE, GET_CONTRACTS_PAGE, GET_JOB_CARDS_PAGE, GET_MEMBERSHIPS_PAGE } from "../graphql/queries/service";
+import { GET_BOMS_PAGE, GET_PRODUCTION_ENTRIES_PAGE, GET_WORK_ORDERS_PAGE } from "../graphql/queries/manufacturing";
 import { OP_SPECS, byAge, docId, isMasterType, isOrderType, liveCreates, offlineIdFor, type DocType, type OutboxItem, type OutboxStatus } from "./core";
 import { selectionAt, shapeBySelection } from "./gql";
 import { getOfflineClient, offlineStore } from "./outbox";
@@ -28,6 +31,14 @@ const PAGE: Partial<Record<DocType, DocumentNode>> = {
   transferstock: GET_TRANSFER_STOCKS_PAGE,
   deliverychallan: GET_DELIVERY_CHALLANS_PAGE,
   quotation: GET_QUOTATIONS_PAGE,
+  lead: GET_LEADS_PAGE,
+  bom: GET_BOMS_PAGE,
+  workorder: GET_WORK_ORDERS_PAGE,
+  production: GET_PRODUCTION_ENTRIES_PAGE,
+  appointment: GET_APPOINTMENTS_PAGE,
+  jobcard: GET_JOB_CARDS_PAGE,
+  contract: GET_CONTRACTS_PAGE,
+  membership: GET_MEMBERSHIPS_PAGE,
 };
 
 const LINE_TYPENAME: Partial<Record<DocType, string>> = {
@@ -42,6 +53,9 @@ const LINE_TYPENAME: Partial<Record<DocType, string>> = {
   transferstock: "TransferStockItem",
   deliverychallan: "DeliveryChallanLine",
   quotation: "QuotationLine",
+  workorder: "MfgLine",
+  production: "MfgLine",
+  jobcard: "ServiceLine",
 };
 
 // Extra fields on every offline document.
@@ -175,6 +189,48 @@ export function buildRichDoc(
     };
   }
   const lineType = LINE_TYPENAME[item.docType];
+  if (item.docType === "jobcard") {
+    const line = (l: any) => ({
+      ...scalars(l),
+      __typename: "ServiceLine",
+      productserviceid: l.productserviceid ? ref(data, l.productserviceid, PRODUCT, "SimpleRef") : null,
+      variantid: l.variantid ? ref(data, l.variantid, VARIANT, "SimpleRef") : null,
+      salesunitid: l.salesunitid ? ref(data, l.salesunitid, UNIT, "SimpleRef") : null,
+    });
+    return {
+      ...scalars(input), __typename: item.typename, id, status: true, createdAt: created, updatedAt: created, ...meta,
+      billnumber: item.number ?? str(input.billnumber),
+      offlineNumber: item.number ?? null,
+      partyacc: input.partyacc ? ref(data, input.partyacc, PARTY, "ServiceParty") : null,
+      technicianid: input.technicianid ? ref(data, input.technicianid, STAFF, "SimpleRef") : null,
+      productserviceid: input.productserviceid ? ref(data, input.productserviceid, PRODUCT, "SimpleRef") : null,
+      estimate: (input.estimate || []).map(line),
+      spares: (input.spares || []).map(line),
+      jobStatus: cancelled ? "cancelled" : "received",
+      invoiceid: null,
+      deliveredAt: null,
+    };
+  }
+  if (item.docType === "workorder" || item.docType === "production") {
+    const line = (l: any) => ({
+      ...scalars(l),
+      __typename: "MfgLine",
+      productserviceid: ref(data, l.productserviceid, PRODUCT, "SimpleRef"),
+      variantid: l.variantid ? ref(data, l.variantid, VARIANT, "SimpleRef") : null,
+      salesunitid: l.salesunitid ? ref(data, l.salesunitid, UNIT, "SimpleRef") : null,
+    });
+    const head = { ...scalars(input), __typename: item.typename, id, billnumber: item.number ?? str(input.billnumber), offlineNumber: item.number ?? null, status: true, createdAt: created, updatedAt: created, ...meta };
+    if (item.docType === "workorder") return { ...line(input), ...head, __typename: item.typename, qtyproduced: 0, workStatus: cancelled ? "cancelled" : "planned" };
+    return {
+      ...head,
+      components: (input.components || []).map(line),
+      outputs: (input.outputs || []).map(line),
+      byproducts: (input.byproducts || []).map(line),
+      qctests: (input.qctests || []).map((t: any) => ({ __typename: "QcTest", ...t })),
+      serials: input.serials || [],
+      workordernumber: null,
+    };
+  }
   const base = { ...scalars(input), __typename: item.typename, id, status: input.status ?? true, createdAt: created, updatedAt: created, ...meta };
   if (item.docType === "stockadjustment") {
     const branch = idOf(input.branchid);

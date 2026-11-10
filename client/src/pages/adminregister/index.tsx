@@ -227,20 +227,9 @@ const AdminRegister = () => {
               </div>
 
               <div className="flex-1">
-                <label className="mb-1 block text-[12px] font-medium text-slate-600">Business Type</label>
-                <select
-                  className="h-8 w-full rounded-md border border-slate-300 bg-white px-2 text-[13px] focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                  value={businesstype}
-                  onChange={(e) => setBusinesstype(e.target.value)}
-                >
-                  <option value="retail">Retail</option>
-                  <option value="wholesale">Wholesale</option>
-                  <option value="manufacturer">Manufacturer</option>
-                  <option value="service">Service</option>
-                  <option value="trader">Trader</option>
-                  <option value="exporter">Exporter</option>
-                  <option value="other">Other</option>
-                </select>
+                <FormField label="Business Type" name="businesstype" type="select" value={businesstype}
+                  options={["Retail", "Wholesale", "Manufacturer", "Service", "Trader", "Exporter", "Other"].map((l) => ({ value: l.toLowerCase(), label: l }))}
+                  onChange={(e: any) => setBusinesstype(e.target.value || "retail")} />
               </div>
             </div>
 

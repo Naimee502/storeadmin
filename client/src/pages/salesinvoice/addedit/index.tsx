@@ -25,6 +25,7 @@ import { isCustomerParty } from "../../../utils/partytype";
 import { BRANCH_REQUIRED } from "../../../utils/branch";
 import { isOfflineSaved, OFFLINE_SAVED_MESSAGE } from "../../../offline/billing";
 import { OfflineNumberNote, savedOffline as wasSavedOffline, useOfflineNumber, useOfflineStock } from "../../../offline/billing";
+import { useServiceMutations } from "../../../graphql/hooks/service";
 
 const AddEditSalesInvoice = () => {
   const { id } = useParams<{ id?: string }>();
@@ -44,6 +45,10 @@ const AddEditSalesInvoice = () => {
   const orderId = queryParams.get("orderId");
   // Convert a Delivery Challan (no source order) into its invoice.
   const challanId = queryParams.get("challanId");
+  // Bill made from an Appointment or a Job Card (Service): { kind, id, partyacc, products, notes }.
+  const fromService: any = (location.state as any)?.fromService;
+  const serviceFilled = React.useRef(false);
+  const { setAppointmentStatus, setJobCardStatus } = useServiceMutations();
 
   const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
   const selectedBranchId = useAppSelector((state) => state.selectedBranch.branchId);
@@ -398,6 +403,16 @@ const AddEditSalesInvoice = () => {
   }, [isEdit, data, orderId, orderData, challanId, challanData, salesInvoices, offlineNo, noDevice]);
 
   useEffect(() => {
+    const s = fromService;
+    if (isEdit || !s || serviceFilled.current) return;
+    serviceFilled.current = true;
+    if (s.partyacc?.id) setPartyAccount({ id: s.partyacc.id, name: s.partyacc.name || "", accountname: s.partyacc.name || "", mobile: s.partyacc.mobile || "" });
+    if (s.notes) setNotes(s.notes);
+    if (s.isservice) setIsService(true);
+    setProducts(s.products || []);
+  }, [isEdit, fromService]);
+
+  useEffect(() => {
     let productsTotalCalc = 0;
     let totalLineDiscount = 0;
     let taxableSubtotal = 0;
@@ -591,6 +606,14 @@ const AddEditSalesInvoice = () => {
         const res = await addSalesInvoiceMutation({ variables: { input } });
         // Queued offline: the order update needs the server, so it is skipped.
         const savedOffline = isOfflineSaved(res?.data?.addSalesInvoice);
+        const invoiceId = res?.data?.addSalesInvoice?.id;
+        if (fromService?.id && invoiceId && !savedOffline) {
+          const link = { id: fromService.id, invoiceid: invoiceId };
+          await (fromService.kind === "jobcard"
+            ? setJobCardStatus({ variables: { ...link, jobStatus: "delivered" } })
+            : setAppointmentStatus({ variables: { ...link, apptStatus: "done" } })
+          ).catch(() => undefined);
+        }
         if (orderId && !savedOffline) {
           const orderInput = {
             paymenttype: paymentType,

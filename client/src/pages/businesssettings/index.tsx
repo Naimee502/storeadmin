@@ -212,6 +212,11 @@ const GeneralTab: React.FC<{ adminId?: string; dispatch: any; allowedModules?: s
     if (input.smtpPort === "" || input.smtpPort == null) input.smtpPort = defaultSmtpPort(input.smtpHost || "");
     // Never set: leave it unset on the server.
     if (input.offlineBilling == null) delete input.offlineBilling;
+    if (Array.isArray(input.customFieldDefs)) {
+      input.customFieldDefs = input.customFieldDefs
+        .filter((d: any) => String(d.label || "").trim())
+        .map((d: any) => ({ ...d, label: d.label.trim(), options: (d.options || []).map((o: string) => o.trim()).filter(Boolean) }));
+    }
     for (const k of ["crmSources", "crmLostReasons"]) {
       if (Array.isArray(input[k])) input[k] = input[k].map((x: string) => x.trim()).filter(Boolean);
     }
@@ -382,6 +387,10 @@ const GeneralTab: React.FC<{ adminId?: string; dispatch: any; allowedModules?: s
         </div>
       </Section>
 
+      <Section title="Custom Fields">
+        <CustomFieldEditor draft={draft} set={set} />
+      </Section>
+
       {hasModule("leads") && (
         <Section title="CRM (Leads)">
           <CrmSettings draft={draft} set={set} />
@@ -490,21 +499,20 @@ const GeneralTab: React.FC<{ adminId?: string; dispatch: any; allowedModules?: s
         </div>
         <div className="pt-1">
           <label className="block text-[12px] font-medium text-slate-600 mb-1">Website checkout payment options</label>
-          <select
-            className="h-8 w-full rounded-md border border-slate-300 bg-white px-2 text-[13px] text-slate-700"
+          <FormField label="" name="websitePaymentMode" type="select"
             value={draft.websitePaymentMode || (draft.websiteCodOnly ? "cod_only" : "all")}
-            onChange={(e) => {
-              const mode = e.target.value;
+            options={[
+              { value: "all", label: "Show all options (UPI / Card / Net Banking / COD / Party billing)" },
+              { value: "cod_only", label: "Cash on Delivery only" },
+              { value: "hide_cod", label: "Hide Cash on Delivery (show UPI / Card / Net Banking / Party billing)" },
+              { value: "none", label: "Hide all payment options (order saved as Cash)" },
+            ]}
+            onChange={(e: any) => {
+              const mode = e.target.value || "all";
               set("websitePaymentMode", mode);
               // Kept in sync for code reading the old switch.
               set("websiteCodOnly", mode === "cod_only");
-            }}
-          >
-            <option value="all">Show all options (UPI / Card / Net Banking / COD / Party billing)</option>
-            <option value="cod_only">Cash on Delivery only</option>
-            <option value="hide_cod">Hide Cash on Delivery (show UPI / Card / Net Banking / Party billing)</option>
-            <option value="none">Hide all payment options (order saved as Cash)</option>
-          </select>
+            }} />
         </div>
       </Section>
 
@@ -950,6 +958,55 @@ const PermissionsTab: React.FC<{
   );
 };
 
+// Specs a business keeps on products (kVA, voltage, colour) or leads (budget, site). Keys stay fixed once saved.
+const CustomFieldEditor: React.FC<{ draft: any; set: (k: string, v: any) => void }> = ({ draft, set }) => {
+  type Def = { key: string; label: string; entity: string; type: string; options?: string[]; print?: boolean; required?: boolean };
+  const defs: Def[] = draft.customFieldDefs || [];
+  const put = (next: Def[]) => set("customFieldDefs", next);
+  const edit = (i: number, patch: Partial<Def>) => put(defs.map((d, j) => (j === i ? { ...d, ...patch } : d)));
+  const keyOf = (label: string) => {
+    const base = label.toLowerCase().replace(/[^a-z0-9]+/g, "") || "field";
+    let k = base, n = 2;
+    while (defs.some((d) => d.key === k)) k = `${base}${n++}`;
+    return k;
+  };
+  const cell = "h-8 rounded-md border border-slate-300 bg-white px-2 text-[13px]";
+  return (
+    <div className="space-y-1.5">
+      <div className="text-[11px] leading-snug text-slate-400">
+        Extra fields on the Product and Lead forms, e.g. kVA, Voltage, Winding (products) or Budget, Site Address (leads). "Print" shows a product field under the item on quotations.
+      </div>
+      {defs.map((d, i) => (
+        <div key={d.key} className="flex flex-wrap items-center gap-1.5">
+          <input className={`${cell} w-44`} value={d.label} placeholder="Label" onChange={(e) => edit(i, { label: e.target.value })} />
+          <div className="w-32">
+            <FormField label="" name={`cf${i}entity`} type="select" value={d.entity} options={[{ value: "product", label: "Product" }, { value: "lead", label: "Lead" }]}
+              onChange={(e: any) => e.target.value && edit(i, { entity: e.target.value })} />
+          </div>
+          <div className="w-32">
+            <FormField label="" name={`cf${i}type`} type="select" value={d.type}
+              options={[{ value: "text", label: "Text" }, { value: "number", label: "Number" }, { value: "select", label: "Dropdown" }, { value: "date", label: "Date" }]}
+              onChange={(e: any) => e.target.value && edit(i, { type: e.target.value })} />
+          </div>
+          {d.type === "select" && (
+            <input className={`${cell} w-64`} placeholder="Choices, comma separated" value={(d.options || []).join(", ")}
+              onChange={(e) => edit(i, { options: e.target.value.split(",").map((x) => x.trim()) })} />
+          )}
+          <label className="flex items-center gap-1 text-[12px] text-slate-600"><input type="checkbox" checked={!!d.required} onChange={(e) => edit(i, { required: e.target.checked })} /> Required</label>
+          {d.entity === "product" && (
+            <label className="flex items-center gap-1 text-[12px] text-slate-600"><input type="checkbox" checked={!!d.print} onChange={(e) => edit(i, { print: e.target.checked })} /> Print</label>
+          )}
+          <button type="button" className={`${cell} text-rose-600`} title="Remove" onClick={() => put(defs.filter((_, j) => j !== i))}>×</button>
+        </div>
+      ))}
+      <button type="button" className={`${cell} text-indigo-600`}
+        onClick={() => put([...defs, { key: keyOf(`field${defs.length + 1}`), label: "", entity: "product", type: "text", options: [], print: false, required: false }])}>
+        + Add field
+      </button>
+    </div>
+  );
+};
+
 // Stage keys stay fixed once leads use them; a new stage gets a key from its name.
 const CrmSettings: React.FC<{ draft: any; set: (k: string, v: any) => void }> = ({ draft, set }) => {
   const stages: CrmStage[] = draft.crmStages?.length ? draft.crmStages : DEFAULT_STAGES;
@@ -970,11 +1027,11 @@ const CrmSettings: React.FC<{ draft: any; set: (k: string, v: any) => void }> = 
         {stages.map((st, i) => (
           <div key={st.key} className="flex gap-1.5">
             <input className={`${cell} flex-1`} value={st.label} onChange={(e) => setStages(stages.map((x, j) => (j === i ? { ...x, label: e.target.value } : x)))} />
-            <select className={cell} value={st.kind} onChange={(e) => setStages(stages.map((x, j) => (j === i ? { ...x, kind: e.target.value as CrmStage["kind"] } : x)))}>
-              <option value="open">Open</option>
-              <option value="won">Won</option>
-              <option value="lost">Lost</option>
-            </select>
+            <div className="w-28">
+              <FormField label="" name={`stage${i}kind`} type="select" value={st.kind}
+                options={[{ value: "open", label: "Open" }, { value: "won", label: "Won" }, { value: "lost", label: "Lost" }]}
+                onChange={(e: any) => e.target.value && setStages(stages.map((x, j) => (j === i ? { ...x, kind: e.target.value as CrmStage["kind"] } : x)))} />
+            </div>
             <button type="button" title="Move up" className={cell} disabled={i === 0}
               onClick={() => { const n = [...stages]; [n[i - 1], n[i]] = [n[i], n[i - 1]]; setStages(n); }}>↑</button>
             <button type="button" title="Remove" className={`${cell} text-rose-600`} disabled={stages.length <= 2}

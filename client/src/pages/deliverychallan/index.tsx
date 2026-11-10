@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router";
 import { useAppDispatch, useAppSelector } from "../../redux/hooks";
 import { selectIsModuleBusinessEnabled, selectModuleActions } from "../../redux/slices/permissions";
+import FormField from "../../components/formfiled";
 import DataTable from "../../components/datatable";
 import StatusDropdown from "../../components/statusdropdown";
 import HomeLayout from "../../layouts/home";
@@ -215,10 +216,11 @@ const DeliveryChallans = () => {
             <div className="mb-3 font-semibold text-slate-800">Print {challanNo(printing)}</div>
             <label className="mb-2 flex items-center justify-between">
               Copies
-              <select className="h-8 rounded-md border border-slate-300 px-2" value={copies} onChange={(e) => setCopies(Number(e.target.value))}>
-                <option value={3}>3 (Original, Duplicate, Triplicate)</option>
-                <option value={1}>1 (Original only)</option>
-              </select>
+              <div className="w-72">
+                <FormField label="" name="copies" type="select" value={copies}
+                  options={[{ value: "3", label: "3 (Original, Duplicate, Triplicate)" }, { value: "1", label: "1 (Original only)" }]}
+                  onChange={(e: any) => e.target.value && setCopies(Number(e.target.value))} />
+              </div>
             </label>
             <label className="mb-4 flex items-center gap-2">
               <input type="checkbox" checked={showRate} onChange={(e) => setShowRate(e.target.checked)} />

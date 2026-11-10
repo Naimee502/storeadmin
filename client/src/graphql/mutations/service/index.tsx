@@ -1,0 +1,25 @@
+import { gql } from "@apollo/client";
+import { APPOINTMENT_FIELDS, JOB_CARD_FIELDS, CONTRACT_FIELDS, PLAN_FIELDS, MEMBERSHIP_FIELDS } from "../../queries/service";
+
+export const ADD_APPOINTMENT = gql`mutation AddAppointment($input: AppointmentInput!) { addAppointment(input: $input) { ${APPOINTMENT_FIELDS} } }`;
+export const EDIT_APPOINTMENT = gql`mutation EditAppointment($id: ID!, $input: AppointmentInput!, $expectedUpdatedAt: String) { editAppointment(id: $id, input: $input, expectedUpdatedAt: $expectedUpdatedAt) { ${APPOINTMENT_FIELDS} } }`;
+export const DELETE_APPOINTMENT = gql`mutation DeleteAppointment($id: ID!, $expectedUpdatedAt: String) { deleteAppointment(id: $id, expectedUpdatedAt: $expectedUpdatedAt) }`;
+export const RESET_APPOINTMENT = gql`mutation ResetAppointment($id: ID!) { resetAppointment(id: $id) }`;
+export const ADD_JOB_CARD = gql`mutation AddJobCard($input: JobCardInput!) { addJobCard(input: $input) { ${JOB_CARD_FIELDS} } }`;
+export const EDIT_JOB_CARD = gql`mutation EditJobCard($id: ID!, $input: JobCardInput!, $expectedUpdatedAt: String) { editJobCard(id: $id, input: $input, expectedUpdatedAt: $expectedUpdatedAt) { ${JOB_CARD_FIELDS} } }`;
+export const DELETE_JOB_CARD = gql`mutation DeleteJobCard($id: ID!, $expectedUpdatedAt: String) { deleteJobCard(id: $id, expectedUpdatedAt: $expectedUpdatedAt) }`;
+export const RESET_JOB_CARD = gql`mutation ResetJobCard($id: ID!) { resetJobCard(id: $id) }`;
+export const ADD_CONTRACT = gql`mutation AddContract($input: ContractInput!) { addContract(input: $input) { ${CONTRACT_FIELDS} } }`;
+export const EDIT_CONTRACT = gql`mutation EditContract($id: ID!, $input: ContractInput!, $expectedUpdatedAt: String) { editContract(id: $id, input: $input, expectedUpdatedAt: $expectedUpdatedAt) { ${CONTRACT_FIELDS} } }`;
+export const DELETE_CONTRACT = gql`mutation DeleteContract($id: ID!, $expectedUpdatedAt: String) { deleteContract(id: $id, expectedUpdatedAt: $expectedUpdatedAt) }`;
+export const RESET_CONTRACT = gql`mutation ResetContract($id: ID!) { resetContract(id: $id) }`;
+export const ADD_MEMBERSHIP_PLAN = gql`mutation AddMembershipPlan($input: MembershipPlanInput!) { addMembershipPlan(input: $input) { ${PLAN_FIELDS} } }`;
+export const EDIT_MEMBERSHIP_PLAN = gql`mutation EditMembershipPlan($id: ID!, $input: MembershipPlanInput!, $expectedUpdatedAt: String) { editMembershipPlan(id: $id, input: $input, expectedUpdatedAt: $expectedUpdatedAt) { ${PLAN_FIELDS} } }`;
+export const DELETE_MEMBERSHIP_PLAN = gql`mutation DeleteMembershipPlan($id: ID!, $expectedUpdatedAt: String) { deleteMembershipPlan(id: $id, expectedUpdatedAt: $expectedUpdatedAt) }`;
+export const RESET_MEMBERSHIP_PLAN = gql`mutation ResetMembershipPlan($id: ID!) { resetMembershipPlan(id: $id) }`;
+export const ADD_MEMBERSHIP = gql`mutation AddMembership($input: MembershipInput!) { addMembership(input: $input) { ${MEMBERSHIP_FIELDS} } }`;
+export const EDIT_MEMBERSHIP = gql`mutation EditMembership($id: ID!, $input: MembershipInput!, $expectedUpdatedAt: String) { editMembership(id: $id, input: $input, expectedUpdatedAt: $expectedUpdatedAt) { ${MEMBERSHIP_FIELDS} } }`;
+export const DELETE_MEMBERSHIP = gql`mutation DeleteMembership($id: ID!, $expectedUpdatedAt: String) { deleteMembership(id: $id, expectedUpdatedAt: $expectedUpdatedAt) }`;
+export const RESET_MEMBERSHIP = gql`mutation ResetMembership($id: ID!) { resetMembership(id: $id) }`;
+export const SET_APPOINTMENT_STATUS = gql`mutation SetAppointmentStatus($id: ID!, $apptStatus: String!, $invoiceid: ID, $expectedUpdatedAt: String) { setAppointmentStatus(id: $id, apptStatus: $apptStatus, invoiceid: $invoiceid, expectedUpdatedAt: $expectedUpdatedAt) { ${APPOINTMENT_FIELDS} } }`;
+export const SET_JOB_CARD_STATUS = gql`mutation SetJobCardStatus($id: ID!, $jobStatus: String!, $invoiceid: ID, $expectedUpdatedAt: String) { setJobCardStatus(id: $id, jobStatus: $jobStatus, invoiceid: $invoiceid, expectedUpdatedAt: $expectedUpdatedAt) { ${JOB_CARD_FIELDS} } }`;

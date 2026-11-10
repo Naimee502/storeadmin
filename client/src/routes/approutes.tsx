@@ -19,6 +19,8 @@ import Accounts from "../pages/accounts";
 import Units from "../pages/units";
 import Products from "../pages/products";
 import AddEditProduct from "../pages/products/addedit";
+import Services from "../pages/services";
+import AddEditService from "../pages/services/addedit";
 import SalesInvoices from "../pages/salesinvoice";
 import AddEditSalesInvoice from "../pages/salesinvoice/addedit";
 import PurchaseInvoices from "../pages/purchaseinvoice";
@@ -112,6 +114,25 @@ import Quotations from "../pages/quotations";
 import LeadSources from "../pages/leadsources";
 import AddEditQuotation from "../pages/quotations/addedit";
 import DeletedQuotations from "../pages/quotations/deletedentries";
+import Boms from "../pages/bom";
+import AddEditBom from "../pages/bom/addedit";
+import MfgDeletedEntries from "../pages/bom/deletedentries";
+import WorkOrders from "../pages/workorders";
+import AddEditWorkOrder from "../pages/workorders/addedit";
+import Production from "../pages/production";
+import AddEditProduction from "../pages/production/addedit";
+import MaterialPlanning from "../pages/production/planning";
+import ProductionReports from "../pages/reports/production";
+import Appointments from "../pages/appointments";
+import AddEditAppointment from "../pages/appointments/addedit";
+import ServiceDeletedEntries from "../pages/appointments/deletedentries";
+import JobCards from "../pages/jobcards";
+import AddEditJobCard from "../pages/jobcards/addedit";
+import Contracts from "../pages/contracts";
+import AddEditContract from "../pages/contracts/addedit";
+import Memberships from "../pages/memberships";
+import AddEditMembership from "../pages/memberships/addedit";
+import ServiceReports from "../pages/reports/service";
 import PurchaseReturns from "../pages/purchasereturn";
 import AddEditPurchaseReturn from "../pages/purchasereturn/addedit";
 import DeletedPurchaseReturns from "../pages/purchasereturn/deletedentries";
@@ -484,6 +505,10 @@ const AppRoutes = () => {
           </ProtectedRoutes>
         }
       />
+      <Route path="/services" element={<ProtectedRoutes><Services /></ProtectedRoutes>} />
+      <Route path="/services/addedit" element={<ProtectedRoutes><AddEditService /></ProtectedRoutes>} />
+      <Route path="/services/addedit/:id" element={<ProtectedRoutes><AddEditService /></ProtectedRoutes>} />
+      <Route path="/services/deletedentries" element={<ProtectedRoutes><Services deleted /></ProtectedRoutes>} />
       <Route
         path="/salesinvoice"
         element={
@@ -1043,6 +1068,37 @@ const AppRoutes = () => {
       <Route path="/quotations/addedit" element={<ProtectedRoutes><AddEditQuotation /></ProtectedRoutes>} />
       <Route path="/quotations/addedit/:id" element={<ProtectedRoutes><AddEditQuotation /></ProtectedRoutes>} />
       <Route path="/quotations/deletedentries" element={<ProtectedRoutes><DeletedQuotations /></ProtectedRoutes>} />
+      <Route path="/bom" element={<ProtectedRoutes><Boms /></ProtectedRoutes>} />
+      <Route path="/bom/addedit" element={<ProtectedRoutes><AddEditBom /></ProtectedRoutes>} />
+      <Route path="/bom/addedit/:id" element={<ProtectedRoutes><AddEditBom /></ProtectedRoutes>} />
+      <Route path="/bom/deletedentries" element={<ProtectedRoutes><MfgDeletedEntries key="bom" kind="bom" /></ProtectedRoutes>} />
+      <Route path="/workorders" element={<ProtectedRoutes><WorkOrders /></ProtectedRoutes>} />
+      <Route path="/workorders/addedit" element={<ProtectedRoutes><AddEditWorkOrder /></ProtectedRoutes>} />
+      <Route path="/workorders/addedit/:id" element={<ProtectedRoutes><AddEditWorkOrder /></ProtectedRoutes>} />
+      <Route path="/workorders/deletedentries" element={<ProtectedRoutes><MfgDeletedEntries key="workorder" kind="workorder" /></ProtectedRoutes>} />
+      <Route path="/production" element={<ProtectedRoutes><Production /></ProtectedRoutes>} />
+      <Route path="/production/addedit" element={<ProtectedRoutes><AddEditProduction /></ProtectedRoutes>} />
+      <Route path="/production/addedit/:id" element={<ProtectedRoutes><AddEditProduction /></ProtectedRoutes>} />
+      <Route path="/production/deletedentries" element={<ProtectedRoutes><MfgDeletedEntries key="production" kind="production" /></ProtectedRoutes>} />
+      <Route path="/materialplanning" element={<ProtectedRoutes><MaterialPlanning /></ProtectedRoutes>} />
+      <Route path="/reports/production" element={<ProtectedRoutes><ProductionReports /></ProtectedRoutes>} />
+      <Route path="/appointments" element={<ProtectedRoutes><Appointments /></ProtectedRoutes>} />
+      <Route path="/appointments/addedit" element={<ProtectedRoutes><AddEditAppointment /></ProtectedRoutes>} />
+      <Route path="/appointments/addedit/:id" element={<ProtectedRoutes><AddEditAppointment /></ProtectedRoutes>} />
+      <Route path="/appointments/deletedentries" element={<ProtectedRoutes><ServiceDeletedEntries key="appointments" kind="appointments" /></ProtectedRoutes>} />
+      <Route path="/jobcards" element={<ProtectedRoutes><JobCards /></ProtectedRoutes>} />
+      <Route path="/jobcards/addedit" element={<ProtectedRoutes><AddEditJobCard /></ProtectedRoutes>} />
+      <Route path="/jobcards/addedit/:id" element={<ProtectedRoutes><AddEditJobCard /></ProtectedRoutes>} />
+      <Route path="/jobcards/deletedentries" element={<ProtectedRoutes><ServiceDeletedEntries key="jobcards" kind="jobcards" /></ProtectedRoutes>} />
+      <Route path="/contracts" element={<ProtectedRoutes><Contracts /></ProtectedRoutes>} />
+      <Route path="/contracts/addedit" element={<ProtectedRoutes><AddEditContract /></ProtectedRoutes>} />
+      <Route path="/contracts/addedit/:id" element={<ProtectedRoutes><AddEditContract /></ProtectedRoutes>} />
+      <Route path="/contracts/deletedentries" element={<ProtectedRoutes><ServiceDeletedEntries key="contracts" kind="contracts" /></ProtectedRoutes>} />
+      <Route path="/memberships" element={<ProtectedRoutes><Memberships /></ProtectedRoutes>} />
+      <Route path="/memberships/addedit" element={<ProtectedRoutes><AddEditMembership /></ProtectedRoutes>} />
+      <Route path="/memberships/addedit/:id" element={<ProtectedRoutes><AddEditMembership /></ProtectedRoutes>} />
+      <Route path="/memberships/deletedentries" element={<ProtectedRoutes><ServiceDeletedEntries key="memberships" kind="memberships" /></ProtectedRoutes>} />
+      <Route path="/reports/service" element={<ProtectedRoutes><ServiceReports /></ProtectedRoutes>} />
       {/* Sales Return (Credit Note) */}
       <Route
         path="/salesreturn"

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { usePendingSubscriptionsQuery, useApproveSubscriptionMutation, useRejectSubscriptionMutation } from "../../graphql/hooks/admin";
 import Button from "../../components/button";
 import LoginLayout from "../../layouts/login";
+import FormField from "../../components/formfiled";
 
 const SubscriptionReview = () => {
   const { data, loading, error, refetch } = usePendingSubscriptionsQuery();
@@ -43,19 +44,8 @@ const SubscriptionReview = () => {
           <>
             {/* Dropdown */}
             <div className="mb-6">
-              <label className="block text-sm font-medium mb-1">Select Pending Admin</label>
-              <select
-                value={selectedEmail}
-                onChange={(e) => setSelectedEmail(e.target.value)}
-                className="w-full border rounded px-4 py-2"
-              >
-                <option value="">-- Select --</option>
-                {pending.map((admin: any) => (
-                  <option key={admin.id} value={admin.email}>
-                    {admin.email}
-                  </option>
-                ))}
-              </select>
+              <FormField label="Select Pending Admin" name="selectedEmail" type="select" value={selectedEmail}
+                options={pending.map((admin: any) => ({ value: admin.email, label: admin.email }))} onChange={(e: any) => setSelectedEmail(e.target.value || "")} />
             </div>
 
             {/* Details */}

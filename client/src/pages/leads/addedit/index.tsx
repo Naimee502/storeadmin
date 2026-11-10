@@ -14,6 +14,7 @@ import {
   TEMPERATURES, leadNo, useCrmLists, useFollowupsQuery, useLeadByIdQuery, useLeadMutations, useLeadsQuery,
 } from "../../../graphql/hooks/lead";
 import { stateOptions } from "../../../utils/constants";
+import CustomFieldsSection, { cleanCustomFields, missingCustomFields, useCustomFieldDefs, type CustomFieldValue } from "../../../components/customfields";
 import { formatDateDMY, formatDateTimeDMY, timeMs } from "../../../utils/helper";
 import { partyLabel } from "../../../utils/partylabel";
 import { isOfflineSaved, savedOffline, OFFLINE_SAVED_MESSAGE } from "../../../offline/billing";
@@ -73,6 +74,8 @@ const AddEditLead = () => {
   const [f, setF] = useState({ ...EMPTY });
   const [stage, setStage] = useState("");
   const [products, setProducts] = useState<ProductLine[]>([]);
+  const [custom, setCustom] = useState<CustomFieldValue[]>([]);
+  const leadCustomDefs = useCustomFieldDefs("lead");
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [booking, setBooking] = useState(false);
@@ -95,6 +98,7 @@ const AddEditLead = () => {
       ownerid: lead.ownerid?.id || "", tags: (lead.tags || []).join(", "), notes: lead.notes || "",
     } as any);
     setStage(lead.stage || "");
+    setCustom((lead.customfields || []).map((c: any) => ({ key: c.key, value: c.value ?? "" })));
     setProducts((lead.products || []).map((p: any) => ({
       productid: p.productid?.id || "", variantid: p.variantid || "", unit: unitKey(p.unitid?.id, p.unitqty),
       name: p.name || p.productid?.name || "", qty: p.qty ?? "", note: p.note || "",
@@ -169,7 +173,7 @@ const AddEditLead = () => {
     notes: f.notes,
     stage: stage || stages[0]?.key,
     lostreason: lead?.lostreason || null,
-    customfields: (lead?.customfields || []).map((c: any) => ({ key: c.key, value: c.value })),
+    customfields: cleanCustomFields(leadCustomDefs, custom),
     products: products
       .filter((p) => p.productid || p.name.trim())
       .map((p) => ({
@@ -183,6 +187,8 @@ const AddEditLead = () => {
     const e: Record<string, string> = {};
     if (!f.name.trim()) e.name = "Name is required";
     if (!f.mobile.trim() && !f.email.trim()) e.mobile = "Give a mobile or an email";
+    const missing = missingCustomFields(leadCustomDefs, custom);
+    if (missing.length) e.custom = `Fill in: ${missing.join(", ")}`;
     setErrors(e);
     if (Object.keys(e).length) return;
     setSaving(true);
@@ -323,9 +329,9 @@ const AddEditLead = () => {
               {on("source") && <FormField label="Source" name="source" type="select" value={f.source} onChange={set("source")} options={sourceOptions} searchable />}
               {on("subsource") && <FormField label="Campaign / Ad" name="subsource" type="text" value={f.subsource} onChange={set("subsource")} />}
               {on("expectedvalue") && <FormField label="Expected Value (₹)" name="expectedvalue" type="number" value={f.expectedvalue} onChange={set("expectedvalue")} />}
-              {on("temperature") && <FormField label="Hot / Warm / Cold" name="temperature" type="select" value={f.temperature} onChange={set("temperature")} options={TEMPERATURES} />}
+              {on("temperature") && <FormField label="Hot / Warm / Cold" name="temperature" type="select" searchable value={f.temperature} onChange={set("temperature")} options={TEMPERATURES} />}
               {on("owner") && authType !== "staff" && <FormField label="Owner" name="ownerid" type="select" value={f.ownerid} onChange={set("ownerid")} options={staffOptions} searchable />}
-              {!isEdit && <FormField label="Stage" name="stage" type="select" value={stage || stages[0]?.key} onChange={(e: any) => setStage(e.target.value)} options={stages.filter((s) => s.kind === "open").map((s) => ({ value: s.key, label: s.label }))} />}
+              {!isEdit && <FormField label="Stage" name="stage" type="select" searchable value={stage || stages[0]?.key} onChange={(e: any) => setStage(e.target.value)} options={stages.filter((s) => s.kind === "open").map((s) => ({ value: s.key, label: s.label }))} />}
               {on("tags") && <FormField label="Tags (comma separated)" name="tags" type="text" value={f.tags} onChange={set("tags")} />}
             </div>
             {on("requirement") && <FormField label="Requirement" name="requirement" type="text" multiline value={f.requirement} onChange={set("requirement")} placeholder="What the customer asked for" />}
@@ -362,6 +368,9 @@ const AddEditLead = () => {
             )}
             {on("notes") && <FormField label="Notes" name="notes" type="text" multiline value={f.notes} onChange={set("notes")} />}
           </fieldset>
+
+          <CustomFieldsSection entity="lead" title="More Details" values={custom} onChange={setCustom} />
+          {errors.custom && <p className="text-[12px] text-rose-600">{errors.custom}</p>}
 
           {isEdit && lead && fuOn && (
             <fieldset className="border rounded-xl p-4 space-y-3">

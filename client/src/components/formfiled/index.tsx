@@ -175,7 +175,8 @@ const FormField: React.FC<FormFieldProps> = ({
   previewUrl = null,
   multiple = false,
   multiline = false,
-  searchable = false,
+  // One dropdown everywhere: searchable unless a caller asks for the plain one.
+  searchable = true,
   icon,
   disabled,
   addable = false,
@@ -200,8 +201,9 @@ const FormField: React.FC<FormFieldProps> = ({
   const isCheckbox = type === 'checkbox';
   const isRadio = type === 'radio';
   const isFile = type === 'file';
-  const isSelect = type === 'select' && options.length > 0;
-  const isMultiSelect = type === 'multiselect' && options.length > 0;
+  // A searchable dropdown stays a dropdown when empty, so "Add New" is still there.
+  const isSelect = type === 'select' && (options.length > 0 || !!searchable || !!addable);
+  const isMultiSelect = type === 'multiselect' && (options.length > 0 || !!searchable || !!addable);
   const finalIcon = icon ?? defaultIcons[type];
 
   const renderInput = () => {
@@ -231,8 +233,8 @@ const FormField: React.FC<FormFieldProps> = ({
           isDisabled={disabled}
           value={
             isMultiSelect
-              ? options.filter((opt) => value?.includes(opt.value))
-              : options.find((opt) => opt.value === value) || null
+              ? options.filter((opt) => (value || []).map(String).includes(String(opt.value)))
+              : options.find((opt) => String(opt.value) === String(value ?? "")) || null
           }
           onChange={(selected: MultiValue<Option> | SingleValue<Option>) => {
           if (isMultiSelect) {
@@ -257,7 +259,7 @@ const FormField: React.FC<FormFieldProps> = ({
           isSearchable
           isMulti={isMultiSelect}
           placeholder={placeholder || `Select ${label}`}
-          components={{ MenuList: DropdownFooter, IndicatorsContainer: IndicatorsWithHistory }}
+          components={{ MenuList: DropdownFooter, IndicatorsContainer: IndicatorsWithHistory, IndicatorSeparator: () => null }}
           addable={addable}
           onAddNew={onAddNew}
           historyTitle={historyTitle}
@@ -265,12 +267,21 @@ const FormField: React.FC<FormFieldProps> = ({
           historyRows={historyRows}
           historyEmptyText={historyEmptyText}
           onHistoryToggle={() => setHistoryOpen((s) => !s)}
-          onMenuOpen={() => setHistoryOpen(false)}
+          onMenuOpen={() => {
+            setHistoryOpen(false);
+            // Nothing to pick yet: go straight to Add New.
+            if (!options.length && addable && onAddNew) {
+              (document.activeElement as HTMLElement)?.blur();
+              onAddNew();
+            }
+          }}
+          noOptionsMessage={() => "No options"}
           menuPortalTarget={typeof document !== 'undefined' ? document.body : undefined}
           menuPosition="fixed"
           menuShouldScrollIntoView={false}
           styles={{
             menuPortal: (base: any) => ({ ...base, zIndex: 9999 }),
+            noOptionsMessage: (base: any) => ({ ...base, fontSize: 12, padding: '6px 10px' }),
             ...(compact
               ? {
                   control: (base: any, st: any) => ({

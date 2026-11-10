@@ -501,21 +501,14 @@ const TransferStockAddEdit: React.FC = () => {
                   <div className="flex flex-col gap-1">
                     <span className="text-sm font-medium text-gray-700 lg:hidden">Unit</span>
                     {item.unitOptions.length > 1 ? (
-                      <select
-                        value={item.transferunitid}
-                        onChange={(e) =>
-                          setItems((prev) => {
+                      <FormField label="" name={`unit${rowIdx}`} type="select" value={item.transferunitid} options={item.unitOptions}
+                        onChange={(e: any) =>
+                          e.target.value && setItems((prev) => {
                             const next = [...prev];
                             next[rowIdx] = { ...next[rowIdx], transferunitid: e.target.value };
                             return next;
                           })
-                        }
-                        className="w-full text-sm bg-white border border-gray-300 rounded-lg px-2 py-2 outline-none h-[38px]"
-                      >
-                        {item.unitOptions.map((o) => (
-                          <option key={o.value} value={o.value}>{o.label}</option>
-                        ))}
-                      </select>
+                        } />
                     ) : (
                       <div className="flex items-center border border-gray-200 rounded-lg px-2 h-[38px] bg-gray-50">
                         <span className="text-gray-600 text-sm truncate">

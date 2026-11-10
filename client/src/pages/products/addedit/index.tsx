@@ -6,7 +6,7 @@ import FormSwitch from "../../../components/formswitch";
 import FormPage from "../../../components/formpage";
 import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
 import { showMessage } from "../../../redux/slices/message";
-import { selectIsFormFieldEnabled } from "../../../redux/slices/permissions";
+import { selectIsFormFieldEnabled, selectIsModuleAllowed } from "../../../redux/slices/permissions";
 import {
   useProductServiceByIDQuery,
   useProductServiceMutations,
@@ -24,6 +24,7 @@ import { ServiceVariants } from "../../../components/servicevariants";
 import { ProductVariants } from "../../../components/productvariants";
 import { belowCostError } from "../../../utils/rates";
 import { validateProduct, type ValidationIssue, type ValidationResult } from "../../../utils/products/validateproduct";
+import CustomFieldsSection, { ITEM_TYPES, cleanCustomFields, missingCustomFields, useCustomFieldDefs } from "../../../components/customfields";
 import { useAccountLedgersQuery } from "../../../graphql/hooks/accountledgers";
 import Modal from "../../../components/modal";
 import { normalizeToYMD } from "../../../utils/helper";
@@ -39,6 +40,9 @@ const AddEditProductService = () => {
 
   const isAddVariantEnabled = useAppSelector(state => selectIsFormFieldEnabled(state, "products", "add_product_variant"));
   const productFormPermissions = useAppSelector(state => state.permissions.permissions?.formPermissions?.products || {});
+  const productCustomDefs = useCustomFieldDefs("product");
+  // Item type matters to manufacturing; other businesses never see the field.
+  const bomOn = useAppSelector((s: any) => selectIsModuleAllowed(s, "bom") || selectIsModuleAllowed(s, "production"));
   const isFieldEnabled = (fieldId: string) => {
     return productFormPermissions[fieldId] !== false;
   };
@@ -113,6 +117,8 @@ const AddEditProductService = () => {
   branchid: branchId,
   isservice: false,
   isserialised: false,
+  itemtype: "",
+  customfields: [],
   name: "",
   description: "",
   imageurl: "",
@@ -228,6 +234,8 @@ const AddEditProductService = () => {
       branchid: p.branchid ?? branchId ?? "",
       isservice: p.isservice ?? false,
       isserialised: p.isserialised ?? false,
+      itemtype: p.itemtype ?? "",
+      customfields: (p.customfields || []).map((c: any) => ({ key: c.key, value: c.value ?? "" })),
       name: p.name ?? "",
       description: p.description ?? "",
       imageurl: p.imageurl ?? "",
@@ -942,6 +950,9 @@ const AddEditProductService = () => {
 
       isservice: !!formData.isservice,
       isserialised: !!formData.isserialised,
+      // Unset stays unset (reads as finished goods); services have no item type.
+      itemtype: formData.isservice ? undefined : formData.itemtype || undefined,
+      customfields: cleanCustomFields(productCustomDefs, formData.customfields),
 
       productvariants: formData.isservice ? [] : (formData.productvariants || []).map(v => ({
         id: v.id || undefined,
@@ -1039,6 +1050,11 @@ const AddEditProductService = () => {
     }
 
     const { valid, issues } = validateForm();
+    const missingSpecs = missingCustomFields(productCustomDefs, formData.customfields);
+    if (missingSpecs.length) {
+      dispatch(showMessage({ message: `Fill in: ${missingSpecs.join(", ")}`, type: "error" }));
+      return;
+    }
 
     if (!valid) {
       dispatch(showMessage({ message: describeIssues(issues), type: "error" }));
@@ -1137,7 +1153,7 @@ const AddEditProductService = () => {
         title={isEdit ? "Edit Product" : "Add Product"}
         onSave={handleSubmit}
         onCancel={() => navigate('/products')}
-        saveLabel={isEdit ? 'Update Product Service' : 'Add Product Service'}
+        saveLabel={isEdit ? 'Update Product' : 'Add Product'}
         saveDisabled={hasBlockingError}
         saveTitle={
           hasBelowCostError
@@ -1161,6 +1177,7 @@ const AddEditProductService = () => {
               {isFieldEnabled("brandid") && <FormField label="Brand" name="brandid" type="select" placeholder="Select brand" options={brandData?.getBrands.map(b => ({ value: b.id, label: b.brandname })) || []} value={formData.brandid} onChange={handleChange} searchable addable onAddNew={() => openQuickAdd("brand", "Brand", "brandid")}/>}
               {isFieldEnabled("groupid") && <FormField label="Product Group" name="groupid" type="select" placeholder="Select group" options={groupData?.getProductGroups.map(g => ({ value: g.id, label: g.productgroupname })) || []} value={formData.groupid} onChange={handleChange} searchable addable onAddNew={() => openQuickAdd("productgroup", "Product Group", "groupid")}/>}
               {isFieldEnabled("modelid") && <FormField label="Model" name="modelid" type="select" placeholder="Select model" options={modelData?.getModels.map(m => ({ value: m.id, label: m.modelname })) || []} value={formData.modelid} onChange={handleChange} searchable addable onAddNew={() => openQuickAdd("model", "Model", "modelid")}/>}
+              {!formData.isservice && bomOn && isFieldEnabled("itemtype") && <FormField label="Item Type" name="itemtype" type="select" searchable placeholder="Finished Goods" options={ITEM_TYPES} value={formData.itemtype || ""} onChange={handleChange} />}
               {isFieldEnabled("sizeid") && <FormField label="Size" name="sizeid" type="select" placeholder="Select size" options={sizeData?.getSizes.map(s => ({ value: s.id, label: s.sizename })) || []} value={formData.sizeid} onChange={handleChange} searchable addable onAddNew={() => openQuickAdd("size", "Size", "sizeid")}/>}
 
               {/* Gallery thumbnails; the first image is the product's cover. */}
@@ -1200,6 +1217,9 @@ const AddEditProductService = () => {
             </div>
           </fieldset>
           )}
+
+          <CustomFieldsSection entity="product" values={formData.customfields || []}
+            onChange={(next) => setFormData((f: any) => ({ ...f, customfields: next }))} />
         </div>
 
         {/* === SEO, OPTIONS, ACCOUNTS === */}

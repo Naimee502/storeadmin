@@ -21,9 +21,12 @@ const STYLES: Record<string, { badge: string; dot: string }> = {
   rejected:   { badge: "bg-rose-50 text-rose-700 ring-rose-200",      dot: "bg-rose-500" },
   revised:    { badge: "bg-gray-50 text-gray-500 ring-gray-200",      dot: "bg-gray-400" },
   converted:  { badge: "bg-indigo-50 text-indigo-700 ring-indigo-200", dot: "bg-indigo-500" },
+  planned:    { badge: "bg-slate-50 text-slate-700 ring-slate-200",   dot: "bg-slate-400" },
+  inprogress: { badge: "bg-amber-50 text-amber-700 ring-amber-200",  dot: "bg-amber-500" },
+  completed:  { badge: "bg-green-50 text-green-700 ring-green-200",   dot: "bg-green-500" },
 };
 const FALLBACK = { badge: "bg-gray-50 text-gray-700 ring-gray-200", dot: "bg-gray-400" };
-const cap = (s: string) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : "—");
+const cap = (s: string) => (s === "inprogress" ? "In Progress" : s ? s.charAt(0).toUpperCase() + s.slice(1) : "—");
 
 const StatusDropdown: React.FC<{
   current: string;

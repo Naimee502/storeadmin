@@ -68,9 +68,21 @@ const unitNameFor = (variant: any, unitid?: string | null): string => {
 };
 
 /* * Normalize backend product */
+// Service variants take the product-variant shape (SAC as HSN, rate without GST when the rate includes it).
+const serviceAsVariants = (product: any) =>
+  (product.servicevariants || []).map((v: any) => ({
+    id: v.id,
+    name: v.name,
+    gst: v.gst ?? 0,
+    hsncode: v.saccode || "",
+    servicerate: v.taxinclusive && v.gst ? Number(v.servicerate || 0) / (1 + Number(v.gst) / 100) : Number(v.servicerate || 0),
+    unitprices: [],
+    unitconversions: [],
+  }));
+
 const normalizeProduct = (product: any) => ({
   ...product,
-  productvariants: product.productvariants?.map((v: any) => ({
+  productvariants: product.isservice ? serviceAsVariants(product) : product.productvariants?.map((v: any) => ({
     ...v,
     baseunitid: v.baseunitid?.id,
     purchaseunitid: v.purchaseunitid?.id,
@@ -105,11 +117,12 @@ const ProductSection: React.FC<ProductSectionProps> = ({
   const normalizedProducts = productData.map(normalizeProduct);
   // Product picker options; on sales forms nothing-in-stock items go to the bottom.
   const variantOptions = (() => {
-    const opts = normalizedProducts.flatMap((p) =>
+    // Services only on a service bill (listed first); a goods bill lists goods as before.
+    const opts = [...normalizedProducts.filter((p) => p.isservice && iservice), ...normalizedProducts.filter((p) => !p.isservice)].flatMap((p) =>
       p.productvariants.map((v: any) => ({
         value: `${p.id}--${v.id}`,
-        label: `${p.name} - ${v.name} - (Stock: ${v.currentstock ?? 0})`,
-        empty: Number(v.currentstock ?? 0) <= 0,
+        label: p.isservice ? `${p.name} - ${v.name} - ₹${Number(v.servicerate || 0).toFixed(2)}` : `${p.name} - ${v.name} - (Stock: ${v.currentstock ?? 0})`,
+        empty: !p.isservice && Number(v.currentstock ?? 0) <= 0,
       }))
     );
     return type === "sales" ? [...opts.filter((o) => !o.empty), ...opts.filter((o) => o.empty)] : opts;
@@ -593,11 +606,7 @@ const ProductSection: React.FC<ProductSectionProps> = ({
             label={iservice ? "Service" : "Product"}
             name="productserviceid"
             type="select"
-            value={
-              iservice
-                ? selectedProduct.variantid ?? ""
-                : `${selectedProduct.productserviceid ?? ""}--${selectedProduct.variantid ?? ""}`
-            }
+            value={selectedProduct.productserviceid ? `${selectedProduct.productserviceid}--${selectedProduct.variantid ?? ""}` : ""}
             onChange={(e) => {
               if (!e.target.value) {
                 setSelectedProduct({}); // clear → unselect product
@@ -615,8 +624,9 @@ const ProductSection: React.FC<ProductSectionProps> = ({
                 productserviceid: pid,
                 variantid: vid,
                 productname: product?.name || "",
-                rate:
-                  type === "sales"
+                rate: product?.isservice
+                  ? Number(variant?.servicerate ?? 0)
+                  : type === "sales"
                     ? 0
                     : Number(variant?.purchaserate ?? 0),
                 quantity: 1,

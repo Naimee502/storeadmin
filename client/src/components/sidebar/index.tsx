@@ -114,6 +114,10 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar, onHoverChange,
     "reports.crm": "leads",
     leadsources: "leads",
     "reports.quotation": "quotations",
+    "reports.production": "production",
+    // Planning reads work orders and BOMs.
+    materialplanning: "workorders",
+    "reports.service": "appointments|jobcards|contracts|memberships",
   };
 
   const FEATURE_TO_MODULES: Record<string, string[]> = {
@@ -133,7 +137,8 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar, onHoverChange,
       if (!isModuleAllowed(moduleId)) return false;
       // These reports also need their own module switched on.
       const needs = REPORT_NEEDS[moduleId];
-      if (needs && !isModuleAllowed(needs)) return false;
+      // "a|b": any one of them is enough.
+      if (needs && !needs.split("|").some((m) => isModuleAllowed(m))) return false;
       if (moduleId === "announcements" && !announcementsUsed) return false;
 
       return true;
@@ -190,6 +195,15 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar, onHoverChange,
     { to: '/quotations', label: 'Quotations', icon: <FaFileAlt className="text-sky-400 text-[15px] flex-shrink-0" />, moduleId: "quotations", roles: ["admin", "branch", "staff"], section: "CRM" },
     { to: '/leadsources', label: 'Lead Sources', icon: <FaSitemap className="text-violet-400 text-[15px] flex-shrink-0" />, moduleId: "leadsources", roles: ["admin", "branch", "staff"], section: "CRM" },
     { to: '/followups', label: 'Follow Ups', icon: <FaPhoneAlt className="text-emerald-400 text-[15px] flex-shrink-0" />, moduleId: "followups", roles: ["admin", "branch", "staff"], section: "CRM" },
+    { to: '/bom', label: 'Bill of Materials', icon: <FaSitemap className="text-amber-400 text-[15px] flex-shrink-0" />, moduleId: "bom", roles: ["admin", "branch", "staff"], section: "Manufacturing" },
+    { to: '/workorders', label: 'Work Orders', icon: <FaClipboardList className="text-orange-400 text-[15px] flex-shrink-0" />, moduleId: "workorders", roles: ["admin", "branch", "staff"], section: "Manufacturing" },
+    { to: '/production', label: 'Production', icon: <FaWrench className="text-emerald-400 text-[15px] flex-shrink-0" />, moduleId: "production", roles: ["admin", "branch", "staff"], section: "Manufacturing" },
+    { to: '/materialplanning', label: 'Material Planning', icon: <FaBoxes className="text-sky-400 text-[15px] flex-shrink-0" />, moduleId: "materialplanning", roles: ["admin", "branch", "staff"], section: "Manufacturing" },
+    { to: '/services', label: 'Services', icon: <FaLayerGroup className="text-amber-400 text-[15px] flex-shrink-0" />, moduleId: "services", roles: ["admin", "branch", "staff"], section: "Service" },
+    { to: '/appointments', label: 'Appointments', icon: <FaCalendarCheck className="text-pink-400 text-[15px] flex-shrink-0" />, moduleId: "appointments", roles: ["admin", "branch", "staff"], section: "Service" },
+    { to: '/jobcards', label: 'Job Cards', icon: <FaWrench className="text-sky-400 text-[15px] flex-shrink-0" />, moduleId: "jobcards", roles: ["admin", "branch", "staff"], section: "Service" },
+    { to: '/contracts', label: 'AMC / Warranty', icon: <FaFileAlt className="text-teal-400 text-[15px] flex-shrink-0" />, moduleId: "contracts", roles: ["admin", "branch", "staff"], section: "Service" },
+    { to: '/memberships', label: 'Memberships', icon: <FaUsers className="text-violet-400 text-[15px] flex-shrink-0" />, moduleId: "memberships", roles: ["admin", "branch", "staff"], section: "Service" },
     { to: '/channels', label: 'Channels', icon: <FaSitemap className="text-cyan-400 text-[15px] flex-shrink-0" />, moduleId: "channels", roles: ["admin", "branch", "staff"], section: "Distribution" },
     { to: '/salesroutes', label: 'Sales Routes', icon: <FaRoute className="text-indigo-400 text-[15px] flex-shrink-0" />, moduleId: "salesroutes", roles: ["admin", "branch", "staff"], section: "Distribution" },
     { to: '/pricelists', label: 'Price Lists', icon: <FaTags className="text-rose-400 text-[15px] flex-shrink-0" />, moduleId: "pricelists", roles: ["admin", "branch", "staff"], section: "Distribution" },
@@ -212,6 +226,8 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar, onHoverChange,
     { to: '/reports/ewaybill', label: 'e-Way Bill Report', icon: <FaTruck className="text-amber-400 text-[15px] flex-shrink-0" />, moduleId: "reports.ewaybill", roles: ["admin", "branch", "staff"], section: "Reports" },
     { to: '/reports/crm', label: 'CRM Report', icon: <FaFunnelDollar className="text-indigo-400 text-[15px] flex-shrink-0" />, moduleId: "reports.crm", roles: ["admin", "branch", "staff"], section: "Reports" },
     { to: '/reports/quotation', label: 'Quotation Report', icon: <FaFileAlt className="text-sky-400 text-[15px] flex-shrink-0" />, moduleId: "reports.quotation", roles: ["admin", "branch", "staff"], section: "Reports" },
+    { to: '/reports/production', label: 'Production Report', icon: <FaWrench className="text-emerald-400 text-[15px] flex-shrink-0" />, moduleId: "reports.production", roles: ["admin", "branch", "staff"], section: "Reports" },
+    { to: '/reports/service', label: 'Service Report', icon: <FaCalendarCheck className="text-pink-400 text-[15px] flex-shrink-0" />, moduleId: "reports.service", roles: ["admin", "branch", "staff"], section: "Reports" },
     { to: '/reports/attendance', label: 'Attendance & Leave', icon: <FaCalendarCheck className="text-orange-400 text-[15px] flex-shrink-0" />, moduleId: "reports.attendance", roles: ["admin", "branch", "staff"], section: "Reports" },
   ];
 

@@ -181,7 +181,8 @@ const ProductServices = () => {
           showBarcode={canSeeBarcode}
           requireBranchForAdd={true}
           onEdit={(row) =>
-            navigate(`/products/addedit/${row.id}`, {
+            // Services have their own form (it keeps their service-only fields).
+            row.isservice ? navigate(`/services/addedit/${row.id}`) : navigate(`/products/addedit/${row.id}`, {
               state: {
                 barcode: row.barcode,
                 productcode: row.productcode,

@@ -12,6 +12,7 @@ import LiveTrackingMap from "../../../components/livetrackingmap";
 import { useAppSelector } from "../../../redux/hooks";
 import { formatDateDMY, formatDateTimeDMY, todayYMD, shiftDaysYMD } from "../../../utils/helper";
 import { FaChartBar, FaListAlt, FaBullseye, FaBoxes, FaMapMarkedAlt } from "react-icons/fa";
+import FormField from "../../../components/formfiled";
 
 // Salesman Field Report; all figures come from the server, same as the salesman app.
 
@@ -581,10 +582,8 @@ const SalesmanFieldReport: React.FC = () => {
 
   const inputCls = "h-8 rounded-md border border-slate-300 bg-white px-2 text-[13px] w-full";
   const salesmanSelect = (value: string, onChange: (v: string) => void) => (
-    <select className={inputCls} value={value} onChange={(e) => onChange(e.target.value)}>
-      <option value="">All salesmen</option>
-      {salesmen.map((s: any) => <option key={s.id} value={s.id}>{s.name}</option>)}
-    </select>
+    <FormField label="" name="salesman" type="select" placeholder="All salesmen" value={value}
+      options={salesmen.map((s: any) => ({ value: s.id, label: s.name }))} onChange={(e: any) => onChange(e.target.value || "")} />
   );
 
   const FilterBar = (
@@ -716,18 +715,18 @@ const SalesmanFieldReport: React.FC = () => {
             <div className="rounded-lg border border-slate-200 bg-white px-3 py-2 mb-3 flex flex-wrap items-center gap-x-6 gap-y-2">
               <label className="text-[12px] font-medium text-slate-600 flex items-center gap-2">
                 {stSelLabel}
-                <select className="h-8 rounded-md border border-slate-300 bg-white px-2 text-[13px] min-w-[220px]" value={stSel} onChange={(e) => setStSel(e.target.value)}>
-                  <option value="">All</option>
-                  {stOptions.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
-                </select>
+                <div className="min-w-[220px]">
+                  <FormField label="" name="stSel" type="select" placeholder="All" value={stSel}
+                    options={stOptions.map((o) => ({ value: o.id, label: o.name }))} onChange={(e: any) => setStSel(e.target.value || "")} />
+                </div>
               </label>
               {stView === "order" && (
                 <label className="text-[12px] font-medium text-slate-600 flex items-center gap-2">
                   Order
-                  <select className="h-8 rounded-md border border-slate-300 bg-white px-2 text-[13px] min-w-[260px]" value={stOrder} onChange={(e) => setStOrder(e.target.value)}>
-                    <option value="">All orders</option>
-                    {stOrderOptions.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
-                  </select>
+                  <div className="min-w-[260px]">
+                    <FormField label="" name="stOrder" type="select" placeholder="All orders" value={stOrder}
+                      options={stOrderOptions.map((o) => ({ value: o.id, label: o.name }))} onChange={(e: any) => setStOrder(e.target.value || "")} />
+                  </div>
                 </label>
               )}
               <div className="text-xs text-gray-500 flex flex-wrap gap-x-4 gap-y-1">

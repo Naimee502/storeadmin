@@ -80,6 +80,7 @@ export type ModuleSection =
   | "pricing"
   | "accounting"
   | "manufacturing"
+  | "service"
   | "crm"
   | "hr"
   | "communication"
@@ -158,7 +159,18 @@ const MODULE_LIST: ModuleDef[] = [
 
   // Manufacturing (BOM / Production)
   { id: "bom",         label: "Bill of Materials", section: "manufacturing", actions: CRUD_ACTIONS, inAdminRegister: true },
+  { id: "workorders",  label: "Work Orders",        section: "manufacturing", actions: CRUD_ACTIONS, inAdminRegister: true },
   { id: "production",  label: "Production",         section: "manufacturing", actions: CRUD_ACTIONS, inAdminRegister: true },
+  // Raw material still needed for open work orders (view + export).
+  { id: "materialplanning", label: "Material Planning", section: "manufacturing", actions: REPORT_ACTIONS, inAdminRegister: true },
+
+  // Service (salon, clinic, repair centre, AMC)
+  { id: "services",     label: "Services",       section: "service", actions: CRUD_ACTIONS, inAdminRegister: true },
+  { id: "appointments", label: "Appointments",   section: "service", actions: [...CRUD_ACTIONS, "convert"], inAdminRegister: true },
+  // "convert" = make a Sales Invoice from a job card.
+  { id: "jobcards",     label: "Job Cards",      section: "service", actions: [...CRUD_ACTIONS, "print", "convert"], inAdminRegister: true },
+  { id: "contracts",    label: "AMC / Warranty", section: "service", actions: CRUD_ACTIONS, inAdminRegister: true },
+  { id: "memberships",  label: "Memberships",    section: "service", actions: CRUD_ACTIONS, inAdminRegister: true },
 
   // Reports — sub-divided so each can be granted/denied
   { id: "reports.sales",      label: "Sales Reports",       section: "reports", actions: REPORT_ACTIONS, inAdminRegister: true },
@@ -178,6 +190,8 @@ const MODULE_LIST: ModuleDef[] = [
   { id: "reports.ewaybill",   label: "e-Way Bill Reports",  section: "reports", actions: REPORT_ACTIONS, inAdminRegister: true },
   { id: "reports.crm",        label: "CRM Reports",         section: "reports", actions: REPORT_ACTIONS, inAdminRegister: true },
   { id: "reports.quotation",  label: "Quotation Reports",   section: "reports", actions: REPORT_ACTIONS, inAdminRegister: true },
+  { id: "reports.production", label: "Production Reports",  section: "reports", actions: REPORT_ACTIONS, inAdminRegister: true },
+  { id: "reports.service",    label: "Service Reports",     section: "reports", actions: REPORT_ACTIONS, inAdminRegister: true },
 
   // System (always granted, never gated by allowedmodules)
   { id: "branches",      label: "Branches",        section: "system", actions: CRUD_ACTIONS, inAdminRegister: false },
@@ -191,7 +205,8 @@ const CLEARABLE_MODULE_IDS = [
   "products", "accountgroups", "accountledgers", "staffaccounts", "accounts", "branches",
   "salesorder", "salesinvoice", "salesreturn", "deliverychallan", "purchaseorder", "purchaseinvoice", "purchasereturn",
   "transferstock", "stockadjustments", "channels", "salesroutes", "pricelists", "priceassignments",
-  "chargerules", "transactions", "payments", "expensenote", "attendance", "announcements", "leads", "followups", "quotations",
+  "chargerules", "transactions", "payments", "expensenote", "attendance", "announcements", "leads", "followups", "quotations", "bom", "workorders", "production",
+  "appointments", "jobcards", "contracts", "memberships",
 ];
 
 export const MODULES: ModuleDef[] = MODULE_LIST.map((m) =>
@@ -211,6 +226,7 @@ export const SECTION_LABELS: Record<ModuleSection, string> = {
   pricing: "Pricing",
   accounting: "Accounting",
   manufacturing: "Manufacturing",
+  service: "Service",
   crm: "CRM",
   hr: "HR & Staff",
   communication: "Communication",
@@ -227,7 +243,7 @@ export const ADMIN_REGISTER_MODULES = MODULES.filter((m) => m.inAdminRegister);
 export const MODULES_BY_SECTION = (() => {
   const map: Record<ModuleSection, ModuleDef[]> = {
     master: [], accounts: [], sales: [], pos: [], purchase: [], inventory: [], distribution: [], pricing: [],
-    accounting: [], manufacturing: [], crm: [], hr: [], communication: [], reports: [], system: [],
+    accounting: [], manufacturing: [], service: [], crm: [], hr: [], communication: [], reports: [], system: [],
   };
   MODULES.forEach((m) => map[m.section].push(m));
   return map;
