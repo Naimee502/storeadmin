@@ -45,6 +45,7 @@ import { syncTypeDefs } from "./sync";
 import { deliveryChallanTypeDefs } from "./deliverychallan";
 import { leadTypeDefs } from "./lead";
 import { quotationTypeDefs } from "./quotation";
+import { leadSourceTypeDefs } from "./leadsource";
 
 export const typeDefs = [
   branchTypeDefs,
@@ -94,4 +95,5 @@ export const typeDefs = [
   deliveryChallanTypeDefs,
   leadTypeDefs,
   quotationTypeDefs,
+  leadSourceTypeDefs,
 ];

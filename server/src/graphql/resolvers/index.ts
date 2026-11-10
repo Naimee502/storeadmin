@@ -49,6 +49,7 @@ import { leadResolvers } from "./lead";
 import { Lead, Followup } from "../../models/lead";
 import { quotationResolvers } from "./quotation";
 import { Quotation } from "../../models/quotation";
+import { leadSourceResolvers } from "./leadsource";
 
 import { withOfflineActions, withOfflineWrites } from "../../utils/offlinesync";
 import { SalesOrder } from "../../models/salesorder";
@@ -135,4 +136,5 @@ export const resolvers = [
     ["editFollowup", "deleteFollowup", "completeFollowup"]
   ),
   withOfflineActions(quotationResolvers, Quotation, ["editQuotation", "deleteQuotation", "setQuotationStatus"]),
+  leadSourceResolvers,
 ];

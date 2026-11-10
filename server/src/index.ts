@@ -17,6 +17,7 @@ import { startAutoPunchOutScheduler } from './utils/autopunchout';
 import { imageResizer } from './utils/imagecache';
 import { warmUpMail } from './utils/mail';
 import { isCustomDomainOrigin, getCustomDomains } from './utils/customdomain';
+import { leadWebhookRouter, startLeadPullScheduler } from './utils/leadintake';
 
 dotenv.config();
 
@@ -95,6 +96,9 @@ const startServer = async () => {
       res.status(500).end();
     }
   });
+
+  // Lead integrations (IndiaMART, JustDial, Meta, WhatsApp, website forms) post here; the token names the business.
+  app.use('/webhooks/leads', leadWebhookRouter);
 
   app.post("/refresh_token", async (req, res) => {
     const token = req.cookies.refreshToken;
@@ -204,6 +208,8 @@ const startServer = async () => {
   startReminderScheduler();
   // Punch out anyone who forgot, at the business's cut-off (default 22:00 IST).
   startAutoPunchOutScheduler();
+  // IndiaMART / TradeIndia pulls every 15 minutes.
+  startLeadPullScheduler();
 };
 
 startServer();

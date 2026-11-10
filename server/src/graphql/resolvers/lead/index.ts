@@ -139,12 +139,12 @@ async function ownFollowup(id: string, context: any, action = "edit") {
   return { scope, f };
 }
 
-async function stagesOf(adminid: any) {
+export async function stagesOf(adminid: any) {
   const s: any = await AdminSettings.getOrCreateForAdmin(adminid);
   return Array.isArray(s?.crmStages) && s.crmStages.length ? s.crmStages : DEFAULT_LEAD_STAGES;
 }
 
-async function nextLeadNumber(adminid: any) {
+export async function nextLeadNumber(adminid: any) {
   const top: any = await Lead.findOne({ adminid, leadnumber: { $regex: /^\d+$/ } })
     .collation(NUMERIC_COLLATION).sort({ leadnumber: -1 }).select("leadnumber").lean();
   return String((parseInt(top?.leadnumber || "0", 10) || 0) + 1).padStart(6, "0");
