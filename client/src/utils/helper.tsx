@@ -231,3 +231,6 @@ export const gstSplit = (companyState: any, partyState: any, gst: number) => {
   const cgst = inter ? 0 : Math.round((gst / 2) * 100) / 100;
   return { inter, igst: inter ? gst : 0, cgst, sgst: inter ? 0 : Math.round((gst - cgst) * 100) / 100 };
 };
+
+/** Epoch ms of a Date, ISO text or epoch-ms text (device copies can hold either); NaN when unknown. */
+export const timeMs = (v: any): number => (v === null || v === undefined || v === "" ? NaN : toDate(v).getTime());

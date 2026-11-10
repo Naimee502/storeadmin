@@ -60,6 +60,7 @@ const BY_ID_FIELDS = new Set([
   "getStockAdjustmentById",
   "getTransferStockById",
   "getDeliveryChallanById",
+  "getQuotationById",
 ]);
 
 // Network failure with no HTTP response at all (not a GraphQL or HTTP error).
@@ -169,6 +170,9 @@ const LOCAL_QUERIES: Record<string, LocalSpec> = {
   getChannels: list("channel", "Channel"),
   getChannelById: { c: "channel", kind: "byId", typename: "Channel" },
   ...doc("salesroute", "SalesRoute", "getSalesRoutes", "getSalesRoutesPage", "getSalesRouteById"),
+  ...doc("quotation", "Quotation", "getQuotations", "getQuotationsPage", "getQuotationById"),
+  ...doc("lead", "Lead", "getLeads", "getLeadsPage", "getLeadById"),
+  ...doc("followup", "Followup", "getFollowups", "getFollowupsPage", "getFollowupById"),
   getHolidays: list("holiday", "Holiday"),
   getHolidayById: { c: "holiday", kind: "byId", typename: "Holiday" },
   getLeaveTypes: list("leavetype", "LeaveType"),
@@ -183,7 +187,7 @@ const idOf = (v: any): string => (!v ? "" : typeof v === "string" ? v : String(v
 
 // Same scoping the screens send: branch, party and category; soft-deleted documents never show.
 // Filter fields a master list compares by value (party/vendor type, branch, group, category, channel).
-const MASTER_FILTER_KEYS = ["type", "branchid", "accountgroupid", "category", "categoryid", "channel"];
+const MASTER_FILTER_KEYS = ["type", "branchid", "accountgroupid", "category", "categoryid", "channel", "leadid"];
 const same = (a: any, b: any) => idOf(a).toLowerCase() === String(b).toLowerCase();
 
 function matches(d: any, vars: any, isDoc: boolean, master = false): boolean {
@@ -195,7 +199,7 @@ function matches(d: any, vars: any, isDoc: boolean, master = false): boolean {
   }
   if (isDoc && d?.status === false) return false;
   if (typeof f.status === "boolean" && d?.status !== undefined && d.status !== f.status) return false;
-  for (const k of ["branchid", "partyacc", "partyid"]) {
+  for (const k of ["branchid", "partyacc", "partyid", "leadid"]) {
     if (isDoc && f[k] && d?.[k] !== undefined && idOf(d[k]) !== String(f[k])) return false;
   }
   // Transfer lists take the branch as a top-level argument.
@@ -207,7 +211,7 @@ function matches(d: any, vars: any, isDoc: boolean, master = false): boolean {
 }
 
 // Collections a bare id on an offline master can point at.
-const REF_COLLECTIONS = ["unit", "category", "subcategory", "brand", "model", "size", "productgroup", "ledger", "account", "branch", "staff", "product"];
+const REF_COLLECTIONS = ["unit", "category", "subcategory", "brand", "model", "size", "productgroup", "ledger", "account", "branch", "staff", "product", "lead"];
 function refById(id: string): any {
   for (const c of REF_COLLECTIONS) {
     const d = localDoc(c, id);

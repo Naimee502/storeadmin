@@ -103,6 +103,13 @@ import DeletedSalesReturns from "../pages/salesreturn/deletedentries";
 import DeliveryChallans from "../pages/deliverychallan";
 import AddEditDeliveryChallan from "../pages/deliverychallan/addedit";
 import DeletedDeliveryChallans from "../pages/deliverychallan/deletedentries";
+import Leads from "../pages/leads";
+import AddEditLead from "../pages/leads/addedit";
+import DeletedLeads from "../pages/leads/deletedentries";
+import Followups from "../pages/followups";
+import Quotations from "../pages/quotations";
+import AddEditQuotation from "../pages/quotations/addedit";
+import DeletedQuotations from "../pages/quotations/deletedentries";
 import PurchaseReturns from "../pages/purchasereturn";
 import AddEditPurchaseReturn from "../pages/purchasereturn/addedit";
 import DeletedPurchaseReturns from "../pages/purchasereturn/deletedentries";
@@ -1022,6 +1029,15 @@ const AppRoutes = () => {
       <Route path="/deliverychallan/addedit" element={<ProtectedRoutes><AddEditDeliveryChallan /></ProtectedRoutes>} />
       <Route path="/deliverychallan/addedit/:id" element={<ProtectedRoutes><AddEditDeliveryChallan /></ProtectedRoutes>} />
       <Route path="/deliverychallan/deletedentries" element={<ProtectedRoutes><DeletedDeliveryChallans /></ProtectedRoutes>} />
+      <Route path="/leads" element={<ProtectedRoutes><Leads /></ProtectedRoutes>} />
+      <Route path="/leads/addedit" element={<ProtectedRoutes><AddEditLead /></ProtectedRoutes>} />
+      <Route path="/leads/addedit/:id" element={<ProtectedRoutes><AddEditLead /></ProtectedRoutes>} />
+      <Route path="/leads/deletedentries" element={<ProtectedRoutes><DeletedLeads /></ProtectedRoutes>} />
+      <Route path="/followups" element={<ProtectedRoutes><Followups /></ProtectedRoutes>} />
+      <Route path="/quotations" element={<ProtectedRoutes><Quotations /></ProtectedRoutes>} />
+      <Route path="/quotations/addedit" element={<ProtectedRoutes><AddEditQuotation /></ProtectedRoutes>} />
+      <Route path="/quotations/addedit/:id" element={<ProtectedRoutes><AddEditQuotation /></ProtectedRoutes>} />
+      <Route path="/quotations/deletedentries" element={<ProtectedRoutes><DeletedQuotations /></ProtectedRoutes>} />
       {/* Sales Return (Credit Note) */}
       <Route
         path="/salesreturn"

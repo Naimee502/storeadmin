@@ -59,6 +59,9 @@ const SETTINGS_FIELDS = `
   gstCity
   gstPincode
   gstStateSplit
+  crmStages { key label kind }
+  crmSources
+  crmLostReasons
   companyState
   printShowHsnColumn
   printShowGstColumn

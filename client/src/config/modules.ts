@@ -80,6 +80,7 @@ export type ModuleSection =
   | "pricing"
   | "accounting"
   | "manufacturing"
+  | "crm"
   | "hr"
   | "communication"
   | "reports"
@@ -147,6 +148,12 @@ const MODULE_LIST: ModuleDef[] = [
   // Communication (opt-in, not default-on)
   { id: "announcements", label: "Announcements", section: "communication", actions: CRUD_ACTIONS, inAdminRegister: true },
 
+  // CRM. Leads "view" = see every lead; without it staff see only their own.
+  { id: "leads",       label: "Leads",       section: "crm", actions: ["view", "add", "edit", "delete", "convert", "import", "export", "reset"], inAdminRegister: true },
+  { id: "followups",   label: "Follow Ups",  section: "crm", actions: CRUD_ACTIONS, inAdminRegister: true },
+  // "convert" = make a Sales Order from an accepted quotation.
+  { id: "quotations",  label: "Quotations",  section: "crm", actions: ["add", "edit", "delete", "print", "whatsapp", "convert", "reset"], inAdminRegister: true },
+
   // Manufacturing (BOM / Production)
   { id: "bom",         label: "Bill of Materials", section: "manufacturing", actions: CRUD_ACTIONS, inAdminRegister: true },
   { id: "production",  label: "Production",         section: "manufacturing", actions: CRUD_ACTIONS, inAdminRegister: true },
@@ -180,7 +187,7 @@ const CLEARABLE_MODULE_IDS = [
   "products", "accountgroups", "accountledgers", "staffaccounts", "accounts", "branches",
   "salesorder", "salesinvoice", "salesreturn", "deliverychallan", "purchaseorder", "purchaseinvoice", "purchasereturn",
   "transferstock", "stockadjustments", "channels", "salesroutes", "pricelists", "priceassignments",
-  "chargerules", "transactions", "payments", "expensenote", "attendance", "announcements",
+  "chargerules", "transactions", "payments", "expensenote", "attendance", "announcements", "leads", "followups", "quotations",
 ];
 
 export const MODULES: ModuleDef[] = MODULE_LIST.map((m) =>
@@ -200,6 +207,7 @@ export const SECTION_LABELS: Record<ModuleSection, string> = {
   pricing: "Pricing",
   accounting: "Accounting",
   manufacturing: "Manufacturing",
+  crm: "CRM",
   hr: "HR & Staff",
   communication: "Communication",
   reports: "Reports",
@@ -215,7 +223,7 @@ export const ADMIN_REGISTER_MODULES = MODULES.filter((m) => m.inAdminRegister);
 export const MODULES_BY_SECTION = (() => {
   const map: Record<ModuleSection, ModuleDef[]> = {
     master: [], accounts: [], sales: [], pos: [], purchase: [], inventory: [], distribution: [], pricing: [],
-    accounting: [], manufacturing: [], hr: [], communication: [], reports: [], system: [],
+    accounting: [], manufacturing: [], crm: [], hr: [], communication: [], reports: [], system: [],
   };
   MODULES.forEach((m) => map[m.section].push(m));
   return map;

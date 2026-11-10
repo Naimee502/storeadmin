@@ -651,5 +651,87 @@ export const FORM_PERMISSIONS_CONFIG: FormConfig[] = [
         ],
       }
     ]
+  },
+  {
+    moduleId: "quotations",
+    label: "Quotation Fields",
+    sections: [
+      {
+        id: "main_details",
+        label: "Main Details",
+        fields: [
+          { id: "billdate", label: "Quotation Date" },
+          { id: "validtill", label: "Valid Till" },
+          { id: "subject", label: "Subject" },
+          { id: "contactperson", label: "Kind Attention" },
+        ],
+      },
+      {
+        id: "add_products",
+        label: "Add Products",
+        fields: [
+          { id: "product", label: "Product" },
+          { id: "unit", label: "Unit" },
+          { id: "quantity", label: "Quantity" },
+          { id: "rate", label: "Rate" },
+          { id: "discount", label: "Discount" },
+          { id: "gst", label: "GST %" },
+          { id: "add_product_button", label: "Add Button" },
+          { id: "description", label: "Line Description / Specs" },
+          { id: "optional", label: "Optional Item" },
+        ],
+      },
+      {
+        id: "content",
+        label: "Letter",
+        fields: [
+          { id: "intro", label: "Opening Text" },
+          { id: "terms", label: "Terms & Conditions" },
+          { id: "notes", label: "Internal Notes" },
+        ],
+      },
+    ],
+  },
+  {
+    moduleId: "leads",
+    label: "Lead Fields",
+    sections: [
+      {
+        id: "contact",
+        label: "Contact",
+        fields: [
+          { id: "company", label: "Company" },
+          { id: "mobile", label: "Mobile" },
+          { id: "altmobile", label: "Alternate Mobile" },
+          { id: "email", label: "Email" },
+          { id: "gstin", label: "GSTIN" },
+        ],
+      },
+      {
+        id: "address",
+        label: "Address",
+        fields: [
+          { id: "address", label: "Address" },
+          { id: "city", label: "City" },
+          { id: "state", label: "State" },
+          { id: "pincode", label: "Pincode" },
+        ],
+      },
+      {
+        id: "enquiry",
+        label: "Enquiry",
+        fields: [
+          { id: "source", label: "Source" },
+          { id: "subsource", label: "Campaign / Ad" },
+          { id: "requirement", label: "Requirement" },
+          { id: "products", label: "Products" },
+          { id: "expectedvalue", label: "Expected Value" },
+          { id: "temperature", label: "Hot / Warm / Cold" },
+          { id: "owner", label: "Owner" },
+          { id: "tags", label: "Tags" },
+          { id: "notes", label: "Notes" },
+        ],
+      },
+    ],
   }
 ];

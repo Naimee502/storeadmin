@@ -11,6 +11,7 @@ export type DocType =
   | "stockadjustment"
   | "transferstock"
   | "deliverychallan"
+  | "quotation"
   | MasterType;
 // Masters and expenses (Phase 3): no device numbers; named after their localdb collections.
 export type MasterType =
@@ -33,10 +34,12 @@ export type MasterType =
   | "priceassignment"
   | "salesroute"
   | "holiday"
-  | "leavetype";
+  | "leavetype"
+  | "lead"
+  | "followup";
 export const MASTER_TYPES: MasterType[] = [
   "product", "account", "ledger", "unit", "category", "subcategory", "brand", "model", "size", "productgroup", "expensenote", "transaction",
-  "accountgroup", "channel", "chargerule", "pricelist", "priceassignment", "salesroute", "holiday", "leavetype",
+  "accountgroup", "channel", "chargerule", "pricelist", "priceassignment", "salesroute", "holiday", "leavetype", "lead", "followup",
 ];
 export const isMasterType = (t: string): t is MasterType => (MASTER_TYPES as string[]).includes(t);
 // "action": a status change (confirm, dispatch, deliver, assign) whose local effect is `patch`.
@@ -54,6 +57,7 @@ export const DOC_TYPES: DocType[] = [
   "stockadjustment",
   "transferstock",
   "deliverychallan",
+  "quotation",
 ];
 export const OFFLINE_ID_PREFIX = "offline-";
 
@@ -190,6 +194,20 @@ export const OP_SPECS: Record<string, OpSpec> = {
   updatePriceAssignment: spec("updatePriceAssignment", "edit", "priceassignment", "PriceAssignment", "Price Assignment"),
   deletePriceAssignment: spec("deletePriceAssignment", "delete", "priceassignment", "PriceAssignment", "Price Assignment"),
   createSalesRoute: spec("createSalesRoute", "create", "salesroute", "SalesRoute", "Sales Route"),
+  // CRM: leads and follow-ups queue like masters; stage, link and done are status actions.
+  addQuotation: spec("addQuotation", "create", "quotation", "Quotation", "Quotation"),
+  editQuotation: spec("editQuotation", "edit", "quotation", "Quotation", "Quotation"),
+  deleteQuotation: spec("deleteQuotation", "delete", "quotation", "Quotation", "Quotation"),
+  setQuotationStatus: action("setQuotationStatus", "quotation", "Quotation", "Quotation", (v) => ({ quotationStatus: v?.quotationStatus, statusreason: v?.statusreason ?? null })),
+  addLead: spec("addLead", "create", "lead", "Lead", "Lead"),
+  editLead: spec("editLead", "edit", "lead", "Lead", "Lead"),
+  deleteLead: spec("deleteLead", "delete", "lead", "Lead", "Lead"),
+  setLeadStage: action("setLeadStage", "lead", "Lead", "Lead", (v) => ({ stage: v?.stage, lostreason: v?.lostreason ?? null })),
+  convertLeadToParty: action("convertLeadToParty", "lead", "Lead", "Lead", (v) => ({ partyid: v?.partyid })),
+  addFollowup: spec("addFollowup", "create", "followup", "Followup", "Follow-up"),
+  editFollowup: spec("editFollowup", "edit", "followup", "Followup", "Follow-up"),
+  deleteFollowup: spec("deleteFollowup", "delete", "followup", "Followup", "Follow-up"),
+  completeFollowup: action("completeFollowup", "followup", "Followup", "Follow-up", (v) => ({ doneAt: new Date().toISOString(), outcome: v?.outcome ?? null, ...(v?.note ? { note: v.note } : {}) })),
   updateSalesRoute: spec("updateSalesRoute", "edit", "salesroute", "SalesRoute", "Sales Route"),
   deleteSalesRoute: spec("deleteSalesRoute", "delete", "salesroute", "SalesRoute", "Sales Route"),
   addHoliday: spec("addHoliday", "create", "holiday", "Holiday", "Holiday"),
@@ -219,6 +237,7 @@ export const NUMBER_FIELD: Partial<Record<DocType, "billnumber" | "paymentcode" 
   stockadjustment: "vouchernumber",
   transferstock: "vouchernumber",
   deliverychallan: "billnumber",
+  quotation: "billnumber",
 };
 
 // Their edit input type is partial, so an edit of a queued create keeps the create's other fields.
@@ -238,6 +257,7 @@ const DEVICE_NUMBER_RX: Partial<Record<DocType, RegExp>> = {
   stockadjustment: /^SA-([A-Z]{1,3})\/(\d{6})$/,
   transferstock: /^TR-([A-Z]{1,3})\/(\d{6})$/,
   deliverychallan: /^DC-([A-Z]{1,3})\/(\d{6})$/,
+  quotation: /^QT-([A-Z]{1,3})\/(\d{6})$/,
 };
 
 const PREFIX: Partial<Record<DocType, string>> = {
@@ -251,6 +271,7 @@ const PREFIX: Partial<Record<DocType, string>> = {
   stockadjustment: "SA-",
   transferstock: "TR-",
   deliverychallan: "DC-",
+  quotation: "QT-",
 };
 
 export const MAX_SEQ = 999999;

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { useParams, useNavigate } from "react-router";
+import { useParams, useNavigate, useLocation } from "react-router";
 import { useLazyQuery } from "@apollo/client";
 import { REVERSE_GEOCODE } from "../../../graphql/queries/accounts";
 import HomeLayout from "../../../layouts/home";
@@ -189,6 +189,8 @@ const AddEditAccount = () => {
   const { id } = useParams();
   const isEdit = Boolean(id);
   const navigate = useNavigate();
+  // A lead being converted opens this form filled in and comes back to link the new party.
+  const fromLead: any = useLocation().state;
   const dispatch = useAppDispatch();
   const { admin } = useAppSelector((state: any) => state.auth);
   const adminId = admin?.id;
@@ -240,6 +242,7 @@ const AddEditAccount = () => {
     latitude: "",
     shopimage: "",
     longitude: "",
+    ...(!id && fromLead?.prefill ? fromLead.prefill : {}),
   });
 
   const [formErrors, setFormErrors] = useState<{ [key: string]: string }>({});
@@ -454,8 +457,12 @@ const AddEditAccount = () => {
         await editAccountMutation({ variables: { id, input } });
         dispatch(showMessage({ message: "Account updated successfully", type: "success" }));
       } else {
-        await addAccountMutation({ variables: { input } });
+        const r = await addAccountMutation({ variables: { input } });
         dispatch(showMessage({ message: "Account added successfully", type: "success" }));
+        if (fromLead?.returnTo) {
+          navigate(fromLead.returnTo, { state: { linkPartyId: r?.data?.addAccount?.id } });
+          return;
+        }
       }
       navigate("/accounts");
     } catch (error: any) {

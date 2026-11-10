@@ -14,6 +14,13 @@ const STYLES: Record<string, { badge: string; dot: string }> = {
   received:   { badge: "bg-green-50 text-green-700 ring-green-200",   dot: "bg-green-500" },
   cancelled:  { badge: "bg-rose-50 text-rose-700 ring-rose-200",      dot: "bg-rose-500" },
   returned:   { badge: "bg-purple-50 text-purple-700 ring-purple-200", dot: "bg-purple-500" },
+  // Quotations.
+  draft:      { badge: "bg-slate-50 text-slate-700 ring-slate-200",   dot: "bg-slate-400" },
+  sent:       { badge: "bg-sky-50 text-sky-700 ring-sky-200",        dot: "bg-sky-500" },
+  accepted:   { badge: "bg-green-50 text-green-700 ring-green-200",   dot: "bg-green-500" },
+  rejected:   { badge: "bg-rose-50 text-rose-700 ring-rose-200",      dot: "bg-rose-500" },
+  revised:    { badge: "bg-gray-50 text-gray-500 ring-gray-200",      dot: "bg-gray-400" },
+  converted:  { badge: "bg-indigo-50 text-indigo-700 ring-indigo-200", dot: "bg-indigo-500" },
 };
 const FALLBACK = { badge: "bg-gray-50 text-gray-700 ring-gray-200", dot: "bg-gray-400" };
 const cap = (s: string) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : "—");

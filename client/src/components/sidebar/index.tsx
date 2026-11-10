@@ -18,7 +18,9 @@ import {
   FaSearch,
   FaChevronDown,
   FaSignOutAlt,
-  FaTruck
+  FaTruck,
+  FaFunnelDollar,
+  FaPhoneAlt
 } from 'react-icons/fa';
 import { MdBrandingWatermark } from 'react-icons/md';
 import { Link, useLocation, useNavigate } from 'react-router';
@@ -181,6 +183,9 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar, onHoverChange,
     { to: '/attendance', label: 'Attendance & Leave', icon: <FaCalendarCheck className="text-orange-500 text-[15px] flex-shrink-0" />, moduleId: "attendance", roles: ["admin", "branch", "staff"], section: "Branch" },
     { to: '/announcements', label: 'Announcements', icon: <FaBullhorn className="text-pink-500 text-[15px] flex-shrink-0" />, moduleId: "announcements", roles: ["admin", "branch", "staff"], section: "Branch" },
 
+    { to: '/leads', label: 'Leads', icon: <FaFunnelDollar className="text-indigo-400 text-[15px] flex-shrink-0" />, moduleId: "leads", roles: ["admin", "branch", "staff"], section: "CRM" },
+    { to: '/quotations', label: 'Quotations', icon: <FaFileAlt className="text-sky-400 text-[15px] flex-shrink-0" />, moduleId: "quotations", roles: ["admin", "branch", "staff"], section: "CRM" },
+    { to: '/followups', label: 'Follow Ups', icon: <FaPhoneAlt className="text-emerald-400 text-[15px] flex-shrink-0" />, moduleId: "followups", roles: ["admin", "branch", "staff"], section: "CRM" },
     { to: '/channels', label: 'Channels', icon: <FaSitemap className="text-cyan-400 text-[15px] flex-shrink-0" />, moduleId: "channels", roles: ["admin", "branch", "staff"], section: "Distribution" },
     { to: '/salesroutes', label: 'Sales Routes', icon: <FaRoute className="text-indigo-400 text-[15px] flex-shrink-0" />, moduleId: "salesroutes", roles: ["admin", "branch", "staff"], section: "Distribution" },
     { to: '/pricelists', label: 'Price Lists', icon: <FaTags className="text-rose-400 text-[15px] flex-shrink-0" />, moduleId: "pricelists", roles: ["admin", "branch", "staff"], section: "Distribution" },

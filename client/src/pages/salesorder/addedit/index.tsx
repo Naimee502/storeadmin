@@ -4,7 +4,8 @@ import FormPage from "../../../components/formpage";
 import ProductSection from "../../../components/productsection";
 import type { InvoiceProduct } from "../../../components/productsection";
 import HomeLayout from "../../../layouts/home";
-import { useParams, useNavigate } from "react-router";
+import { useParams, useNavigate, useLocation } from "react-router";
+import { useQuotationMutations, quotationNo } from "../../../graphql/hooks/quotation";
 import { useAccountsLiteQuery } from "../../../graphql/hooks/accounts";
 import { useProductServicesQuery } from "../../../graphql/hooks/products";
 import { useSalesOrderByIDQuery, useSalesOrderMutations, useSalesOrdersListQuery, useSalesOrdersQuery } from "../../../graphql/hooks/salesorder";
@@ -26,6 +27,10 @@ const AddEditSalesOrder = () => {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const { addSalesOrderMutation, editSalesOrderMutation } = useSalesOrderMutations();
+  // Convert to Sales Order from a quotation: party and lines come filled in; the quotation is marked converted on save.
+  const fromQuotation: any = (useLocation().state as any)?.fromQuotation;
+  const { setQuotationStatus } = useQuotationMutations();
+  const quotationFilled = React.useRef(false);
 
   const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
   const selectedBranchId = useAppSelector((state) => state.selectedBranch.branchId);
@@ -108,6 +113,28 @@ const AddEditSalesOrder = () => {
     () => getLastPartyDocRows(allOrdersData?.getSalesOrders || [], partyAccount?.id, id, "SO"),
     [allOrdersData, partyAccount?.id, id]
   );
+
+  useEffect(() => {
+    const q = fromQuotation;
+    if (isEdit || !q || quotationFilled.current) return;
+    quotationFilled.current = true;
+    if (q.partyacc?.id) setPartyAccount({ id: q.partyacc.id, accountname: q.partyacc.accountname || q.partyacc.name || "", mobile: q.partyacc.mobile || "" });
+    setNotes(`Against Quotation ${quotationNo(q)}${q.subject ? ` - ${q.subject}` : ""}`);
+    // Optional items stay out of the order.
+    setProducts((q.productservice || []).filter((p: any) => !p.optional && p.productserviceid?.id).map((p: any) => ({
+      productserviceid: p.productserviceid.id,
+      variantid: p.variantid?.id || null,
+      salesunitid: p.salesunitid?.id || null,
+      productname: `${p.productserviceid?.name || ""}${p.variantid?.name ? ` - ${p.variantid.name}` : ""}`,
+      unitquantity: p.unitqty ?? 1,
+      quantity: p.qty,
+      rate: p.rate,
+      total: p.amount,
+      discount: p.discount || 0,
+      gst: p.gst || 0,
+      selectedUnitValue: p.salesunitid?.id && p.unitqty ? `${p.salesunitid.id}--${p.unitqty}` : null,
+    })));
+  }, [isEdit, fromQuotation]);
 
   useEffect(() => {
     if (isEdit && data?.getSalesOrderById) {
@@ -295,6 +322,10 @@ const AddEditSalesOrder = () => {
       } else {
         const res = await addSalesOrderMutation({ variables: { input } });
         const savedOffline = isOfflineSaved(res?.data?.addSalesOrder);
+        if (fromQuotation?.id && res?.data?.addSalesOrder?.id) {
+          await setQuotationStatus({ variables: { id: fromQuotation.id, quotationStatus: "converted", convertedorderid: res.data.addSalesOrder.id, expectedUpdatedAt: fromQuotation.updatedAt } })
+            .catch(() => dispatch(showMessage({ message: "Order saved; mark the quotation converted from its list.", type: "error" })));
+        }
         dispatch(showMessage({ message: savedOffline ? OFFLINE_SAVED_MESSAGE : "Order added successfully", type: "success" }));
       }
       navigate(-1);

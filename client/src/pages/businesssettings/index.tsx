@@ -29,6 +29,7 @@ import {
 } from "../../config/modules";
 import FormPermissionsTab from "./formpermissionstab";
 import { stateOptions } from "../../utils/constants";
+import { DEFAULT_LOST_REASONS, DEFAULT_SOURCES, DEFAULT_STAGES, type CrmStage } from "../../graphql/hooks/lead";
 
 // Strip Apollo's __typename before sending query data back as mutation input.
 const deepStripTypename = (value: any): any =>
@@ -211,6 +212,9 @@ const GeneralTab: React.FC<{ adminId?: string; dispatch: any; allowedModules?: s
     if (input.smtpPort === "" || input.smtpPort == null) input.smtpPort = defaultSmtpPort(input.smtpHost || "");
     // Never set: leave it unset on the server.
     if (input.offlineBilling == null) delete input.offlineBilling;
+    for (const k of ["crmSources", "crmLostReasons"]) {
+      if (Array.isArray(input[k])) input[k] = input[k].map((x: string) => x.trim()).filter(Boolean);
+    }
     // Password: only sent when typed — blank keeps the saved one.
     if (smtpPass) input.smtpPass = smtpPass;
     try {
@@ -377,6 +381,39 @@ const GeneralTab: React.FC<{ adminId?: string; dispatch: any; allowedModules?: s
           On: purchases from another state post Input IGST, and bill forms show CGST / SGST or IGST. Applies to bills saved from now on.
         </div>
       </Section>
+
+      {hasModule("leads") && (
+        <Section title="CRM (Leads)">
+          <CrmSettings draft={draft} set={set} />
+        </Section>
+      )}
+
+      {hasModule("quotations") && (
+        <Section title="Quotation Format">
+          <div className="text-[11px] leading-snug text-slate-400">How every quotation prints. Each quotation can still change its own subject, opening text and terms.</div>
+          <div className="grid grid-cols-1 gap-x-3 gap-y-2 md:grid-cols-4">
+            <FormField label="Heading" type="text" name="q-title" value={draft.quoteTitle ?? ""} placeholder="QUOTATION" onChange={(e: any) => set("quoteTitle", e.target.value)} />
+            <FormField label="Valid for (days)" type="number" name="q-valid" value={draft.quoteValidityDays ?? ""} placeholder="15"
+              onChange={(e: any) => set("quoteValidityDays", e.target.value === "" ? null : Math.max(0, Math.round(Number(e.target.value))))} />
+            <label className="text-[12px] text-slate-600">Colour
+              <input type="color" className="mt-1 block h-8 w-full rounded-md border border-slate-300" value={draft.quoteAccent || "#4f46e5"} onChange={(e) => set("quoteAccent", e.target.value)} />
+            </label>
+          </div>
+          <Grid>
+            <Toggle label="Product image" checked={draft.quoteShowImages === true} onChange={(v: boolean) => set("quoteShowImages", v)} />
+            <Toggle label="HSN / SAC" checked={draft.quoteShowHsn !== false} onChange={(v: boolean) => set("quoteShowHsn", v)} />
+            <Toggle label="Discount column" checked={draft.quoteShowDiscount !== false} onChange={(v: boolean) => set("quoteShowDiscount", v)} />
+            <Toggle label="GST column" checked={draft.quoteShowGst !== false} onChange={(v: boolean) => set("quoteShowGst", v)} />
+            <Toggle label="CGST / SGST / IGST" checked={draft.quoteShowTaxSplit !== false} onChange={(v: boolean) => set("quoteShowTaxSplit", v)} />
+            <Toggle label="Signature block" checked={draft.quoteShowSignature !== false} onChange={(v: boolean) => set("quoteShowSignature", v)} />
+          </Grid>
+          <FormField label="Opening text" type="text" name="q-intro" multiline value={draft.quoteIntro ?? ""} placeholder="Thank you for your enquiry. We are pleased to quote as below:"
+            onChange={(e: any) => set("quoteIntro", e.target.value)} />
+          <FormField label="Default terms & conditions" type="text" name="q-terms" multiline value={draft.quoteTerms ?? ""}
+            placeholder={"1. Prices are ex-works.\n2. GST extra as applicable.\n3. Delivery: 2-3 weeks from order."} onChange={(e: any) => set("quoteTerms", e.target.value)} />
+          <FormField label="Footer" type="text" name="q-footer" value={draft.quoteFooter ?? ""} placeholder="Bank details, website, thank-you line" onChange={(e: any) => set("quoteFooter", e.target.value)} />
+        </Section>
+      )}
 
       <Section title="Invoice Print">
         <Grid>
@@ -909,6 +946,58 @@ const PermissionsTab: React.FC<{
       <div className="flex justify-end">
         <Button variant="outline" onClick={handleSave}>Save Business Permissions</Button>
       </div>
+    </div>
+  );
+};
+
+// Stage keys stay fixed once leads use them; a new stage gets a key from its name.
+const CrmSettings: React.FC<{ draft: any; set: (k: string, v: any) => void }> = ({ draft, set }) => {
+  const stages: CrmStage[] = draft.crmStages?.length ? draft.crmStages : DEFAULT_STAGES;
+  const setStages = (next: CrmStage[]) => set("crmStages", next);
+  // Blank lines are dropped on save, so Enter can start a new one.
+  const lines = (v: string) => v.split("\n");
+  const keyOf = (label: string) => {
+    const base = label.toLowerCase().replace(/[^a-z0-9]+/g, "") || "stage";
+    let k = base, i = 2;
+    while (stages.some((x) => x.key === k)) k = `${base}${i++}`;
+    return k;
+  };
+  const cell = "h-8 rounded-md border border-slate-300 bg-white px-2 text-[13px]";
+  return (
+    <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
+      <div className="space-y-1.5">
+        <div className="text-[12px] font-medium text-slate-600">Pipeline stages (in order)</div>
+        {stages.map((st, i) => (
+          <div key={st.key} className="flex gap-1.5">
+            <input className={`${cell} flex-1`} value={st.label} onChange={(e) => setStages(stages.map((x, j) => (j === i ? { ...x, label: e.target.value } : x)))} />
+            <select className={cell} value={st.kind} onChange={(e) => setStages(stages.map((x, j) => (j === i ? { ...x, kind: e.target.value as CrmStage["kind"] } : x)))}>
+              <option value="open">Open</option>
+              <option value="won">Won</option>
+              <option value="lost">Lost</option>
+            </select>
+            <button type="button" title="Move up" className={cell} disabled={i === 0}
+              onClick={() => { const n = [...stages]; [n[i - 1], n[i]] = [n[i], n[i - 1]]; setStages(n); }}>↑</button>
+            <button type="button" title="Remove" className={`${cell} text-rose-600`} disabled={stages.length <= 2}
+              onClick={() => setStages(stages.filter((_, j) => j !== i))}>×</button>
+          </div>
+        ))}
+        <button type="button" className={`${cell} text-indigo-600`}
+          onClick={() => setStages([...stages.filter((x) => x.kind === "open"), { key: keyOf("New stage"), label: "New stage", kind: "open" }, ...stages.filter((x) => x.kind !== "open")])}>
+          + Add stage
+        </button>
+      </div>
+      <label className="space-y-1.5">
+        <div className="text-[12px] font-medium text-slate-600">Lead sources (one per line)</div>
+        <textarea className="h-48 w-full rounded-md border border-slate-300 p-2 text-[13px]"
+          value={(draft.crmSources?.length ? draft.crmSources : DEFAULT_SOURCES).join("\n")}
+          onChange={(e) => set("crmSources", lines(e.target.value))} />
+      </label>
+      <label className="space-y-1.5">
+        <div className="text-[12px] font-medium text-slate-600">Lost reasons (one per line)</div>
+        <textarea className="h-48 w-full rounded-md border border-slate-300 p-2 text-[13px]"
+          value={(draft.crmLostReasons?.length ? draft.crmLostReasons : DEFAULT_LOST_REASONS).join("\n")}
+          onChange={(e) => set("crmLostReasons", lines(e.target.value))} />
+      </label>
     </div>
   );
 };
