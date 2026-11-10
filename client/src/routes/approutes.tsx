@@ -75,6 +75,7 @@ import DeliveryBoyReport from "../pages/reports/deliveryboy";
 import AttendanceReports from "../pages/reports/attendance";
 import DeliveryChallanReports from "../pages/reports/deliverychallan";
 import GstPortalReports from "../pages/reports/gstportal";
+import CrmReports from "../pages/reports/crm";
 import AccountLedgers from "../pages/accountledgers";
 import DeletedAccountLedgers from "../pages/accountledgers/deletedentries";
 import AnalyticalReports from "../pages/reports/analytics";
@@ -108,6 +109,7 @@ import AddEditLead from "../pages/leads/addedit";
 import DeletedLeads from "../pages/leads/deletedentries";
 import Followups from "../pages/followups";
 import Quotations from "../pages/quotations";
+import LeadSources from "../pages/leadsources";
 import AddEditQuotation from "../pages/quotations/addedit";
 import DeletedQuotations from "../pages/quotations/deletedentries";
 import PurchaseReturns from "../pages/purchasereturn";
@@ -862,6 +864,8 @@ const AppRoutes = () => {
       <Route path="/reports/deliverychallan" element={<ProtectedRoutes><DeliveryChallanReports /></ProtectedRoutes>} />
       <Route path="/reports/einvoice" element={<ProtectedRoutes><GstPortalReports key="einvoice" kind="einvoice" /></ProtectedRoutes>} />
       <Route path="/reports/ewaybill" element={<ProtectedRoutes><GstPortalReports key="ewaybill" kind="ewaybill" /></ProtectedRoutes>} />
+      <Route path="/reports/crm" element={<ProtectedRoutes><CrmReports key="crm" kind="crm" /></ProtectedRoutes>} />
+      <Route path="/reports/quotation" element={<ProtectedRoutes><CrmReports key="quotation" kind="quotation" /></ProtectedRoutes>} />
       <Route
         path="/reports/attendance"
         element={
@@ -1035,6 +1039,7 @@ const AppRoutes = () => {
       <Route path="/leads/deletedentries" element={<ProtectedRoutes><DeletedLeads /></ProtectedRoutes>} />
       <Route path="/followups" element={<ProtectedRoutes><Followups /></ProtectedRoutes>} />
       <Route path="/quotations" element={<ProtectedRoutes><Quotations /></ProtectedRoutes>} />
+      <Route path="/leadsources" element={<ProtectedRoutes><LeadSources /></ProtectedRoutes>} />
       <Route path="/quotations/addedit" element={<ProtectedRoutes><AddEditQuotation /></ProtectedRoutes>} />
       <Route path="/quotations/addedit/:id" element={<ProtectedRoutes><AddEditQuotation /></ProtectedRoutes>} />
       <Route path="/quotations/deletedentries" element={<ProtectedRoutes><DeletedQuotations /></ProtectedRoutes>} />

@@ -104,7 +104,7 @@ const netTotalOf = (
 const cellText = (v: any): any => (Array.isArray(v) ? v.join("; ") : v ?? "");
 
 /** Columns whose text is "Name - Mobile - City" (partyLabel) → 2-line cell. */
-const PARTY_COL = /party|vendor|customer|supplier/i;
+const PARTY_COL = /party|vendor|customer|supplier|lead/i;
 
 /** Default cell: arrays one item per line; party as name over "mobile · city". */
 const renderCell = (col: ReportColumn, value: any): React.ReactNode => {

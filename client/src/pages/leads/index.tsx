@@ -144,7 +144,7 @@ const Board = ({ leads, onOpen }: { leads: any[]; onOpen: (l: any) => void }) =>
               <span className="truncate text-[13px] font-semibold text-slate-800">{s.label}</span>
               <span className="shrink-0 text-[11px] text-slate-500">{list.length}{value ? ` · ₹${value.toLocaleString("en-IN")}` : ""}</span>
             </div>
-            <div className="flex min-h-[120px] max-h-[calc(100vh-190px)] flex-col gap-1.5 overflow-y-auto p-1.5">
+            <div className="flex min-h-[120px] max-h-[calc(100vh-190px)] flex-col gap-1.5 overflow-y-auto p-1.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
               {list.map((l) => {
                 const due = timeMs(l.nextfollowupAt) || 0;
                 return (

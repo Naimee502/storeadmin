@@ -56,3 +56,20 @@ export const COMPLETE_FOLLOWUP = gql`
     completeFollowup(id: $id, outcome: $outcome, note: $note, expectedUpdatedAt: $expectedUpdatedAt) { ${FOLLOWUP_FIELDS} }
   }
 `;
+
+const SOURCE_FIELDS = `source enabled webhookUrl verifyToken ownerids autoFollowup hasKey1 hasKey2 hasKey3 lastPulledAt lastError leadsToday`;
+export const SAVE_LEAD_SOURCE = gql`
+  mutation SaveLeadSource($input: LeadSourceInput!) { saveLeadSource(input: $input) { ${SOURCE_FIELDS} } }
+`;
+export const REGENERATE_LEAD_SOURCE_LINK = gql`
+  mutation RegenerateLeadSourceLink($source: String!) { regenerateLeadSourceLink(source: $source) { ${SOURCE_FIELDS} } }
+`;
+export const PULL_LEAD_SOURCE_NOW = gql`
+  mutation PullLeadSourceNow($source: String!) { pullLeadSourceNow(source: $source) }
+`;
+export const TEST_LEAD_SOURCE = gql`
+  mutation TestLeadSource($source: String!) { testLeadSource(source: $source) }
+`;
+export const RETRY_LEAD_INBOX = gql`
+  mutation RetryLeadInbox($id: ID!) { retryLeadInbox(id: $id) }
+`;

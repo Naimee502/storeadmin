@@ -111,6 +111,9 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar, onHoverChange,
     "reports.deliverychallan": "deliverychallan",
     "reports.einvoice": "einvoice",
     "reports.ewaybill": "ewaybill",
+    "reports.crm": "leads",
+    leadsources: "leads",
+    "reports.quotation": "quotations",
   };
 
   const FEATURE_TO_MODULES: Record<string, string[]> = {
@@ -185,6 +188,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar, onHoverChange,
 
     { to: '/leads', label: 'Leads', icon: <FaFunnelDollar className="text-indigo-400 text-[15px] flex-shrink-0" />, moduleId: "leads", roles: ["admin", "branch", "staff"], section: "CRM" },
     { to: '/quotations', label: 'Quotations', icon: <FaFileAlt className="text-sky-400 text-[15px] flex-shrink-0" />, moduleId: "quotations", roles: ["admin", "branch", "staff"], section: "CRM" },
+    { to: '/leadsources', label: 'Lead Sources', icon: <FaSitemap className="text-violet-400 text-[15px] flex-shrink-0" />, moduleId: "leadsources", roles: ["admin", "branch", "staff"], section: "CRM" },
     { to: '/followups', label: 'Follow Ups', icon: <FaPhoneAlt className="text-emerald-400 text-[15px] flex-shrink-0" />, moduleId: "followups", roles: ["admin", "branch", "staff"], section: "CRM" },
     { to: '/channels', label: 'Channels', icon: <FaSitemap className="text-cyan-400 text-[15px] flex-shrink-0" />, moduleId: "channels", roles: ["admin", "branch", "staff"], section: "Distribution" },
     { to: '/salesroutes', label: 'Sales Routes', icon: <FaRoute className="text-indigo-400 text-[15px] flex-shrink-0" />, moduleId: "salesroutes", roles: ["admin", "branch", "staff"], section: "Distribution" },
@@ -206,6 +210,8 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar, onHoverChange,
     { to: '/reports/deliverychallan', label: 'Delivery Challan Report', icon: <FaTruck className="text-sky-400 text-[15px] flex-shrink-0" />, moduleId: "reports.deliverychallan", roles: ["admin", "branch", "staff"], section: "Reports" },
     { to: '/reports/einvoice', label: 'e-Invoice Report', icon: <FaFileInvoiceDollar className="text-indigo-400 text-[15px] flex-shrink-0" />, moduleId: "reports.einvoice", roles: ["admin", "branch", "staff"], section: "Reports" },
     { to: '/reports/ewaybill', label: 'e-Way Bill Report', icon: <FaTruck className="text-amber-400 text-[15px] flex-shrink-0" />, moduleId: "reports.ewaybill", roles: ["admin", "branch", "staff"], section: "Reports" },
+    { to: '/reports/crm', label: 'CRM Report', icon: <FaFunnelDollar className="text-indigo-400 text-[15px] flex-shrink-0" />, moduleId: "reports.crm", roles: ["admin", "branch", "staff"], section: "Reports" },
+    { to: '/reports/quotation', label: 'Quotation Report', icon: <FaFileAlt className="text-sky-400 text-[15px] flex-shrink-0" />, moduleId: "reports.quotation", roles: ["admin", "branch", "staff"], section: "Reports" },
     { to: '/reports/attendance', label: 'Attendance & Leave', icon: <FaCalendarCheck className="text-orange-400 text-[15px] flex-shrink-0" />, moduleId: "reports.attendance", roles: ["admin", "branch", "staff"], section: "Reports" },
   ];
 

@@ -151,6 +151,8 @@ const MODULE_LIST: ModuleDef[] = [
   // CRM. Leads "view" = see every lead; without it staff see only their own.
   { id: "leads",       label: "Leads",       section: "crm", actions: ["view", "add", "edit", "delete", "convert", "import", "export", "reset"], inAdminRegister: true },
   { id: "followups",   label: "Follow Ups",  section: "crm", actions: CRUD_ACTIONS, inAdminRegister: true },
+  // Portal keys and webhook links (IndiaMART, JustDial, Meta, WhatsApp, website).
+  { id: "leadsources", label: "Lead Sources", section: "crm", actions: ["edit"], inAdminRegister: true },
   // "convert" = make a Sales Order from an accepted quotation.
   { id: "quotations",  label: "Quotations",  section: "crm", actions: ["add", "edit", "delete", "print", "whatsapp", "convert", "reset"], inAdminRegister: true },
 
@@ -174,6 +176,8 @@ const MODULE_LIST: ModuleDef[] = [
   { id: "reports.deliverychallan", label: "Delivery Challan Reports", section: "reports", actions: REPORT_ACTIONS, inAdminRegister: true },
   { id: "reports.einvoice",   label: "e-Invoice Reports",   section: "reports", actions: REPORT_ACTIONS, inAdminRegister: true },
   { id: "reports.ewaybill",   label: "e-Way Bill Reports",  section: "reports", actions: REPORT_ACTIONS, inAdminRegister: true },
+  { id: "reports.crm",        label: "CRM Reports",         section: "reports", actions: REPORT_ACTIONS, inAdminRegister: true },
+  { id: "reports.quotation",  label: "Quotation Reports",   section: "reports", actions: REPORT_ACTIONS, inAdminRegister: true },
 
   // System (always granted, never gated by allowedmodules)
   { id: "branches",      label: "Branches",        section: "system", actions: CRUD_ACTIONS, inAdminRegister: false },
