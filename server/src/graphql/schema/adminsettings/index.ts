@@ -1,6 +1,28 @@
 import { gql } from "apollo-server-express";
 
 export const adminSettingsTypeDefs = gql`
+  type CustomFieldDef {
+    key: String!
+    label: String!
+    "product or lead"
+    entity: String!
+    "text, number, select, date"
+    type: String!
+    options: [String!]
+    print: Boolean
+    required: Boolean
+  }
+
+  input CustomFieldDefInput {
+    key: String!
+    label: String!
+    entity: String!
+    type: String!
+    options: [String!]
+    print: Boolean
+    required: Boolean
+  }
+
   type CrmStage {
     key: String!
     label: String!
@@ -131,6 +153,7 @@ export const adminSettingsTypeDefs = gql`
     crmStages: [CrmStage!]
     crmSources: [String!]
     crmLostReasons: [String!]
+    customFieldDefs: [CustomFieldDef!]
     quoteTitle: String
     quoteIntro: String
     quoteTerms: String
@@ -401,6 +424,7 @@ export const adminSettingsTypeDefs = gql`
     crmStages: [CrmStageInput!]
     crmSources: [String!]
     crmLostReasons: [String!]
+    customFieldDefs: [CustomFieldDefInput!]
     quoteTitle: String
     quoteIntro: String
     quoteTerms: String

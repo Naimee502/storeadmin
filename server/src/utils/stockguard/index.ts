@@ -95,7 +95,7 @@ export async function assertSalesStockAvailable(opts: {
 
   for (const item of productservice) {
     const product = await getProduct(item.productserviceid);
-    if (!product) continue;
+    if (!product || product.isservice) continue;
     const variant = product.productvariants?.find(
       (v: any) => String(v._id) === String(item.variantid)
     );

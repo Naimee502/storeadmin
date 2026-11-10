@@ -348,7 +348,7 @@ export const formatInvoice = (inv: any) => ({
 // Bill with what the GST JSON needs: full party, product variants (HSN) and units (UQC).
 const GST_POPULATE: any[] = [
   { path: "partyacc", select: "name mobile gstnumber address city state pincode" },
-  { path: "productservice.productserviceid", select: "name productvariants._id productvariants.name productvariants.hsncode" },
+  { path: "productservice.productserviceid", select: "name isservice productvariants._id productvariants.name productvariants.hsncode servicevariants._id servicevariants.name servicevariants.saccode" },
   { path: "productservice.salesunitid", select: "unitname uqc" },
 ];
 

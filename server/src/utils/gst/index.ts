@@ -91,8 +91,10 @@ function checkParty(b: any, c: GstCheck, needGstin: boolean) {
 function linesOf(doc: any, inter: boolean, c: GstCheck) {
   return (doc.productservice || []).map((l: any, i: number) => {
     const prod = l.productserviceid || {};
-    const variant = (prod.productvariants || []).find((v: any) => String(v._id) === String(l.variantid));
-    const isService = !!doc.isservice;
+    // A service line carries its SAC code on the service variant.
+    const sv = prod.isservice ? (prod.servicevariants || []).find((v: any) => String(v._id) === String(l.variantid)) : null;
+    const variant = sv ? { name: sv.name, hsncode: sv.saccode } : (prod.productvariants || []).find((v: any) => String(v._id) === String(l.variantid));
+    const isService = !!doc.isservice || !!prod.isservice;
     const name = text(`${prod.name || "Item"}${variant?.name ? ` ${variant.name}` : ""}`, 300);
     const hsn = String(variant?.hsncode || "").replace(/\s/g, "");
     if (!HSN_RX.test(hsn)) c.errors.push(`${name}: HSN${isService ? "/SAC" : ""} code is missing — Products.`);

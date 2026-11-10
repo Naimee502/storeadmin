@@ -80,7 +80,8 @@ async function ownQuotation(id: string, context: any, action = "edit") {
 export const buildQuotationQuery = (scope: { adminid: any; branchid?: any }, branchid?: any) => {
   const q: any = { adminid: scope.adminid, status: true };
   const b = scope.branchid || branchid;
-  if (b) q.branchid = b;
+  // Saved with no branch (All Branches): shows in every branch.
+  if (b) q.$and = [{ $or: [{ branchid: b }, { branchid: null }] }];
   return q;
 };
 
@@ -125,9 +126,11 @@ async function columnClause(key: string, term: string, adminid: any): Promise<an
   switch (key) {
     case "billnumber":
       return { $or: [{ billnumber: containsRx(term.replace(/^QT-?/i, "")) }, { offlineNumber: containsRx(term) }] };
+    case "partyacc":
     case "customer": {
-      const ids = await Account.find({ admin: adminid, name: containsRx(term) }).select("_id").limit(500).lean();
-      return { $or: [{ partyacc: { $in: ids.map((a: any) => a._id) } }, { customername: containsRx(term) }] };
+      const rx = containsRx(term);
+      const ids = await Account.find({ admin: adminid, $or: [{ name: rx }, { mobile: rx }, { city: rx }] }).select("_id").limit(500).lean();
+      return { $or: [{ partyacc: { $in: ids.map((a: any) => a._id) } }, { customername: rx }, { customermobile: rx }, { customercity: rx }] };
     }
     case "billdate":
       return textMatch(dmyFromText("$billdate"), term);

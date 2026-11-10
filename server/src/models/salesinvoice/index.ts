@@ -485,6 +485,8 @@ salesInvoiceSchema.statics.adjustStockAndTransactions = async function (oldInv: 
           console.log("Old product not found:", item.productserviceid);
           continue;
         }
+        // A service line (e.g. labour on a job card bill) holds no stock.
+        if (product.isservice) continue;
 
         const variant = product.productvariants?.find(v => String(v._id) === String(item.variantid));
         const qtyBase = convertToBaseUnit(Number(item.qty) * Number(item.unitqty), item.salesunitid, variant);
@@ -513,6 +515,7 @@ salesInvoiceSchema.statics.adjustStockAndTransactions = async function (oldInv: 
         console.log("New product not found:", item.productserviceid);
         continue;
       }
+      if (product.isservice) continue;
 
       const variant = product.productvariants?.find(v => String(v._id) === String(item.variantid));
       const qtyBase = convertToBaseUnit(Number(item.qty) * Number(item.unitqty), item.salesunitid, variant);

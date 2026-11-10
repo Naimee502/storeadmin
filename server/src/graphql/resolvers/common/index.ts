@@ -51,6 +51,14 @@ export const CLEAR_TARGETS: Record<string, ClearTarget> = {
   leads: { model: "Lead", tenant: "adminid" },
   followups: { model: "Followup", tenant: "adminid" },
   quotations: { model: "Quotation", tenant: "adminid" },
+  bom: { model: "Bom", tenant: "adminid" },
+  workorders: { model: "WorkOrder", tenant: "adminid" },
+  production: { model: "ProductionEntry", tenant: "adminid" },
+  appointments: { model: "Appointment", tenant: "adminid" },
+  jobcards: { model: "JobCard", tenant: "adminid" },
+  contracts: { model: "Contract", tenant: "adminid" },
+  memberships: { model: "Membership", tenant: "adminid" },
+  membershipplans: { model: "MembershipPlan", tenant: "adminid", permission: "memberships" },
 };
 
 // Same rule as the client: no record for the module = allowed,

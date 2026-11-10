@@ -6,7 +6,7 @@ import { AdminSettings } from "../../../models/adminsettings";
 import { requireBackofficeTenant, TenantError, assertOwnedIds } from "../../../utils/tenant";
 import { assertModuleOn } from "../../../utils/modulegate";
 import { isActionAllowed } from "../../../utils/permissiongate";
-import { activeFilters, containsRx, escapeRegex, notCleared, pageWindow } from "../../../utils/listquery";
+import { activeFilters, containsRx, dmyFromDate, escapeRegex, notCleared, pageWindow } from "../../../utils/listquery";
 import { NUMERIC_COLLATION } from "../../../utils/billnumber";
 import { createOnce, isoOf } from "../../../utils/offlinesync";
 
@@ -47,7 +47,8 @@ async function ownOnly(scope: any) {
 export async function leadQuery(scope: any, branchid?: any) {
   const q: any = { adminid: scope.adminid };
   const b = scope.branchid || branchid;
-  if (b) q.branchid = b;
+  // Leads with no branch (portals, website, admin-wide) show in every branch.
+  if (b) q.$and = [{ $or: [{ branchid: b }, { branchid: null }] }];
   if (await ownOnly(scope)) q.$or = [{ ownerid: scope.userId }, { createdby_id: String(scope.userId) }];
   return q;
 }
@@ -55,7 +56,7 @@ export async function leadQuery(scope: any, branchid?: any) {
 export async function followupQuery(scope: any, branchid?: any) {
   const q: any = { adminid: scope.adminid };
   const b = scope.branchid || branchid;
-  if (b) q.branchid = b;
+  if (b) q.$and = [{ $or: [{ branchid: b }, { branchid: null }] }];
   if (await ownOnly(scope)) q.$or = [{ assignedto: scope.userId }, { createdby_id: String(scope.userId) }];
   return q;
 }
@@ -190,6 +191,9 @@ async function leadColumnClause(key: string, value: string, adminid: any) {
     const ids = (await StaffAccount.find({ admin: adminid, name: rx }).select("_id").lean()).map((s: any) => s._id);
     return { ownerid: { $in: ids } };
   }
+  // Two-line "Name - Mobile - City" column.
+  if (key === "partyacc") return { $or: [{ name: rx }, { mobile: rx }, { city: rx }, { company: rx }] };
+  if (key === "nextfollowup") return { $expr: { $regexMatch: { input: dmyFromDate("$nextfollowupAt"), regex: escapeRegex(value), options: "i" } } };
   if (key === "leadnumber") return { leadnumber: new RegExp(escapeRegex(value.replace(/^LD-?/i, "")), "i") };
   if (LEAD_SEARCH.includes(key) || ["stage", "temperature", "subsource"].includes(key)) return { [key]: rx };
   return null;

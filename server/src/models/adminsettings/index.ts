@@ -118,6 +118,11 @@ const adminSettingsSchema = new mongoose.Schema(
     crmStages: { type: [{ _id: false, key: String, label: String, kind: String }], default: undefined },
     crmSources: { type: [String], default: undefined },
     crmLostReasons: { type: [String], default: undefined },
+    // Custom fields per entity (product, lead): key, label, type, options, shown on quotation print.
+    customFieldDefs: {
+      type: [{ _id: false, key: String, label: String, entity: String, type: { type: String }, options: [String], print: Boolean, required: Boolean }],
+      default: undefined,
+    },
     // Quotation format (Business Settings → Quotation Format). Unset = built-in layout.
     quoteTitle: { type: String },
     quoteIntro: { type: String },

@@ -49,6 +49,11 @@ import { leadResolvers } from "./lead";
 import { Lead, Followup } from "../../models/lead";
 import { quotationResolvers } from "./quotation";
 import { Quotation } from "../../models/quotation";
+import { manufacturingResolvers } from "./manufacturing";
+import { serviceResolvers } from "./service";
+import { servicesResolvers } from "./services";
+import { Appointment, JobCard, Contract, MembershipPlan, Membership } from "../../models/service";
+import { Bom, WorkOrder, ProductionEntry } from "../../models/manufacturing";
 import { leadSourceResolvers } from "./leadsource";
 
 import { withOfflineActions, withOfflineWrites } from "../../utils/offlinesync";
@@ -92,6 +97,7 @@ export const resolvers = [
   staffAccountResolvers,
   uploadResolvers,
   withOfflineWrites(productServiceResolvers, { model: ProductService, typename: "ProductService", tenant: "adminid", add: "addProductService", edit: "updateProductService", del: "deleteProductService" }),
+  withOfflineWrites(servicesResolvers, { model: ProductService, typename: "ProductService", tenant: "adminid", add: "addService", edit: "updateService", del: "deleteService" }),
   productImportResolvers,
   withOfflineActions(salesInvoiceResolvers, SalesInvoice, ["markSalesInvoiceDispatched", "markSalesInvoiceDelivered", "assignInvoiceDeliveryBoy", "saveInvoiceGstDetails"]),
   purchaseInvoiceResolvers,
@@ -137,4 +143,20 @@ export const resolvers = [
   ),
   withOfflineActions(quotationResolvers, Quotation, ["editQuotation", "deleteQuotation", "setQuotationStatus"]),
   leadSourceResolvers,
+  withOfflineActions(
+    withOfflineActions(
+      withOfflineActions(manufacturingResolvers, Bom, ["editBom", "deleteBom"]),
+      WorkOrder,
+      ["editWorkOrder", "setWorkOrderStatus", "deleteWorkOrder"]
+    ),
+    ProductionEntry,
+    ["editProductionEntry", "deleteProductionEntry"]
+  ),
+  [
+    [Appointment, ["editAppointment", "setAppointmentStatus", "deleteAppointment"]],
+    [JobCard, ["editJobCard", "setJobCardStatus", "deleteJobCard"]],
+    [Contract, ["editContract", "deleteContract"]],
+    [MembershipPlan, ["editMembershipPlan", "deleteMembershipPlan"]],
+    [Membership, ["editMembership", "deleteMembership"]],
+  ].reduce((r: any, [model, names]: any) => withOfflineActions(r, model, names), serviceResolvers),
 ];

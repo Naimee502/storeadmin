@@ -100,6 +100,34 @@ export const productServiceTypeDefs = gql`
     recurrence: Recurrence
     servicelikecount: Int
     remarks: String
+    gst: Float
+    saccode: String
+    "visit, hour, sqft, room, unit, session or fixed"
+    pricingunit: String
+    taxinclusive: Boolean
+    visitcharge: Float
+    materials: [ServiceMaterial!]
+    nextduedays: Int
+    warrantydays: Int
+    staffids: [ID!]
+    commission: Float
+    capacity: Int
+    bufferminutes: Int
+    checklist: [String!]
+  }
+
+  type ServiceMaterial {
+    productserviceid: ID!
+    variantid: ID
+    salesunitid: ID
+    qty: Float!
+  }
+
+  input ServiceMaterialInput {
+    productserviceid: ID!
+    variantid: ID
+    salesunitid: ID
+    qty: Float!
   }
 
   type SEO {
@@ -116,6 +144,9 @@ export const productServiceTypeDefs = gql`
     branchid: ID!
     isservice: Boolean
     isserialised: Boolean
+    "raw, semifinished, finished, consumable, spare, service, kit"
+    itemtype: String
+    customfields: [CustomFieldValue!]
     name: String!
     description: String
     imageurl: String
@@ -186,6 +217,8 @@ export const productServiceTypeDefs = gql`
     branchid: ID
     isservice: Boolean
     isserialised: Boolean
+    itemtype: String
+    customfields: [CustomFieldInput!]
     name: String!
     description: String
     imageurl: String
@@ -227,6 +260,19 @@ export const productServiceTypeDefs = gql`
     recurrence: RecurrenceInput
     servicelikecount: Int
     remarks: String
+    gst: Float
+    saccode: String
+    pricingunit: String
+    taxinclusive: Boolean
+    visitcharge: Float
+    materials: [ServiceMaterialInput!]
+    nextduedays: Int
+    warrantydays: Int
+    staffids: [ID!]
+    commission: Float
+    capacity: Int
+    bufferminutes: Int
+    checklist: [String!]
   }
 
   input ServiceDurationInput {

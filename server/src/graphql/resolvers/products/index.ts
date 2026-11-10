@@ -14,9 +14,11 @@ import {
   validateProductInput,
   ProductInputError,
 } from "../../../utils/productvalidation";
+import { Category } from "../../../models/categories";
 import {
   activeFilters,
   containsRx,
+  escapeRegex,
   notCleared,
   pageWindow,
   textMatch,
@@ -331,8 +333,32 @@ function productColumnFilterClauses(filters?: ColumnFilter[] | null) {
     if (f.key === "code") clauses.push(textMatch(productCodeText, f.value));
     else if (f.key === "name") clauses.push({ name: containsRx(f.value) });
     else if (f.key === "status") clauses.push(textMatch(productStatusText, f.value));
+    // Services list columns (any service variant matches).
+    else if (f.key === "rates") clauses.push(anyServiceVariant(["$$v.name", "$$v.servicerate"], f.value));
+    else if (f.key === "gst") clauses.push(anyServiceVariant(["$$v.gst"], f.value.replace(/%/g, "").trim()));
+    else if (f.key === "duration") clauses.push(anyServiceVariant(["$$v.duration.amount", "$$v.duration.unit"], f.value));
   }
   return clauses;
+}
+
+const anyServiceVariant = (fields: string[], term: string) => ({
+  $expr: {
+    $anyElementTrue: [{
+      $map: {
+        input: { $ifNull: ["$servicevariants", []] },
+        as: "v",
+        in: { $regexMatch: { input: { $concat: fields.flatMap((f) => [{ $toString: { $ifNull: [f, ""] } }, " "]) }, regex: escapeRegex(term), options: "i" } },
+      },
+    }],
+  },
+});
+
+/** Category column: category names to ids (needs a lookup, so kept apart). */
+async function categoryFilterClause(filters: ColumnFilter[] | null | undefined, adminid: any) {
+  const f = activeFilters(filters).find((x) => x.key === "category");
+  if (!f) return null;
+  const ids = (await Category.find({ admin: adminid, categoryname: containsRx(f.value) }).select("_id").limit(500).lean()).map((c: any) => c._id);
+  return { categoryid: { $in: ids } };
 }
 
 /** Products with a variant below its minimum stock, same rule as the list page. */
@@ -431,6 +457,8 @@ export const productServiceResolvers = {
         const term = String(search || "").trim();
         if (term) clauses.push(productSearchClause(term));
         clauses.push(...productColumnFilterClauses(columnFilters));
+        const byCategory = await categoryFilterClause(columnFilters, tenant.adminid);
+        if (byCategory) clauses.push(byCategory);
 
         const pageQuery = { $and: clauses };
         const { skip, limit } = pageWindow(page, pageSize);

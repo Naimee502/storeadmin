@@ -76,6 +76,19 @@ export interface IServiceVariant {
   recurrence?: { interval: "daily" | "weekly" | "monthly"; count: number };
   servicelikecount?: number;
   remarks?: string;
+  gst?: number;
+  saccode?: string;
+  pricingunit?: string;
+  taxinclusive?: boolean;
+  visitcharge?: number;
+  materials?: { productserviceid: Types.ObjectId; variantid?: Types.ObjectId; salesunitid?: Types.ObjectId; qty: number }[];
+  nextduedays?: number;
+  warrantydays?: number;
+  staffids?: Types.ObjectId[];
+  commission?: number;
+  capacity?: number;
+  bufferminutes?: number;
+  checklist?: string[];
 }
 
 // 🔹 SEO
@@ -94,6 +107,10 @@ export interface IProductService extends Document {
   branchid: Types.ObjectId;
   isservice: boolean;
   isserialised: boolean;
+  // raw, semifinished, finished, consumable, spare, service, kit (unset = finished, nothing written).
+  itemtype?: string;
+  // Business-defined specs (Business Settings → Custom Fields), e.g. kVA, voltage.
+  customfields?: { key: string; value?: string }[];
   name: string;
   description?: string;
   imageurl?: string;
@@ -126,6 +143,8 @@ const productServiceSchema = new Schema<IProductService>(
     branchid: { type: Schema.Types.ObjectId, ref: "Branch", required: true },
     isservice: { type: Boolean, default: false },
     isserialised: { type: Boolean, default: false },
+    itemtype: { type: String },
+    customfields: { type: [{ _id: false, key: { type: String, required: true }, value: { type: String } }], default: undefined },
     name: { type: String, required: true },
     description: { type: String, default: "" },
     imageurl: String,
@@ -170,6 +189,27 @@ const productServiceSchema = new Schema<IProductService>(
         },
         servicelikecount: { type: Number, default: 0 },
         remarks: String,
+        // Optional extras; no defaults so old services read as before.
+        gst: { type: Number },
+        saccode: { type: String },
+        // visit, hour, sqft, room, unit, session, fixed
+        pricingunit: { type: String },
+        taxinclusive: { type: Boolean },
+        visitcharge: { type: Number },
+        // Consumables used per service; taken from stock when an appointment is done.
+        materials: {
+          type: [{ _id: false, productserviceid: { type: Schema.Types.ObjectId, ref: "ProductService", required: true }, variantid: { type: Schema.Types.ObjectId }, salesunitid: { type: Schema.Types.ObjectId, ref: "Unit" }, qty: { type: Number, required: true } }],
+          default: undefined,
+        },
+        nextduedays: { type: Number },
+        warrantydays: { type: Number },
+        staffids: { type: [{ type: Schema.Types.ObjectId, ref: "StaffAccount" }], default: undefined },
+        // Staff commission, % of the service amount.
+        commission: { type: Number },
+        // Bookings one staff member can take in the same slot (classes, batches).
+        capacity: { type: Number },
+        bufferminutes: { type: Number },
+        checklist: { type: [String], default: undefined },
       },
     ],
     productvariants: [

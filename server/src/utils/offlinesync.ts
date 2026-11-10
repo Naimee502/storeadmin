@@ -6,10 +6,10 @@ import { resolveTenant } from "./tenant";
 
 export type OfflineDocType =
   | "salesinvoice" | "salesorder" | "salesreturn" | "payment"
-  | "purchaseinvoice" | "purchaseorder" | "purchasereturn" | "stockadjustment" | "transferstock" | "deliverychallan" | "quotation";
+  | "purchaseinvoice" | "purchaseorder" | "purchasereturn" | "stockadjustment" | "transferstock" | "deliverychallan" | "quotation" | "workorder" | "production" | "jobcard";
 export const OFFLINE_DOC_TYPES: OfflineDocType[] = [
   "salesinvoice", "salesorder", "salesreturn", "payment",
-  "purchaseinvoice", "purchaseorder", "purchasereturn", "stockadjustment", "transferstock", "deliverychallan", "quotation",
+  "purchaseinvoice", "purchaseorder", "purchasereturn", "stockadjustment", "transferstock", "deliverychallan", "quotation", "workorder", "production", "jobcard",
 ];
 
 /** Device series code: A..Z, AA..ZZ, AAA..ZZZ. */
@@ -27,6 +27,9 @@ const DEVICE_NUMBER_RX: Record<OfflineDocType, RegExp> = {
   transferstock: /^TR-([A-Z]{1,3})\/(\d{6})$/,
   deliverychallan: /^DC-([A-Z]{1,3})\/(\d{6})$/,
   quotation: /^QT-([A-Z]{1,3})\/(\d{6})$/,
+  workorder: /^WO-([A-Z]{1,3})\/(\d{6})$/,
+  production: /^PE-([A-Z]{1,3})\/(\d{6})$/,
+  jobcard: /^JC-([A-Z]{1,3})\/(\d{6})$/,
 };
 
 export type DeviceNumber = { type: OfflineDocType; code: string; seq: number; value: string };

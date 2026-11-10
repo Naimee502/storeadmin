@@ -44,6 +44,13 @@ import { leadQuery, followupQuery } from "../lead";
 import { Quotation } from "../../../models/quotation";
 import { buildQuotationQuery, formatQuotation, quotationPopulate } from "../quotation";
 import { buildChallanQuery, formatChallan, challanPopulate } from "../deliverychallan";
+import { Bom, WorkOrder, ProductionEntry } from "../../../models/manufacturing";
+import { Appointment, JobCard, Contract, MembershipPlan, Membership } from "../../../models/service";
+import {
+  buildServiceQuery, appointmentPopulate, formatAppointment, jobCardPopulate, formatJobCard, contractPopulate, formatContract,
+  planPopulate, formatPlan, membershipPopulate, formatMembership,
+} from "../service";
+import { buildMfgQuery, bomPopulate, formatBom, workOrderPopulate, formatWorkOrder, productionPopulate, formatProduction } from "../manufacturing";
 import { buildPurchaseInvoiceQuery, formatInvoice as formatPurchaseInvoice, listPopulateFields as purchaseInvoiceRefs } from "../purchaseinvoice";
 import { buildPurchaseOrderQuery, formatOrder as formatPurchaseOrder, listPopulateFields as purchaseOrderRefs } from "../purchaseorder";
 import { buildPurchaseReturnQuery, formatReturn as formatPurchaseReturn, listPopulateFields as purchaseReturnRefs } from "../purchasereturn";
@@ -240,6 +247,60 @@ export const SYNC_COLLECTIONS: Record<string, SyncCollection> = {
     scope: async (ctx) => withoutStatus(buildQuotationQuery({ adminid: ctx.adminid })),
     find: (f) => Quotation.find(f).populate(quotationPopulate).lean(),
     shape: (docs) => docs.map(formatQuotation),
+  },
+  bom: {
+    model: Bom,
+    tenant: "adminid",
+    find: (f) => Bom.find(f).populate(bomPopulate).lean(),
+    shape: (docs) => docs.map(formatBom),
+  },
+  workorder: {
+    model: WorkOrder,
+    tenant: "adminid",
+    scope: async (ctx) => withoutStatus(buildMfgQuery({ adminid: ctx.adminid })),
+    find: (f) => WorkOrder.find(f).populate(workOrderPopulate).lean(),
+    shape: (docs) => docs.map(formatWorkOrder),
+  },
+  production: {
+    model: ProductionEntry,
+    tenant: "adminid",
+    scope: async (ctx) => withoutStatus(buildMfgQuery({ adminid: ctx.adminid })),
+    find: (f) => ProductionEntry.find(f).populate(productionPopulate).lean(),
+    shape: (docs) => docs.map(formatProduction),
+  },
+  appointment: {
+    model: Appointment,
+    tenant: "adminid",
+    scope: async (ctx) => withoutStatus(buildServiceQuery({ adminid: ctx.adminid })),
+    find: (f) => Appointment.find(f).populate(appointmentPopulate).lean(),
+    shape: (docs) => docs.map(formatAppointment),
+  },
+  jobcard: {
+    model: JobCard,
+    tenant: "adminid",
+    scope: async (ctx) => withoutStatus(buildServiceQuery({ adminid: ctx.adminid })),
+    find: (f) => JobCard.find(f).populate(jobCardPopulate).lean(),
+    shape: (docs) => docs.map(formatJobCard),
+  },
+  contract: {
+    model: Contract,
+    tenant: "adminid",
+    scope: async (ctx) => withoutStatus(buildServiceQuery({ adminid: ctx.adminid })),
+    find: (f) => Contract.find(f).populate(contractPopulate).lean(),
+    shape: (docs) => docs.map(formatContract),
+  },
+  membershipplan: {
+    model: MembershipPlan,
+    tenant: "adminid",
+    find: (f) => MembershipPlan.find(f).populate(planPopulate).lean(),
+    shape: (docs) => docs.map(formatPlan),
+  },
+  membership: {
+    model: Membership,
+    tenant: "adminid",
+    scope: async (ctx) => withoutStatus(buildServiceQuery({ adminid: ctx.adminid })),
+    find: (f) => Membership.find(f).populate(membershipPopulate).lean(),
+    shape: (docs) => docs.map(formatMembership),
   },
   followup: { model: Followup, tenant: "adminid", scope: async (ctx) => followupQuery(await syncScope(ctx)), find: (f) => Followup.find(f).lean() },
   holiday: plain(Holiday),
