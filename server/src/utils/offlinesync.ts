@@ -6,10 +6,10 @@ import { resolveTenant } from "./tenant";
 
 export type OfflineDocType =
   | "salesinvoice" | "salesorder" | "salesreturn" | "payment"
-  | "purchaseinvoice" | "purchaseorder" | "purchasereturn" | "stockadjustment" | "transferstock" | "deliverychallan";
+  | "purchaseinvoice" | "purchaseorder" | "purchasereturn" | "stockadjustment" | "transferstock" | "deliverychallan" | "quotation";
 export const OFFLINE_DOC_TYPES: OfflineDocType[] = [
   "salesinvoice", "salesorder", "salesreturn", "payment",
-  "purchaseinvoice", "purchaseorder", "purchasereturn", "stockadjustment", "transferstock", "deliverychallan",
+  "purchaseinvoice", "purchaseorder", "purchasereturn", "stockadjustment", "transferstock", "deliverychallan", "quotation",
 ];
 
 /** Device series code: A..Z, AA..ZZ, AAA..ZZZ. */
@@ -26,6 +26,7 @@ const DEVICE_NUMBER_RX: Record<OfflineDocType, RegExp> = {
   stockadjustment: /^SA-([A-Z]{1,3})\/(\d{6})$/,
   transferstock: /^TR-([A-Z]{1,3})\/(\d{6})$/,
   deliverychallan: /^DC-([A-Z]{1,3})\/(\d{6})$/,
+  quotation: /^QT-([A-Z]{1,3})\/(\d{6})$/,
 };
 
 export type DeviceNumber = { type: OfflineDocType; code: string; seq: number; value: string };

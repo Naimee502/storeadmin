@@ -43,6 +43,8 @@ import { commonTypeDefs } from "./common";
 import { offlineDeviceTypeDefs } from "./offlinedevice";
 import { syncTypeDefs } from "./sync";
 import { deliveryChallanTypeDefs } from "./deliverychallan";
+import { leadTypeDefs } from "./lead";
+import { quotationTypeDefs } from "./quotation";
 
 export const typeDefs = [
   branchTypeDefs,
@@ -90,4 +92,6 @@ export const typeDefs = [
   offlineDeviceTypeDefs,
   syncTypeDefs,
   deliveryChallanTypeDefs,
+  leadTypeDefs,
+  quotationTypeDefs,
 ];

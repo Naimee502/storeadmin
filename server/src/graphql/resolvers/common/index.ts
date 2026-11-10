@@ -48,6 +48,9 @@ export const CLEAR_TARGETS: Record<string, ClearTarget> = {
   chargerules: { model: "ChargeRule", tenant: "adminid" },
   announcements: { model: "Announcement", tenant: "adminid", deleted: { isactive: false } },
   attendance: { model: "Attendance", tenant: "adminid", deleted: { status_active: false } },
+  leads: { model: "Lead", tenant: "adminid" },
+  followups: { model: "Followup", tenant: "adminid" },
+  quotations: { model: "Quotation", tenant: "adminid" },
 };
 
 // Same rule as the client: no record for the module = allowed,

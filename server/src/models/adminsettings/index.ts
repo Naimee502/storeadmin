@@ -114,6 +114,23 @@ const adminSettingsSchema = new mongoose.Schema(
     gstPincode: { type: String },
     // Opt-in (no default, old admins unchanged): IGST for inter-state purchases and the tax split in forms.
     gstStateSplit: { type: Boolean },
+    // CRM lists; unset means the built-in defaults (no array default, old documents stay as they are).
+    crmStages: { type: [{ _id: false, key: String, label: String, kind: String }], default: undefined },
+    crmSources: { type: [String], default: undefined },
+    crmLostReasons: { type: [String], default: undefined },
+    // Quotation format (Business Settings → Quotation Format). Unset = built-in layout.
+    quoteTitle: { type: String },
+    quoteIntro: { type: String },
+    quoteTerms: { type: String },
+    quoteFooter: { type: String },
+    quoteValidityDays: { type: Number },
+    quoteAccent: { type: String },
+    quoteShowImages: { type: Boolean },
+    quoteShowHsn: { type: Boolean },
+    quoteShowDiscount: { type: Boolean },
+    quoteShowGst: { type: Boolean },
+    quoteShowTaxSplit: { type: Boolean },
+    quoteShowSignature: { type: Boolean },
 
     /* ============================================================
        WEBSITE STOREFRONT — controls for the customer-facing website.

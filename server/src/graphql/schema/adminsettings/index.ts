@@ -1,6 +1,18 @@
 import { gql } from "apollo-server-express";
 
 export const adminSettingsTypeDefs = gql`
+  type CrmStage {
+    key: String!
+    label: String!
+    kind: String!
+  }
+
+  input CrmStageInput {
+    key: String!
+    label: String!
+    kind: String!
+  }
+
   type HeroBannerSlide {
     image: String
     video: String
@@ -116,6 +128,21 @@ export const adminSettingsTypeDefs = gql`
     gstCity: String
     gstPincode: String
     gstStateSplit: Boolean
+    crmStages: [CrmStage!]
+    crmSources: [String!]
+    crmLostReasons: [String!]
+    quoteTitle: String
+    quoteIntro: String
+    quoteTerms: String
+    quoteFooter: String
+    quoteValidityDays: Int
+    quoteAccent: String
+    quoteShowImages: Boolean
+    quoteShowHsn: Boolean
+    quoteShowDiscount: Boolean
+    quoteShowGst: Boolean
+    quoteShowTaxSplit: Boolean
+    quoteShowSignature: Boolean
     companyState: String
     printShowHsnColumn: Boolean
     printShowGstColumn: Boolean
@@ -371,6 +398,21 @@ export const adminSettingsTypeDefs = gql`
     gstCity: String
     gstPincode: String
     gstStateSplit: Boolean
+    crmStages: [CrmStageInput!]
+    crmSources: [String!]
+    crmLostReasons: [String!]
+    quoteTitle: String
+    quoteIntro: String
+    quoteTerms: String
+    quoteFooter: String
+    quoteValidityDays: Int
+    quoteAccent: String
+    quoteShowImages: Boolean
+    quoteShowHsn: Boolean
+    quoteShowDiscount: Boolean
+    quoteShowGst: Boolean
+    quoteShowTaxSplit: Boolean
+    quoteShowSignature: Boolean
     companyState: String
     printShowHsnColumn: Boolean
     printShowGstColumn: Boolean

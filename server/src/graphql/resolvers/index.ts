@@ -45,6 +45,10 @@ import { offlineDeviceResolvers } from "./offlinedevice";
 import { syncResolvers } from "./sync";
 import { deliveryChallanResolvers } from "./deliverychallan";
 import { DeliveryChallan } from "../../models/deliverychallan";
+import { leadResolvers } from "./lead";
+import { Lead, Followup } from "../../models/lead";
+import { quotationResolvers } from "./quotation";
+import { Quotation } from "../../models/quotation";
 
 import { withOfflineActions, withOfflineWrites } from "../../utils/offlinesync";
 import { SalesOrder } from "../../models/salesorder";
@@ -125,4 +129,10 @@ export const resolvers = [
   offlineDeviceResolvers,
   syncResolvers,
   withOfflineActions(deliveryChallanResolvers, DeliveryChallan, ["editDeliveryChallan", "deleteDeliveryChallan", "markDeliveryChallanDelivered", "markDeliveryChallanReturned", "saveChallanEWayBill"]),
+  withOfflineActions(
+    withOfflineActions(leadResolvers, Lead, ["editLead", "deleteLead", "setLeadStage", "convertLeadToParty"]),
+    Followup,
+    ["editFollowup", "deleteFollowup", "completeFollowup"]
+  ),
+  withOfflineActions(quotationResolvers, Quotation, ["editQuotation", "deleteQuotation", "setQuotationStatus"]),
 ];

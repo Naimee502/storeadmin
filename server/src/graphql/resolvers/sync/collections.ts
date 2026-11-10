@@ -39,6 +39,10 @@ import { Channel } from "../../../models/channel";
 import { SalesRoute } from "../../../models/salesroutes";
 import { Holiday, LeaveType } from "../../../models/attendance";
 import { DeliveryChallan } from "../../../models/deliverychallan";
+import { Lead, Followup } from "../../../models/lead";
+import { leadQuery, followupQuery } from "../lead";
+import { Quotation } from "../../../models/quotation";
+import { buildQuotationQuery, formatQuotation, quotationPopulate } from "../quotation";
 import { buildChallanQuery, formatChallan, challanPopulate } from "../deliverychallan";
 import { buildPurchaseInvoiceQuery, formatInvoice as formatPurchaseInvoice, listPopulateFields as purchaseInvoiceRefs } from "../purchaseinvoice";
 import { buildPurchaseOrderQuery, formatOrder as formatPurchaseOrder, listPopulateFields as purchaseOrderRefs } from "../purchaseorder";
@@ -80,6 +84,12 @@ const withoutStatus = (q: any) => {
 };
 
 const ADMIN_REF = { path: "admin", select: "name email" };
+
+// Login scope for per-user collections; an admin's device takes every branch.
+const syncScope = async (ctx: SyncCtx) => {
+  const s: any = await resolveTenant(ctx.context);
+  return { ...s, adminid: ctx.adminid, branchid: s.userType === "admin" ? undefined : s.branchid };
+};
 
 const master = (model: any, extra: any[] = []): SyncCollection => ({
   model,
@@ -222,6 +232,16 @@ export const SYNC_COLLECTIONS: Record<string, SyncCollection> = {
   accountgroup: master(AccountGroup),
   channel: master(Channel),
   salesroute: plain(SalesRoute),
+  // CRM: the device holds only what the login may see (own leads for staff without "View").
+  lead: { model: Lead, tenant: "adminid", scope: async (ctx) => leadQuery(await syncScope(ctx)), find: (f) => Lead.find(f).lean() },
+  quotation: {
+    model: Quotation,
+    tenant: "adminid",
+    scope: async (ctx) => withoutStatus(buildQuotationQuery({ adminid: ctx.adminid })),
+    find: (f) => Quotation.find(f).populate(quotationPopulate).lean(),
+    shape: (docs) => docs.map(formatQuotation),
+  },
+  followup: { model: Followup, tenant: "adminid", scope: async (ctx) => followupQuery(await syncScope(ctx)), find: (f) => Followup.find(f).lean() },
   holiday: plain(Holiday),
   leavetype: plain(LeaveType),
   branch: {
