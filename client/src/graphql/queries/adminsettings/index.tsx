@@ -62,6 +62,8 @@ const SETTINGS_FIELDS = `
   crmStages { key label kind }
   crmSources
   crmLostReasons
+  productSpecsOn
+  productExtrasOn
   customFieldDefs { key label entity type options print required }
   aiEnabled aiModel aiMonthlyCap aiAgentOn aiApiKeySet
   companyState

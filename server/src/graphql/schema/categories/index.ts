@@ -14,6 +14,26 @@ export const categoryTypeDefs = gql`
     rejected: Boolean!
   }
 
+  "A spec field a category asks every product in it to fill in."
+  type SpecDef {
+    key: String!
+    label: String!
+    "text, number, select, date"
+    type: String!
+    options: [String!]
+    print: Boolean
+    required: Boolean
+  }
+
+  input SpecDefInput {
+    key: String!
+    label: String!
+    type: String!
+    options: [String!]
+    print: Boolean
+    required: Boolean
+  }
+
   type Category {
 
     "ISO date"
@@ -25,6 +45,7 @@ export const categoryTypeDefs = gql`
     image: String
     status: Boolean!
     sortorder: Int
+    specdefs: [SpecDef!]
     admin: Admin
   }
 
@@ -36,6 +57,7 @@ export const categoryTypeDefs = gql`
     categoryname: String!
     image: String
     status: Boolean!
+    specdefs: [SpecDefInput!]
     admin: ID
   }
 

@@ -9,6 +9,7 @@ export const GET_CATEGORIES = gql`
       image
       status
       sortorder
+      specdefs { key label type options print required }
       admin {
         id
         name
@@ -27,6 +28,7 @@ export const GET_CATEGORIES_LIST = gql`
       categoryname
       image
       status
+      specdefs { key label type options print required }
     }
   }
 `;

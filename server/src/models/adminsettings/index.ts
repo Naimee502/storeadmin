@@ -119,6 +119,10 @@ const adminSettingsSchema = new mongoose.Schema(
     crmSources: { type: [String], default: undefined },
     crmLostReasons: { type: [String], default: undefined },
     // Custom fields per entity (product, lead): key, label, type, options, shown on quotation print.
+    // Category spec templates on products; off keeps the forms as they were.
+    productSpecsOn: { type: Boolean },
+    // MOQ, alternates, spare fitment, warranty and documents on products.
+    productExtrasOn: { type: Boolean },
     customFieldDefs: {
       type: [{ _id: false, key: String, label: String, entity: String, type: { type: String }, options: [String], print: Boolean, required: Boolean }],
       default: undefined,

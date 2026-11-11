@@ -56,6 +56,10 @@ export interface IProductVariant {
   minimumstock?: number;
   reorderlevel?: number;
   racklocation?: string;
+  moq?: number;
+  salemultiple?: number;
+  warrantymonths?: number;
+  customfields?: { key: string; value?: string }[];
   serials?: ISerial[];
   unitprices?: IUnitPrice[]; // sales pricing
   productlikecount?: number;
@@ -127,6 +131,9 @@ export interface IProductService extends Document {
   seo?: ISEO;
   servicevariants?: IServiceVariant[];
   productvariants?: IProductVariant[];
+  alternateids?: Types.ObjectId[];
+  fitsids?: Types.ObjectId[];
+  documents?: { name?: string; url: string }[];
   salesaccountid?: Types.ObjectId;
   purchaseaccountid?: Types.ObjectId;
   serviceaccountid?: Types.ObjectId;
@@ -240,6 +247,12 @@ const productServiceSchema = new Schema<IProductService>(
         minimumstock: Number,
         reorderlevel: Number,
         racklocation: String,
+        // Smallest sellable quantity, and the step it must be sold in.
+        moq: { type: Number },
+        salemultiple: { type: Number },
+        warrantymonths: { type: Number },
+        // Values for the category's spec fields.
+        customfields: { type: [{ _id: false, key: { type: String, required: true }, value: { type: String } }], default: undefined },
         serials: [
           {
             imei: String,
@@ -272,6 +285,10 @@ const productServiceSchema = new Schema<IProductService>(
         productlikecount: { type: Number, default: 0 },
       },
     ],
+    // Items a buyer can take instead, and the machines this spare fits.
+    alternateids: { type: [{ type: Schema.Types.ObjectId, ref: "ProductService" }], default: undefined },
+    fitsids: { type: [{ type: Schema.Types.ObjectId, ref: "ProductService" }], default: undefined },
+    documents: { type: [{ _id: false, name: String, url: { type: String, required: true } }], default: undefined },
     salesaccountid: { type: Schema.Types.ObjectId, ref: "AccountLedger" },
     purchaseaccountid: { type: Schema.Types.ObjectId, ref: "AccountLedger" },
     serviceaccountid: { type: Schema.Types.ObjectId, ref: "AccountLedger" },

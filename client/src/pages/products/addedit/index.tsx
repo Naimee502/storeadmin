@@ -10,6 +10,7 @@ import { selectIsFormFieldEnabled, selectIsModuleAllowed } from "../../../redux/
 import {
   useProductServiceByIDQuery,
   useProductServiceMutations,
+  useProductServicesQuery,
 } from "../../../graphql/hooks/products";
 import { useImageUpload } from "../../../graphql/hooks/uploads";
 import { useCategoriesQuery } from "../../../graphql/hooks/categories";
@@ -43,6 +44,11 @@ const AddEditProductService = () => {
   const productCustomDefs = useCustomFieldDefs("product");
   // Item type matters to manufacturing; other businesses never see the field.
   const bomOn = useAppSelector((s: any) => selectIsModuleAllowed(s, "bom") || selectIsModuleAllowed(s, "production"));
+  // Category spec fields are opt-in; off keeps the variant cards as they were.
+  const specsOn = useAppSelector((s: any) => !!s.adminsettings.settings?.productSpecsOn);
+  const extrasOn = useAppSelector((s: any) => !!s.adminsettings.settings?.productExtrasOn);
+  const { data: allProductsData } = useProductServicesQuery(true, extrasOn ? 500 : 0, 0);
+  const [uploadingDoc, setUploadingDoc] = useState(false);
   const isFieldEnabled = (fieldId: string) => {
     return productFormPermissions[fieldId] !== false;
   };
@@ -224,6 +230,41 @@ const AddEditProductService = () => {
   status: true,
   });
 
+  const specDefs = useMemo(
+    () => (specsOn ? (categoryData?.getCategories || []).find((c: any) => c.id === formData.categoryid)?.specdefs || [] : []),
+    [specsOn, categoryData, formData.categoryid]
+  );
+  // Every other item of this business, for the alternate and fitment pickers.
+  const otherProductOptions = useMemo(
+    () => (extrasOn ? (allProductsData?.getProductServices || []) : [])
+      .filter((p: any) => !p.isservice && p.id !== id)
+      .map((p: any) => ({ value: p.id, label: p.name })),
+    [extrasOn, allProductsData, id]
+  );
+  const setDocs = (next: any[]) => setFormData((f: any) => ({ ...f, documents: next }));
+  const addDocument = async (e: any) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setUploadingDoc(true);
+    try {
+      const { data } = await uploadImageMutation({ variables: { file } });
+      const url = data?.uploadImage?.url;
+      if (url) setDocs([...(formData.documents || []), { name: file.name, url }]);
+    } catch (err: any) {
+      dispatch(showMessage({ message: err?.message || "Could not upload the document.", type: "error" }));
+    } finally {
+      setUploadingDoc(false);
+    }
+  };
+
+  const setVariantSpecs = (index: number, next: any[]) =>
+    setFormData((prev: any) => ({
+      ...prev,
+      productvariants: prev.productvariants.map((v: any, i: number) => (i === index ? { ...v, customfields: next } : v)),
+    }));
+
+
   useEffect(() => {
   if (isEdit && productData?.getProductServiceById) {
     const p = JSON.parse(JSON.stringify(productData.getProductServiceById));
@@ -235,6 +276,9 @@ const AddEditProductService = () => {
       isservice: p.isservice ?? false,
       isserialised: p.isserialised ?? false,
       itemtype: p.itemtype ?? "",
+      alternateids: (p.alternateids || []).map((x: any) => String(x?.id ?? x)),
+      fitsids: (p.fitsids || []).map((x: any) => String(x?.id ?? x)),
+      documents: (p.documents || []).map((d: any) => ({ name: d.name ?? "", url: d.url })),
       customfields: (p.customfields || []).map((c: any) => ({ key: c.key, value: c.value ?? "" })),
       name: p.name ?? "",
       description: p.description ?? "",
@@ -952,6 +996,9 @@ const AddEditProductService = () => {
       isserialised: !!formData.isserialised,
       // Unset stays unset (reads as finished goods); services have no item type.
       itemtype: formData.isservice ? undefined : formData.itemtype || undefined,
+      alternateids: (formData.alternateids || []).filter(Boolean),
+      fitsids: (formData.fitsids || []).filter(Boolean),
+      documents: (formData.documents || []).filter((d: any) => d?.url).map((d: any) => ({ name: d.name || "", url: d.url })),
       customfields: cleanCustomFields(productCustomDefs, formData.customfields),
 
       productvariants: formData.isservice ? [] : (formData.productvariants || []).map(v => ({
@@ -976,6 +1023,10 @@ const AddEditProductService = () => {
         minimumstock: roundNum(v.minimumstock),
         reorderlevel: roundNum(v.reorderlevel),
         racklocation: v.racklocation?.trim() || "",
+        moq: roundNum(v.moq) || undefined,
+        salemultiple: roundNum(v.salemultiple) || undefined,
+        warrantymonths: roundNum(v.warrantymonths) || undefined,
+        customfields: (v.customfields || []).filter((c: any) => String(c?.value ?? "").trim()).map((c: any) => ({ key: c.key, value: String(c.value).trim() })),
         serials: (v.serials || []).map(s => ({
           ...s,
           addedon: parseDate(s.addedon)?.toISOString() || null,
@@ -1220,6 +1271,8 @@ const AddEditProductService = () => {
 
           <CustomFieldsSection entity="product" values={formData.customfields || []}
             onChange={(next) => setFormData((f: any) => ({ ...f, customfields: next }))} />
+
+
         </div>
 
         {/* === SEO, OPTIONS, ACCOUNTS === */}
@@ -1262,6 +1315,38 @@ const AddEditProductService = () => {
                   />
                 </fieldset>
               )}
+            </div>
+          </fieldset>
+          )}
+
+          {extrasOn && (
+          <fieldset className="border rounded-xl p-4 space-y-3">
+            <legend className="text-sm font-medium px-2">Related Items & Documents</legend>
+            <div className="grid grid-cols-1 gap-x-3 gap-y-2 md:grid-cols-2">
+              <FormField label="Alternate Items" name="alternateids" type="multiselect" searchable
+                placeholder="What a buyer can take instead"
+                options={otherProductOptions} value={formData.alternateids || []}
+                onChange={(e: any) => setFormData((f: any) => ({ ...f, alternateids: Array.isArray(e.target.value) ? e.target.value : [] }))} />
+              <FormField label="Fits These Items" name="fitsids" type="multiselect" searchable
+                placeholder="Machines this spare part fits"
+                options={otherProductOptions} value={formData.fitsids || []}
+                onChange={(e: any) => setFormData((f: any) => ({ ...f, fitsids: Array.isArray(e.target.value) ? e.target.value : [] }))} />
+            </div>
+            <div className="space-y-1.5">
+              <div className="text-[12px] font-medium text-slate-600">Documents <span className="font-normal text-slate-400">— test certificate, datasheet, MSDS</span></div>
+              {(formData.documents || []).map((d: any, i: number) => (
+                <div key={i} className="flex items-center gap-1.5">
+                  <input className="h-8 w-40 shrink-0 rounded-md border border-slate-300 px-2 text-[13px]" placeholder="Name" value={d.name || ""}
+                    onChange={(e) => setDocs(formData.documents.map((x: any, j: number) => (j === i ? { ...x, name: e.target.value } : x)))} />
+                  <a className="min-w-0 flex-1 truncate text-[12px] text-indigo-600 hover:underline" href={d.url} target="_blank" rel="noreferrer">{d.url}</a>
+                  <button type="button" className="h-8 shrink-0 rounded-md border border-slate-300 px-2 text-[13px] text-rose-600"
+                    onClick={() => setDocs(formData.documents.filter((_: any, j: number) => j !== i))}>x</button>
+                </div>
+              ))}
+              <label className="inline-flex h-8 cursor-pointer items-center rounded-md border border-slate-300 px-3 text-[13px] text-indigo-600">
+                {uploadingDoc ? "Uploading…" : "+ Add document"}
+                <input type="file" className="hidden" onChange={addDocument} />
+              </label>
             </div>
           </fieldset>
           )}
@@ -1361,6 +1446,9 @@ const AddEditProductService = () => {
           <ProductVariants
             formData={formData}
             handleChange={handleChange}
+            specDefs={specDefs}
+            setVariantSpecs={setVariantSpecs}
+            extrasOn={extrasOn}
             addProductVariant={addProductVariant}
             removeProductVariant={removeProductVariant}
             unitData={unitData}

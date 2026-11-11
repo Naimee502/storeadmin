@@ -1,4 +1,5 @@
 import FormField from "../formfiled";
+import { SpecValues, type CustomFieldValue, type SpecDef } from "../customfields";
 import BarcodeImage from "../barcode";
 import { useAppSelector } from "../../redux/hooks";
 
@@ -49,6 +50,9 @@ const LABELS: Record<string, string> = {
     minimumstock: "Minimum Stock",
     reorderlevel: "Reorder Level",
     racklocation: "Rack Location",
+    moq: "Minimum Order Qty",
+    salemultiple: "Sell in Multiples Of",
+    warrantymonths: "Warranty (Months)",
     openingstockamount: "Opening Stock Amount",
     currentstockamount: "Current Stock Amount",
     closingstockamount: "Closing Stock Amount",
@@ -63,9 +67,12 @@ const LABELS: Record<string, string> = {
     offerprice: "Offer Price",
 };
 
-export const ProductVariants: React.FC<ProductVariantsProps> = ({
+export const ProductVariants: React.FC<ProductVariantsProps & { specDefs?: SpecDef[]; setVariantSpecs?: (index: number, next: CustomFieldValue[]) => void; extrasOn?: boolean }> = ({
     formData,
     handleChange,
+    specDefs,
+    setVariantSpecs,
+    extrasOn = false,
     addProductVariant,
     removeProductVariant,
     addUnitConversion,
@@ -104,11 +111,12 @@ export const ProductVariants: React.FC<ProductVariantsProps> = ({
                         "name", "sku", "batchnumber", "manufacturedate", "expirydate",
                         "gst", "hsncode", "openingstock", "currentstock",
                         "closingstock", "minimumstock", "reorderlevel", "racklocation",
+                        ...(extrasOn ? ["moq", "salemultiple", "warrantymonths"] : []),
                         ...(isEdit ? ["productcode", "openingstockamount", "currentstockamount", "closingstockamount"] : []),
                     ].filter(field => isFieldEnabled(field === "name" ? "variant_name" : field));
                 const showCore = coreFields.length > 0 || showUnitFields;
                 // Nothing in this variant is allowed → don't render an empty card.
-                if (!showCore && !showConv && !showPrices) return null;
+                if (!showCore && !showConv && !showPrices && !specDefs?.length) return null;
                 return (
                 <fieldset key={variant.tempid || index} className="border rounded-xl p-4 mb-4 relative">
                     <legend className="text-sm font-semibold px-2">Product Variant {index + 1}</legend>
@@ -137,6 +145,7 @@ export const ProductVariants: React.FC<ProductVariantsProps> = ({
                                 "currentstock", "currentstockamount",
                                 "closingstock", "closingstockamount",
                                 "minimumstock", "reorderlevel",
+                                "moq", "salemultiple", "warrantymonths",
                             ].includes(field)
                                 ? "number"
                                 : ["manufacturedate", "expirydate"].includes(field)
@@ -197,6 +206,14 @@ export const ProductVariants: React.FC<ProductVariantsProps> = ({
                             error={errors?.productvariants?.[index]?.purchaserate}
                         />
                     )}
+                </div>
+                )}
+
+                {/* Category spec fields; nothing shows when the category defines none. */}
+                {!!specDefs?.length && setVariantSpecs && (
+                <div className="border-t border-slate-200 pt-2 pb-3">
+                    <h4 className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-500">Specifications</h4>
+                    <SpecValues defs={specDefs} values={variant.customfields || []} onChange={(next) => setVariantSpecs(index, next)} />
                 </div>
                 )}
 

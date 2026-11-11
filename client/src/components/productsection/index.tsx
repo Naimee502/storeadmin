@@ -152,6 +152,7 @@ const ProductSection: React.FC<ProductSectionProps> = ({
   const defaultModuleId = type === "sales" ? "salesinvoice" : "purchaseinvoice";
   const moduleId = permissionModuleId || defaultModuleId;
   const formPermissions = useAppSelector((state) => state.permissions.permissions?.formPermissions?.[moduleId] || {});
+  const extrasOn = useAppSelector((state: any) => !!state.adminsettings.settings?.productExtrasOn);
   const isFieldEnabled = (fieldId: string) => {
     return formPermissions[fieldId] !== false;
   };
@@ -248,6 +249,21 @@ const ProductSection: React.FC<ProductSectionProps> = ({
   const [expandedHistoryIndex, setExpandedHistoryIndex] = useState<number | null>(null);
 
   const [qtyError, setQtyError] = useState<string | null>(null);
+
+  // Minimum order qty and sale multiples: a note, never a block.
+  const moqNote = useMemo(() => {
+    if (type !== "sales" || iservice || !extrasOn) return null;
+    const product = normalizedProducts.find((p: any) => p.id === selectedProduct?.productserviceid);
+    const variant = product?.productvariants?.find((v: any) => v.id === selectedProduct?.variantid);
+    const qty = Number(selectedProduct?.quantity) || 0;
+    if (!variant || !qty) return null;
+    const moq = Number(variant.moq) || 0;
+    const step = Number(variant.salemultiple) || 0;
+    if (moq && qty < moq) return `Minimum order quantity is ${moq}.`;
+    if (step && Math.abs(qty / step - Math.round(qty / step)) > 1e-9) return `Usually sold in multiples of ${step}.`;
+    return null;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [type, iservice, extrasOn, normalizedProducts, selectedProduct?.productserviceid, selectedProduct?.variantid, selectedProduct?.quantity]);
 
   // Selling below cost is blocked on sales lines; rates compared per base unit.
   const rateError = useMemo(() => {
@@ -798,6 +814,9 @@ const ProductSection: React.FC<ProductSectionProps> = ({
             }}
             error={qtyError}
           />
+        )}
+        {moqNote && !qtyError && (
+          <div className="col-span-full -mt-1 text-[11px] text-amber-700">{moqNote}</div>
         )}
 
         {/* ✅ Rate */}

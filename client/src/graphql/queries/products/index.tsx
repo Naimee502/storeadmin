@@ -10,6 +10,9 @@ export const GET_PRODUCT_SERVICES = gql`
       isservice
       isserialised
       itemtype
+      alternateids
+      fitsids
+      documents { name url }
       customfields { key value }
       name
       description
@@ -75,6 +78,10 @@ export const GET_PRODUCT_SERVICES = gql`
         minimumstock
         reorderlevel
         racklocation
+        moq
+        salemultiple
+        warrantymonths
+        customfields { key value }
         serials {
           id
           imei
@@ -195,6 +202,9 @@ export const GET_PRODUCT_SERVICE_BY_ID = gql`
       isservice
       isserialised
       itemtype
+      alternateids
+      fitsids
+      documents { name url }
       customfields { key value }
       name
       description
@@ -267,6 +277,10 @@ export const GET_PRODUCT_SERVICE_BY_ID = gql`
         minimumstock
         reorderlevel
         racklocation
+        moq
+        salemultiple
+        warrantymonths
+        customfields { key value }
         
         serials {
           id

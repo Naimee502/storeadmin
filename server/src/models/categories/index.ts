@@ -11,6 +11,11 @@ const categorySchema = new mongoose.Schema(
     // goes to the end. Older rows without it sort first, by createdAt, which
     // is the order they were already showing in.
     sortorder: { type: Number },
+    // Spec fields every product in this category fills in, per variant.
+    specdefs: {
+      type: [{ _id: false, key: { type: String, required: true }, label: String, type: { type: String }, options: [String], print: Boolean, required: Boolean }],
+      default: undefined,
+    },
     admin: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Admin',

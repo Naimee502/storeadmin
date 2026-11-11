@@ -12,6 +12,7 @@ import { useImageUpload } from "../../graphql/hooks/uploads";
 import { showLoading, hideLoading } from "../../redux/slices/loader";
 import { showMessage } from "../../redux/slices/message";
 import { selectModuleActions } from "../../redux/slices/permissions";
+import { SpecDefEditor, type SpecDef } from "../../components/customfields";
 
 const Categories = () => {
   const actions = useAppSelector(state => selectModuleActions(state, "categories"));
@@ -55,6 +56,46 @@ const Categories = () => {
   // Image at edit start; deleted after save if replaced or removed.
   const previousImageUrl = useRef<string>("");
   const [formErrors, setFormErrors] = useState<{ categoryname?: string }>({});
+  // Spec fields are opt-in per business; off keeps this screen as it was.
+  const specsOn = useAppSelector((s: any) => !!s.adminsettings.settings?.productSpecsOn);
+  const [specRow, setSpecRow] = useState<any>(null);
+  const [specDefs, setSpecDefs] = useState<SpecDef[]>([]);
+  const [savingSpecs, setSavingSpecs] = useState(false);
+
+  const openSpecs = (row: any) => {
+    const cat = categoryList.find((c: any) => c.id === row.id);
+    setSpecRow(cat || row);
+    setSpecDefs((cat?.specdefs || []).map((d: any) => ({ ...d, options: d.options || [] })));
+  };
+
+  const saveSpecs = async () => {
+    setSavingSpecs(true);
+    try {
+      await editCategoryMutation({
+        variables: {
+          id: specRow.id,
+          input: {
+            categoryname: specRow.categoryname,
+            image: specRow.image || "",
+            status: specRow.status !== false,
+            admin: adminId,
+            specdefs: specDefs
+              .filter((d) => String(d.label || "").trim())
+              .map(({ key, label, type, options, print, required }) => ({
+                key, label: label.trim(), type, options: (options || []).map((o) => o.trim()).filter(Boolean), print: !!print, required: !!required,
+              })),
+          },
+        },
+      });
+      await refetch();
+      setSpecRow(null);
+      dispatch(showMessage({ message: "Spec fields saved.", type: "success" }));
+    } catch (e: any) {
+      dispatch(showMessage({ message: e?.message || "Could not save spec fields.", type: "error" }));
+    } finally {
+      setSavingSpecs(false);
+    }
+  };
   const [isEditing, setIsEditing] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
 
@@ -259,6 +300,8 @@ const Categories = () => {
           // Inline form replaces the Add button on this page.
           showAdd={false}
           showView={false}
+          showSpecs={specsOn && !!actions?.showEdit}
+          onSpecs={openSpecs}
           onView={(row) => console.log("View", row)}
           onEdit={(row) => handleEdit(row)}
           onDelete={async (row) => {
@@ -311,6 +354,19 @@ const Categories = () => {
           onFormChange={handleFormChange}
           onFormSubmit={handleFormSubmit}
         />
+
+        {specRow && (
+          <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-4">
+            <div className="mt-10 w-full max-w-3xl rounded-lg bg-white p-4 shadow-lg">
+              <h2 className="mb-2 text-[15px] font-semibold text-slate-800">Spec Fields — {specRow.categoryname}</h2>
+              <SpecDefEditor defs={specDefs} onChange={setSpecDefs} />
+              <div className="mt-3 flex justify-end gap-2">
+                <button type="button" className="h-8 rounded-md border border-slate-300 px-3 text-[13px]" onClick={() => setSpecRow(null)}>Cancel</button>
+                <button type="button" disabled={savingSpecs} className="h-8 rounded-md bg-indigo-600 px-3 text-[13px] font-semibold text-white disabled:opacity-50" onClick={saveSpecs}>Save</button>
+              </div>
+            </div>
+          </div>
+        )}
 
         <CategoryReorder
           isOpen={isReorderOpen}

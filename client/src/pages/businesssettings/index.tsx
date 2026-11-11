@@ -208,7 +208,8 @@ const GeneralTab: React.FC<{ adminId?: string; dispatch: any; allowedModules?: s
 
   const handleSave = async () => {
     if (!adminId) return;
-    const { id, adminid, __typename, smtpPassSet, smtpPass, smtpPortTouched, ...rest } = draft;
+    // aiApiKeySet is read-only: the key itself goes back as aiApiKey.
+    const { id, adminid, __typename, smtpPassSet, smtpPass, smtpPortTouched, aiApiKeySet, ...rest } = draft;
     const input = deepStripTypename(rest);
     // SMTP sanity: a mailbox needs its host; blank port = the provider default.
     if (input.smtpUser && !input.smtpHost) {
@@ -456,6 +457,12 @@ const GeneralTab: React.FC<{ adminId?: string; dispatch: any; allowedModules?: s
             <h4 className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-500">Extra Fields (Product / Lead)</h4>
             <CustomFieldEditor draft={draft} set={set} />
           </div>
+          <Toggle label="Spec fields per category" checked={draft.productSpecsOn}
+            hint="Each category defines its own specs (size, grade, rating); products fill them in per variant."
+            onChange={(v) => set("productSpecsOn", v)} />
+          <Toggle label="Extra product fields" checked={draft.productExtrasOn}
+            hint="Minimum order qty, sale multiples, warranty months, alternate items, what a spare fits, and documents."
+            onChange={(v) => set("productExtrasOn", v)} />
         </Section>
       )}
 

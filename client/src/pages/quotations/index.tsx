@@ -9,6 +9,7 @@ import { showMessage } from "../../redux/slices/message";
 import { useServerPaging, useServerTable } from "../../hooks/useservertable";
 import { useOfflineList } from "../../offline/listing";
 import { useProductServicesQuery } from "../../graphql/hooks/products";
+import { useCategoriesQuery } from "../../graphql/hooks/categories";
 import { QUOTATION_STATUS, quotationNo, useQuotationMutations, useQuotationsPageQuery } from "../../graphql/hooks/quotation";
 import { formatDateDMY, gstSplit } from "../../utils/helper";
 import { partyLabel } from "../../utils/partylabel";
@@ -33,7 +34,7 @@ export const customerOf = (q: any) => {
 };
 
 /** Quotation as printed; layout and blocks come from Business Settings → Quotation Format. */
-export function printQuotation(q: any, company: any, settings: any, products: any[] = []) {
+export function printQuotation(q: any, company: any, settings: any, products: any[] = [], categories: any[] = []) {
   const s = settings || {};
   const on = (k: string, dflt: boolean) => (s[k] === undefined || s[k] === null ? dflt : !!s[k]);
   const showImg = on("quoteShowImages", false), showHsn = on("quoteShowHsn", true), showDisc = on("quoteShowDiscount", true);
@@ -53,16 +54,20 @@ export function printQuotation(q: any, company: any, settings: any, products: an
   const optional = lines.filter((l: any) => l.optional);
   const head = `<tr><th>#</th>${showImg ? "<th></th>" : ""}<th>Description</th>${showHsn ? "<th>HSN/SAC</th>" : ""}<th class="r">Qty</th><th>Unit</th><th class="r">Rate</th>${showDisc ? '<th class="r">Disc.</th>' : ""}${showGst ? '<th class="r">GST%</th>' : ""}<th class="r">Amount</th></tr>`;
   const printDefs = (s.customFieldDefs || []).filter((d: any) => d.entity === "product" && d.print);
-  const specsOf = (prod: any) =>
-    printDefs
-      .map((d: any) => [d.label, (prod?.customfields || []).find((c: any) => c.key === d.key)?.value])
+  // Business-wide fields sit on the product; a category's spec fields sit on the variant.
+  const specsOf = (prod: any, variant?: any) => {
+    const catDefs = (categories.find((c: any) => c.id === (prod?.categoryid?.id || prod?.categoryid))?.specdefs || []).filter((d: any) => d.print);
+    const pick = (defs: any[], holder: any) =>
+      defs.map((d: any) => [d.label, (holder?.customfields || []).find((c: any) => c.key === d.key)?.value]);
+    return [...pick(printDefs, prod), ...pick(catDefs, variant)]
       .filter(([, v]: any) => v)
       .map(([k, v]: any) => `${esc(k)}: ${esc(v)}`)
       .join(" · ");
+  };
   const row = (l: any, i: number) => {
     const prod = productOf(l.productserviceid?.id);
-    const specs = specsOf(prod);
     const v = variantOf(l);
+    const specs = specsOf(prod, v);
     const img = prod?.imageurl || prod?.imageurls?.[0] || "";
     return `<tr><td>${i + 1}</td>${showImg ? `<td>${img ? `<img src="${esc(img)}" style="width:42px;height:42px;object-fit:cover"/>` : ""}</td>` : ""}
       <td><b>${esc(l.productserviceid?.name || "")}${l.variantid?.name ? ` - ${esc(l.variantid.name)}` : ""}</b>${specs ? `<div class="desc">${specs}</div>` : ""}${l.description ? `<div class="desc">${nl(l.description)}</div>` : ""}</td>
@@ -138,6 +143,7 @@ const Quotations = () => {
   const serverPaging = useServerPaging(table, total, loading);
   const offline = useOfflineList("quotation", table.page);
   const { data: productData } = useProductServicesQuery();
+  const { data: categoryData } = useCategoriesQuery();
   const { deleteQuotation, setQuotationStatus, reviseQuotation } = useQuotationMutations();
   const [rejecting, setRejecting] = useState<any>(null);
   const [reason, setReason] = useState("");
@@ -232,7 +238,7 @@ const Quotations = () => {
               dispatch(showMessage({ message: e?.message || "Failed to delete.", type: "error" }));
             }
           }}
-          onPrint={(row) => printQuotation(row.raw, company, settings, productData?.getProductServices || [])}
+          onPrint={(row) => printQuotation(row.raw, company, settings, productData?.getProductServices || [], categoryData?.getCategories || [])}
           onWhatsApp={(row) => window.open(quotationWhatsApp(row.raw, company), "_blank")}
           onShowDeleted={() => navigate("/quotations/deletedentries")}
           isLoading={loading}

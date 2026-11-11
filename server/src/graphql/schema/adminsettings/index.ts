@@ -153,6 +153,8 @@ export const adminSettingsTypeDefs = gql`
     crmStages: [CrmStage!]
     crmSources: [String!]
     crmLostReasons: [String!]
+    productSpecsOn: Boolean
+    productExtrasOn: Boolean
     customFieldDefs: [CustomFieldDef!]
     aiEnabled: Boolean
     aiModel: String
@@ -430,6 +432,8 @@ export const adminSettingsTypeDefs = gql`
     crmStages: [CrmStageInput!]
     crmSources: [String!]
     crmLostReasons: [String!]
+    productSpecsOn: Boolean
+    productExtrasOn: Boolean
     customFieldDefs: [CustomFieldDefInput!]
     aiEnabled: Boolean
     aiModel: String

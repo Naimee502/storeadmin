@@ -3,6 +3,17 @@ import { gql } from "apollo-server-express";
 export const productServiceTypeDefs = gql`
   scalar Date
 
+  "A certificate, datasheet or any file kept with the product."
+  type ProductDocument {
+    name: String
+    url: String!
+  }
+
+  input ProductDocumentInput {
+    name: String
+    url: String!
+  }
+
   enum VariantStatus {
     available
     sold
@@ -64,6 +75,12 @@ export const productServiceTypeDefs = gql`
     minimumstock: Float
     reorderlevel: Float
     racklocation: String
+    "Smallest sellable quantity, and the step it must be sold in."
+    moq: Float
+    salemultiple: Float
+    warrantymonths: Int
+    "Values for the category's spec fields."
+    customfields: [CustomFieldValue!]
     serials: [Serial]
     unitprices: [UnitPrice]
     productlikecount: Int
@@ -146,6 +163,10 @@ export const productServiceTypeDefs = gql`
     isserialised: Boolean
     "raw, semifinished, finished, consumable, spare, service, kit"
     itemtype: String
+    "Items a buyer can take instead, and the machines this spare fits."
+    alternateids: [ID!]
+    fitsids: [ID!]
+    documents: [ProductDocument!]
     customfields: [CustomFieldValue!]
     name: String!
     description: String
@@ -221,6 +242,9 @@ export const productServiceTypeDefs = gql`
     isservice: Boolean
     isserialised: Boolean
     itemtype: String
+    alternateids: [ID!]
+    fitsids: [ID!]
+    documents: [ProductDocumentInput!]
     customfields: [CustomFieldInput!]
     name: String!
     description: String
@@ -317,6 +341,10 @@ export const productServiceTypeDefs = gql`
     minimumstock: Float
     reorderlevel: Float
     racklocation: String
+    moq: Float
+    salemultiple: Float
+    warrantymonths: Int
+    customfields: [CustomFieldInput!]
     serials: [SerialInput]
     unitprices: [UnitPriceInput]
     productlikecount: Int

@@ -12,6 +12,7 @@ import {
     FaEraser,
     FaPrint,
     FaBarcode,
+    FaSlidersH,
     FaFileInvoice,
     FaReply,
     FaBan,
@@ -112,6 +113,8 @@ interface DataTableProps {
     // Optional per-row WhatsApp share.
     showWhatsApp?: boolean | ((row: any) => boolean);
     showBarcode?: boolean | ((row: any) => boolean);
+    showSpecs?: boolean;
+    onSpecs?: (row: any) => void;
     showConvert?: boolean;
     // Optional per-row "create Return" action; may be a per-row function.
     showReturn?: boolean | ((row: any) => boolean);
@@ -184,6 +187,8 @@ const DataTable: React.FC<DataTableProps> = ({
     showPrint = false,
     showWhatsApp = false,
     showBarcode = false,
+    showSpecs = false,
+    onSpecs,
     showConvert = false,
     showReturn = false,
     showCancel = false,
@@ -590,6 +595,11 @@ const DataTable: React.FC<DataTableProps> = ({
                                                     style={{ color: "#25D366" }}
                                                 >
                                                     <FaWhatsapp size={18} />
+                                                </button>
+                                            )}
+                                            {showSpecs && (
+                                                <button onClick={() => onSpecs?.(row)} title="Spec Fields" className="text-indigo-600">
+                                                    <FaSlidersH />
                                                 </button>
                                             )}
                                             {showBarcode && (
