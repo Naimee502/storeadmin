@@ -3,7 +3,7 @@ import { useLocation, useNavigate, useParams } from "react-router";
 import { Plus, Trash2 } from "lucide-react";
 import FormField from "../../../components/formfiled";
 import FormPage from "../../../components/formpage";
-import MfgLines, { type MfgLine, baseQtyOf, lineCost, mfgInput, toMfgLines, variantOf } from "../../../components/mfglines";
+import MfgLines, { type MfgLine, CONSUMES, MAKES, baseQtyOf, lineCost, mfgInput, toMfgLines, variantOf } from "../../../components/mfglines";
 import HomeLayout from "../../../layouts/home";
 import { useProductServicesQuery } from "../../../graphql/hooks/products";
 import {
@@ -184,8 +184,8 @@ const AddEditProduction = () => {
             </div>
           </fieldset>
 
-          <MfgLines title="Produced (Comes into Stock)" lines={outputs} setLines={setOutputs} products={products} error={errors.outputs} />
-          <MfgLines title="Raw Material Used (Goes out of Stock)" lines={components} setLines={setComponents} products={products} stock error={errors.components} />
+          <MfgLines title="Produced (Comes into Stock)" lines={outputs} setLines={setOutputs} products={products} types={MAKES} error={errors.outputs} />
+          <MfgLines title="Raw Material Used (Goes out of Stock)" lines={components} setLines={setComponents} products={products} types={CONSUMES} stock error={errors.components} />
           <MfgLines title="By-Products / Scrap" lines={byproducts} setLines={setByproducts} products={products} rate rateLabel="Value / Unit (₹)" />
 
           <fieldset className="border rounded-xl p-4 space-y-3">

@@ -71,15 +71,18 @@ export const unitOptions = (variant: any) => {
   return [...base, ...more];
 };
 
-/** One option per item and variant: "Copper Wire - 2mm". */
-export const itemOptions = (products: any[], goodsOnly = true) =>
+/** One option per item and variant: "Copper Wire - 2mm". Items with no item type set are always offered. */
+export const itemOptions = (products: any[], goodsOnly = true, types?: string[]) =>
   products
-    .filter((p: any) => !goodsOnly || !p.isservice)
+    .filter((p: any) => (!goodsOnly || !p.isservice) && (!types?.length || !p.itemtype || types.includes(p.itemtype)))
     .flatMap((p: any) => {
       const vs = p.productvariants || [];
       if (vs.length <= 1) return [{ value: `${p.id}|${vs[0]?.id || ""}`, label: p.name }];
       return vs.map((v: any) => ({ value: `${p.id}|${v.id}`, label: `${p.name} - ${v.name}` }));
     });
+
+export const MAKES = ["finished", "semifinished"];
+export const CONSUMES = ["raw", "semifinished", "consumable"];
 
 export const pickItem = (products: any[], value: string) => {
   const [pid, vid] = String(value || "").split("|");
@@ -97,6 +100,7 @@ export default function MfgLines({
   rate = false,
   rateLabel = "Value / Unit",
   stock = false,
+  types,
   error,
   hint,
   bare = false,
@@ -109,12 +113,14 @@ export default function MfgLines({
   rate?: boolean;
   rateLabel?: string;
   stock?: boolean;
+  /** Item types this list accepts; items with none set still show. */
+  types?: string[];
   error?: string;
   hint?: string;
   /** Inside another card: a small heading instead of its own box. */
   bare?: boolean;
 }) {
-  const options = useMemo(() => itemOptions(products), [products]);
+  const options = useMemo(() => itemOptions(products, true, types), [products, types]);
   const addNew = useAddNew("/products/addedit", ITEM_QUERIES);
 
   const edit = (i: number, patch: Partial<MfgLine>) => setLines(lines.map((l, j) => (j === i ? { ...l, ...patch } : l)));

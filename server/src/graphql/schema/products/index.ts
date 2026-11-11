@@ -188,6 +188,9 @@ export const productServiceTypeDefs = gql`
     sizeid: ID
     status: Boolean
     name_contains: String
+    itemtype: String
+    "Item types to keep; blank itemtype counts as finished."
+    itemtype_in: [String!]
     productcode: String
     productbarcode: String
     servicecode: String

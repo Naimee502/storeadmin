@@ -3,7 +3,7 @@ import { useNavigate, useParams } from "react-router";
 import { Plus, Trash2 } from "lucide-react";
 import FormField from "../../../components/formfiled";
 import FormPage from "../../../components/formpage";
-import MfgLines, { type MfgLine, itemOptions, mfgInput, pickItem, toMfgLines, unitOptions, variantOf } from "../../../components/mfglines";
+import MfgLines, { type MfgLine, CONSUMES, MAKES, itemOptions, mfgInput, pickItem, toMfgLines, unitOptions, variantOf } from "../../../components/mfglines";
 import HomeLayout from "../../../layouts/home";
 import { useProductServicesQuery } from "../../../graphql/hooks/products";
 import { useBomByIdQuery, useBomsQuery, useManufacturingMutations } from "../../../graphql/hooks/manufacturing";
@@ -108,7 +108,7 @@ const AddEditBom = () => {
             <legend className="text-sm font-medium px-2">Finished Item</legend>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div className="md:col-span-2">
-                <FormField label="Item to Make" name="item" type="select" searchable options={itemOptions(products, false)} error={errors.item}
+                <FormField label="Item to Make" name="item" type="select" searchable options={itemOptions(products, false, MAKES)} error={errors.item}
                   value={head.productserviceid ? `${head.productserviceid}|${head.variantid || ""}` : ""}
                   onChange={(e: any) => setHead((h) => ({ ...h, ...pickItem(products, e.target.value) }))} />
               </div>
@@ -132,7 +132,7 @@ const AddEditBom = () => {
             </div>
           </fieldset>
 
-          <MfgLines title="Components (Raw Material / Sub-Assemblies)" lines={items} setLines={setItems} products={products} wastage error={errors.items}
+          <MfgLines title="Components (Raw Material / Sub-Assemblies)" lines={items} setLines={setItems} products={products} types={CONSUMES} wastage error={errors.items}
             hint={subs ? `${subs} component${subs > 1 ? "s have" : " has"} its own BOM; Material Planning works through every level.` : "Quantities are for the quantity made above."} />
 
           <MfgLines title="By-Products / Scrap" lines={byproducts} setLines={setByproducts} products={products} rate rateLabel="Value / Unit (₹)"

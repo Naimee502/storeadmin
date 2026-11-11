@@ -143,6 +143,16 @@ export async function buildProductListQuery(filter: any, context: any) {
     query.name = { $regex: filter.name_contains, $options: "i" };
   }
 
+  // Item type was added later, so a blank one is a finished good.
+  if (Array.isArray(filter.itemtype_in) && filter.itemtype_in.length) {
+    const wanted = filter.itemtype_in.filter(Boolean);
+    query.itemtype = wanted.includes("finished")
+      ? { $in: [...wanted, null, ""] }
+      : { $in: wanted };
+  } else if (filter.itemtype) {
+    query.itemtype = filter.itemtype === "finished" ? { $in: [filter.itemtype, null, ""] } : filter.itemtype;
+  }
+
   if (filter.createdFrom || filter.createdTo) {
     query.createdAt = {};
     if (filter.createdFrom) query.createdAt.$gte = new Date(filter.createdFrom);
