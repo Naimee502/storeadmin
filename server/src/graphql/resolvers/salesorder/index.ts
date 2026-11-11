@@ -315,7 +315,7 @@ const assertPartyOrderWithinStock = async (opts: {
     throw err;
   }
 };
-import { getInvoiceOutstanding, getPartyTotalDue } from "../../../utils/allocation";
+import { getInvoiceOutstanding, getPartyStatementConcession, getPartyTotalDue } from "../../../utils/allocation";
 
 // Party's Previous / Current Balance for a CONVERTED order — the same figures
 // the admin panel prints on the Sales Invoice (Business Settings → Invoice
@@ -334,12 +334,18 @@ const orderPartyBalance = (parent: any): Promise<{ previous: number; current: nu
         .select("_id partyacc totalamount")
         .lean();
       if (!inv) return null;
-      const previous = await getPartyTotalDue({
-        partyid: inv.partyacc,
-        invoicemodel: "SalesInvoice",
-        excludeInvoiceId: inv._id,
-        signed: true,
-      });
+      // Same basis as the printed invoice: the due, plus the concession step
+      // the Party Statement makes, so the app and the website agree with the bill.
+      const [due, concession] = await Promise.all([
+        getPartyTotalDue({
+          partyid: inv.partyacc,
+          invoicemodel: "SalesInvoice",
+          excludeInvoiceId: inv._id,
+          signed: true,
+        }),
+        getPartyStatementConcession({ partyid: inv.partyacc }),
+      ]);
+      const previous = parseFloat((due + concession).toFixed(2));
       const current = parseFloat((previous + Number(inv.totalamount || 0)).toFixed(2));
       return { previous, current };
     } catch (e) {

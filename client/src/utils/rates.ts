@@ -40,14 +40,14 @@ export const minAllowedSalesRate = (variant: any, unitid: any): number | null =>
 // Tolerance for floating point noise at exactly cost.
 const EPSILON = 0.005;
 
-/** Error text when `rate` is below cost for this unit, else ""; at cost is allowed. */
+/** Error text when `rate` is below cost for this unit, else ""; at cost is allowed. The cost itself is never named. */
 export const belowCostError = (variant: any, unitid: any, rate: any): string => {
   const entered = Number(rate);
   if (!entered || entered <= 0) return ""; // "required" checks own this case
   const min = minAllowedSalesRate(variant, unitid);
   if (min === null) return "";
   if (entered + EPSILON >= min) return "";
-  return `Rate cannot be below purchase rate (₹${min.toFixed(2)}) for this unit.`;
+  return "Rate is below the purchase rate for this unit.";
 };
 
 /** Below-cost check for a line already in the Products List; `rate` overrides while typing. */

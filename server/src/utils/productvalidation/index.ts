@@ -199,7 +199,7 @@ export const validateProductInput = (
             if (min !== null && entered + EPSILON < min) {
               issues.push({
                 field: "salesrate",
-                message: `Rate cannot be below purchase rate (₹${min.toFixed(2)}) for this unit.`,
+                message: "Rate is below the purchase rate for this unit.",
                 variantIndex,
                 rowIndex,
                 scope: "unitprice",

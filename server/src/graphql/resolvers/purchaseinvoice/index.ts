@@ -2,7 +2,7 @@ import { PurchaseInvoice } from "../../../models/purchaseinvoice";
 import { AdminSettings } from "../../../models/adminsettings";
 import { Payment } from "../../../models/payments";
 import { Transaction } from "../../../models/transactions";
-import { autoAdjustAdvances, getInvoiceOutstanding, getPartyTotalDue } from "../../../utils/allocation";
+import { autoAdjustAdvances, getInvoiceOutstanding, getPartyStatementConcession, getPartyTotalDue } from "../../../utils/allocation";
 import { PurchaseOrder } from "../../../models/purchaseorder";
 import { refId } from "../../../utils/ordermode";
 import { PurchaseReturn } from "../../../models/purchasereturn";
@@ -25,12 +25,18 @@ import { assertFresh, conflictError, createOnce, deleteGuarded, dropDeviceNumber
 // must reflect what stood BEFORE this bill, paid or not).
 const partyBillOutstanding = async (accountId: any, excludeInvoiceId?: any): Promise<number> => {
   if (!accountId) return 0;
-  return await getPartyTotalDue({
-    partyid: accountId,
-    invoicemodel: "PurchaseInvoice",
-    excludeInvoiceId,
-    signed: true,
-  });
+  // The concession step is what the Party Statement adds on top, so the bill
+  // and the statement show the same balance for the same vendor.
+  const [due, concession] = await Promise.all([
+    getPartyTotalDue({
+      partyid: accountId,
+      invoicemodel: "PurchaseInvoice",
+      excludeInvoiceId,
+      signed: true,
+    }),
+    getPartyStatementConcession({ partyid: accountId, invoicemodel: "PurchaseInvoice" }),
+  ]);
+  return parseFloat((due + concession).toFixed(2));
 };
 
 // ✅ Helper to convert populated Mongoose docs to simple ref objects

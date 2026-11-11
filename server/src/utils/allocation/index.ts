@@ -19,7 +19,7 @@
 // the module graph circular.
 // ---------------------------------------------------------------------------
 
-import { partyLegAmount } from "../paymentjournal";
+import { partyLegAmount, paymentConcessions } from "../paymentjournal";
 import mongoose from "mongoose";
 import { isBothParty, isCustomerParty, isVendorParty } from "../partytype";
 
@@ -417,6 +417,45 @@ export function computeUnallocated(input: any): number {
   );
   const cashApplied = settled - discount + commission + (Number(input?.openingsettled) || 0);
   return round2(Math.max(0, (Number(input?.amount) || 0) - cashApplied));
+}
+
+/**
+ * The extra move the Party Statement makes on top of what a payment settled.
+ *
+ * `settledamount` already carries the discount (cash = settled - discount +
+ * commission), but the statement steps the balance by the concessions a second
+ * time: a receipt takes discount AND commission off what the party owes, a
+ * payment-out adds them. The printed Previous Balance follows the statement, so
+ * the two agree on a customer's bill.
+ *
+ * Returns a signed figure to ADD to the amount due; negative means less is owed.
+ * On a purchase the sides swap: a payment-out we took a discount on leaves us
+ * owing the vendor less.
+ */
+export async function getPartyStatementConcession(opts: {
+  partyid: any;
+  adminid?: any;
+  invoicemodel?: InvoiceModel;
+}): Promise<number> {
+  const { partyid, adminid, invoicemodel = "SalesInvoice" } = opts;
+  if (!partyid) return 0;
+
+  const query: any = { partyid, status: true };
+  if (adminid) query.adminid = adminid;
+  const pays: any[] = await mongoose
+    .model("Payment")
+    .find(query)
+    .select("type discount commission invoices.discount invoices.commission")
+    .lean();
+
+  return round2(
+    pays.reduce((total, p) => {
+      const { discount, commission } = paymentConcessions(p);
+      const conc = round2(discount + commission);
+      const clears = invoicemodel === "PurchaseInvoice" ? p.type !== "receipt" : p.type === "receipt";
+      return total + (clears ? -conc : conc);
+    }, 0)
+  );
 }
 
 /**

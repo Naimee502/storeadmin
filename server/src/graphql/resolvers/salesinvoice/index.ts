@@ -9,6 +9,7 @@ import { Transaction } from "../../../models/transactions";
 import {
   autoAdjustAdvances,
   getInvoiceOutstanding,
+  getPartyStatementConcession,
   getPartyTotalDue,
 } from "../../../utils/allocation";
 import { partyStockEnabled, sellerPartyOf, assertPartyStockAvailable } from "../../../utils/partystock";
@@ -39,14 +40,19 @@ import { assertFresh, createOnce, dropDeviceNumber, takeDeviceNumber, conflictEr
 const partyBillOutstanding = async (accountId: any, excludeInvoiceId?: any): Promise<number> => {
   if (!accountId) return 0;
   // Includes the opening balance the party carried in, and nets advances we
-  // already hold — same basis as Account.outstanding and the payment screen,
-  // so the printed "Previous Balance" matches what we actually ask for.
-  return await getPartyTotalDue({
-    partyid: accountId,
-    invoicemodel: "SalesInvoice",
-    excludeInvoiceId,
-    signed: true,
-  });
+  // already hold — same basis as Account.outstanding and the payment screen.
+  // The concession step is what the Party Statement adds on top, so the bill
+  // and the statement show the same balance for the same party.
+  const [due, concession] = await Promise.all([
+    getPartyTotalDue({
+      partyid: accountId,
+      invoicemodel: "SalesInvoice",
+      excludeInvoiceId,
+      signed: true,
+    }),
+    getPartyStatementConcession({ partyid: accountId }),
+  ]);
+  return parseFloat((due + concession).toFixed(2));
 };
 
 // Resolve who created a doc into a proper { name, type } — so the listing shows
