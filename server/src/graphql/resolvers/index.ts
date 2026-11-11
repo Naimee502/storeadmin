@@ -53,6 +53,7 @@ import { manufacturingResolvers } from "./manufacturing";
 import { serviceResolvers } from "./service";
 import { servicesResolvers } from "./services";
 import { aiResolvers } from "./ai";
+import { insightResolvers } from "./insight";
 import { Appointment, JobCard, Contract, MembershipPlan, Membership } from "../../models/service";
 import { Bom, WorkOrder, ProductionEntry } from "../../models/manufacturing";
 import { leadSourceResolvers } from "./leadsource";
@@ -145,6 +146,7 @@ export const resolvers = [
   withOfflineActions(quotationResolvers, Quotation, ["editQuotation", "deleteQuotation", "setQuotationStatus"]),
   leadSourceResolvers,
   aiResolvers,
+  insightResolvers,
   withOfflineActions(
     withOfflineActions(
       withOfflineActions(manufacturingResolvers, Bom, ["editBom", "deleteBom"]),

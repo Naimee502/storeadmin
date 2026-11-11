@@ -4,11 +4,18 @@ import { useAiStatusQuery, useCrmMutations } from "../../graphql/hooks/crm";
 
 type Turn = { me: boolean; text: string; steps?: string[] };
 
-const STARTERS = [
+const CRM_STARTERS = [
   "Aaj kis ko call karna chahiye?",
   "આ મહિને કેટલા લીડ આવ્યા અને કેટલા જીત્યા?",
   "Kaun se customer bahut dino se nahi aaye?",
   "Which quotations are still waiting for a reply?",
+];
+
+const BUSINESS_STARTERS = [
+  "Is mahine ka sale kitna hua, pichle mahine se kitna farak?",
+  "કોના કેટલા પૈસા બાકી છે?",
+  "Kaun sa salesman achha perform kar raha he?",
+  "Which items are about to run out?",
 ];
 
 const STEP_LABEL: Record<string, string> = {
@@ -17,10 +24,16 @@ const STEP_LABEL: Record<string, string> = {
   list_opportunities: "Opportunities",
   list_followups: "Follow ups",
   top_customers: "Top customers",
+  sales_summary: "Sales",
+  outstanding: "Outstanding",
+  stock_alerts: "Stock",
+  salesman_performance: "Salesmen",
+  business_pulse: "Business Pulse",
 };
 
-/** The CRM agent: answers from this business's own data and changes nothing. */
-const AiAgent = ({ compact = false }: { compact?: boolean }) => {
+/** The agent: answers from this business's own data and changes nothing. */
+const AiAgent = ({ compact = false, scope = "crm" }: { compact?: boolean; scope?: "crm" | "business" }) => {
+  const starters = scope === "business" ? BUSINESS_STARTERS : CRM_STARTERS;
   const { data: statusData, refetch: refetchStatus } = useAiStatusQuery();
   const status = statusData?.getAiStatus;
   const { askAi } = useCrmMutations();
@@ -60,7 +73,7 @@ const AiAgent = ({ compact = false }: { compact?: boolean }) => {
           <Bot size={14} />
         </span>
         <div className="min-w-0 flex-1">
-          <h3 className="text-[13px] font-semibold text-slate-900">CRM Assistant</h3>
+          <h3 className="text-[13px] font-semibold text-slate-900">{scope === "business" ? "Business Assistant" : "CRM Assistant"}</h3>
           <p className="truncate text-[11px] text-slate-500">Asks your own data. It prepares; you send.</p>
         </div>
         {status?.on && (
@@ -80,7 +93,7 @@ const AiAgent = ({ compact = false }: { compact?: boolean }) => {
         {!turns.length && !off && (
           <div className="space-y-1.5 pt-1">
             <p className="text-[12px] text-slate-500">Try asking:</p>
-            {STARTERS.map((s) => (
+            {starters.map((s) => (
               <button key={s} type="button" onClick={() => ask(s)}
                 className="flex w-full items-start gap-1.5 rounded-md border border-slate-200 px-2 py-1.5 text-left text-[12px] text-slate-700 hover:border-indigo-300 hover:bg-indigo-50">
                 <Sparkles size={12} className="mt-0.5 shrink-0 text-indigo-500" /> {s}

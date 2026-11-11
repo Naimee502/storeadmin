@@ -49,6 +49,7 @@ import { manufacturingTypeDefs } from "./manufacturing";
 import { serviceTypeDefs } from "./service";
 import { servicesTypeDefs } from "./services";
 import { aiTypeDefs } from "./ai";
+import { insightTypeDefs } from "./insight";
 import { leadSourceTypeDefs } from "./leadsource";
 
 export const typeDefs = [
@@ -103,5 +104,6 @@ export const typeDefs = [
   serviceTypeDefs,
   servicesTypeDefs,
   aiTypeDefs,
+  insightTypeDefs,
   leadSourceTypeDefs,
 ];

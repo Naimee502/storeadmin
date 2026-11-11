@@ -175,6 +175,7 @@ const MODULE_LIST: ModuleDef[] = [
   { id: "memberships",  label: "Memberships",    section: "service", actions: CRUD_ACTIONS, inAdminRegister: true },
 
   // Reports — sub-divided so each can be granted/denied
+  { id: "reports.pulse",      label: "Business Pulse",      section: "reports", actions: ["view"], inAdminRegister: true },
   { id: "reports.sales",      label: "Sales Reports",       section: "reports", actions: REPORT_ACTIONS, inAdminRegister: true },
   { id: "reports.purchase",   label: "Purchase Reports",    section: "reports", actions: REPORT_ACTIONS, inAdminRegister: true },
   { id: "reports.stock",      label: "Stock Reports",       section: "reports", actions: REPORT_ACTIONS, inAdminRegister: true },

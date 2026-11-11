@@ -26,6 +26,8 @@ import { GET_ATTENDANCE_SUMMARY, GET_LEAVE_REQUESTS } from "../../graphql/querie
 import StatsCards from "../../components/statuscards";
 import DashboardCharts from "../../components/dashboardcharts";
 import RecentOrders from "../../components/recentorders";
+import BusinessPulse from "../../components/businesspulse";
+import SalesmanScorecard from "../../components/salesmanscorecard";
 
 const Home: React.FC = () => {
   const online = useNetworkOnline();
@@ -186,7 +188,13 @@ const Home: React.FC = () => {
           branchId={branchId}
         />
 
-        {/* Section 3: Multi-Module Recent Activity Tables */}
+        {/* Section 3: What needs attention today; the assistant is a tab inside it */}
+        <BusinessPulse />
+
+        {/* Section 4: Salesman performance */}
+        <SalesmanScorecard />
+
+        {/* Section 5: Multi-Module Recent Activity Tables */}
         <RecentOrders
           salesInvoiceData={salesInvoiceData}
           customerData={customerData}

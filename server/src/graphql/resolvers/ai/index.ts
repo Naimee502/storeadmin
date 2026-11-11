@@ -6,11 +6,16 @@ import { SalesInvoice } from "../../../models/salesinvoice";
 import { Account } from "../../../models/accounts";
 import { AdminSettings } from "../../../models/adminsettings";
 import { TenantError, requireBackofficeTenant } from "../../../utils/tenant";
-import { assertModuleOn } from "../../../utils/modulegate";
+import { assertModuleOn, isModuleOn } from "../../../utils/modulegate";
 import { isActionAllowed } from "../../../utils/permissiongate";
 import { notCleared } from "../../../utils/listquery";
 import { aiAsk, aiConfig, type AiTool } from "../../../utils/ai";
 import { findOpportunities } from "../../../utils/aifinder";
+import { salesmanScorecard } from "../../../utils/scorecard";
+import { getPartiesTotalDue } from "../../../utils/allocation";
+import { partyTypeQuery } from "../../../utils/partytype";
+import { ProductService } from "../../../models/products";
+import { Insight } from "../../../models/insight";
 import { leadQuery, followupQuery, stagesOf, nextLeadNumber, formatLead, LEAD_POPULATE } from "../lead";
 
 const DAY = 86400000;
@@ -158,16 +163,35 @@ async function crmDashboard(scope: any, days: number) {
 
 // ---------- Agent ----------
 
-const SYSTEM = `You are the CRM assistant inside a billing and CRM system used by small businesses in India.
+const SYSTEM = `You are the business assistant inside a billing and CRM system used by small businesses in India.
+You answer about sales, customers, payments, stock, staff and leads.
 Answer only from the tools. Never invent a number, a name or a mobile number; if a tool returns nothing, say so plainly.
 Reply in the language and script the user wrote in: English, Hindi, Hinglish, Gujarati (ગુજરાતી) or Gujarati typed in English letters. In 2-6 short lines. Amounts in rupees.
 You may suggest what to do next, but you cannot send anything or change any record: the staff taps to do that.
 When the user asks for a message to a customer, write the message itself, ready to copy.`;
 
 /** Read-only tools, already scoped to this login's tenant and branch. */
-function agentTools(scope: any): AiTool[] {
+async function agentTools(scope: any): Promise<AiTool[]> {
   const leadBase = async () => ({ ...(await leadQuery(scope)), status: true });
-  return [
+  const where = {
+    adminid: scope.adminid,
+    branchid: scope.userType === "admin" ? undefined : scope.branchid,
+    staffid: scope.userType === "staff" ? scope.userId : undefined,
+  };
+  // The agent may only read what this login could open itself.
+  const [canLeads, canSales, canPayments, canStock, canStaff] = await Promise.all([
+    isActionAllowed("leads", "view", where),
+    isActionAllowed("salesinvoice", "view", where),
+    isActionAllowed("payments", "view", where),
+    isActionAllowed("products", "view", where),
+    isActionAllowed("reports.salesmen", "view", where),
+  ]);
+  const billQuery = (days: number) => {
+    const q: any = { adminid: oid(scope.adminid), status: true, cancelStatus: { $ne: "cancelled" }, billdate: { $gte: ymd(new Date(Date.now() - days * DAY)) } };
+    if (scope.branchid) q.branchid = oid(scope.branchid);
+    return q;
+  };
+  const crmTools: AiTool[] = [
     {
       name: "crm_summary",
       description: "Counts and value for leads, follow ups and quotations over the last N days.",
@@ -251,6 +275,9 @@ function agentTools(scope: any): AiTool[] {
         }));
       },
     },
+  ];
+
+  const salesTools: AiTool[] = [
     {
       name: "top_customers",
       description: "Best customers by billed value over the last N days.",
@@ -272,6 +299,112 @@ function agentTools(scope: any): AiTool[] {
         });
       },
     },
+    {
+      name: "sales_summary",
+      description: "Sales over the last N days: billed value, bills, average bill, best selling items, and how it compares with the N days before.",
+      parameters: { type: "object", properties: { days: { type: "integer", description: "How many days back, default 30" } } },
+      run: async (a) => {
+        const days = Math.min(Math.max(Number(a?.days) || 30, 1), 365);
+        const [now, before, items] = await Promise.all([
+          SalesInvoice.aggregate([{ $match: billQuery(days) }, { $group: { _id: null, total: { $sum: "$totalamount" }, bills: { $sum: 1 }, parties: { $addToSet: "$partyacc" } } }]),
+          SalesInvoice.aggregate([
+            { $match: { ...billQuery(days * 2), billdate: { $gte: ymd(new Date(Date.now() - days * 2 * DAY)), $lt: ymd(new Date(Date.now() - days * DAY)) } } },
+            { $group: { _id: null, total: { $sum: "$totalamount" }, bills: { $sum: 1 } } },
+          ]),
+          SalesInvoice.aggregate([
+            { $match: billQuery(days) },
+            { $unwind: "$productservice" },
+            { $group: { _id: "$productservice.productserviceid", qty: { $sum: "$productservice.qty" }, amount: { $sum: "$productservice.amount" } } },
+            { $sort: { amount: -1 } }, { $limit: 5 },
+          ]),
+        ]);
+        const n = now[0] || { total: 0, bills: 0, parties: [] };
+        const b = before[0] || { total: 0, bills: 0 };
+        const names = await ProductService.find({ _id: { $in: items.map((i: any) => i._id) } }).select("name").lean();
+        const nameBy = new Map(names.map((x: any) => [String(x._id), x.name]));
+        return {
+          days,
+          billed: money(n.total),
+          bills: n.bills,
+          customers: (n.parties || []).length,
+          averageBill: money(n.bills ? n.total / n.bills : 0),
+          previousPeriodBilled: money(b.total),
+          changePercent: b.total ? Math.round(((n.total - b.total) / b.total) * 100) : null,
+          topItems: items.map((i: any) => ({ name: nameBy.get(String(i._id)), qty: Math.round(Number(i.qty)), amount: money(i.amount) })),
+        };
+      },
+    },
+  ];
+
+  const paymentTools: AiTool[] = [
+    {
+      name: "outstanding",
+      description: "Customers who still owe money, biggest first, with how many bills are open.",
+      parameters: { type: "object", properties: { limit: { type: "integer" } } },
+      run: async (a) => {
+        const parties: any[] = await Account.find({ admin: scope.adminid, status: true, type: partyTypeQuery("customer") }).select("name mobile city").limit(2000).lean();
+        if (!parties.length) return [];
+        const dues = await getPartiesTotalDue({ partyids: parties.map((p) => p._id), adminid: scope.adminid });
+        return parties
+          .map((p) => ({ name: p.name, mobile: p.mobile, city: p.city, due: Number(dues[String(p._id)] || 0) }))
+          .filter((p) => p.due > 1)
+          .sort((x, y) => y.due - x.due)
+          .slice(0, Math.min(Number(a?.limit) || 10, 25))
+          .map((p) => ({ ...p, due: money(p.due) }));
+      },
+    },
+  ];
+
+  const stockTools: AiTool[] = [
+    {
+      name: "stock_alerts",
+      description: "Items about to run out, from what they actually sell per day, and what is in stock now.",
+      parameters: { type: "object", properties: { limit: { type: "integer" } } },
+      run: async (a) => {
+        const rows: any[] = await Insight.find({ adminid: scope.adminid, status: true, state: "open", kind: "stockout" })
+          .sort({ value: -1 }).limit(Math.min(Number(a?.limit) || 10, 25)).select("name title reason value").lean();
+        return rows.map((r) => ({ item: r.name, status: r.title, detail: r.reason, monthlySalesAtRisk: money(r.value) }));
+      },
+    },
+  ];
+
+  const staffTools: AiTool[] = [
+    {
+      name: "salesman_performance",
+      description: "How each salesman did over the last N days: billed value, bills, customers, and the discount they gave.",
+      parameters: { type: "object", properties: { days: { type: "integer" } } },
+      run: async (a) => {
+        const days = Math.min(Math.max(Number(a?.days) || 30, 1), 365);
+        const rows = await salesmanScorecard(scope, days);
+        return rows.map((r: any) => ({
+          name: r.name, billed: money(r.billed), bills: r.bills, customers: r.customers,
+          newCustomers: r.newCustomers, discountGiven: money(r.discount), discountPercent: r.discountPercent,
+        }));
+      },
+    },
+  ];
+
+  const pulseTools: AiTool[] = [
+    {
+      name: "business_pulse",
+      description: "What needs attention now: customers buying less, payments running late, items a customer stopped buying.",
+      parameters: { type: "object", properties: { kind: { type: "string", description: "slipping, paymentrisk or stoppeditem" }, limit: { type: "integer" } } },
+      run: async (a) => {
+        const q: any = { adminid: scope.adminid, status: true, state: "open", kind: { $ne: "stockout" } };
+        if (a?.kind) q.kind = String(a.kind);
+        const rows: any[] = await Insight.find(q).sort({ value: -1 }).limit(Math.min(Number(a?.limit) || 10, 25))
+          .select("kind name mobile city title reason value").lean();
+        return rows.map((r) => ({ kind: r.kind, name: r.name, mobile: r.mobile, city: r.city, what: r.title, why: r.reason, value: money(r.value) }));
+      },
+    },
+  ];
+
+  return [
+    ...(canLeads ? crmTools : []),
+    ...(canSales ? [...salesTools, ...pulseTools] : []),
+    ...(canPayments ? paymentTools : []),
+    ...(canStock ? stockTools : []),
+    ...(canStaff ? staffTools : []),
   ];
 }
 
@@ -367,7 +500,16 @@ export const aiResolvers = {
 
     /** The dashboard agent: answers from this tenant's data only. */
     askAi: async (_: any, { question }: any, context: any) => {
-      const scope = await gate(context);
+      const scope = await requireBackofficeTenant(context);
+      const where = {
+        adminid: scope.adminid,
+        branchid: scope.userType === "admin" ? undefined : scope.branchid,
+        staffid: scope.userType === "staff" ? scope.userId : undefined,
+      };
+      // Reached from the CRM dashboard and from the main dashboard; either is enough.
+      if (!(await isModuleOn("crmdashboard", where)) && !(await isModuleOn("reports.pulse", where))) {
+        throw new TenantError("The assistant is not switched on for this business.");
+      }
       const q = String(question || "").trim();
       if (!q) throw new Error("Type a question first.");
       const s: any = await AdminSettings.getOrCreateForAdmin(scope.adminid);
@@ -378,7 +520,7 @@ export const aiResolvers = {
         system: `${SYSTEM}\nToday is ${today}.`,
         prompt: q,
         question: q,
-        tools: agentTools(scope),
+        tools: await agentTools(scope),
         user: context?.user,
         branchid: scope.branchid,
         maxSteps: 5,
