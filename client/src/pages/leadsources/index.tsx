@@ -95,7 +95,7 @@ const RESULT_STYLE: Record<string, string> = {
   created: "bg-emerald-50 text-emerald-700", duplicate: "bg-amber-50 text-amber-700", failed: "bg-rose-50 text-rose-700", ignored: "bg-slate-100 text-slate-500",
 };
 
-function SourceCard({ cfg, staffOptions }: { cfg: any; staffOptions: { value: string; label: string }[] }) {
+function SourceCard({ cfg, staffOptions, adminid }: { cfg: any; staffOptions: { value: string; label: string }[]; adminid?: string }) {
   const dispatch = useAppDispatch();
   const info = INFO[cfg.source];
   const refetchQueries = ["GetLeadSources", "GetLeadInbox", "GetLeadsPage", "GetLeads", "GetFollowups"];
@@ -118,7 +118,7 @@ function SourceCard({ cfg, staffOptions }: { cfg: any; staffOptions: { value: st
   };
   const saveAll = (extra: any = {}) =>
     run(
-      () => save({ variables: { input: { source: cfg.source, ownerids: owners, ...keys, ...extra } } }).then((r) => { setKeys({ key1: "", key2: "", key3: "" }); return r; }),
+      () => save({ variables: { input: { source: cfg.source, adminid, ownerids: owners, ...keys, ...extra } } }).then((r) => { setKeys({ key1: "", key2: "", key3: "" }); return r; }),
       () => "Saved."
     );
 
@@ -166,7 +166,7 @@ function SourceCard({ cfg, staffOptions }: { cfg: any; staffOptions: { value: st
           <input readOnly className="h-8 min-w-0 flex-1 rounded-md border border-slate-300 bg-slate-50 px-2 text-[12px]" value={cfg.webhookUrl} />
           <button type="button" className={btn} onClick={() => copy(cfg.webhookUrl, dispatch)}><Copy size={13} /> Copy Link</button>
           <button type="button" className={btn} title="Make a new secret link; the old one stops working"
-            onClick={() => window.confirm("Make a new link? The old link stops working and must be replaced in the portal.") && run(() => regen({ variables: { source: cfg.source } }), () => "New link made.")}>
+            onClick={() => window.confirm("Make a new link? The old link stops working and must be replaced in the portal.") && run(() => regen({ variables: { source: cfg.source, adminid } }), () => "New link made.")}>
             <Link2 size={13} /> New Link
           </button>
         </div>
@@ -210,11 +210,11 @@ function SourceCard({ cfg, staffOptions }: { cfg: any; staffOptions: { value: st
       {cfg.lastError && <div className="rounded-md bg-rose-50 px-3 py-1.5 text-[12px] text-rose-700">Last problem: {cfg.lastError}</div>}
       {info.pull && cfg.lastPulledAt && <div className="text-[11px] text-slate-400">Last fetched {formatDateTimeDMY(cfg.lastPulledAt)}</div>}
       <div className="flex flex-wrap justify-end gap-2">
-        <button type="button" className={btn} disabled={testing} onClick={() => run(() => test({ variables: { source: cfg.source } }), () => "Test lead made — see Leads.")}>
+        <button type="button" className={btn} disabled={testing} onClick={() => run(() => test({ variables: { source: cfg.source, adminid } }), () => "Test lead made — see Leads.")}>
           <Send size={13} /> Send Test Lead
         </button>
         {info.pull && (
-          <button type="button" className={btn} disabled={pulling} onClick={() => run(() => pull({ variables: { source: cfg.source } }), (r) => `${r?.data?.pullLeadSourceNow ?? 0} new lead(s).`)}>
+          <button type="button" className={btn} disabled={pulling} onClick={() => run(() => pull({ variables: { source: cfg.source, adminid } }), (r) => `${r?.data?.pullLeadSourceNow ?? 0} new lead(s).`)}>
             <RefreshCw size={13} /> Fetch Now
           </button>
         )}
@@ -224,22 +224,22 @@ function SourceCard({ cfg, staffOptions }: { cfg: any; staffOptions: { value: st
   );
 }
 
-const LeadSources = () => {
+// adminid blank = your own business. Business Settings passes the business it has picked.
+export const LeadSourcesPanel = ({ adminid, title }: { adminid?: string; title?: string }) => {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const [tab, setTab] = useState<"sources" | "inbox">("sources");
   const [result, setResult] = useState("");
-  const { data, loading, error } = useQuery(GET_LEAD_SOURCES, { fetchPolicy: "network-only" });
-  const { data: inbox } = useQuery(GET_LEAD_INBOX, { variables: { result: result || undefined, limit: 200 }, skip: tab !== "inbox", fetchPolicy: "network-only" });
+  const { data, loading, error } = useQuery(GET_LEAD_SOURCES, { variables: { adminid }, fetchPolicy: "network-only" });
+  const { data: inbox } = useQuery(GET_LEAD_INBOX, { variables: { adminid, result: result || undefined, limit: 200 }, skip: tab !== "inbox", fetchPolicy: "network-only" });
   const [retry] = useMutation(RETRY_LEAD_INBOX, { refetchQueries: ["GetLeadInbox", "GetLeadsPage"] });
-  const { data: staffData } = useStaffListQuery();
+  const { data: staffData } = useStaffListQuery(adminid);
   const staffOptions = useMemo(() => (staffData?.getStaffAccounts || []).map((s: any) => ({ value: s.id, label: s.name })), [staffData]);
 
   return (
-    <HomeLayout>
-      <div className="w-full px-2 pb-6 pt-4 sm:px-6">
+    <>
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-          <h1 className="text-[15px] font-semibold text-slate-800">Lead Sources</h1>
+          {title ? <h1 className="text-[15px] font-semibold text-slate-800">{title}</h1> : <span />}
           <div className="inline-flex h-8 overflow-hidden rounded-md border border-slate-300 text-[13px]">
             {(["sources", "inbox"] as const).map((t) => (
               <button key={t} type="button" onClick={() => setTab(t)}
@@ -258,7 +258,7 @@ const LeadSources = () => {
             {loading && <div className="text-[13px] text-slate-500">Loading…</div>}
             {error && <div className="text-[13px] text-rose-600">{error.message}</div>}
             <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
-              {(data?.getLeadSources || []).map((cfg: any) => <SourceCard key={cfg.source} cfg={cfg} staffOptions={staffOptions} />)}
+              {(data?.getLeadSources || []).map((cfg: any) => <SourceCard key={cfg.source} cfg={cfg} staffOptions={staffOptions} adminid={adminid} />)}
             </div>
           </>
         ) : (
@@ -293,7 +293,7 @@ const LeadSources = () => {
                             <button type="button" className="ml-3 text-indigo-600 hover:underline"
                               onClick={async () => {
                                 try {
-                                  const ok = (await retry({ variables: { id: r.id } }))?.data?.retryLeadInbox;
+                                  const ok = (await retry({ variables: { id: r.id, adminid } }))?.data?.retryLeadInbox;
                                   dispatch(showMessage({ message: ok ? "Lead made." : "Still failing; see the note.", type: ok ? "success" : "error" }));
                                 } catch (e: any) {
                                   dispatch(showMessage({ message: e?.message || "Retry failed.", type: "error" }));
@@ -312,9 +312,16 @@ const LeadSources = () => {
             </div>
           </div>
         )}
-      </div>
-    </HomeLayout>
+    </>
   );
 };
+
+const LeadSources = () => (
+  <HomeLayout>
+    <div className="w-full px-2 pb-6 pt-4 sm:px-6">
+      <LeadSourcesPanel title="Lead Sources" />
+    </div>
+  </HomeLayout>
+);
 
 export default LeadSources;

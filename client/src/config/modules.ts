@@ -150,6 +150,8 @@ const MODULE_LIST: ModuleDef[] = [
   { id: "announcements", label: "Announcements", section: "communication", actions: CRUD_ACTIONS, inAdminRegister: true },
 
   // CRM. Leads "view" = see every lead; without it staff see only their own.
+  // AI assistant and the daily "who to contact" list.
+  { id: "crmdashboard", label: "CRM Dashboard", section: "crm", actions: ["view"], inAdminRegister: true },
   { id: "leads",       label: "Leads",       section: "crm", actions: ["view", "add", "edit", "delete", "convert", "import", "export", "reset"], inAdminRegister: true },
   { id: "followups",   label: "Follow Ups",  section: "crm", actions: CRUD_ACTIONS, inAdminRegister: true },
   // Portal keys and webhook links (IndiaMART, JustDial, Meta, WhatsApp, website).

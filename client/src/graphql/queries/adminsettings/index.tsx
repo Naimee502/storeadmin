@@ -63,6 +63,7 @@ const SETTINGS_FIELDS = `
   crmSources
   crmLostReasons
   customFieldDefs { key label entity type options print required }
+  aiEnabled aiModel aiMonthlyCap aiAgentOn aiApiKeySet
   companyState
   printShowHsnColumn
   printShowGstColumn

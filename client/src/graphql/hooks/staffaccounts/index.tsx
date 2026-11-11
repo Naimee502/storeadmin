@@ -38,10 +38,11 @@ export const useStaffMutations = () => {
 // STAFF LIST QUERY
 
 // Staff Accounts list page only — same filter as useStaffQuery, fewer fields.
-export const useStaffListQuery = () => {
+// forAdminId is for Business Settings, which works on the business it has picked.
+export const useStaffListQuery = (forAdminId?: string) => {
   const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
   const adminId =
-    type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : type === 'staff' ? staff?.admin?.id : undefined;
+    forAdminId || (type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : type === 'staff' ? staff?.admin?.id : undefined);
 
   const { data, loading, error, refetch } = useQuery(GET_STAFF_LIST, {
     variables: { filter: { adminId } },

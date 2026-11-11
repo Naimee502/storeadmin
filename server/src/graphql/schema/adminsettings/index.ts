@@ -154,6 +154,12 @@ export const adminSettingsTypeDefs = gql`
     crmSources: [String!]
     crmLostReasons: [String!]
     customFieldDefs: [CustomFieldDef!]
+    aiEnabled: Boolean
+    aiModel: String
+    aiMonthlyCap: Int
+    aiAgentOn: Boolean
+    "True when a key is saved; the key itself is never returned."
+    aiApiKeySet: Boolean
     quoteTitle: String
     quoteIntro: String
     quoteTerms: String
@@ -425,6 +431,12 @@ export const adminSettingsTypeDefs = gql`
     crmSources: [String!]
     crmLostReasons: [String!]
     customFieldDefs: [CustomFieldDefInput!]
+    aiEnabled: Boolean
+    aiModel: String
+    aiMonthlyCap: Int
+    aiAgentOn: Boolean
+    "Blank keeps the saved key; the word clear removes it."
+    aiApiKey: String
     quoteTitle: String
     quoteIntro: String
     quoteTerms: String

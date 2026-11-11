@@ -62,14 +62,14 @@ export const SAVE_LEAD_SOURCE = gql`
   mutation SaveLeadSource($input: LeadSourceInput!) { saveLeadSource(input: $input) { ${SOURCE_FIELDS} } }
 `;
 export const REGENERATE_LEAD_SOURCE_LINK = gql`
-  mutation RegenerateLeadSourceLink($source: String!) { regenerateLeadSourceLink(source: $source) { ${SOURCE_FIELDS} } }
+  mutation RegenerateLeadSourceLink($source: String!, $adminid: ID) { regenerateLeadSourceLink(source: $source, adminid: $adminid) { ${SOURCE_FIELDS} } }
 `;
 export const PULL_LEAD_SOURCE_NOW = gql`
-  mutation PullLeadSourceNow($source: String!) { pullLeadSourceNow(source: $source) }
+  mutation PullLeadSourceNow($source: String!, $adminid: ID) { pullLeadSourceNow(source: $source, adminid: $adminid) }
 `;
 export const TEST_LEAD_SOURCE = gql`
-  mutation TestLeadSource($source: String!) { testLeadSource(source: $source) }
+  mutation TestLeadSource($source: String!, $adminid: ID) { testLeadSource(source: $source, adminid: $adminid) }
 `;
 export const RETRY_LEAD_INBOX = gql`
-  mutation RetryLeadInbox($id: ID!) { retryLeadInbox(id: $id) }
+  mutation RetryLeadInbox($id: ID!, $adminid: ID) { retryLeadInbox(id: $id, adminid: $adminid) }
 `;

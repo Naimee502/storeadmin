@@ -54,6 +54,7 @@ export const CLEAR_TARGETS: Record<string, ClearTarget> = {
   bom: { model: "Bom", tenant: "adminid" },
   workorders: { model: "WorkOrder", tenant: "adminid" },
   production: { model: "ProductionEntry", tenant: "adminid" },
+  crmdashboard: { model: "Opportunity", tenant: "adminid" },
   appointments: { model: "Appointment", tenant: "adminid" },
   jobcards: { model: "JobCard", tenant: "adminid" },
   contracts: { model: "Contract", tenant: "adminid" },

@@ -109,7 +109,6 @@ const HomeLayout: React.FC<{ children: React.ReactNode; hideNav?: boolean }> = (
           <Sidebar
             isOpen={isSidebarOpen}
             toggleSidebar={toggleSidebar}
-            onLogoutClick={handleLogout}
             onHoverChange={setSidebarHovered}
           />
         )}

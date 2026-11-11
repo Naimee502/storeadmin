@@ -133,6 +133,7 @@ import AddEditContract from "../pages/contracts/addedit";
 import Memberships from "../pages/memberships";
 import AddEditMembership from "../pages/memberships/addedit";
 import ServiceReports from "../pages/reports/service";
+import CrmDashboard from "../pages/crmdashboard";
 import PurchaseReturns from "../pages/purchasereturn";
 import AddEditPurchaseReturn from "../pages/purchasereturn/addedit";
 import DeletedPurchaseReturns from "../pages/purchasereturn/deletedentries";
@@ -1099,6 +1100,7 @@ const AppRoutes = () => {
       <Route path="/memberships/addedit/:id" element={<ProtectedRoutes><AddEditMembership /></ProtectedRoutes>} />
       <Route path="/memberships/deletedentries" element={<ProtectedRoutes><ServiceDeletedEntries key="memberships" kind="memberships" /></ProtectedRoutes>} />
       <Route path="/reports/service" element={<ProtectedRoutes><ServiceReports /></ProtectedRoutes>} />
+      <Route path="/crmdashboard" element={<ProtectedRoutes><CrmDashboard /></ProtectedRoutes>} />
       {/* Sales Return (Credit Note) */}
       <Route
         path="/salesreturn"

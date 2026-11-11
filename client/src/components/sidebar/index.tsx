@@ -17,7 +17,6 @@ import {
   FaBullhorn,
   FaSearch,
   FaChevronDown,
-  FaSignOutAlt,
   FaTruck,
   FaFunnelDollar,
   FaPhoneAlt
@@ -32,7 +31,6 @@ interface SidebarProps {
   isOpen: boolean;
   toggleSidebar: () => void;
   onHoverChange: (hovered: boolean) => void;
-  onLogoutClick?: () => void;
 }
 
 type SidebarLink = {
@@ -46,7 +44,7 @@ type SidebarLink = {
 // Module-level so the menu scroll survives the remount on each route change.
 let savedSidebarScroll = 0;
 
-const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar, onHoverChange, onLogoutClick }) => {
+const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar, onHoverChange }) => {
   const { type, admin, branch, staff } = useAppSelector((state: any) => state.auth);
 
   const { settings } = useAppSelector((state: any) => state.adminsettings);
@@ -409,28 +407,12 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar, onHoverChange,
                   </div>
                 );
               })}
+              {settingsLink && (
+                <div className="mt-2 border-t border-slate-800 pt-2 space-y-0.5">{renderLink(settingsLink)}</div>
+              )}
             </>
           )}
         </nav>
-
-        {!q && (settingsLink || onLogoutClick) && (
-          <div className="shrink-0 border-t border-slate-800/80 p-2 space-y-0.5">
-            {settingsLink && renderLink(settingsLink)}
-            {onLogoutClick && (
-              <button
-                type="button"
-                onClick={onLogoutClick}
-                title={!isExpanded ? "Logout" : undefined}
-                className={`flex w-full items-center rounded-md text-[13px] text-rose-400 transition-colors hover:bg-slate-800/70 hover:text-rose-300 ${
-                  isExpanded ? "h-8 gap-2.5 px-2.5" : "mx-auto h-9 w-9 justify-center"
-                }`}
-              >
-                <span className="flex w-4 shrink-0 items-center justify-center"><FaSignOutAlt className="text-[15px]" /></span>
-                {isExpanded && <span className="truncate">Logout</span>}
-              </button>
-            )}
-          </div>
-        )}
       </aside>
     </>
   );

@@ -48,6 +48,7 @@ import { quotationTypeDefs } from "./quotation";
 import { manufacturingTypeDefs } from "./manufacturing";
 import { serviceTypeDefs } from "./service";
 import { servicesTypeDefs } from "./services";
+import { aiTypeDefs } from "./ai";
 import { leadSourceTypeDefs } from "./leadsource";
 
 export const typeDefs = [
@@ -101,5 +102,6 @@ export const typeDefs = [
   manufacturingTypeDefs,
   serviceTypeDefs,
   servicesTypeDefs,
+  aiTypeDefs,
   leadSourceTypeDefs,
 ];

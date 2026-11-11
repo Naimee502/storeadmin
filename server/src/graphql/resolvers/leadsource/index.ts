@@ -1,5 +1,6 @@
 import { LeadSource, LeadInbox } from "../../../models/leadsource";
 import { StaffAccount } from "../../../models/staffaccounts";
+import { Admin } from "../../../models/admin";
 import { requireBackofficeTenant, TenantError, assertOwnedIds } from "../../../utils/tenant";
 import { isActionAllowed } from "../../../utils/permissiongate";
 import { encryptSecret } from "../../../utils/secret";
@@ -16,12 +17,19 @@ const where = (scope: any) => ({
 });
 
 // Keys and links are business-wide: admin, or a login with Lead Sources edit.
-async function gate(context: any) {
+// An admin login may name another business, so Business Settings can set a
+// client's sources up for them; branch and staff logins are always their own.
+async function gate(context: any, adminid?: string) {
   const scope = await requireBackofficeTenant(context);
-  if (scope.userType !== "admin" && !(await isActionAllowed("leadsources", "edit", where(scope)))) {
-    throw new TenantError("You do not have permission to change lead sources.");
+  if (scope.userType !== "admin") {
+    if (!(await isActionAllowed("leadsources", "edit", where(scope)))) {
+      throw new TenantError("You do not have permission to change lead sources.");
+    }
+    return scope.adminid;
   }
-  return scope;
+  if (!adminid || String(adminid) === String(scope.adminid)) return scope.adminid;
+  if (!(await Admin.exists({ _id: adminid, status: true }))) throw new TenantError("Business not found.", "BAD_USER_INPUT");
+  return adminid as any;
 }
 
 async function configOf(adminid: any, source: string) {
@@ -72,16 +80,16 @@ const MAP: Record<string, (r: any) => any> = {
 
 export const leadSourceResolvers = {
   Query: {
-    getLeadSources: async (_: any, __: any, context: any) => {
-      const scope = await gate(context);
+    getLeadSources: async (_: any, { adminid }: any, context: any) => {
+      const target = await gate(context, adminid);
       const list = [];
-      for (const s of LEAD_SOURCES) list.push(await shape(await configOf(scope.adminid, s)));
+      for (const s of LEAD_SOURCES) list.push(await shape(await configOf(target, s)));
       return list;
     },
 
-    getLeadInbox: async (_: any, { source, result, limit = 100 }: any, context: any) => {
-      const scope = await gate(context);
-      const q: any = { adminid: scope.adminid };
+    getLeadInbox: async (_: any, { adminid, source, result, limit = 100 }: any, context: any) => {
+      const target = await gate(context, adminid);
+      const q: any = { adminid: target };
       if (source) q.source = source;
       if (result) q.result = result;
       const rows: any[] = await LeadInbox.find(q).sort({ createdAt: -1 }).limit(Math.min(Number(limit) || 100, 500)).lean();
@@ -91,13 +99,13 @@ export const leadSourceResolvers = {
 
   Mutation: {
     saveLeadSource: async (_: any, { input }: any, context: any) => {
-      const scope = await gate(context);
-      const cfg = await configOf(scope.adminid, input.source);
+      const target = await gate(context, input.adminid);
+      const cfg = await configOf(target, input.source);
       const set: any = {};
       if (typeof input.enabled === "boolean") set.enabled = input.enabled;
       if (typeof input.autoFollowup === "boolean") set.autoFollowup = input.autoFollowup;
       if (Array.isArray(input.ownerids)) {
-        await assertOwnedIds(StaffAccount, input.ownerids, scope.adminid, "Staff");
+        await assertOwnedIds(StaffAccount, input.ownerids, target, "Staff");
         set.ownerids = input.ownerids;
       }
       for (const k of ["key1", "key2", "key3"]) {
@@ -108,16 +116,16 @@ export const leadSourceResolvers = {
       return shape(await LeadSource.findById(cfg._id).lean());
     },
 
-    regenerateLeadSourceLink: async (_: any, { source }: any, context: any) => {
-      const scope = await gate(context);
-      const cfg = await configOf(scope.adminid, source);
+    regenerateLeadSourceLink: async (_: any, { source, adminid }: any, context: any) => {
+      const target = await gate(context, adminid);
+      const cfg = await configOf(target, source);
       await LeadSource.updateOne({ _id: cfg._id }, { $set: { token: newToken() } });
       return shape(await LeadSource.findById(cfg._id).lean());
     },
 
-    pullLeadSourceNow: async (_: any, { source }: any, context: any) => {
-      const scope = await gate(context);
-      const cfg = await configOf(scope.adminid, source);
+    pullLeadSourceNow: async (_: any, { source, adminid }: any, context: any) => {
+      const target = await gate(context, adminid);
+      const cfg = await configOf(target, source);
       try {
         return await pullSource(cfg);
       } catch (e: any) {
@@ -126,9 +134,9 @@ export const leadSourceResolvers = {
       }
     },
 
-    testLeadSource: async (_: any, { source }: any, context: any) => {
-      const scope = await gate(context);
-      const cfg = await configOf(scope.adminid, source);
+    testLeadSource: async (_: any, { source, adminid }: any, context: any) => {
+      const target = await gate(context, adminid);
+      const cfg = await configOf(target, source);
       const sample = { ...SAMPLE[source] };
       const n = MAP[source](sample);
       // A fresh mobile each time, so the test is not merged into the last test lead.
@@ -136,11 +144,11 @@ export const leadSourceResolvers = {
       return !!(await ingestLead(cfg, { ...n, externalid: undefined, mobile, name: `${n.name} (test)` }, { test: true, ...sample }));
     },
 
-    retryLeadInbox: async (_: any, { id }: any, context: any) => {
-      const scope = await gate(context);
+    retryLeadInbox: async (_: any, { id, adminid }: any, context: any) => {
+      const target = await gate(context, adminid);
       const row: any = await LeadInbox.findById(id).lean();
-      if (!row || String(row.adminid) !== String(scope.adminid)) throw new TenantError("Entry not found.", "BAD_USER_INPUT");
-      const cfg = await configOf(scope.adminid, row.source);
+      if (!row || String(row.adminid) !== String(target)) throw new TenantError("Entry not found.", "BAD_USER_INPUT");
+      const cfg = await configOf(target, row.source);
       const p = row.payload?.lead || row.payload?.RESPONSE || row.payload || {};
       const ok = await ingestLead(cfg, MAP[row.source](p), row.payload);
       if (ok) await LeadInbox.updateOne({ _id: row._id }, { $set: { result: "ignored", error: "Retried; see the newer entry." } });

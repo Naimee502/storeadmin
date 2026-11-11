@@ -21,6 +21,7 @@ import { isOfflineSaved, savedOffline, OFFLINE_SAVED_MESSAGE } from "../../../of
 import { isOfflineId } from "../../../offline/core";
 import { LostReasonDialog, useChangeStage, waLink } from "..";
 import { CompleteDialog, FollowupDialog, FollowupRow, ShortcutButton } from "../../followups";
+import { AiDraftMessage, AiReadInquiry } from "../../../components/aileadtools";
 import { QUOTATION_STATUS, quotationNo, useQuotationsQuery } from "../../../graphql/hooks/quotation";
 
 // unit = "<unitid>--<pack qty>", the same value the Sales Invoice unit picker uses.
@@ -84,6 +85,20 @@ const AddEditLead = () => {
   const [linking, setLinking] = useState(false);
   const linkedOnce = useRef(false);
   const set = (k: keyof typeof EMPTY) => (e: any) => setF((x) => ({ ...x, [k]: e.target.value }));
+
+  // "Read Enquiry": fills empty fields only, so typed values are never overwritten.
+  const fillFromAi = (a: any) => {
+    setF((x: any) => {
+      const next = { ...x };
+      for (const k of ["name", "company", "mobile", "email", "city", "state", "requirement"]) {
+        if (a[k] && !String(next[k] || "").trim()) next[k] = a[k];
+      }
+      if (a.expectedvalue && !next.expectedvalue) next.expectedvalue = a.expectedvalue;
+      if (a.temperature) next.temperature = a.temperature;
+      if (a.scorereason) next.notes = [next.notes, `AI: ${a.scorereason}${a.score ? ` (score ${a.score})` : ""}`].filter(Boolean).join("\n");
+      return next;
+    });
+  };
 
   // Filled once per lead: a refetch after a stage change or a Follow Up must not wipe what is being typed.
   const filledFor = useRef<string | null>(null);
@@ -334,7 +349,15 @@ const AddEditLead = () => {
               {!isEdit && <FormField label="Stage" name="stage" type="select" searchable value={stage || stages[0]?.key} onChange={(e: any) => setStage(e.target.value)} options={stages.filter((s) => s.kind === "open").map((s) => ({ value: s.key, label: s.label }))} />}
               {on("tags") && <FormField label="Tags (comma separated)" name="tags" type="text" value={f.tags} onChange={set("tags")} />}
             </div>
-            {on("requirement") && <FormField label="Requirement" name="requirement" type="text" multiline value={f.requirement} onChange={set("requirement")} placeholder="What the customer asked for" />}
+            {on("requirement") && (
+              <div className="space-y-1">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[13px] font-medium text-slate-700">Requirement</span>
+                  <AiReadInquiry onFill={fillFromAi} />
+                </div>
+                <FormField label="" name="requirement" type="text" multiline value={f.requirement} onChange={set("requirement")} placeholder="What the customer asked for" />
+              </div>
+            )}
             {on("products") && (
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
@@ -379,9 +402,12 @@ const AddEditLead = () => {
                 <span className="text-[12px] text-slate-500">
                   {timeMs(lead.nextfollowupAt) ? `Next: ${formatDateTimeDMY(lead.nextfollowupAt)}` : "No Follow Up booked."}
                 </span>
-                {fuActions.showAdd && (
-                  <ShortcutButton label="Book Follow Up" keyCode="F" onClick={() => setBooking(true)} />
-                )}
+                <div className="flex shrink-0 items-center gap-2">
+                  {!isOfflineId(lead.id) && <AiDraftMessage leadid={lead.id} mobile={lead.mobile} />}
+                  {fuActions.showAdd && (
+                    <ShortcutButton label="Book Follow Up" keyCode="F" onClick={() => setBooking(true)} />
+                  )}
+                </div>
               </div>
               {followups.length === 0 && <div className="text-[13px] text-slate-500">No Follow Ups yet.</div>}
               <div className="space-y-2">

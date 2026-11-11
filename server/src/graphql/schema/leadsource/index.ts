@@ -20,6 +20,8 @@ export const leadSourceTypeDefs = gql`
 
   input LeadSourceInput {
     source: String!
+    "Business Settings only; blank means your own business."
+    adminid: ID
     enabled: Boolean
     ownerids: [ID!]
     autoFollowup: Boolean
@@ -41,18 +43,19 @@ export const leadSourceTypeDefs = gql`
   }
 
   extend type Query {
-    getLeadSources: [LeadSourceConfig!]!
-    getLeadInbox(source: String, result: String, limit: Int): [LeadInboxEntry!]!
+    "adminid is for Business Settings; blank means your own business."
+    getLeadSources(adminid: ID): [LeadSourceConfig!]!
+    getLeadInbox(adminid: ID, source: String, result: String, limit: Int): [LeadInboxEntry!]!
   }
 
   extend type Mutation {
     saveLeadSource(input: LeadSourceInput!): LeadSourceConfig
     "New secret link; the old one stops working."
-    regenerateLeadSourceLink(source: String!): LeadSourceConfig
+    regenerateLeadSourceLink(source: String!, adminid: ID): LeadSourceConfig
     "Fetch now (IndiaMART, TradeIndia); returns how many leads came."
-    pullLeadSourceNow(source: String!): Int
+    pullLeadSourceNow(source: String!, adminid: ID): Int
     "Make a sample lead through this source, to see it arrive."
-    testLeadSource(source: String!): Boolean
-    retryLeadInbox(id: ID!): Boolean
+    testLeadSource(source: String!, adminid: ID): Boolean
+    retryLeadInbox(id: ID!, adminid: ID): Boolean
   }
 `;

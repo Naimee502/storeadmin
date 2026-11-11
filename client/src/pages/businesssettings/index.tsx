@@ -28,6 +28,7 @@ import {
   type ModuleAction,
 } from "../../config/modules";
 import FormPermissionsTab from "./formpermissionstab";
+import { LeadSourcesPanel } from "../leadsources";
 import { stateOptions } from "../../utils/constants";
 import { DEFAULT_LOST_REASONS, DEFAULT_SOURCES, DEFAULT_STAGES, type CrmStage } from "../../graphql/hooks/lead";
 
@@ -35,7 +36,7 @@ import { DEFAULT_LOST_REASONS, DEFAULT_SOURCES, DEFAULT_STAGES, type CrmStage } 
 const deepStripTypename = (value: any): any =>
   JSON.parse(JSON.stringify(value), (key, val) => (key === "__typename" ? undefined : val));
 
-type TabKey = "general" | "modules" | "permissions" | "formpermissions";
+type TabKey = "general" | "modules" | "permissions" | "formpermissions" | "leadsources";
 
 const FEATURE_TO_MODULES: Record<string, string[]> = {
   enableGst: ["reports.gst"],
@@ -64,6 +65,7 @@ const BusinessSettings = () => {
     ["modules", "Business Modules"],
     ["permissions", "Business Permissions"],
     ["formpermissions", "Business Form Permissions"],
+    ["leadsources", "Lead Sources"],
   ], []);
 
   // Auto-fix current tab if it becomes hidden
@@ -142,6 +144,14 @@ const BusinessSettings = () => {
                 scopeid={selectedAdminId}
                 dispatch={dispatch}
               />
+            )}
+            {tab === "leadsources" && (
+              <div className="rounded-lg border border-slate-200 bg-white p-3">
+                <p className="mb-3 text-[12px] text-slate-500">
+                  Set the portals up for this business. Give them the Lead Sources module if they want to manage it themselves.
+                </p>
+                <LeadSourcesPanel key={selectedAdminId} adminid={selectedAdminId} />
+              </div>
             )}
           </>
         ) : (
@@ -359,9 +369,6 @@ const GeneralTab: React.FC<{ adminId?: string; dispatch: any; allowedModules?: s
       </Section>
 
       <Section title="GST Profile (e-Invoice / e-Way Bill)">
-        <div className="text-[11px] leading-snug text-slate-400">
-          Seller details sent to the GST portal. Fill them as on your GST registration certificate.
-        </div>
         <div className="grid grid-cols-1 gap-x-3 gap-y-2 md:grid-cols-4">
           <FormField label="GSTIN" type="text" name="biz-gstin" placeholder="e.g. 24ABCDE1234F1Z5" value={draft.gstin ?? ""}
             onChange={(e: any) => set("gstin", e.target.value.toUpperCase().replace(/\s/g, ""))} />
@@ -380,16 +387,27 @@ const GeneralTab: React.FC<{ adminId?: string; dispatch: any; allowedModules?: s
           <div className="text-[12px] text-rose-600">This GSTIN does not look valid (15 characters, e.g. 24ABCDE1234F1Z5).</div>
         )}
         <Grid>
-          <Toggle label="GST by state (IGST for other-state party)" checked={draft.gstStateSplit === true} onChange={(v: boolean) => set("gstStateSplit", v)} />
+          <Toggle label="GST by state (IGST for other-state party)" hint="On: purchases from another state post Input IGST, and bill forms show CGST / SGST or IGST. Applies to bills saved from now on." checked={draft.gstStateSplit === true} onChange={(v: boolean) => set("gstStateSplit", v)} />
         </Grid>
-        <div className="text-[11px] leading-snug text-slate-400">
-          On: purchases from another state post Input IGST, and bill forms show CGST / SGST or IGST. Applies to bills saved from now on.
-        </div>
       </Section>
 
-      <Section title="Custom Fields">
-        <CustomFieldEditor draft={draft} set={set} />
-      </Section>
+      {hasModule("crmdashboard") && (
+        <Section title="AI Assistant">
+          <Grid>
+            <Toggle label="AI Assistant" hint="Master switch for every AI feature. The assistant reads this business's own data; it never sends anything by itself and never changes a record." checked={!!draft.aiEnabled} onChange={(v) => set("aiEnabled", v)} />
+            <Toggle label="Dashboard Agent" hint="The chat box on the CRM Dashboard." checked={draft.aiAgentOn !== false} onChange={(v) => set("aiAgentOn", v)} />
+          </Grid>
+          <div className="grid grid-cols-1 gap-x-3 gap-y-2 md:grid-cols-4">
+            <FormField label="Gemini API Key" type="password" name="ai-key" value={draft.aiApiKey ?? ""} noAutofill
+              placeholder={draft.aiApiKeySet ? "Saved — blank keeps it, clear removes it" : "Blank uses the platform key"}
+              onChange={(e: any) => set("aiApiKey", e.target.value)} />
+            <FormField label="Model" type="text" name="ai-model" value={draft.aiModel ?? ""} placeholder="gemini-3.5-flash-lite"
+              onChange={(e: any) => set("aiModel", e.target.value)} />
+            <FormField label="AI Actions Per Month" type="number" name="ai-cap" value={draft.aiMonthlyCap ?? ""} placeholder="500"
+              onChange={(e: any) => set("aiMonthlyCap", e.target.value === "" ? null : Number(e.target.value))} />
+          </div>
+        </Section>
+      )}
 
       {hasModule("leads") && (
         <Section title="CRM (Leads)">
@@ -399,14 +417,27 @@ const GeneralTab: React.FC<{ adminId?: string; dispatch: any; allowedModules?: s
 
       {hasModule("quotations") && (
         <Section title="Quotation Format">
-          <div className="text-[11px] leading-snug text-slate-400">How every quotation prints. Each quotation can still change its own subject, opening text and terms.</div>
           <div className="grid grid-cols-1 gap-x-3 gap-y-2 md:grid-cols-4">
             <FormField label="Heading" type="text" name="q-title" value={draft.quoteTitle ?? ""} placeholder="QUOTATION" onChange={(e: any) => set("quoteTitle", e.target.value)} />
             <FormField label="Valid for (days)" type="number" name="q-valid" value={draft.quoteValidityDays ?? ""} placeholder="15"
               onChange={(e: any) => set("quoteValidityDays", e.target.value === "" ? null : Math.max(0, Math.round(Number(e.target.value))))} />
-            <label className="text-[12px] text-slate-600">Colour
-              <input type="color" className="mt-1 block h-8 w-full rounded-md border border-slate-300" value={draft.quoteAccent || "#4f46e5"} onChange={(e) => set("quoteAccent", e.target.value)} />
-            </label>
+            <div className="flex flex-col gap-1">
+              <label className="text-[12px] font-medium text-slate-600">Colour</label>
+              <div className="flex items-center gap-2">
+                <input type="color" aria-label="Quotation colour" value={draft.quoteAccent || "#4F46E5"}
+                  onChange={(e) => set("quoteAccent", e.target.value.toUpperCase())}
+                  className="h-8 w-8 shrink-0 cursor-pointer rounded-md border border-slate-300 bg-white p-0.5" />
+                <input type="text" value={draft.quoteAccent ?? ""} placeholder="#4F46E5 (default)"
+                  onChange={(e) => set("quoteAccent", e.target.value.toUpperCase())}
+                  className="h-8 min-w-0 flex-1 rounded-md border border-slate-300 bg-white px-2 text-[13px] outline-none focus:border-indigo-500" />
+                {draft.quoteAccent ? (
+                  <button type="button" title="Back to the default colour" onClick={() => set("quoteAccent", "")}
+                    className="inline-flex h-8 shrink-0 items-center rounded-md border border-slate-300 bg-white px-2 text-[12px] font-medium text-slate-700 hover:bg-slate-50">
+                    Reset
+                  </button>
+                ) : null}
+              </div>
+            </div>
           </div>
           <Grid>
             <Toggle label="Product image" checked={draft.quoteShowImages === true} onChange={(v: boolean) => set("quoteShowImages", v)} />
@@ -421,6 +452,10 @@ const GeneralTab: React.FC<{ adminId?: string; dispatch: any; allowedModules?: s
           <FormField label="Default terms & conditions" type="text" name="q-terms" multiline value={draft.quoteTerms ?? ""}
             placeholder={"1. Prices are ex-works.\n2. GST extra as applicable.\n3. Delivery: 2-3 weeks from order."} onChange={(e: any) => set("quoteTerms", e.target.value)} />
           <FormField label="Footer" type="text" name="q-footer" value={draft.quoteFooter ?? ""} placeholder="Bank details, website, thank-you line" onChange={(e: any) => set("quoteFooter", e.target.value)} />
+          <div className="border-t border-slate-200 pt-2">
+            <h4 className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-500">Extra Fields (Product / Lead)</h4>
+            <CustomFieldEditor draft={draft} set={set} />
+          </div>
         </Section>
       )}
 
@@ -974,7 +1009,7 @@ const CustomFieldEditor: React.FC<{ draft: any; set: (k: string, v: any) => void
   return (
     <div className="space-y-1.5">
       <div className="text-[11px] leading-snug text-slate-400">
-        Extra fields on the Product and Lead forms, e.g. kVA, Voltage, Winding (products) or Budget, Site Address (leads). "Print" shows a product field under the item on quotations.
+        Your own fields on the Product and Lead forms. "Print" shows a product field under the item on quotations.
       </div>
       {defs.map((d, i) => (
         <div key={d.key} className="flex flex-wrap items-center gap-1.5">

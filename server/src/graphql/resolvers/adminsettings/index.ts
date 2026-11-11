@@ -40,6 +40,8 @@ export const formatSettings = (s: any) =>
         smtpUser: s.smtpUser || "",
         smtpPassSet: !!s.smtpPassEnc,
         smtpPassEnc: undefined,
+        aiApiKeySet: !!s.aiApiKey,
+        aiApiKey: undefined,
         geoFenceEnabled: !!s.geoFenceEnabled,
         salesmanLeaderboardEnabled: s.salesmanLeaderboardEnabled !== false,
         geoFenceRadiusM: Number(s.geoFenceRadiusM) || 200,
@@ -228,6 +230,14 @@ export const adminSettingsResolvers = {
       // smtpPass: blank = keep the saved one; anything else is encrypted.
       // Clearing the email turns the feature off (host + password go too).
       delete $set.smtpPassSet; // read-only, echoed back by the panel
+      delete $set.aiApiKeySet;
+      // aiApiKey: blank = keep the saved one, "clear" = remove it.
+      if ("aiApiKey" in $set) {
+        const k = String($set.aiApiKey ?? "").trim();
+        delete $set.aiApiKey;
+        if (k === "clear") $set.aiApiKey = "";
+        else if (k) $set.aiApiKey = encryptSecret(k);
+      }
       const smtpTouched = ["smtpHost", "smtpPort", "smtpUser", "smtpPass"].some((k) => k in $set);
       if ("smtpPass" in $set) {
         const pass = String($set.smtpPass ?? "").trim();

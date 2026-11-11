@@ -3,6 +3,7 @@ import {
   FaBars,
   FaBuilding,
   FaCashRegister,
+  FaChartLine,
   FaChevronDown,
   FaSignOutAlt,
 } from 'react-icons/fa';
@@ -53,9 +54,8 @@ const Header: React.FC<HeaderProps> = ({
           ? staff?.allowedmodules
           : undefined;
 
-  const isPosAllowed = useMemo(() => {
-    const moduleId = "posdashboard";
-
+  // Both dashboards live in this bar, so they share one allowed-module check.
+  const allows = (moduleId: string) => {
     // 1. Business Level (SaaS)
     if (businessAllowed && Array.isArray(businessAllowed)) {
       if (!businessAllowed.map((m: any) => m.toString().toLowerCase()).includes(moduleId.toLowerCase())) return false;
@@ -67,7 +67,9 @@ const Header: React.FC<HeaderProps> = ({
     }
 
     return true;
-  }, [businessAllowed, localAllowed]);
+  };
+  const isPosAllowed = useMemo(() => allows("posdashboard"), [businessAllowed, localAllowed]);
+  const isCrmAllowed = useMemo(() => allows("crmdashboard"), [businessAllowed, localAllowed]);
 
   return (
     <header className="fixed top-0 left-0 right-0 z-[1000] flex h-12 items-center border-b border-slate-800 bg-slate-950 px-2 text-white">
@@ -95,14 +97,25 @@ const Header: React.FC<HeaderProps> = ({
         {/* System notifications */}
         <NotificationBell />
 
+        {isCrmAllowed && (
+          <button
+            onClick={() => navigate('/crmdashboard')}
+            className="flex h-8 shrink-0 items-center gap-1.5 rounded-md border border-slate-700 bg-slate-900 px-2.5 transition-colors hover:bg-slate-800"
+            title="CRM Dashboard"
+          >
+            <FaChartLine className="text-sm text-sky-400" />
+            <span className="hidden whitespace-nowrap text-xs font-bold leading-none text-sky-400 sm:inline">CRM</span>
+          </button>
+        )}
+
         {isPosAllowed && (
           <button
             onClick={() => navigate('/posdashboard')}
-            className="flex h-8 items-center gap-1.5 rounded-md border border-slate-700 bg-slate-900 px-2.5 transition-colors hover:bg-slate-800"
+            className="flex h-8 shrink-0 items-center gap-1.5 rounded-md border border-slate-700 bg-slate-900 px-2.5 transition-colors hover:bg-slate-800"
             title="POS Dashboard"
           >
             <FaCashRegister className="text-sm text-emerald-400" />
-            <span className="hidden sm:inline text-xs font-bold text-emerald-400">POS</span>
+            <span className="hidden whitespace-nowrap text-xs font-bold leading-none text-emerald-400 sm:inline">POS</span>
           </button>
         )}
 

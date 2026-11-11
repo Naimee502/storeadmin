@@ -104,12 +104,12 @@ export const GET_DELETED_FOLLOWUPS = gql`
 
 // Lead integrations (Lead Sources screen).
 export const GET_LEAD_SOURCES = gql`
-  query GetLeadSources {
-    getLeadSources { source enabled webhookUrl verifyToken ownerids autoFollowup hasKey1 hasKey2 hasKey3 lastPulledAt lastError leadsToday }
+  query GetLeadSources($adminid: ID) {
+    getLeadSources(adminid: $adminid) { source enabled webhookUrl verifyToken ownerids autoFollowup hasKey1 hasKey2 hasKey3 lastPulledAt lastError leadsToday }
   }
 `;
 export const GET_LEAD_INBOX = gql`
-  query GetLeadInbox($source: String, $result: String, $limit: Int) {
-    getLeadInbox(source: $source, result: $result, limit: $limit) { id source externalid result error leadid payload createdAt }
+  query GetLeadInbox($adminid: ID, $source: String, $result: String, $limit: Int) {
+    getLeadInbox(adminid: $adminid, source: $source, result: $result, limit: $limit) { id source externalid result error leadid payload createdAt }
   }
 `;

@@ -137,6 +137,16 @@ const adminSettingsSchema = new mongoose.Schema(
     quoteShowTaxSplit: { type: Boolean },
     quoteShowSignature: { type: Boolean },
 
+    // AI (Business Settings -> AI Assistant). Off unless switched on; the key is
+    // encrypted and never read back. Blank key = the platform key, when there is one.
+    aiEnabled: { type: Boolean },
+    aiApiKey: { type: String },
+    aiModel: { type: String },
+    // AI actions this business may run in a month.
+    aiMonthlyCap: { type: Number },
+    // The agent may prepare work (drafts, follow-ups); sending stays a person's tap.
+    aiAgentOn: { type: Boolean },
+
     /* ============================================================
        WEBSITE STOREFRONT — controls for the customer-facing website.
        ============================================================ */
