@@ -106,7 +106,7 @@ const RevenueAndSalesChart: React.FC<Props> = ({ salesInvoices = [] }) => {
   };
 
   return (
-    <div className="rounded-md border border-slate-200 bg-white p-3 font-sans flex flex-col justify-between h-56 sm:h-64">
+    <div className="rounded-md border border-slate-200 bg-white p-3 font-sans flex flex-col justify-between h-64 sm:h-72">
       <div>
         <h3 className="text-[12px] font-semibold text-slate-900">Revenue & Volume</h3>
         <p className="text-[10.5px] text-slate-500 mb-1">Daily ledger billing correlation</p>

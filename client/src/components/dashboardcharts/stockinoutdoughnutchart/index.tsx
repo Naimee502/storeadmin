@@ -201,34 +201,42 @@ const StockInOutDoughnutChart: React.FC<Props> = ({
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
-      legend: { position: "bottom" as const, labels: { boxWidth: 12, font: { size: 10 } } },
+      legend: { display: false },
     },
   };
 
   return (
-    <div className="rounded-md border border-slate-200 bg-white p-3 font-sans flex flex-col justify-between h-56 sm:h-64">
+    <div className="rounded-md border border-slate-200 bg-white p-3 font-sans flex flex-col justify-between h-64 sm:h-72">
       <div>
         <h3 className="text-[12px] font-semibold text-slate-900">Inventory Movement</h3>
         <p className="text-[10.5px] text-slate-500 mb-1">Real-time stock flow distribution</p>
       </div>
-      <div className="flex-1 relative min-h-[120px] flex items-center justify-center py-1">
+      <div className="flex-1 relative min-h-[120px] flex items-center justify-center py-1 pb-2">
         <Doughnut data={doughnutData} options={options} />
       </div>
       <div className="grid grid-cols-2 gap-1.5 text-left pt-1.5 border-t border-slate-100">
         <div className="px-1.5 py-1 bg-emerald-50 rounded border border-emerald-100">
-          <p className="text-[10.5px] font-semibold text-emerald-800 capitalize tracking-tight leading-none">Purchased In</p>
+          <p className="flex items-center gap-1 text-[10.5px] font-semibold text-emerald-800 capitalize tracking-tight leading-none">
+            <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500" />Purchased In
+          </p>
           <p className="text-[13px] font-semibold text-emerald-900 mt-0.5 leading-none">{purchaseStockIn}</p>
         </div>
         <div className="px-1.5 py-1 bg-rose-50 rounded border border-rose-100">
-          <p className="text-[10.5px] font-semibold text-rose-800 capitalize tracking-tight leading-none">Sold Out</p>
+          <p className="flex items-center gap-1 text-[10.5px] font-semibold text-rose-800 capitalize tracking-tight leading-none">
+            <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-rose-500" />Sold Out
+          </p>
           <p className="text-[13px] font-semibold text-rose-900 mt-0.5 leading-none">{salesStockOut}</p>
         </div>
         <div className="px-1.5 py-1 bg-amber-50 rounded border border-amber-100">
-          <p className="text-[10.5px] font-semibold text-amber-800 capitalize tracking-tight leading-none">Transfers Out</p>
+          <p className="flex items-center gap-1 text-[10.5px] font-semibold text-amber-800 capitalize tracking-tight leading-none">
+            <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500" />Transfers Out
+          </p>
           <p className="text-[13px] font-semibold text-amber-900 mt-0.5 leading-none">{transferStockOut}</p>
         </div>
         <div className="px-1.5 py-1 bg-indigo-50 rounded border border-indigo-100">
-          <p className="text-[10.5px] font-semibold text-indigo-800 capitalize tracking-tight leading-none">Current Stock</p>
+          <p className="flex items-center gap-1 text-[10.5px] font-semibold text-indigo-800 capitalize tracking-tight leading-none">
+            <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-indigo-500" />Current Stock
+          </p>
           <p className="text-[13px] font-semibold text-indigo-900 mt-0.5 leading-none">{currentStock}</p>
         </div>
       </div>

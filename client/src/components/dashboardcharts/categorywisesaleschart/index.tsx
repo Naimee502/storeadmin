@@ -82,7 +82,7 @@ const CategoryWiseSalesChart: React.FC<Props> = ({
   };
 
   return (
-    <div className="rounded-md border border-slate-200 bg-white p-3 font-sans flex flex-col justify-between h-56 sm:h-64">
+    <div className="rounded-md border border-slate-200 bg-white p-3 font-sans flex flex-col justify-between h-64 sm:h-72">
       <div>
         <div className="flex items-center justify-between gap-2 mb-1">
           <h3 className="text-[13px] font-semibold text-slate-900 truncate">Category Sales</h3>

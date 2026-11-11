@@ -348,7 +348,7 @@ const DashboardCharts: React.FC<DashboardChartsProps> = ({
         {activeTab === "orders" && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2 items-stretch">
             {/* Chart 1: Order Conversion Bar Chart */}
-            <div className="rounded-md border border-slate-200 bg-white p-2.5 flex flex-col justify-between h-56 sm:h-64">
+            <div className="rounded-md border border-slate-200 bg-white p-2.5 flex flex-col justify-between h-64 sm:h-72">
               <div>
                 <h3 className="text-[12px] font-semibold text-slate-900">Order Conversion</h3>
                 <p className="text-[10.5px] text-slate-500 mb-1">Pending vs invoiced fulfillment</p>
@@ -359,7 +359,7 @@ const DashboardCharts: React.FC<DashboardChartsProps> = ({
             </div>
 
             {/* Chart 2: Returns Valuation Doughnut Chart */}
-            <div className="rounded-md border border-slate-200 bg-white p-2.5 flex flex-col justify-between h-56 sm:h-64">
+            <div className="rounded-md border border-slate-200 bg-white p-2.5 flex flex-col justify-between h-64 sm:h-72">
               <div>
                 <h3 className="text-[12px] font-semibold text-slate-900">Return Shipments Share</h3>
                 <p className="text-[10.5px] text-slate-500 mb-1">Credit notes vs Debit notes share</p>
@@ -370,7 +370,7 @@ const DashboardCharts: React.FC<DashboardChartsProps> = ({
             </div>
 
             {/* Chart 3: Monthly Sales Returns Bar Chart */}
-            <div className="rounded-md border border-slate-200 bg-white p-2.5 flex flex-col justify-between h-56 sm:h-64">
+            <div className="rounded-md border border-slate-200 bg-white p-2.5 flex flex-col justify-between h-64 sm:h-72">
               <div>
                 <h3 className="text-[12px] font-semibold text-slate-900">Sales Returns Trend</h3>
                 <p className="text-[10.5px] text-slate-500 mb-1">Monthly customer credit note valuation</p>
@@ -381,7 +381,7 @@ const DashboardCharts: React.FC<DashboardChartsProps> = ({
             </div>
 
             {/* Chart 4: Monthly Purchase Returns Bar Chart */}
-            <div className="rounded-md border border-slate-200 bg-white p-2.5 flex flex-col justify-between h-56 sm:h-64">
+            <div className="rounded-md border border-slate-200 bg-white p-2.5 flex flex-col justify-between h-64 sm:h-72">
               <div>
                 <h3 className="text-[12px] font-semibold text-slate-900">Purchase Returns Trend</h3>
                 <p className="text-[10.5px] text-slate-500 mb-1">Monthly supplier debit note claims</p>
@@ -397,7 +397,7 @@ const DashboardCharts: React.FC<DashboardChartsProps> = ({
         {activeTab === "attendance" && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2 items-stretch">
             {/* Chart 1: Attendance Distribution */}
-            <div className="rounded-md border border-slate-200 bg-white p-2.5 flex flex-col justify-between h-56 sm:h-64">
+            <div className="rounded-md border border-slate-200 bg-white p-2.5 flex flex-col justify-between h-64 sm:h-72">
               <div>
                 <h3 className="text-[12px] font-semibold text-slate-900">Attendance Breakdown</h3>
                 <p className="text-[10.5px] text-slate-500 mb-1">Today's active staff presence share</p>
@@ -408,7 +408,7 @@ const DashboardCharts: React.FC<DashboardChartsProps> = ({
             </div>
 
             {/* Chart 2: Staff Roster Status */}
-            <div className="rounded-md border border-slate-200 bg-white p-2.5 flex flex-col justify-between h-56 sm:h-64">
+            <div className="rounded-md border border-slate-200 bg-white p-2.5 flex flex-col justify-between h-64 sm:h-72">
               <div>
                 <h3 className="text-[12px] font-semibold text-slate-900">Staff Roster Status</h3>
                 <p className="text-[10.5px] text-slate-500 mb-1">Active vs inactive personnel accounts</p>
@@ -419,7 +419,7 @@ const DashboardCharts: React.FC<DashboardChartsProps> = ({
             </div>
 
             {/* Chart 3: Leave Applications Status Bar Chart */}
-            <div className="rounded-md border border-slate-200 bg-white p-2.5 flex flex-col justify-between h-56 sm:h-64">
+            <div className="rounded-md border border-slate-200 bg-white p-2.5 flex flex-col justify-between h-64 sm:h-72">
               <div>
                 <h3 className="text-[12px] font-semibold text-slate-900">Leave Applications</h3>
                 <p className="text-[10.5px] text-slate-500 mb-1">Approval status of leave requests</p>
@@ -430,7 +430,7 @@ const DashboardCharts: React.FC<DashboardChartsProps> = ({
             </div>
 
             {/* Chart 4: Punctuality Share */}
-            <div className="rounded-md border border-slate-200 bg-white p-2.5 flex flex-col justify-between h-56 sm:h-64">
+            <div className="rounded-md border border-slate-200 bg-white p-2.5 flex flex-col justify-between h-64 sm:h-72">
               <div>
                 <h3 className="text-[12px] font-semibold text-slate-900">Punctuality Share</h3>
                 <p className="text-[10.5px] text-slate-500 mb-1">On-time arrivals vs late instances</p>

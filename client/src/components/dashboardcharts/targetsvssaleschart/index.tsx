@@ -109,7 +109,7 @@ const TargetVsSalesChart: React.FC<Props> = ({ salesInvoices, salesOrders = [], 
   }, [salesInvoices, salesOrders, staff]);
 
   return (
-    <div className="rounded-md border border-slate-200 bg-white p-3 font-sans flex flex-col justify-between h-56 sm:h-64">
+    <div className="rounded-md border border-slate-200 bg-white p-3 font-sans flex flex-col justify-between h-64 sm:h-72">
       <div>
         <h3 className="text-[12px] font-semibold text-slate-900">Target vs Sales & Orders</h3>
         <p className="text-[10.5px] text-slate-500 mb-1">Team quota vs invoiced revenue and bookings</p>
