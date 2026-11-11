@@ -37,22 +37,31 @@ export default function PartyStockScreen() {
   }, [all, q]);
   const inStock = all.filter((r) => Number(r.qty) > 0).length;
 
+  const stats = [
+    { icon: 'check-circle-outline', value: inStock, label: 'Products in stock', color: '#22c55e' },
+    { icon: 'package-variant-closed', value: all.length, label: 'Products', color: '#3b82f6' },
+  ];
+
   const renderItem = ({ item }: any) => {
     const qty = Number(item.qty) || 0;
     return (
-      <View style={[styles.card, { backgroundColor: colors.cardGlass, borderColor: colors.border }]}>
-        <View style={[styles.icon, { backgroundColor: colors.brandSoft }]}>
+      <View style={[styles.row, { backgroundColor: colors.cardGlass, borderColor: colors.border }]}>
+        <View style={[styles.iconChip, { backgroundColor: colors.brandSoft }]}>
           <Icon name="package-variant-closed" size={18} color={colors.brand} />
         </View>
         <View style={{ flex: 1 }}>
-          <Text style={[styles.name, { color: colors.text }]} numberOfLines={1}>{item.productname}</Text>
-          <Text style={[styles.meta, { color: colors.subText }]} numberOfLines={1}>
-            {[item.variantname, item.productcode].filter(Boolean).join(' · ') || '—'}
-          </Text>
-        </View>
-        <View style={{ alignItems: 'flex-end' }}>
-          <Text style={[styles.qty, { color: qty < 0 ? '#ef4444' : colors.text }]}>{qty.toLocaleString('en-IN')}</Text>
-          <Text style={[styles.meta, { color: colors.subText }]}>{item.unitname || 'units'}</Text>
+          <View style={styles.line}>
+            <Text style={[styles.name, { color: colors.text }]} numberOfLines={1}>{item.productname}</Text>
+            <Text style={[styles.qty, { color: qty < 0 ? '#ef4444' : colors.text }]}>{qty.toLocaleString('en-IN')}</Text>
+          </View>
+          <View style={styles.line}>
+            <Text style={[styles.sub, { color: colors.subText }]} numberOfLines={1}>
+              {[item.variantname, item.productcode].filter(Boolean).join(' · ') || '—'}
+            </Text>
+            <View style={[styles.unitPill, { backgroundColor: colors.brandSoft }]}>
+              <Text style={[styles.unitText, { color: colors.brand }]}>{item.unitname || 'units'}</Text>
+            </View>
+          </View>
         </View>
       </View>
     );
@@ -64,16 +73,16 @@ export default function PartyStockScreen() {
       <LinearGradient colors={colors.appGradient} style={StyleSheet.absoluteFill} />
       <BackHeader label={partyName ? `${partyName} — Stock` : 'My Stock'} />
 
-      <View style={[styles.summary, { backgroundColor: colors.cardGlass, borderColor: colors.border }]}>
-        <View style={styles.stat}>
-          <Text style={[styles.statValue, { color: colors.brand }]}>{inStock}</Text>
-          <Text style={[styles.meta, { color: colors.subText }]}>Products in stock</Text>
-        </View>
-        <View style={[styles.sep, { backgroundColor: colors.border }]} />
-        <View style={styles.stat}>
-          <Text style={[styles.statValue, { color: '#3b82f6' }]}>{all.length}</Text>
-          <Text style={[styles.meta, { color: colors.subText }]}>Products</Text>
-        </View>
+      <View style={styles.statsRow}>
+        {stats.map((stat) => (
+          <View key={stat.label} style={[styles.statCard, { backgroundColor: colors.cardGlass, borderColor: colors.border }]}>
+            <View style={[styles.statIcon, { backgroundColor: stat.color + '18' }]}>
+              <Icon name={stat.icon} size={16} color={stat.color} />
+            </View>
+            <Text style={[styles.statValue, { color: colors.text }]}>{stat.value}</Text>
+            <Text style={[styles.statLabel, { color: colors.subText }]}>{stat.label}</Text>
+          </View>
+        ))}
       </View>
 
       <View style={[styles.search, { backgroundColor: colors.raisedSurface, borderColor: colors.border }]}>
@@ -87,6 +96,11 @@ export default function PartyStockScreen() {
         />
       </View>
 
+      <View style={styles.sectionHeader}>
+        <Text style={[styles.sectionTitle, { color: colors.text }]}>Stock Items</Text>
+        <Text style={[styles.countText, { color: colors.subText }]}>{rows.length} item{rows.length !== 1 ? 's' : ''}</Text>
+      </View>
+
       {loading && !data ? (
         <View style={styles.center}><ActivityIndicator size="large" color={colors.brand} /></View>
       ) : (
@@ -94,14 +108,14 @@ export default function PartyStockScreen() {
           data={rows}
           renderItem={renderItem}
           keyExtractor={(item: any) => item.id}
-          estimatedItemSize={70}
+          estimatedItemSize={84}
           contentContainerStyle={styles.list}
           showsVerticalScrollIndicator={false}
           onRefresh={refetch}
           refreshing={false}
           ListEmptyComponent={
             <View style={styles.center}>
-              <Icon name="package-variant" size={44} color={colors.border} />
+              <Icon name="package-variant" size={42} color={colors.border} />
               <Text style={[styles.meta, { color: colors.subText, marginTop: 8 }]}>
                 {q ? 'No product matches your search' : 'No stock yet — it is added when an invoice is made for this party'}
               </Text>
@@ -115,26 +129,37 @@ export default function PartyStockScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  summary: {
-    flexDirection: 'row', alignItems: 'center', marginHorizontal: 18, marginTop: 12, marginBottom: 10,
-    borderRadius: 16, borderWidth: 1, paddingVertical: 12,
-  },
-  stat: { flex: 1, alignItems: 'center' },
-  sep: { width: StyleSheet.hairlineWidth, alignSelf: 'stretch' },
-  statValue: { fontSize: 18, fontFamily: FONTS.bold },
-  search: {
-    flexDirection: 'row', alignItems: 'center', gap: 8, marginHorizontal: 18, marginBottom: 8,
-    borderRadius: 12, borderWidth: 1, paddingHorizontal: 12,
-  },
-  searchInput: { flex: 1, paddingVertical: 10, fontSize: 14, fontFamily: FONTS.regular },
-  list: { paddingHorizontal: 18, paddingBottom: 40, paddingTop: 4 },
-  card: {
-    flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 16, borderWidth: 1, padding: 14, marginBottom: 10,
+  statsRow: { flexDirection: 'row', gap: 10, marginHorizontal: 18, marginTop: 14, marginBottom: 12 },
+  statCard: {
+    flex: 1, borderRadius: 18, borderWidth: 1, padding: 14, alignItems: 'flex-start',
     shadowColor: COLORS.light.shadow, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 6, elevation: 1,
   },
-  icon: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-  name: { fontSize: 14, fontFamily: FONTS.bold },
+  statIcon: { width: 32, height: 32, borderRadius: 10, justifyContent: 'center', alignItems: 'center', marginBottom: 8 },
+  statValue: { fontSize: 14, fontFamily: FONTS.bold, marginBottom: 2 },
+  statLabel: { fontSize: 10, fontFamily: FONTS.regular },
+
+  search: {
+    flexDirection: 'row', alignItems: 'center', gap: 8, marginHorizontal: 18, marginBottom: 12,
+    borderRadius: 12, borderWidth: 1, paddingHorizontal: 12,
+  },
+  searchInput: { flex: 1, paddingVertical: 10, fontSize: 13, fontFamily: FONTS.regular },
+
+  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginHorizontal: 18, marginBottom: 12 },
+  sectionTitle: { fontSize: 14, fontFamily: FONTS.bold },
+  countText: { fontSize: 12, fontFamily: FONTS.regular },
+
+  list: { paddingHorizontal: 18, paddingBottom: 40 },
+  row: {
+    flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 16, borderWidth: 1, padding: 13, marginBottom: 10,
+    shadowColor: COLORS.light.shadow, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.03, shadowRadius: 4, elevation: 1,
+  },
+  iconChip: { width: 38, height: 38, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
+  name: { flex: 1, fontSize: 13, lineHeight: 18, fontFamily: FONTS.bold },
+  sub: { flex: 1, fontSize: 12, lineHeight: 16, fontFamily: FONTS.regular },
+  line: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  qty: { fontSize: 14, lineHeight: 18, fontFamily: FONTS.bold, textAlign: 'right' },
+  unitPill: { paddingHorizontal: 8, paddingVertical: 1, borderRadius: 10, alignSelf: 'center' },
+  unitText: { fontSize: 10, lineHeight: 14, fontFamily: FONTS.semiBold, textAlign: 'center' },
   meta: { fontSize: 12, fontFamily: FONTS.regular, textAlign: 'center' },
-  qty: { fontSize: 16, fontFamily: FONTS.bold },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 60, paddingHorizontal: 24 },
 });

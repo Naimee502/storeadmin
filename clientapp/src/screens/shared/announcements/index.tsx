@@ -133,18 +133,23 @@ export default function AnnouncementsScreen() {
 
   const renderItem = ({ item: a }: any) => {
     const unread = tab === 'inbox' && !a.read;
+    const tint = a.priority === 'important' ? '#ef4444' : colors.brand;
     return (
       <Pressable
         onPress={() => openItem(a)}
-        style={[styles.card, { backgroundColor: colors.cardGlass, borderColor: unread ? colors.brand : colors.border }]}
+        style={[styles.row, { backgroundColor: colors.cardGlass, borderColor: colors.border }]}
       >
-        <View style={[styles.iconWrap, { backgroundColor: (a.priority === 'important' ? '#ef4444' : colors.brand) + '18' }]}>
-          <Icon name={a.priority === 'important' ? 'alert-decagram-outline' : 'bullhorn-outline'} size={20} color={a.priority === 'important' ? '#ef4444' : colors.brand} />
+        <View style={[styles.iconChip, { backgroundColor: tint + '18' }]}>
+          <Icon name={a.priority === 'important' ? 'alert-decagram-outline' : 'bullhorn-outline'} size={18} color={tint} />
         </View>
         <View style={{ flex: 1 }}>
           <View style={styles.rowBetween}>
             <Text style={[styles.title, { color: colors.text }]} numberOfLines={1}>{a.title}</Text>
-            {unread && <View style={[styles.dot, { backgroundColor: colors.brand }]} />}
+            {unread && (
+              <View style={[styles.newPill, { backgroundColor: colors.brandSoft }]}>
+                <Text style={[styles.newPillText, { color: colors.brand }]}>New</Text>
+              </View>
+            )}
           </View>
           {!!a.message && <Text style={[styles.msg, { color: colors.subText }]} numberOfLines={2}>{a.message}</Text>}
           <View style={styles.rowBetween}>
@@ -169,6 +174,7 @@ export default function AnnouncementsScreen() {
             )}
           </View>
         </View>
+        <Icon name="chevron-right" size={16} color={colors.subText} />
       </Pressable>
     );
   };
@@ -180,19 +186,28 @@ export default function AnnouncementsScreen() {
       <BackHeader label="Announcements" />
 
       {canSend && (
-        <View style={[styles.tabs, { backgroundColor: colors.raisedSurface }]}>
-          {(['inbox', 'sent'] as const).map(t => (
-            <Pressable key={t} style={[styles.tab, tab === t && { backgroundColor: colors.brand }]} onPress={() => setTab(t)}>
-              <Text style={[styles.tabText, { color: tab === t ? colors.onBrand : colors.subText }]}>{t === 'inbox' ? 'Inbox' : 'Sent'}</Text>
-            </Pressable>
-          ))}
+        <View style={[styles.segment, { backgroundColor: colors.raisedSurface, borderColor: colors.border }]}>
+          {(['inbox', 'sent'] as const).map(t => {
+            const active = tab === t;
+            return (
+              <Pressable key={t} style={[styles.segmentItem, active && { backgroundColor: colors.brand }]} onPress={() => setTab(t)}>
+                <Text style={[styles.segmentText, { color: active ? colors.onBrand : colors.subText }]}>{t === 'inbox' ? 'Inbox' : 'Sent'}</Text>
+              </Pressable>
+            );
+          })}
         </View>
       )}
 
       <DynamicFlashList
         data={items}
         renderItem={renderItem}
-        estimatedItemSize={90}
+        estimatedItemSize={84}
+        ListHeaderComponent={
+          <View style={styles.sectionHeader}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>{tab === 'inbox' ? 'Received' : 'Sent by you'}</Text>
+            <Text style={[styles.countText, { color: colors.subText }]}>{items.length} announcement{items.length !== 1 ? 's' : ''}</Text>
+          </View>
+        }
         ListEmptyComponent={
           (tab === 'inbox' ? inbox.loading : sent.loading)
             ? <ActivityIndicator style={{ marginTop: 24 }} color={colors.brand} />
@@ -340,19 +355,26 @@ export default function AnnouncementsScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  list: { paddingHorizontal: 18, paddingTop: 12, paddingBottom: 100 },
+  list: { paddingHorizontal: 18, paddingBottom: 100 },
   rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
-  tabs: { flexDirection: 'row', marginHorizontal: 18, marginTop: 12, borderRadius: 12, padding: 4 },
-  tab: { flex: 1, alignItems: 'center', paddingVertical: 8, borderRadius: 10 },
-  tabText: { fontSize: 13, fontFamily: FONTS.semiBold },
+  segment: { flexDirection: 'row', marginHorizontal: 18, marginTop: 14, marginBottom: 12, borderRadius: 12, borderWidth: 1, padding: 3 },
+  segmentItem: { flex: 1, paddingVertical: 8, borderRadius: 9, alignItems: 'center' },
+  segmentText: { fontSize: 13, fontFamily: FONTS.semiBold },
+  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+  sectionTitle: { fontSize: 14, fontFamily: FONTS.bold },
+  countText: { fontSize: 12, fontFamily: FONTS.regular },
   empty: { textAlign: 'center', marginTop: 30, fontSize: 13, fontFamily: FONTS.regular },
 
-  card: { flexDirection: 'row', gap: 12, borderRadius: 16, borderWidth: 1, padding: 12, marginBottom: 10, shadowColor: COLORS.light.shadow, shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 4, elevation: 1 },
-  iconWrap: { width: 40, height: 40, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
-  title: { fontSize: 14, fontFamily: FONTS.bold, flex: 1 },
+  row: {
+    flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 16, borderWidth: 1, padding: 13, marginBottom: 10,
+    shadowColor: COLORS.light.shadow, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.03, shadowRadius: 4, elevation: 1,
+  },
+  iconChip: { width: 38, height: 38, borderRadius: 11, justifyContent: 'center', alignItems: 'center' },
+  title: { fontSize: 13, fontFamily: FONTS.bold, flex: 1 },
   msg: { fontSize: 12, fontFamily: FONTS.regular, marginTop: 2 },
   meta: { fontSize: 11, fontFamily: FONTS.regular, marginTop: 4 },
-  dot: { width: 8, height: 8, borderRadius: 4 },
+  newPill: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10 },
+  newPillText: { fontSize: 10, fontFamily: FONTS.semiBold },
 
   fab: { position: 'absolute', right: 20, bottom: 30, flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 18, paddingVertical: 12, borderRadius: 28, elevation: 4, shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 6, shadowOffset: { width: 0, height: 3 } },
   fabText: { fontSize: 14, fontFamily: FONTS.bold },

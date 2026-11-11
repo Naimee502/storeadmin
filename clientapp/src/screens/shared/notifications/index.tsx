@@ -81,15 +81,11 @@ export default function Notifications() {
     const meta = TYPE_META[n.ntype] ?? TYPE_META.system;
     return (
       <Pressable
-        style={[
-          styles.card,
-          { backgroundColor: colors.cardGlass, borderColor: colors.border },
-          !n.read && { borderLeftColor: colors.brand, borderLeftWidth: 3 },
-        ]}
+        style={[styles.row, { backgroundColor: colors.cardGlass, borderColor: n.read ? colors.border : colors.brand }]}
         onPress={() => handleTap(n)}
       >
-        <View style={[styles.iconWrap, { backgroundColor: meta.color }]}>
-          <Icon name={meta.icon} size={20} color="#fff" />
+        <View style={[styles.iconChip, { backgroundColor: meta.color + '18' }]}>
+          <Icon name={meta.icon} size={18} color={meta.color} />
         </View>
         <View style={{ flex: 1 }}>
           <View style={styles.titleRow}>
@@ -107,18 +103,19 @@ export default function Notifications() {
   };
 
   const ListHeader = () => (
-    <View style={styles.listHeader}>
+    <View style={styles.sectionHeader}>
+      <Text style={[styles.sectionTitle, { color: colors.text }]}>Recent</Text>
       {unreadCount > 0 ? (
-        <View style={[styles.unreadBadge, { backgroundColor: colors.brandSoft }]}>
-          <Text style={[styles.unreadText, { color: colors.brand }]}>{unreadCount} unread</Text>
+        <View style={styles.headRight}>
+          <View style={[styles.unreadBadge, { backgroundColor: colors.brandSoft }]}>
+            <Text style={[styles.unreadText, { color: colors.brand }]}>{unreadCount} unread</Text>
+          </View>
+          <Pressable onPress={handleMarkAll} hitSlop={8}>
+            <Text style={[styles.markAll, { color: colors.brand }]}>Mark all read</Text>
+          </Pressable>
         </View>
       ) : (
-        <View />
-      )}
-      {unreadCount > 0 && (
-        <Pressable onPress={handleMarkAll}>
-          <Text style={[styles.markAll, { color: colors.brand }]}>Mark all read</Text>
-        </Pressable>
+        <Text style={[styles.countText, { color: colors.subText }]}>{notifs.length} notification{notifs.length !== 1 ? 's' : ''}</Text>
       )}
     </View>
   );
@@ -133,13 +130,13 @@ export default function Notifications() {
       <DynamicFlashList
         data={notifs}
         renderItem={renderNotif}
-        estimatedItemSize={90}
+        estimatedItemSize={84}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
         ListHeaderComponent={<ListHeader />}
         ListEmptyComponent={
           <View style={styles.emptyWrap}>
-            <Icon name="bell-off-outline" size={48} color={colors.border} />
+            <Icon name="bell-off-outline" size={42} color={colors.border} />
             <Text style={[styles.emptyText, { color: colors.subText }]}>No notifications yet</Text>
           </View>
         }
@@ -152,22 +149,25 @@ const styles = StyleSheet.create({
   container:   { flex: 1 },
   listContent: { paddingHorizontal: 18, paddingBottom: 40 },
 
-  listHeader: {
-    flexDirection: 'row', justifyContent: 'space-between',
-    alignItems: 'center', paddingTop: 14, paddingBottom: 10,
+  sectionHeader: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    marginTop: 14, marginBottom: 12,
   },
-  unreadBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20 },
-  unreadText:  { fontSize: 12, fontFamily: FONTS.semiBold },
-  markAll:     { fontSize: 13, fontFamily: FONTS.semiBold },
+  sectionTitle: { fontSize: 14, fontFamily: FONTS.bold },
+  countText:    { fontSize: 12, fontFamily: FONTS.regular },
+  headRight:    { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  unreadBadge:  { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10 },
+  unreadText:   { fontSize: 10, fontFamily: FONTS.semiBold },
+  markAll:      { fontSize: 12, fontFamily: FONTS.semiBold },
 
-  card: {
+  row: {
     flexDirection: 'row', alignItems: 'flex-start', gap: 12,
-    borderRadius: 16, borderWidth: 1, padding: 14, marginBottom: 10,
+    borderRadius: 16, borderWidth: 1, padding: 13, marginBottom: 10,
     shadowColor: COLORS.light.shadow,
-    shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 6, elevation: 1,
+    shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.03, shadowRadius: 4, elevation: 1,
   },
-  iconWrap:  { width: 40, height: 40, borderRadius: 12, justifyContent: 'center', alignItems: 'center', marginTop: 2 },
-  titleRow:  { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 },
+  iconChip:  { width: 38, height: 38, borderRadius: 11, justifyContent: 'center', alignItems: 'center' },
+  titleRow:  { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 3 },
   title:     { fontSize: 13, fontFamily: FONTS.bold, flex: 1 },
   unreadDot: { width: 7, height: 7, borderRadius: 4 },
   body:      { fontSize: 12, fontFamily: FONTS.regular, lineHeight: 17, marginBottom: 6 },
@@ -175,5 +175,5 @@ const styles = StyleSheet.create({
   time:      { fontSize: 11, fontFamily: FONTS.regular },
 
   emptyWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: 80, gap: 12 },
-  emptyText: { fontSize: 14, fontFamily: FONTS.regular },
+  emptyText: { fontSize: 14, fontFamily: FONTS.semiBold },
 });

@@ -27,7 +27,7 @@ export default function TermsCondition() {
 
       <BackHeader label="Terms & Conditions" />
 
-      <View style={[styles.webWrap, { backgroundColor: colors.cardGlass }]}>
+      <View style={[styles.webWrap, { backgroundColor: colors.cardGlass, borderColor: colors.border }]}>
         <WebView
           source={{ uri: termsUrl }}
           style={styles.webview}
@@ -48,8 +48,10 @@ const styles = StyleSheet.create({
   webWrap: {
     flex: 1,
     marginHorizontal: 18,
+    marginTop: 14,
     marginBottom: 18,
-    borderRadius: 20,
+    borderRadius: 18,
+    borderWidth: 1,
     overflow: 'hidden',
   },
   webview: { flex: 1, backgroundColor: 'transparent' },

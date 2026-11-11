@@ -164,7 +164,7 @@ export const DynamicHeader = (props: any) => {
         <>
           <CenterLabel type={type} label={label} colors={colors} />
           <RightSpacer type={type} />
-          <View style={styles.pillFloat}><SyncPill /></View>
+          <View style={[styles.pillFloat, { top: insets.top + 12, bottom: 12 }]}><SyncPill /></View>
         </>
       ) : (
         <View style={styles.rightContainer}>
@@ -232,7 +232,7 @@ const styles = StyleSheet.create({
   pill: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999, borderWidth: 1, backgroundColor: '#FFFFFF' },
   pillDot: { width: 6, height: 6, borderRadius: 3 },
   pillText: { fontSize: 11, color: '#334155', fontWeight: '600' },
-  pillFloat: { position: 'absolute', right: 12, bottom: 10 },
+  pillFloat: { position: 'absolute', right: 16, justifyContent: 'center' },
   iconButton: {
     position: 'relative',
     width: 38,

@@ -53,9 +53,9 @@ function buildContact(settings: any) {
   const phoneDigits = phone.replace(/[^0-9+]/g, '');
 
   return [
-    { icon: 'email-outline', label: 'Email Support', value: email, action: () => Linking.openURL(`mailto:${email}`) },
-    { icon: 'phone-outline', label: 'Call Us', value: phone, action: () => Linking.openURL(`tel:${phoneDigits}`) },
-    { icon: 'whatsapp', label: 'WhatsApp', value: 'Chat with us', action: () => Linking.openURL(`https://wa.me/${whatsapp}`) },
+    { icon: 'email-outline', color: '#3b82f6', label: 'Email Support', value: email, action: () => Linking.openURL(`mailto:${email}`) },
+    { icon: 'phone-outline', color: '#22c55e', label: 'Call Us', value: phone, action: () => Linking.openURL(`tel:${phoneDigits}`) },
+    { icon: 'whatsapp', color: '#22c55e', label: 'WhatsApp', value: 'Chat with us', action: () => Linking.openURL(`https://wa.me/${whatsapp}`) },
   ];
 }
 
@@ -66,17 +66,12 @@ function FaqItem({ item, colors }: { item: typeof FAQS[0]; colors: any }) {
       style={[styles.faqCard, { backgroundColor: colors.cardGlass, borderColor: colors.border }]}
       onPress={() => setOpen(v => !v)}
     >
-      <View style={styles.faqRow}>
-        <Text style={[styles.faqQ, { color: colors.text, flex: 1 }]}>{item.q}</Text>
-        <Icon
-          name={open ? 'chevron-up' : 'chevron-down'}
-          size={18}
-          color={colors.subText}
-          style={{ marginLeft: 8 }}
-        />
+      <View style={styles.faqTop}>
+        <Text style={[styles.faqQ, { color: colors.text }]}>{item.q}</Text>
+        <Icon name={open ? 'chevron-up' : 'chevron-down'} size={18} color={colors.subText} />
       </View>
       {open && (
-        <Text style={[styles.faqA, { color: colors.subText }]}>{item.a}</Text>
+        <Text style={[styles.faqA, { color: colors.subText, borderTopColor: colors.border }]}>{item.a}</Text>
       )}
     </Pressable>
   );
@@ -103,36 +98,38 @@ export default function Support() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scroll}
       >
-        {/* Contact cards */}
         <Animated.View entering={FadeInUp.duration(400).delay(60)}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>Contact Us</Text>
+          <View style={styles.sectionHeader}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>Contact Us</Text>
+          </View>
           {CONTACT.map((c) => (
             <Pressable
               key={c.label}
-              style={[styles.contactCard, { backgroundColor: colors.cardGlass, borderColor: colors.border }]}
+              style={[styles.row, { backgroundColor: colors.cardGlass, borderColor: colors.border }]}
               onPress={c.action}
             >
-              <View style={[styles.contactIcon, { backgroundColor: colors.brandSoft }]}>
-                <Icon name={c.icon} size={20} color={colors.brand} />
+              <View style={[styles.iconChip, { backgroundColor: c.color + '18' }]}>
+                <Icon name={c.icon} size={18} color={c.color} />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={[styles.contactLabel, { color: colors.subText }]}>{c.label}</Text>
-                <Text style={[styles.contactValue, { color: colors.text }]}>{c.value}</Text>
+                <Text style={[styles.label, { color: colors.subText }]}>{c.label}</Text>
+                <Text style={[styles.value, { color: colors.text }]}>{c.value}</Text>
               </View>
-              <Icon name="chevron-right" size={18} color={colors.subText} />
+              <Icon name="chevron-right" size={16} color={colors.subText} />
             </Pressable>
           ))}
         </Animated.View>
 
-        {/* FAQ */}
-        <Animated.View entering={FadeInUp.duration(400).delay(140)} style={{ marginTop: 24 }}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>Frequently Asked Questions</Text>
-          {FAQS.map((faq, i) => (
-            <FaqItem key={i} item={faq} colors={colors} />
+        <Animated.View entering={FadeInUp.duration(400).delay(140)} style={{ marginTop: 14 }}>
+          <View style={styles.sectionHeader}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>Frequently Asked Questions</Text>
+            <Text style={[styles.countText, { color: colors.subText }]}>{FAQS.length} questions</Text>
+          </View>
+          {FAQS.map((faq) => (
+            <FaqItem key={faq.q} item={faq} colors={colors} />
           ))}
         </Animated.View>
 
-        {/* App version */}
         <View style={styles.versionWrap}>
           <Text style={[styles.versionText, { color: colors.subText }]}>Business Suite v1.0.0</Text>
         </View>
@@ -143,28 +140,30 @@ export default function Support() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  scroll:    { paddingHorizontal: 18, paddingBottom: 40 },
+  scroll:    { paddingHorizontal: 18, paddingTop: 14, paddingBottom: 40 },
 
-  sectionTitle: { fontSize: 15, fontFamily: FONTS.bold, marginBottom: 12, marginTop: 14 },
+  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+  sectionTitle:  { fontSize: 14, fontFamily: FONTS.bold },
+  countText:     { fontSize: 12, fontFamily: FONTS.regular },
 
-  contactCard: {
-    flexDirection: 'row', alignItems: 'center', gap: 14,
-    borderRadius: 18, borderWidth: 1, padding: 14, marginBottom: 10,
-    shadowColor: COLORS.light.shadow,
-    shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 6, elevation: 1,
-  },
-  contactIcon:  { width: 42, height: 42, borderRadius: 13, justifyContent: 'center', alignItems: 'center' },
-  contactLabel: { fontSize: 11, fontFamily: FONTS.regular, marginBottom: 2 },
-  contactValue: { fontSize: 14, fontFamily: FONTS.semiBold },
-
-  faqCard: {
-    borderRadius: 16, borderWidth: 1, padding: 14, marginBottom: 10,
+  row: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    borderRadius: 16, borderWidth: 1, padding: 13, marginBottom: 10,
     shadowColor: COLORS.light.shadow,
     shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.03, shadowRadius: 4, elevation: 1,
   },
-  faqRow: { flexDirection: 'row', alignItems: 'center' },
-  faqQ:   { fontSize: 13, fontFamily: FONTS.semiBold, lineHeight: 19 },
-  faqA:   { fontSize: 13, fontFamily: FONTS.regular, lineHeight: 19, marginTop: 10, paddingTop: 10, borderTopWidth: StyleSheet.hairlineWidth },
+  iconChip: { width: 38, height: 38, borderRadius: 11, justifyContent: 'center', alignItems: 'center' },
+  label:    { fontSize: 12, fontFamily: FONTS.regular },
+  value:    { fontSize: 13, fontFamily: FONTS.bold, marginTop: 1 },
+
+  faqCard: {
+    borderRadius: 16, borderWidth: 1, padding: 13, marginBottom: 10,
+    shadowColor: COLORS.light.shadow,
+    shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.03, shadowRadius: 4, elevation: 1,
+  },
+  faqTop: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  faqQ:   { flex: 1, fontSize: 13, fontFamily: FONTS.semiBold, lineHeight: 19 },
+  faqA:   { fontSize: 12, fontFamily: FONTS.regular, lineHeight: 18, marginTop: 10, paddingTop: 10, borderTopWidth: StyleSheet.hairlineWidth },
 
   versionWrap: { alignItems: 'center', paddingTop: 28, paddingBottom: 10 },
   versionText: { fontSize: 12, fontFamily: FONTS.regular },
