@@ -114,23 +114,30 @@ export default function DeliveryList() {
   useFocusEffect(useCallback(() => { refetchPool?.(); refetchMine?.(); }, [refetchPool, refetchMine]));
 
   // Newest first — invoices come back oldest-first from the server.
+  // A pool invoice taken while offline is already this boy's (the server moves it on sync).
+  const pool = useMemo(() => ((poolData as any)?.getSalesInvoices ?? []) as any[], [poolData]);
+  const mine = useMemo(() => {
+    const rows = ((mineData as any)?.getSalesInvoices ?? []) as any[];
+    const ids = new Set(rows.map((o: any) => o.id));
+    return [...rows, ...pool.filter((o: any) => o.deliveryboyid && String(o.deliveryboyid) === String(user?.id) && !ids.has(o.id))];
+  }, [mineData, pool, user?.id]);
   const available = useMemo(
-    () => [...((poolData as any)?.getSalesInvoices ?? [])].reverse().map((o: any) => toDelivery(o, 'available')),
-    [poolData],
+    () => [...pool].reverse().filter((o: any) => !o.deliveryboyid).map((o: any) => toDelivery(o, 'available')),
+    [pool],
   );
   const out = useMemo(
-    () => [...((mineData as any)?.getSalesInvoices ?? [])]
+    () => [...mine]
       .reverse()
       .filter((o: any) => o.deliveryStatus === 'dispatched')
       .map((o: any) => toDelivery(o, 'out')),
-    [mineData],
+    [mine],
   );
   const delivered = useMemo(
-    () => [...((mineData as any)?.getSalesInvoices ?? [])]
+    () => [...mine]
       .reverse()
       .filter((o: any) => o.deliveryStatus === 'delivered')
       .map((o: any) => toDelivery(o, 'delivered')),
-    [mineData],
+    [mine],
   );
 
   // Real device location via @react-native-community/geolocation (the old

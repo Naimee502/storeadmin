@@ -1,7 +1,7 @@
-import React, { memo, useMemo, useState } from 'react';
+import React, { memo, useEffect, useMemo, useState } from 'react';
 import { ImageResizeMode, StyleProp, ImageStyle } from 'react-native';
 import FastImage, { ResizeMode as FastImageResizeMode } from 'react-native-fast-image';
-import { resolveMediaUrl } from '../config';
+import { IMG, resolveMediaUrl } from '../config';
 
 /**
  * Every remote image in the app goes through here.
@@ -140,13 +140,29 @@ function AppImageBase({
 
 export const AppImage = memo(AppImageBase);
 
+const WARM_STYLE = { position: 'absolute' as const, width: 1, height: 1, opacity: 0 };
+
+// Puts product photos on disk one request at a time while `active`, so they show offline (see the note below).
+export const PhotoWarmer = memo(function PhotoWarmer({ uris, active }: { uris: string[]; active: boolean }) {
+  const [index, setIndex] = useState(0);
+  useEffect(() => { setIndex(0); }, [uris]);
+  const uri = active ? resolveMediaUrl(uris[index], IMG.product) : '';
+  const source = useMemo(
+    () => ({ uri, cache: FastImage.cacheControl.immutable, priority: FastImage.priority.low }),
+    [uri],
+  );
+  if (!uri) return null;
+  return <FastImage key={uri} source={source} style={WARM_STYLE} onLoadEnd={() => setIndex((i) => i + 1)} />;
+});
+
 /* ────────────────────────────────────────────────────────────────────────────
  * A note on prefetching, since it will be tempting to add it back
  * ──────────────────────────────────────────────────────────────────────────*/
 
 /**
  * There is deliberately no prefetching here, and FastImage.preload is the same
- * trap under a different name.
+ * trap under a different name. (PhotoWarmer above is not that: it holds at most
+ * one request open, so it can never queue ahead of what is on screen.)
  *
  * It was tried, and it broke the app twice in ways that looked nothing like an
  * image problem. Android pulls every image — preloaded or on screen — through

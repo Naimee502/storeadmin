@@ -433,6 +433,7 @@ const DELIVERY_INVOICE_FIELDS = `
   paymenttype
   deliveryStatus
   deliveredAt
+  deliveryboyid
   partyacc { id accountname mobile address city latitude longitude }
 `;
 

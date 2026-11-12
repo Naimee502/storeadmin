@@ -20,12 +20,25 @@ const QUEUED = new Set([
   'AssignOrderDeliveryBoy', 'AssignInvoiceDeliveryBoy', 'ConvertSalesOrderToInvoice', 'MarkNotificationRead', 'MarkAllNotificationsRead', 'UpdateSalesRoute',
   'AddLocationPings',
 ]);
+// What a queued status action changes, as the server does, so screens show it before sync.
+const ACTION_PATCH: Record<string, () => Record<string, any>> = {
+  MarkSalesInvoiceDelivered: () => ({ deliveryStatus: 'delivered', deliveredAt: new Date().toISOString() }),
+  MarkSalesOrderDelivered: () => ({ deliveryStatus: 'delivered', orderStatus: 'delivered', deliveredAt: new Date().toISOString() }),
+  MarkSalesInvoiceDispatched: () => ({ deliveryStatus: 'dispatched' }),
+  MarkSalesOrderDispatched: () => ({ deliveryStatus: 'dispatched', orderStatus: 'dispatched' }),
+  AssignInvoiceDeliveryBoy: () => ({ deliveryStatus: 'dispatched' }),
+  AssignOrderDeliveryBoy: () => ({ deliveryStatus: 'dispatched', orderStatus: 'dispatched' }),
+  ConfirmSalesOrder: () => ({ orderStatus: 'confirmed' }),
+  CancelSalesOrder: () => ({ cancelStatus: 'cancelled', orderStatus: 'cancelled' }),
+};
 // Background entries: kept and synced like the rest, but not counted or announced (route points).
 const SILENT = new Set(['AddLocationPings']);
 // List queries that show pending creates on top of the last synced rows.
 const LISTS: Record<string, string> = {
-  getSalesOrders: 'AddSalesOrder', getPayments: 'AddPayment', getMySalesReturns: 'AddSalesReturn', getMyExpenseClaims: 'AddExpenseClaim', getAccounts: 'AddAccount',
+  getSalesOrders: 'AddSalesOrder', getPayments: 'AddPayment', getSalesReturns: 'AddSalesReturn', getMyExpenseClaims: 'AddExpenseClaim', getAccounts: 'AddAccount',
 };
+// Lists the server sends oldest first (screens show them reversed): pending rows go last, where they land after sync.
+const OLDEST_FIRST = new Set(['getSalesOrders', 'getPayments', 'getAccounts']);
 // Status of a pending create when the type's status is not a plain flag.
 const PENDING_STATUS: Record<string, string> = { ExpenseClaim: 'pending' };
 // A photo taken offline: uploaded on sync before the entry that uses it (apps' uploadImage makes it).
@@ -39,8 +52,10 @@ const WARM_MS = 15 * 60_000;
 const PAGING = new Set(['limit', 'offset', 'instockfirst', 'includeDownline', 'directOnly', 'includeConverted']);
 const CREATE_TIMEOUT_MS = 3000;
 const RETRY_MS = 30_000;
+// Failed photo uploads while requests go through (the file is gone) before the entry syncs without the photo.
+const UPLOAD_TRIES = 3;
 
-type Item = { id: string; uid: string; name: string; query: string; variables: any; at: string };
+type Item = { id: string; uid: string; name: string; query: string; variables: any; at: string; uploadTries?: number };
 
 const newId = () => `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`;
 const opDef = (doc: any) => doc.definitions.find((d: any) => d.kind === 'OperationDefinition');
@@ -53,7 +68,7 @@ const hasTemp = (v: any) => {
 const swapId = (v: any, from: string, to: string) => JSON.parse(JSON.stringify(v).split(from).join(to));
 
 // Replaces offline photo markers with uploaded URLs (each upload once).
-async function withUploads(v: any, upload: (marker: string) => Promise<string>): Promise<any> {
+async function withUploads(v: any, upload: (marker: string) => Promise<string | null>): Promise<any> {
   if (typeof v === 'string') return v.startsWith(UPLOAD_PREFIX) ? upload(v) : v;
   if (Array.isArray(v)) {
     const out = [];
@@ -91,9 +106,11 @@ function fill(set: any, src: any, entities: Record<string, any>, byId: Map<strin
   for (const s of set.selections) {
     if (s.kind === 'InlineFragment') Object.assign(out, fill(s.selectionSet, src, entities, byId));
     if (s.kind !== 'Field') continue;
-    const v = src?.[s.name.value];
+    // A SimpleRef's accountname is the account's name (as the server fills it).
+    const v = src?.[s.name.value] ?? (s.name.value === 'accountname' ? src?.name : undefined);
     const obj = (x: any) => {
-      const e = x?.__ref ? entities[x.__ref] : typeof x === 'string' ? byId.get(x) : x;
+      // An id with no saved record still keeps its id (e.g. "my orders" filters by the party id).
+      const e = x?.__ref ? entities[x.__ref] : typeof x === 'string' ? byId.get(x) ?? { id: x } : x;
       return e && typeof e === 'object' ? fill(s.selectionSet, e, entities, byId) : null;
     };
     out[keyOf(s)] = s.selectionSet ? (Array.isArray(v) ? v.map(obj) : obj(v)) : v ?? null;
@@ -165,6 +182,11 @@ export function createOffline(opts: {
     listeners.forEach((l) => l());
   };
   const cacheKey = (u: string) => `offline:cache:${u}`;
+  // Pending creates by their offline id, so a row pointing at an offline party or product shows its name.
+  const withPending = (map: Map<string, any>) => {
+    for (const i of mine()) if (CREATES[i.name]) map.set(`${TEMP}${i.id}`, pendingDoc(i));
+    return map;
+  };
   // Saved and current entities, so pending rows show party, product and ledger names.
   const entitiesNow = () => ({ ...(saved.uid === uid() ? saved.data : null), ...client.cache.extract() });
   const saveQueue = () => Promise.resolve(storage.setItem(QUEUE_KEY, JSON.stringify(queue))).catch(() => undefined);
@@ -347,7 +369,7 @@ export function createOffline(opts: {
   function overlay(op: any, result: any) {
     if (!result?.data) return result;
     const entities = entitiesNow();
-    const byId = indexById(entities);
+    const byId = withPending(indexById(entities));
     const pending = mine().filter((i) => CREATES[i.name]);
     const data = { ...result.data };
     for (const f of opDef(op.query).selectionSet.selections) {
@@ -361,7 +383,8 @@ export function createOffline(opts: {
           .filter((i) => Object.entries(vars).every(([k, v]) => v == null || typeof v === 'object' || !(k in i.variables.input) || String(i.variables.input[k]) === String(v)))
           .map((i) => fill(f.selectionSet, pendingDoc(i), entities, byId));
         // Old pending rows (saved in the cache) are replaced by the current queue.
-        data[key] = [...rows, ...data[key].filter((r: any) => !String(r?.id || '').startsWith(TEMP))];
+        const synced = data[key].filter((r: any) => !String(r?.id || '').startsWith(TEMP));
+        data[key] = OLDEST_FIRST.has(f.name.value) ? [...synced, ...rows] : [...rows.reverse(), ...synced];
       }
       // Punch state follows the last unsynced punch, so the screen never offers the same punch twice.
       const punch = f.name.value === 'getOpenPunch' ? mine().filter((i) => i.name === 'punch').pop() : null;
@@ -377,17 +400,23 @@ export function createOffline(opts: {
   const onlyOpenPunch = (op: any) =>
     mine().some((i) => i.name === 'punch') && opDef(op.query).selectionSet.selections.every((f: any) => f.name?.value === 'getOpenPunch');
 
+  // A read naming a document still on this device: by id it is that document; a list filtered by it has no
+  // synced rows, only the pending ones overlay adds; anything else is empty.
   function answerTemp(op: any) {
     const entities = entitiesNow();
-    const byId = indexById(entities);
+    const byId = withPending(indexById(entities));
+    // Saved and live list keys (a queued create clears the live lists).
+    const root = { ...(saved.uid === uid() ? saved.data?.ROOT_QUERY : null), ...client.cache.extract().ROOT_QUERY };
     const docs = new Map(mine().filter((i) => CREATES[i.name]).map((i) => [`${TEMP}${i.id}`, pendingDoc(i)]));
     const data: any = {};
     for (const f of opDef(op.query).selectionSet.selections) {
       if (f.kind !== 'Field') continue;
-      const id = Object.values(op.variables || {}).find((v) => typeof v === 'string' && docs.has(v)) as string | undefined;
-      data[keyOf(f)] = id && f.selectionSet ? fill(f.selectionSet, docs.get(id), entities, byId) : null;
+      const name = f.name.value;
+      const id = flat(argsOf(f, op.variables)).id;
+      const list = !!LISTS[name] || Object.keys(root).some((k) => (k === name || k.startsWith(`${name}(`) || k.startsWith(`${name}:`)) && Array.isArray(root[k]));
+      data[keyOf(f)] = typeof id === 'string' && docs.has(id) && f.selectionSet ? fill(f.selectionSet, docs.get(id), entities, byId) : list ? [] : null;
     }
-    return { data };
+    return overlay(op, { data });
   }
 
   // Lists are read again through the link, so they show (or stop showing) pending rows.
@@ -403,13 +432,20 @@ export function createOffline(opts: {
     const item: Item = { id: op.variables?.input?.clientRequestId || newId(), uid: uid(), name: op.operationName, query: print(op.query), variables, at: new Date().toISOString() };
     await loaded;
     queue.push(item);
+    // Offline reads rebuild from the live cache, so they see what this entry changes.
+    version += 1;
     await saveQueue();
     if (CREATES[item.name]) dropLists();
     set({ ...(offlineNow ? { online: false } : {}), ...(SILENT.has(item.name) ? {} : { message: 'Saved on this device. It will sync when the connection is back.' }) });
     if (!field.selectionSet) return { data: { [keyOf(field)]: true } };
-    const src = CREATES[item.name] ? pendingDoc(item) : { ...op.variables?.input, ...op.variables };
     const entities = entitiesNow();
-    return { data: { [keyOf(field)]: fill(field.selectionSet, src, entities, indexById(entities)) } };
+    const byId = withPending(indexById(entities));
+    // An action answers with the saved record plus its change, never with blanks over it.
+    const id = op.variables?.id;
+    const src = CREATES[item.name]
+      ? pendingDoc(item)
+      : { ...(typeof id === 'string' ? byId.get(id) : null), ...op.variables?.input, ...op.variables, ...ACTION_PATCH[item.name]?.() };
+    return { data: { [keyOf(field)]: fill(field.selectionSet, src, entities, byId) } };
   }
 
   // Edit or delete of a document that has not synced yet changes the queued create instead.
@@ -426,7 +462,7 @@ export function createOffline(opts: {
     set({});
     if (!field.selectionSet) return { data: { [keyOf(field)]: true } };
     const entities = entitiesNow();
-    return { data: { [keyOf(field)]: fill(field.selectionSet, pendingDoc(item), entities, indexById(entities)) } };
+    return { data: { [keyOf(field)]: fill(field.selectionSet, pendingDoc(item), entities, withPending(indexById(entities))) } };
   }
 
   async function flush() {
@@ -442,7 +478,20 @@ export function createOffline(opts: {
         try {
           if (JSON.stringify(item.variables).includes(`"${UPLOAD_PREFIX}`)) {
             if (!upload) break;
-            item.variables = await withUploads(item.variables, upload);
+            try {
+              item.variables = await withUploads(item.variables, upload);
+            } catch (e: any) {
+              // A photo never holds the queue: refused, or still failing while requests go through, it syncs without it.
+              const refused = !(e instanceof TypeError);
+              if (!refused && state.online) item.uploadTries = (item.uploadTries || 0) + 1;
+              if (!refused && (item.uploadTries || 0) < UPLOAD_TRIES) {
+                if (state.online) set({ online: false });
+                await saveQueue();
+                break;
+              }
+              item.variables = await withUploads(item.variables, async () => null);
+              set({ message: 'A photo could not be uploaded, so the entry was saved without it.' });
+            }
             await saveQueue();
           }
           const res = await client.mutate({ mutation: parse(item.query), variables: item.variables, context: { offlineReplay: true } });

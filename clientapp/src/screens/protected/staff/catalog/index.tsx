@@ -6,7 +6,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { useQuery } from '@apollo/client/react';
 import { useSelector, useDispatch } from 'react-redux';
 import { COLORS, FONTS, useTheme, IMG } from '../../../../config';
-import { BackHeader, AppImage, AppTextInput, DynamicFlashList } from '../../../../components';
+import { BackHeader, AppImage, AppTextInput, DynamicFlashList, productImages } from '../../../../components';
 import { GET_PRODUCTS, GET_ACCOUNT, RESOLVE_PRICE } from '../../../../apollo/queries/accounts';
 import { apolloClient } from '../../../../apollo/client';
 import { formatINR } from '../../../../utils';
@@ -240,8 +240,9 @@ export default function StaffCatalog() {
     return (
       <View style={[styles.row, { backgroundColor: colors.cardGlass, borderColor: colors.border }]}>
         <View style={[styles.thumb, styles.thumbTop, { backgroundColor: colors.brandSoft }]}>
-          {p.imageurl
-            ? <AppImage uri={p.imageurl} width={IMG.thumb} style={styles.img} resizeMode="cover" fallback={<Icon name="package-variant-closed" size={24} color={colors.brand} />} />
+          {/* Same photo and width as the party and salesman catalogues: one cached copy that also shows offline. */}
+          {productImages(p)[0]
+            ? <AppImage uri={productImages(p)[0]} width={IMG.product} style={styles.img} resizeMode="cover" fallback={<Icon name="package-variant-closed" size={24} color={colors.brand} />} />
             : <Icon name="package-variant-closed" size={24} color={colors.brand} />
           }
           {(showStock || sellFromMyStock) && outOfStock && (
@@ -327,8 +328,9 @@ export default function StaffCatalog() {
     );
   };
 
-  const ListHeader = () => (
-    <>
+  // An element above the list, not a component declared here (a new type each render remounted the search box).
+  const listHeader = (
+    <View style={styles.headerWrap}>
       {partyName && (
         <View style={[styles.partyBanner, { backgroundColor: colors.brandSoft, borderColor: colors.brand + '44' }]}>
           <Icon name="account-tie-outline" size={16} color={colors.brand} />
@@ -350,7 +352,7 @@ export default function StaffCatalog() {
           })}
         </ScrollView>
       )}
-    </>
+    </View>
   );
 
   return (
@@ -363,14 +365,12 @@ export default function StaffCatalog() {
         rightIcons={cartCount > 0 ? [{ id: 'cart', name: 'cart-outline', color: colors.brand, badge: cartCount, onPress: () => navigation.navigate('StaffCart', { partyId, partyName }) }] : []}
       />
 
+      {listHeader}
       {filtered.length === 0 && !loading ? (
-        <>
-          <ListHeader />
-          <View style={styles.center}>
-            <Icon name="magnify-close" size={44} color={colors.border} />
-            <Text style={[styles.emptyText, { color: colors.subText }]}>No products found</Text>
-          </View>
-        </>
+        <View style={styles.center}>
+          <Icon name="magnify-close" size={44} color={colors.border} />
+          <Text style={[styles.emptyText, { color: colors.subText }]}>No products found</Text>
+        </View>
       ) : (
         <DynamicFlashList
           data={filtered}
@@ -379,7 +379,6 @@ export default function StaffCatalog() {
           estimatedItemSize={96}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
-          ListHeaderComponent={<ListHeader />}
         />
       )}
 
@@ -401,6 +400,7 @@ const styles = StyleSheet.create({
   stockText: { fontSize: 11, fontFamily: FONTS.semiBold },
   container:   { flex: 1 },
   listContent: { paddingHorizontal: 18, paddingBottom: 110, paddingTop: 4 },
+  headerWrap: { paddingHorizontal: 18 },
   partyBanner: { flexDirection: 'row', alignItems: 'center', gap: 8, borderRadius: 12, borderWidth: 1, padding: 10, marginTop: 10, marginBottom: 4 },
   partyBannerText: { fontSize: 13, fontFamily: FONTS.semiBold, flex: 1 },
   chipScroll:  { flexGrow: 0 },

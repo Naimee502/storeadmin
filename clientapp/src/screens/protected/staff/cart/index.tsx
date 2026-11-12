@@ -110,18 +110,11 @@ export default function StaffCart() {
                 // Tabs are nested under StaffDrawer → MainTabs; target through
                 // parents so navigation from the outer stack doesn't throw.
                 onPress: () => {
-                  if (isPartyUser) {
-                    // Back to the sub-party's page (catalog + cart popped off).
-                    const routes: any[] = navigation.getState?.()?.routes ?? [];
-                    const firstIdx = routes.findIndex((r: any) => r.name === 'StaffCatalog' || r.name === 'StaffCart');
-                    if (firstIdx > 0) navigation.dispatch(StackActions.pop(routes.length - firstIdx));
-                    else navigation.goBack();
-                    return;
-                  }
-                  navigation.navigate('StaffDrawer', {
-                    screen: 'MainTabs',
-                    params: { screen: 'StaffOrders' },
-                  });
+                  // Back to where the order started (party list or sub-party page), catalog + cart popped off.
+                  const routes: any[] = navigation.getState?.()?.routes ?? [];
+                  const firstIdx = routes.findIndex((r: any) => r.name === 'StaffCatalog' || r.name === 'StaffCart');
+                  if (firstIdx > 0) navigation.dispatch(StackActions.pop(routes.length - firstIdx));
+                  else navigation.goBack();
                 },
               },
             ]);

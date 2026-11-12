@@ -13,7 +13,8 @@ import { launchCamera } from 'react-native-image-picker';
 import { AppHeader, DynamicFlashList, AppImage } from '../../../components';
 import { formatDate } from '../../../utils';
 import { uploadImage } from '../../../utils/uploadimage';
-import { getCurrentLatLng, localYMD } from '../../../utils/geo';
+import { canLocateSilently, ensureLocationPermission, getCurrentLatLng, getRecentFix, localYMD } from '../../../utils/geo';
+import type { LatLng } from '../../../utils/geo';
 import { useAttendanceSelfieRequired } from '../../../apollo/hooks/adminsettings';
 import {
   useAttendanceSummaryQuery, useAttendanceLogsQuery, useOpenPunchQuery,
@@ -22,6 +23,12 @@ import {
 import type { RootState } from '../../../store/rootreducer';
 
 // Fallback leave types if the admin hasn't configured any yet.
+// Punch speed: a slow selfie upload is finished on sync, and an early-started location gets this long once the user is done.
+const SELFIE_UPLOAD_WAIT_MS = 15000;
+const LOCATION_WAIT_MS = 5000;
+
+const locate = (): Promise<LatLng | null> => getCurrentLatLng({ timeoutMs: 8000 }).catch(() => null);
+
 const FALLBACK_LEAVE_TYPES = [
   { id: 'cl',  name: 'Casual Leave',    code: 'CL', color: '#6366f1' },
   { id: 'sl',  name: 'Sick Leave',      code: 'SL', color: '#22c55e' },
@@ -150,7 +157,7 @@ export default function AttendanceScreen() {
   };
 
   /** Send the punch with the current location (best-effort) and an optional selfie. */
-  const sendPunch = (type: 'in' | 'out', selfieUrl?: string) => {
+  const sendPunch = (type: 'in' | 'out', selfieUrl?: string, located?: Promise<LatLng | null>) => {
     if (!user?.id) return;
     setPunching(true);
     const doPunch = (latitude: number | null, longitude: number | null) => {
@@ -166,8 +173,12 @@ export default function AttendanceScreen() {
         .finally(() => setPunching(false));
     };
     // GPS → network location → recent fix; punch goes through even without one.
-    getCurrentLatLng({ timeoutMs: 8000 })
-      .then((here) => doPunch(here?.lat ?? null, here?.lng ?? null))
+    // Started early (located): wait a little more, then use the last fix seen in the app.
+    const here = located
+      ? Promise.race([located, new Promise<LatLng | null>((r) => setTimeout(() => r(getRecentFix()), LOCATION_WAIT_MS))])
+      : locate();
+    here
+      .then((fix) => doPunch(fix?.lat ?? null, fix?.lng ?? null))
       .catch(() => doPunch(null, null));
   };
 
@@ -176,11 +187,11 @@ export default function AttendanceScreen() {
    * front camera opens straight away — taking the photo is the confirmation.
    * Camera only, never the gallery, so an old photo can't be reused.
    */
-  const punchInWithSelfie = async () => {
+  const punchInWithSelfie = async (located?: Promise<LatLng | null>) => {
     try {
       const res: any = await launchCamera({
-        mediaType: 'photo', cameraType: 'front', quality: 0.6,
-        maxWidth: 800, maxHeight: 800, saveToPhotos: false,
+        mediaType: 'photo', cameraType: 'front', quality: 0.5,
+        maxWidth: 640, maxHeight: 640, saveToPhotos: false,
       } as any);
       if (res?.didCancel) return;
       const asset = res?.assets?.[0];
@@ -191,25 +202,33 @@ export default function AttendanceScreen() {
       setPunching(true);
       let url: string;
       try {
-        url = await uploadImage(asset.uri, asset.fileName, asset.type);
+        url = await uploadImage(asset.uri, asset.fileName, asset.type, { timeoutMs: SELFIE_UPLOAD_WAIT_MS });
       } catch (e: any) {
         setPunching(false);
         Alert.alert('Upload failed', e?.message || 'Could not upload the selfie. Please try again.');
         return;
       }
-      sendPunch('in', url);
+      sendPunch('in', url, located);
     } catch (e: any) {
       setPunching(false);
       Alert.alert('Camera', e?.message || 'Could not open the camera.');
     }
   };
 
-  const handlePunch = () => {
-    if (!isPunchedIn && needSelfie) { punchInWithSelfie(); return; }
+  // Location starts on the tap, so GPS works while the user confirms or takes the selfie.
+  const handlePunch = async () => {
+    if (!isPunchedIn && needSelfie) {
+      if (Platform.OS !== 'android') { punchInWithSelfie(); return; }
+      // Asked before the camera opens, so the prompt never lands on top of it; denied means no location, not a second prompt.
+      const allowed = (await canLocateSilently()) || (await ensureLocationPermission());
+      punchInWithSelfie(allowed ? locate() : Promise.resolve(null));
+      return;
+    }
+    const located = (await canLocateSilently()) ? locate() : undefined;
     const action = isPunchedIn ? 'Punch Out' : 'Punch In';
     Alert.alert(action, `Confirm ${action.toLowerCase()}?`, [
       { text: 'Cancel', style: 'cancel' },
-      { text: action, onPress: () => sendPunch(isPunchedIn ? 'out' : 'in') },
+      { text: action, onPress: () => sendPunch(isPunchedIn ? 'out' : 'in', undefined, located) },
     ]);
   };
 

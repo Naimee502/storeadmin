@@ -87,6 +87,10 @@ export default function PartyHome() {
   // Once the banner has scrolled out of view, a copy of the category strip is
   // pinned at the top so the customer can always switch category — same as
   // before. Only crossing that point re-renders; plain scrolling doesn't.
+  // While searching the banner steps aside, so results sit right under the search box instead of behind the keyboard.
+  const searching = search.trim().length > 0;
+  const searchingRef = useRef(searching);
+  searchingRef.current = searching;
   const bannerHRef = useRef(0);
   const pinnedRef = useRef(false);
   const [pinned, setPinned] = useState(false);
@@ -94,7 +98,8 @@ export default function PartyHome() {
     bannerHRef.current = e.nativeEvent.layout.height;
   }, []);
   const onScrollOffset = useCallback((y: number) => {
-    const p = bannerHRef.current > 0 && y >= bannerHRef.current;
+    const top = searchingRef.current ? 1 : bannerHRef.current;
+    const p = top > 0 && y >= top;
     if (p !== pinnedRef.current) {
       pinnedRef.current = p;
       setPinned(p);
@@ -103,9 +108,11 @@ export default function PartyHome() {
 
   const listHeader = useMemo(() => (
     <View>
-      <View onLayout={onBannerLayout}>
-        <HomeBanner />
-      </View>
+      {!searching && (
+        <View onLayout={onBannerLayout}>
+          <HomeBanner />
+        </View>
+      )}
       <View ref={tourRef('party-category')} collapsable={false}>
         <CategoryStrip
           categories={categories}
@@ -115,7 +122,7 @@ export default function PartyHome() {
         />
       </View>
     </View>
-  ), [categories, category, onBannerLayout]);
+  ), [categories, category, onBannerLayout, searching]);
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>

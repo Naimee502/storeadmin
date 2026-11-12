@@ -70,8 +70,12 @@ export default function DeliveryDashboard() {
   };
 
   // Newest first — orders come back oldest-first from the server.
-  const availableOrders = [...((poolData as any)?.getSalesInvoices ?? [])].reverse();
-  const mineOrders      = [...((mineData as any)?.getSalesInvoices ?? [])].reverse();
+  // A pool invoice taken while offline counts as his, same as the Deliveries screen.
+  const poolRows        = ((poolData as any)?.getSalesInvoices ?? []) as any[];
+  const mineRows        = ((mineData as any)?.getSalesInvoices ?? []) as any[];
+  const takenOffline    = poolRows.filter((o: any) => o.deliveryboyid && String(o.deliveryboyid) === String(user?.id) && !mineRows.some((m: any) => m.id === o.id));
+  const availableOrders = [...poolRows].reverse().filter((o: any) => !o.deliveryboyid);
+  const mineOrders      = [...mineRows, ...takenOffline].reverse();
   const outOrders       = mineOrders.filter((o: any) => o.deliveryStatus === 'dispatched');
   const deliveredAll    = mineOrders.filter((o: any) => o.deliveryStatus === 'delivered');
   const deliveredToday  = deliveredAll.filter((o: any) => ymd(o.deliveredAt) === today);

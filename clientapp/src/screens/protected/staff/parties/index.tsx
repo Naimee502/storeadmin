@@ -39,7 +39,12 @@ export default function StaffParties() {
 
   // Use ONLY real accounts. Dummy accounts have non-ObjectId ids (e.g. "ac1"),
   // which break order placement ("Cast to ObjectId failed for value ...").
-  const accounts = (data?.getAccounts ?? []) as any[];
+  // Parties waiting to sync first, then newest first (the server lists oldest first).
+  const accounts = useMemo(() => {
+    const all = ((data as any)?.getAccounts ?? []) as any[];
+    const pending = all.filter((a: any) => String(a?.id).startsWith('offline-'));
+    return [...pending, ...all.filter((a: any) => !String(a?.id).startsWith('offline-')).reverse()];
+  }, [data]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();

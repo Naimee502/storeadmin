@@ -66,6 +66,16 @@ export async function ensureLocationPermission(message?: string): Promise<boolea
   }
 }
 
+/** Android: location already allowed, so a lookup can start without showing a prompt. */
+export async function canLocateSilently(): Promise<boolean> {
+  if (Platform.OS !== 'android') return false;
+  try {
+    return await PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION);
+  } catch {
+    return false;
+  }
+}
+
 const onePosition = (highAccuracy: boolean, timeoutMs: number, maximumAge: number) =>
   new Promise<LatLng | null>((resolve) => {
     try {

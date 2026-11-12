@@ -9,7 +9,8 @@ import { CHECK_GEO_FENCE } from '../../../../apollo/queries/salesmanreport';
 import { MARK_VISIT } from '../../../../apollo/mutations/tracking';
 import { EDIT_ACCOUNT } from '../../../../apollo/mutations/accounts';
 import { useGeoFence } from '../../../../apollo/hooks/adminsettings';
-import { getCurrentLatLng, getRecentFix, GEO_ACC_CAP_M } from '../../../../utils/geo';
+import { getCurrentLatLng, getRecentFix, GEO_ACC_CAP_M, haversineM, isWithinFence, partyHasLocation } from '../../../../utils/geo';
+import { offline } from '../../../../apollo/client';
 import { usePaymentsEnabled } from '../../../../apollo/hooks/admin';
 import { useDispatch, useSelector } from 'react-redux';
 import { COLORS, FONTS, useTheme } from '../../../../config';
@@ -59,7 +60,8 @@ export default function RoutePartyVisit() {
     skip: !adminid || !partyId,
     fetchPolicy: 'cache-and-network',
   });
-  const recentOrders = ((ordersData as any)?.getSalesOrders ?? []).slice(0, 5);
+  // Newest first: the server sends orders oldest first.
+  const recentOrders = [...((ordersData as any)?.getSalesOrders ?? [])].reverse().slice(0, 5);
 
   // The party's actual invoices (same numbers + outstanding as the admin panel).
   const { data: invData, refetch: refetchInvoices } = useQuery(GET_PARTY_SALES_INVOICES, {
@@ -174,6 +176,18 @@ export default function RoutePartyVisit() {
       }
       return { ok: true, lat: here.lat, lng: here.lng, acc: here.acc };
     } catch (e: any) {
+      // Offline: the server's rule, against the party location saved on the device (none saved = allowed).
+      if (!offline.getState().online) {
+        const party = (accountData as any)?.getAccountById;
+        if (partyHasLocation(party)) {
+          const distanceM = haversineM(here.lat, here.lng, Number(party.latitude), Number(party.longitude));
+          if (!isWithinFence(distanceM, here.acc, geo.radiusM)) {
+            Alert.alert('Not at the party', `You are ${Math.round(distanceM)} m away from ${party.name || partyName || 'the party'}. Orders can be taken only within ${geo.radiusM} m.`);
+            return { ok: false };
+          }
+        }
+        return { ok: true, lat: here.lat, lng: here.lng, acc: here.acc };
+      }
       Alert.alert('Location check failed', e?.message || 'Could not verify your location. Try again.');
       return { ok: false };
     }

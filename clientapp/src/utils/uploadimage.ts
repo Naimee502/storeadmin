@@ -14,6 +14,8 @@ export const uploadImage = async (
   uri: string,
   fileName?: string | null,
   mimeType?: string | null,
+  // No answer in this time: treated like no network, so the photo uploads on sync instead.
+  opts?: { timeoutMs?: number },
 ): Promise<string> => {
   const name = fileName || `photo-${Date.now()}.jpg`;
   const type = mimeType || 'image/jpeg';
@@ -30,6 +32,8 @@ export const uploadImage = async (
   body.append('0', { uri, name, type } as any);
 
   const token = getAuthToken();
+  const abort = opts?.timeoutMs ? new AbortController() : null;
+  const timer = abort ? setTimeout(() => abort.abort(), opts!.timeoutMs) : null;
   let res: Response;
   try {
     res = await fetch(API_CONFIG.GRAPHQL_URL, {
@@ -40,10 +44,13 @@ export const uploadImage = async (
       'apollo-require-preflight': 'true',
     },
     body,
+    signal: abort?.signal,
     });
   } catch {
     // No network: the photo stays on the phone and uploads on sync (apollo/offline.ts).
     return `${UPLOAD_PREFIX}${encodeURIComponent(JSON.stringify({ uri, name, type }))}`;
+  } finally {
+    if (timer) clearTimeout(timer);
   }
   const json: any = await res.json().catch(() => null);
   const url = json?.data?.uploadImage?.url;

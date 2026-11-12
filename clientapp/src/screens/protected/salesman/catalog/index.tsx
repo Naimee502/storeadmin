@@ -312,8 +312,9 @@ export default function SalesmanCatalog() {
     );
   };
 
-  const ListHeader = () => (
-    <>
+  // An element above the list, not a component declared here (a new type each render remounted the search box).
+  const listHeader = (
+    <View style={styles.headerWrap}>
       {partyName && (
         <View style={[styles.partyBanner, { backgroundColor: colors.brandSoft, borderColor: colors.brand + '44' }]}>
           <Icon name="account-tie-outline" size={16} color={colors.brand} />
@@ -349,7 +350,7 @@ export default function SalesmanCatalog() {
           })}
         </ScrollView>
       )}
-    </>
+    </View>
   );
 
   return (
@@ -365,14 +366,12 @@ export default function SalesmanCatalog() {
         }] : []}
       />
 
+      {listHeader}
       {filtered.length === 0 ? (
-        <>
-          <ListHeader />
-          <View style={styles.center}>
-            <Icon name="magnify-close" size={44} color={colors.border} />
-            <Text style={[styles.emptyText, { color: colors.subText }]}>No products found</Text>
-          </View>
-        </>
+        <View style={styles.center}>
+          <Icon name="magnify-close" size={44} color={colors.border} />
+          <Text style={[styles.emptyText, { color: colors.subText }]}>No products found</Text>
+        </View>
       ) : (
         <DynamicFlashList
           data={filtered}
@@ -381,7 +380,6 @@ export default function SalesmanCatalog() {
           estimatedItemSize={96}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
-          ListHeaderComponent={<ListHeader />}
         />
       )}
 
@@ -410,6 +408,7 @@ export default function SalesmanCatalog() {
 const styles = StyleSheet.create({
   container:   { flex: 1 },
   listContent: { paddingHorizontal: 18, paddingBottom: 110, paddingTop: 4 },
+  headerWrap: { paddingHorizontal: 18 },
 
   partyBanner: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
