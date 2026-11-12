@@ -120,6 +120,12 @@ const flat = (o: any, out: Record<string, any> = {}): Record<string, any> => {
   return out;
 };
 
+// True when rank a beats rank b, compared left to right.
+const better = (a: number[], b: number[]) => {
+  for (let i = 0; i < a.length; i += 1) if (a[i] !== b[i]) return a[i] > b[i];
+  return false;
+};
+
 const indexById = (entities: Record<string, any>) => {
   const map = new Map<string, any>();
   for (const k of Object.keys(entities)) if (entities[k]?.id) map.set(String(entities[k].id), entities[k]);
@@ -213,11 +219,20 @@ export function createOffline(opts: {
       cache.restore(await snapshot());
       scratch = { version, cache };
     }
+    const { cache } = scratch;
+    // A keyArgs list is stored whole from row 0, so a later page is cut from a saved list instead of read whole again.
+    const laterPage = opDef(op.query).selectionSet.selections.some((f: any) => {
+      if (f.kind !== 'Field' || !(Number(flat(argsOf(f, op.variables)).offset) > 0)) return false;
+      const k = cache.policies?.getStoreFieldName?.({ typename: 'Query', fieldName: f.name.value, field: f, variables: op.variables });
+      return typeof k === 'string' && k.startsWith(`${f.name.value}:`) && !k.includes('"offset"');
+    });
     let data: any = null;
-    try {
-      data = scratch.cache.readQuery({ query: op.query, variables: op.variables });
-    } catch { /* not saved with these arguments */ }
-    return data ? { data } : fromSavedList(op, scratch.cache.extract());
+    if (!laterPage) {
+      try {
+        data = cache.readQuery({ query: op.query, variables: op.variables });
+      } catch { /* not saved with these arguments */ }
+    }
+    return data ? { data } : fromSavedList(op, cache.extract());
   }
 
   // Offline read with other arguments: the broadest saved list of the field, filtered here like the server.
@@ -229,16 +244,27 @@ export function createOffline(opts: {
       if (f.kind !== 'Field') return null;
       const name = f.name.value;
       const want = flat(argsOf(f, op.variables));
+      // Filters applied to the rows here: a name search, or a field the query selects.
+      const selected = new Set((f.selectionSet?.selections || []).map((s: any) => s.name?.value));
+      const appliedHere = (a: string) => a === 'name_contains' || a === 'search' || selected.has(a);
       let best: string | null = null;
-      let bestScore = -1;
+      let have: Record<string, any> = {};
+      let rank: number[] = [];
       for (const k of Object.keys(root)) {
-        if (k !== name && !k.startsWith(`${name}(`)) continue;
-        let have: any = {};
-        try { have = k === name ? {} : flat(JSON.parse(k.slice(name.length + 1, -1))); } catch { continue; }
-        // A saved list narrower than the request cannot answer it.
-        if (Object.keys(have).some((a) => !PAGING.has(a) && have[a] != null && String(have[a]) !== String(want[a] ?? ''))) continue;
-        const score = Object.keys(have).filter((a) => have[a] != null).length;
-        if (score > bestScore) { best = k; bestScore = score; }
+        // Apollo keys a field with keyArgs as name:{...}, otherwise as name({...}).
+        if (k !== name && !k.startsWith(`${name}(`) && !k.startsWith(`${name}:`)) continue;
+        let h: Record<string, any> = {};
+        try { h = k === name ? {} : flat(JSON.parse(k.slice(name.length + 1).replace(/\)$/, ''))); } catch { continue; }
+        // A page that does not start at row 0, or a list narrower than the request, cannot answer it.
+        if (Number(h.offset) > 0) continue;
+        if (Object.keys(h).some((a) => !PAGING.has(a) && h[a] != null && String(h[a]) !== String(want[a] ?? ''))) continue;
+        // Best list: has the filters that cannot be applied here, then holds every row, then the most filters.
+        const missing = Object.keys(want).filter((a) => !PAGING.has(a) && want[a] != null && h[a] == null && !appliedHere(a)).length;
+        const count = Array.isArray(root[k]) ? root[k].length : 0;
+        const whole = !Number(h.limit) || count < Number(h.limit) ? 1 : 0;
+        const filters = Object.keys(h).filter((a) => !PAGING.has(a) && h[a] != null).length;
+        const score = [-missing, whole, whole ? 0 : count, filters];
+        if (!best || better(score, rank)) { best = k; have = h; rank = score; }
       }
       // A by-id read (detail screen) is answered from the record any saved list holds.
       if (!best && typeof want.id === 'string' && byId.has(want.id)) {
@@ -246,7 +272,6 @@ export function createOffline(opts: {
         continue;
       }
       if (!best) return null;
-      const have = best === name ? {} : flat(JSON.parse(best.slice(name.length + 1, -1)));
       const v = root[best];
       if (!Array.isArray(v)) {
         data[keyOf(f)] = v && typeof v === 'object' ? fill(f.selectionSet, v.__ref ? snap[v.__ref] : v, snap, byId) : v ?? null;
@@ -256,11 +281,21 @@ export function createOffline(opts: {
       for (const [a, val] of Object.entries(want)) {
         if (PAGING.has(a) || val == null || have[a] != null) continue;
         if (a === 'name_contains' || a === 'search') {
+          // The server matches name_contains on the name only; search spans several fields, so the whole row.
           const t = String(val).toLowerCase();
-          rows = rows.filter((r: any) => JSON.stringify(r).toLowerCase().includes(t));
+          const text = (r: any) => (a === 'name_contains' && typeof r?.name === 'string' ? r.name : JSON.stringify(r));
+          rows = rows.filter((r: any) => text(r).toLowerCase().includes(t));
           continue;
         }
         rows = rows.filter((r: any) => r?.[a] === undefined || String(r[a]?.id ?? r[a]) === String(val));
+      }
+      // Same order as the server's instockfirst: stock totalled over the variants, 0 or less goes last, each group in saved order.
+      if (want.instockfirst) {
+        const outOfStock = (r: any) => {
+          const vs = (r?.productvariants || []).filter((v: any) => typeof v?.currentstock === 'number');
+          return vs.length && vs.reduce((t: number, v: any) => t + v.currentstock, 0) <= 0 ? 1 : 0;
+        };
+        rows = rows.map((r: any, i: number) => ({ r, i, o: outOfStock(r) })).sort((x: any, y: any) => x.o - y.o || x.i - y.i).map((x: any) => x.r);
       }
       const offset = Number(want.offset) || 0;
       const limit = Number(want.limit) || 0;
