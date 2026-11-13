@@ -127,6 +127,8 @@ const MODULE_LIST: ModuleDef[] = [
 
   // Distribution
   { id: "channels",       label: "Channels",        section: "distribution", actions: CRUD_ACTIONS, inAdminRegister: true },
+  // Marketplace listings on products (SKU per channel, package size) and order import.
+  { id: "marketplace",    label: "Marketplace",     section: "distribution", actions: ["view", "import"], inAdminRegister: true },
   { id: "salesroutes",    label: "Sales Routes",    section: "distribution", actions: CRUD_ACTIONS, inAdminRegister: true },
 
   // Pricing

@@ -1,6 +1,13 @@
 import { gql } from "apollo-server-express";
 
 export const productServiceTypeDefs = gql`
+  type ListingExtra { key: String, value: String }
+  input ListingExtraInput { key: String, value: String }
+  type Listing { channel: ID, sku: String, listingid: String, extra: [ListingExtra!] }
+  input ListingInput { channel: ID, sku: String, listingid: String, extra: [ListingExtraInput!] }
+  type PackageSize { weight: Float, length: Float, width: Float, height: Float }
+  input PackageSizeInput { weight: Float, length: Float, width: Float, height: Float }
+
   scalar Date
 
   "A certificate, datasheet or any file kept with the product."
@@ -79,6 +86,10 @@ export const productServiceTypeDefs = gql`
     moq: Float
     salemultiple: Float
     warrantymonths: Int
+    "Marketplace listings (Marketplace module)."
+    listings: [Listing!]
+    "Shipping size: kg and cm."
+    package: PackageSize
     "Values for the category's spec fields."
     customfields: [CustomFieldValue!]
     serials: [Serial]
@@ -344,6 +355,8 @@ export const productServiceTypeDefs = gql`
     moq: Float
     salemultiple: Float
     warrantymonths: Int
+    listings: [ListingInput!]
+    package: PackageSizeInput
     customfields: [CustomFieldInput!]
     serials: [SerialInput]
     unitprices: [UnitPriceInput]

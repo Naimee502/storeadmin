@@ -30,6 +30,9 @@ import { useAccountLedgersQuery } from "../../../graphql/hooks/accountledgers";
 import Modal from "../../../components/modal";
 import { normalizeToYMD } from "../../../utils/helper";
 import { fieldOn, useFormMode } from "../../../hooks/useformmode";
+import { useQuery } from "@apollo/client";
+import { GET_BOMS } from "../../../graphql/queries/manufacturing";
+import { MAKEABLE, NON_SELLING, typeAllows } from "../../../config/itemtypes";
 
 const AddEditProductService = () => {
   const { id } = useParams<{ id?: string }>();
@@ -45,6 +48,11 @@ const AddEditProductService = () => {
   const productCustomDefs = useCustomFieldDefs("product");
   // Item type matters to manufacturing; other businesses never see the field.
   const bomOn = useAppSelector((s: any) => selectIsModuleAllowed(s, "bom") || selectIsModuleAllowed(s, "production"));
+  // BOMs that make this item, and BOMs that use it as a material.
+  const { data: bomList } = useQuery(GET_BOMS, { skip: !bomOn || !id, fetchPolicy: "cache-first" });
+  const ownBoms = (bomList?.getBoms || []).filter((b: any) => (b.productserviceid?.id || b.productserviceid) === id);
+  const usedIn = (bomList?.getBoms || []).filter((b: any) => (b.items || []).some((l: any) => (l.productserviceid?.id || l.productserviceid) === id));
+  const itemNameOf = (b: any) => b.productserviceid?.name || "BOM";
   // Category spec fields are opt-in; off keeps the variant cards as they were.
   const specsOn = useAppSelector((s: any) => !!s.adminsettings.settings?.productSpecsOn);
   const extrasOn = useAppSelector((s: any) => !!s.adminsettings.settings?.productExtrasOn);
@@ -52,7 +60,7 @@ const AddEditProductService = () => {
   const [uploadingDoc, setUploadingDoc] = useState(false);
   const formMode = useFormMode();
   const isFieldEnabled = (fieldId: string) => {
-    return fieldOn(productFormPermissions, fieldId, formMode);
+    return fieldOn(productFormPermissions, fieldId, formMode) && typeAllows(formData.itemtype, fieldId);
   };
 
   const { data: categoryData, refetch: refetchCategories } = useCategoriesQuery();
@@ -907,7 +915,7 @@ const AddEditProductService = () => {
 
   /** Shared validation (utils/products/validateproduct) used by form, importer and server. */
   const validateForm = (): ValidationResult => {
-    const result = validateProduct(formData, productFormPermissions);
+    const result = validateProduct(formData, productFormPermissions, formMode);
     setErrors(result.errors);
     return result;
   };
@@ -1028,6 +1036,8 @@ const AddEditProductService = () => {
         moq: roundNum(v.moq) || undefined,
         salemultiple: roundNum(v.salemultiple) || undefined,
         warrantymonths: roundNum(v.warrantymonths) || undefined,
+        listings: (v.listings || []).filter((l: any) => l?.channel || l?.sku).map((l: any) => ({ channel: l.channel || undefined, sku: String(l.sku || "").trim(), listingid: String(l.listingid || "").trim(), extra: (l.extra || []).filter((x: any) => x?.key).map((x: any) => ({ key: x.key, value: x.value })) })),
+        package: v.package && Object.values(v.package).some((x: any) => Number(x) > 0) ? { weight: roundNum(v.package.weight), length: roundNum(v.package.length), width: roundNum(v.package.width), height: roundNum(v.package.height) } : undefined,
         customfields: (v.customfields || []).filter((c: any) => String(c?.value ?? "").trim()).map((c: any) => ({ key: c.key, value: String(c.value).trim() })),
         serials: (v.serials || []).map(s => ({
           ...s,
@@ -1230,7 +1240,20 @@ const AddEditProductService = () => {
               {isFieldEnabled("brandid") && <FormField label="Brand" name="brandid" type="select" placeholder="Select brand" options={brandData?.getBrands.map(b => ({ value: b.id, label: b.brandname })) || []} value={formData.brandid} onChange={handleChange} searchable addable onAddNew={() => openQuickAdd("brand", "Brand", "brandid")}/>}
               {isFieldEnabled("groupid") && <FormField label="Product Group" name="groupid" type="select" placeholder="Select group" options={groupData?.getProductGroups.map(g => ({ value: g.id, label: g.productgroupname })) || []} value={formData.groupid} onChange={handleChange} searchable addable onAddNew={() => openQuickAdd("productgroup", "Product Group", "groupid")}/>}
               {isFieldEnabled("modelid") && <FormField label="Model" name="modelid" type="select" placeholder="Select model" options={modelData?.getModels.map(m => ({ value: m.id, label: m.modelname })) || []} value={formData.modelid} onChange={handleChange} searchable addable onAddNew={() => openQuickAdd("model", "Model", "modelid")}/>}
-              {!formData.isservice && bomOn && isFieldEnabled("itemtype") && <FormField label="Item Type" name="itemtype" type="select" searchable placeholder="Finished Goods" options={ITEM_TYPES} value={formData.itemtype || ""} onChange={handleChange} />}
+              {!formData.isservice && isFieldEnabled("itemtype") && <FormField label="Item Type" name="itemtype" type="select" searchable placeholder="Finished Goods" options={ITEM_TYPES} value={formData.itemtype || ""} onChange={handleChange} />}
+              {!formData.isservice && NON_SELLING.has(String(formData.itemtype || "")) && (
+                <p className="md:col-span-2 lg:col-span-3 -mt-2 text-[11.5px] text-slate-500">This type is bought or made, not sold: sales prices and website fields are hidden. Pick Finished Goods or Trading to sell it.</p>
+              )}
+              {!formData.isservice && bomOn && isEdit && id && MAKEABLE.has(String(formData.itemtype || "")) && (
+                <div className="md:col-span-2 lg:col-span-3 flex flex-wrap items-center gap-2 text-[12px]">
+                  <button type="button" onClick={() => navigate(`/bom/addedit?item=${id}`)}
+                    className="inline-flex h-8 items-center rounded-md border border-slate-300 bg-white px-3 font-medium text-slate-700 hover:bg-slate-50">Make BOM</button>
+                  {ownBoms.map((b: any) => (
+                    <button key={b.id} type="button" onClick={() => navigate(`/bom/addedit/${b.id}`)} className="text-indigo-600 hover:underline">BOM: {b.name || "View"}</button>
+                  ))}
+                  {usedIn.length > 0 && <span className="text-slate-500">Used in: {usedIn.map((b: any) => b.name || itemNameOf(b)).join(", ")}</span>}
+                </div>
+              )}
               {isFieldEnabled("sizeid") && <FormField label="Size" name="sizeid" type="select" placeholder="Select size" options={sizeData?.getSizes.map(s => ({ value: s.id, label: s.sizename })) || []} value={formData.sizeid} onChange={handleChange} searchable addable onAddNew={() => openQuickAdd("size", "Size", "sizeid")}/>}
 
               {/* Gallery thumbnails; the first image is the product's cover. */}

@@ -70,6 +70,9 @@ const NON_NEGATIVE_FIELDS: Record<string, string> = {
  * @param permissions    formPermissions.products, so a field switched off in
  *                       Business Settings is not demanded here either
  */
+/** Item types that are not sold, so need no sales price. */
+export const NON_SELLING = new Set(["raw", "semifinished", "consumable"]);
+
 export const validateProductInput = (
   product: any,
   permissions: Record<string, any> = {},
@@ -155,7 +158,10 @@ export const validateProductInput = (
     }
 
     const prices: any[] = Array.isArray(variant?.unitprices) ? variant.unitprices : [];
-    if (!prices.length) {
+    // Raw, semi-finished and consumable items are bought or made, not sold: no price needed.
+    if (NON_SELLING.has(String(product?.itemtype || ""))) {
+      // nothing to check
+    } else if (!prices.length) {
       issues.push({
         field: "unitprices",
         message: "At least 1 unit price is required",

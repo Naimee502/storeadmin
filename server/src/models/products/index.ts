@@ -59,6 +59,8 @@ export interface IProductVariant {
   moq?: number;
   salemultiple?: number;
   warrantymonths?: number;
+  listings?: { channel?: any; sku?: string; listingid?: string; extra?: { key: string; value?: string }[] }[];
+  package?: { weight?: number; length?: number; width?: number; height?: number };
   customfields?: { key: string; value?: string }[];
   serials?: ISerial[];
   unitprices?: IUnitPrice[]; // sales pricing
@@ -251,6 +253,13 @@ const productServiceSchema = new Schema<IProductService>(
         moq: { type: Number },
         salemultiple: { type: Number },
         warrantymonths: { type: Number },
+        // Marketplace listings (Amazon / Flipkart / Meesho are Channels); extra holds ASIN, FSN and the like.
+        listings: {
+          type: [{ _id: false, channel: { type: mongoose.Schema.Types.ObjectId, ref: "Channel" }, sku: String, listingid: String, extra: [{ _id: false, key: String, value: String }] }],
+          default: undefined,
+        },
+        // Shipping size: kg and cm.
+        package: { type: { _id: false, weight: Number, length: Number, width: Number, height: Number }, default: undefined },
         // Values for the category's spec fields.
         customfields: { type: [{ _id: false, key: { type: String, required: true }, value: { type: String } }], default: undefined },
         serials: [

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router";
+import { useNavigate, useParams, useSearchParams } from "react-router";
 import { Plus, Trash2 } from "lucide-react";
 import FormField from "../../../components/formfiled";
 import FormPage from "../../../components/formpage";
@@ -34,6 +34,12 @@ const AddEditBom = () => {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [filled, setFilled] = useState(false);
+  // Make BOM from the product form: start with that item.
+  const [params] = useSearchParams();
+  const startItem = isEdit ? "" : params.get("item") || "";
+  useEffect(() => {
+    if (startItem) setHead((h) => (h.productserviceid ? h : { ...h, productserviceid: startItem }));
+  }, [startItem]);
 
   useEffect(() => {
     const b = own?.getBomById;

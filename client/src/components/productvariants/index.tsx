@@ -3,6 +3,9 @@ import { SpecValues, type CustomFieldValue, type SpecDef } from "../customfields
 import BarcodeImage from "../barcode";
 import { useAppSelector } from "../../redux/hooks";
 import { fieldOn, useFormMode } from "../../hooks/useformmode";
+import { typeAllows } from "../../config/itemtypes";
+import { selectIsModuleAllowed } from "../../redux/slices/permissions";
+import { useChannelsQuery } from "../../graphql/hooks/channels";
 
 export type UnitsQuery = {
     getUnits: Array<{
@@ -92,8 +95,13 @@ export const ProductVariants: React.FC<ProductVariantsProps & { specDefs?: SpecD
     const productFormPermissions = useAppSelector(state => state.permissions.permissions?.formPermissions?.products || {});
     const formMode = useFormMode();
     const isFieldEnabled = (fieldId: string) => {
-        return fieldOn(productFormPermissions, fieldId, formMode);
+        return fieldOn(productFormPermissions, fieldId, formMode) && typeAllows(formData.itemtype, fieldId);
     };
+    // Marketplace module: SKU per channel and the package size, per variant.
+    const marketOn = useAppSelector((s: any) => selectIsModuleAllowed(s, "marketplace"));
+    const { data: channelData } = useChannelsQuery();
+    const channelOptions = ((channelData as any)?.getChannels || []).map((c: any) => ({ value: c.id, label: c.channelName || c.channelCode }));
+    const setListings = (index: number, next: any[]) => handleChange({ target: { name: `productvariants.${index}.listings`, value: next } } as any);
 
     // A section shows only if at least one of its fields is allowed.
     const PRICE_FIELDS = ["quantity", "unitid", "mrp", "salesrate", "discount", "discounttype", "offerprice"];
@@ -365,6 +373,33 @@ export const ProductVariants: React.FC<ProductVariantsProps & { specDefs?: SpecD
                             </div>
                         ))}
                         <button type="button" onClick={() => addSerial(index)} className="inline-flex h-7 items-center gap-1 rounded-md border border-dashed border-slate-300 bg-white px-2.5 text-[12px] font-medium text-indigo-600 hover:border-indigo-400 hover:bg-indigo-50">+ Add Serial</button>
+                    </div>
+                )}
+                {marketOn && (
+                    <div className="mt-3 space-y-2 border-t border-slate-200 pt-3">
+                        <h4 className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Marketplace Listings</h4>
+                        {(variant.listings || []).map((l: any, li: number) => (
+                            <div key={li} className="grid grid-cols-1 items-end gap-2 md:grid-cols-5">
+                                <FormField label="Channel" name={`ml-${index}-${li}-channel`} type="select" searchable options={channelOptions} value={l.channel || ""}
+                                    onChange={(e: any) => setListings(index, (variant.listings || []).map((x: any, j: number) => (j === li ? { ...x, channel: e.target.value || "" } : x)))} />
+                                <FormField label="SKU" name={`ml-${index}-${li}-sku`} value={l.sku || ""}
+                                    onChange={(e: any) => setListings(index, (variant.listings || []).map((x: any, j: number) => (j === li ? { ...x, sku: e.target.value } : x)))} />
+                                <FormField label="Listing ID" name={`ml-${index}-${li}-lid`} value={l.listingid || ""} placeholder="ASIN / FSN / product id"
+                                    onChange={(e: any) => setListings(index, (variant.listings || []).map((x: any, j: number) => (j === li ? { ...x, listingid: e.target.value } : x)))} />
+                                <FormField label="Extra (key=value; …)" name={`ml-${index}-${li}-extra`} value={(l.extra || []).map((x: any) => `${x.key}=${x.value ?? ""}`).join("; ")}
+                                    onChange={(e: any) => setListings(index, (variant.listings || []).map((x: any, j: number) => (j === li ? { ...x, extra: String(e.target.value).split(";").map((p: string) => p.trim()).filter(Boolean).map((p: string) => { const [k, ...v] = p.split("="); return { key: k.trim(), value: v.join("=").trim() }; }) } : x)))} />
+                                <button type="button" onClick={() => setListings(index, (variant.listings || []).filter((_: any, j: number) => j !== li))}
+                                    className="inline-flex h-8 items-center justify-center rounded-md border border-rose-200 bg-white px-2.5 text-[12px] font-medium text-rose-600 hover:bg-rose-50">Remove</button>
+                            </div>
+                        ))}
+                        <button type="button" onClick={() => setListings(index, [...(variant.listings || []), { channel: "", sku: "", listingid: "", extra: [] }])}
+                            className="inline-flex h-7 items-center gap-1 rounded-md border border-dashed border-slate-300 bg-white px-2.5 text-[12px] font-medium text-indigo-600 hover:border-indigo-400 hover:bg-indigo-50">+ Add Listing</button>
+                        <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+                            {(["weight", "length", "width", "height"] as const).map((k) => (
+                                <FormField key={k} label={k === "weight" ? "Weight (kg)" : `${k[0].toUpperCase()}${k.slice(1)} (cm)`} type="number"
+                                    name={`productvariants.${index}.package.${k}`} value={variant.package?.[k] ?? ""} onChange={handleChange} />
+                            ))}
+                        </div>
                     </div>
                 )}
             </fieldset>

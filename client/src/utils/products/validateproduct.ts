@@ -1,8 +1,10 @@
 import { belowCostError } from "../rates";
+import { fieldOn, type FieldMode } from "../../hooks/useformmode";
+import { NON_SELLING, typeAllows } from "../../config/itemtypes";
 
 // Product validation shared by the add/edit form, importer and server; returns nested `errors` and flat `issues`.
 
-export type FieldPermissions = Record<string, boolean | undefined>;
+export type FieldPermissions = Record<string, any>;
 
 export interface ValidationIssue {
   /** Dotted path, e.g. "productvariants.0.unitprices.2.salesrate" */
@@ -44,17 +46,18 @@ export const isEmptyDeep = (obj: any): boolean => {
 };
 
 /** A field is required only if enabled in Form Permissions. */
-const enabled = (permissions: FieldPermissions | undefined, fieldId: string) =>
-  !permissions || permissions[fieldId] !== false;
+const enabled = (permissions: FieldPermissions | undefined, fieldId: string, mode?: FieldMode) =>
+  !permissions || fieldOn(permissions, fieldId, mode);
 
 export const validateProduct = (
   product: any,
-  permissions?: FieldPermissions
+  permissions?: FieldPermissions,
+  mode?: FieldMode
 ): ValidationResult => {
   const errors: any = {};
   const issues: ValidationIssue[] = [];
 
-  const on = (fieldId: string) => enabled(permissions, fieldId);
+  const on = (fieldId: string) => enabled(permissions, fieldId, mode) && typeAllows(product?.itemtype, fieldId);
 
   const push = (
     issue: Omit<ValidationIssue, "scope"> & { scope: ValidationIssue["scope"] }
@@ -174,7 +177,10 @@ export const validateProduct = (
     /* unit prices */
     const prices: any[] = Array.isArray(variant?.unitprices) ? variant.unitprices : [];
 
-    if (!prices.length) {
+    // Not sold (raw, semi-finished, consumable): no sales price to check.
+    if (NON_SELLING.has(String(product?.itemtype || ""))) {
+      // nothing to check
+    } else if (!prices.length) {
       variantErrors.unitprices = "At least 1 unit price is required";
       at("unitprices", variantErrors.unitprices);
     } else {

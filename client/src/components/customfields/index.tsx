@@ -17,6 +17,7 @@ export const ITEM_TYPES = [
   { value: "consumable", label: "Consumable" },
   { value: "spare", label: "Spare Part" },
   { value: "kit", label: "Kit / Bundle" },
+  { value: "trading", label: "Trading Item (buy and sell)" },
 ];
 
 /** Values in the shape the API saves: one entry per defined field that has a value. */
