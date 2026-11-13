@@ -17,6 +17,7 @@ import { todayYMD } from "../../../utils/helper";
 import { BRANCH_REQUIRED } from "../../../utils/branch";
 import { OFFLINE_SAVED_MESSAGE, OfflineNumberNote, isOfflineSaved, savedOffline, useOfflineNumber, useOfflineStock } from "../../../offline/billing";
 import { CHALLAN_REASONS, challanNo } from "..";
+import { fieldOn, useFormMode } from "../../../hooks/useformmode";
 
 const idOf = (v: any) => (v && typeof v === "object" ? v.id : v) || null;
 
@@ -47,7 +48,8 @@ const AddEditDeliveryChallan = () => {
   const { addDeliveryChallanMutation, editDeliveryChallanMutation } = useDeliveryChallanMutations();
   // Business Settings → Business Form Permissions → Delivery Challan Fields.
   const formPerms = useAppSelector((s) => s.permissions.permissions?.formPermissions?.deliverychallan || {});
-  const on = (field: string) => formPerms[field] !== false;
+  const formMode = useFormMode();
+  const on = (field: string) => fieldOn(formPerms, field, formMode);
 
   const { type, branch, staff } = useAppSelector((s) => s.auth);
   const selectedBranchId = useAppSelector((s) => s.selectedBranch.branchId);

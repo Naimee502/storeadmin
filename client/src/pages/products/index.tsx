@@ -17,6 +17,7 @@ import { selectModuleActions } from "../../redux/slices/permissions";
 import ImportDialog from "../../components/importdialog";
 import { useProductImportExport } from "../../hooks/useproductimportexport";
 import { useServerTable, useServerPaging } from "../../hooks/useservertable";
+import { fieldOn } from "../../hooks/useformmode";
 
 // Columns the server can filter (stock and pricing are per-variant views, Seq Number is per page).
 const SERVER_FILTER_KEYS = ["code", "name", "status"];
@@ -26,7 +27,7 @@ const ProductServices = () => {
   // Barcode lives with Unit Prices: hidden when no unit-price field is permitted.
   const productFormPerms = useAppSelector((state: any) => state.permissions.permissions?.formPermissions?.products || {});
   const canSeeBarcode = ["quantity", "unitprices_unitid", "mrp", "salesrate", "discount", "discounttype", "offerprice", "add_unit_price"]
-    .some((f) => productFormPerms[f] !== false);
+    .some((f) => fieldOn(productFormPerms, f));
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const apolloClient = useApolloClient();

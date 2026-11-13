@@ -21,7 +21,8 @@ import { useAccountLedgersQuery } from "../../../graphql/hooks/accountledgers";
 import { useAccountGroupsQuery } from "../../../graphql/hooks/accountgroups";
 import { useChannelsQuery } from "../../../graphql/hooks/channels";
 import { regionOptions, stateOptions } from "../../../utils/constants";
-import { selectIsModuleAllowed, selectIsFormFieldEnabled } from "../../../redux/slices/permissions";
+import { selectIsModuleAllowed } from "../../../redux/slices/permissions";
+import { fieldOn } from "../../../hooks/useformmode";
 
 // Tally-style: auto-map party type to standard account group name patterns + category fallback
 const TYPE_GROUP_MAP: Record<string, { names: string[]; category: string }> = {
@@ -199,8 +200,8 @@ const AddEditAccount = () => {
   // "Assign parent party" only when downline management is on.
   const partyManagesDownline = useAppSelector((s: any) => !!s.adminsettings?.settings?.partyManagesDownline);
 
-  const isFieldEnabled = (fieldId: string) =>
-    useAppSelector(state => selectIsFormFieldEnabled(state, "accounts", fieldId));
+  const accountFormPerms = useAppSelector((state: any) => state.permissions.permissions?.formPermissions?.accounts);
+  const isFieldEnabled = (fieldId: string) => fieldOn(accountFormPerms, fieldId, id ? "edit" : "add");
 
   const { data: existingData } = useAccountByIDQuery(id || "");
   const { data: accountGroupData } = useAccountGroupsQuery();

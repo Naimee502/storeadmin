@@ -1,4 +1,5 @@
 import { FORM_PERMISSIONS_CONFIG } from "../../config/formpermissions";
+import { fieldOn } from "../../hooks/useformmode";
 
 // Single source of truth for the product spreadsheet columns (template, export, import, validation).
 
@@ -197,12 +198,12 @@ export const PRODUCT_FORM_FIELD_IDS: string[] = (() => {
 
 // Schema for current form settings; disabled fields lose their column, join keys stay.
 export const buildProductSheetSchema = (
-  permissions: Record<string, boolean | undefined> = {}
+  permissions: Record<string, any> = {}
 ): ProductSheetSchema => {
   const isOn = (col: ColumnDef) => {
     if (col.structural) return true;
     if (!col.permissionId) return true;
-    return permissions[col.permissionId] !== false;
+    return fieldOn(permissions, col.permissionId);
   };
 
   const enabledColumns = ALL_COLUMNS.filter(isOn);

@@ -20,6 +20,7 @@ import {
 import { useAccountLedgersQuery } from "../../../graphql/hooks/accountledgers";
 import { useStaffQuery } from "../../../graphql/hooks/staffaccounts";
 import { todayYMD, normalizeToYMD } from "../../../utils/helper";
+import { fieldOn, useFormMode } from "../../../hooks/useformmode";
 
 const CATEGORY_OPTIONS = [
   { label: "General Expense", value: "general" },
@@ -54,7 +55,8 @@ const AddEditExpenseNote = () => {
   );
 
   const expenseFormPermissions = useAppSelector(state => state.permissions.permissions?.formPermissions?.expensenote || {});
-  const isFieldEnabled = (fieldId: string) => expenseFormPermissions[fieldId] !== false;
+  const formMode = useFormMode();
+  const isFieldEnabled = (fieldId: string) => fieldOn(expenseFormPermissions, fieldId, formMode);
 
   const { data: existingData } = useExpenseNoteByIDQuery(id || "");
   const { data: ledgerData } = useAccountLedgersQuery();

@@ -28,6 +28,7 @@ import { savedOffline as wasSavedOffline, useOfflineNumber, useOfflinePartyDelta
 import { OFFLINE_SAVED_MESSAGE } from "../../../offline/billing";
 import { isOfflineEnabled } from "../../../offline/settings";
 import { isNoNetworkError } from "../../../offline/localprice";
+import { fieldOn, useFormMode } from "../../../hooks/useformmode";
 
 type SettledInvoice = {
   invoiceid: string;
@@ -126,7 +127,8 @@ const AddEditPayment = () => {
 
   // ── Data fetching
   const paymentFormPermissions = useAppSelector(state => state.permissions.permissions?.formPermissions?.payments || {});
-  const isFieldEnabled = (fieldId: string) => paymentFormPermissions[fieldId] !== false;
+  const formMode = useFormMode();
+  const isFieldEnabled = (fieldId: string) => fieldOn(paymentFormPermissions, fieldId, formMode);
 
   const { data: existingData } = usePaymentByIDQuery(id || "");
   // Ledgers/parties are often created just before landing here, so revalidate.

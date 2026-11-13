@@ -2,6 +2,7 @@ import FormField from "../formfiled";
 import { SpecValues, type CustomFieldValue, type SpecDef } from "../customfields";
 import BarcodeImage from "../barcode";
 import { useAppSelector } from "../../redux/hooks";
+import { fieldOn, useFormMode } from "../../hooks/useformmode";
 
 export type UnitsQuery = {
     getUnits: Array<{
@@ -89,8 +90,9 @@ export const ProductVariants: React.FC<ProductVariantsProps & { specDefs?: SpecD
     errors,
 }) => {
     const productFormPermissions = useAppSelector(state => state.permissions.permissions?.formPermissions?.products || {});
+    const formMode = useFormMode();
     const isFieldEnabled = (fieldId: string) => {
-        return productFormPermissions[fieldId] !== false;
+        return fieldOn(productFormPermissions, fieldId, formMode);
     };
 
     // A section shows only if at least one of its fields is allowed.

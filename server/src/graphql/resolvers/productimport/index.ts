@@ -257,7 +257,7 @@ export const productImportResolvers = {
       // Field permissions live on Admin.defaultPermissions (see the
       // permissions resolver), so a field switched off in Business Settings is
       // not demanded here either.
-      const permissions: Record<string, boolean> =
+      const permissions: Record<string, any> =
         (await effectiveFormPermissions({
           adminid,
           userType: tenant.userType,

@@ -23,6 +23,7 @@ import { OFFLINE_SAVED_MESSAGE } from "../../../offline/billing";
 import { isOfflineEnabled } from "../../../offline/settings";
 import { isOwnDeviceNumber } from "../../../offline/device";
 import { partyLabel } from "../../../utils/partylabel";
+import { fieldOn, useFormMode } from "../../../hooks/useformmode";
 
 type Line = {
   productserviceid: string;
@@ -175,8 +176,9 @@ const AddEditSalesReturn: React.FC = () => {
   const { addSalesReturnMutation, editSalesReturnMutation } = useSalesReturnMutations();
 
   const salesReturnFormPermissions = useAppSelector(state => state.permissions.permissions?.formPermissions?.salesreturn || {});
+  const formMode = useFormMode();
   const isFieldEnabled = (fieldId: string) => {
-    return salesReturnFormPermissions[fieldId] !== false;
+    return fieldOn(salesReturnFormPermissions, fieldId, formMode);
   };
 
   // Hydrate from existing return when editing

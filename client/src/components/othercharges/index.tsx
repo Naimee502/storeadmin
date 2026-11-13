@@ -4,6 +4,7 @@ import FormField from "../formfiled";
 import Button from "../button";
 import { useAccountLedgersQuery } from "../../graphql/hooks/accountledgers";
 import { useAppSelector } from "../../redux/hooks";
+import { fieldOn, useFormMode } from "../../hooks/useformmode";
 
 export type OtherCharge = {
   ledgerid: string;
@@ -39,8 +40,9 @@ const OtherChargesSection: React.FC<OtherChargesSectionProps> = ({
 
   const moduleId = type === "sales" ? "salesinvoice" : "purchaseinvoice";
   const formPermissions = useAppSelector((state) => state.permissions.permissions?.formPermissions?.[moduleId] || {});
+  const formMode = useFormMode();
   const isFieldEnabled = (fieldId: string) => {
-    return formPermissions[fieldId] !== false;
+    return fieldOn(formPermissions, fieldId, formMode);
   };
 
   const { data: ledgersData } = useAccountLedgersQuery();

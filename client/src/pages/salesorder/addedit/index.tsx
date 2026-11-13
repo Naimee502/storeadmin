@@ -20,6 +20,7 @@ import { BRANCH_REQUIRED } from "../../../utils/branch";
 import { isOfflineSaved, OFFLINE_SAVED_MESSAGE } from "../../../offline/billing";
 import { OfflineNumberNote, savedOffline as wasSavedOffline, useOfflineNumber, useOfflineStock } from "../../../offline/billing";
 import { getBelowCostLines } from "../../../utils/rates";
+import { fieldOn, useFormMode } from "../../../hooks/useformmode";
 
 const AddEditSalesOrder = () => {
   const { id } = useParams<{ id?: string }>();
@@ -105,7 +106,8 @@ const AddEditSalesOrder = () => {
   const { number: offlineNo, noDevice } = useOfflineNumber("salesorder", !isEdit);
 
   const salesorderFormPermissions = useAppSelector(state => state.permissions.permissions?.formPermissions?.salesorder || {});
-  const isFieldEnabled = (fieldId: string) => salesorderFormPermissions[fieldId] !== false;
+  const formMode = useFormMode();
+  const isFieldEnabled = (fieldId: string) => fieldOn(salesorderFormPermissions, fieldId, formMode);
 
   // Party's last 5 orders — powers dropdown history
   const { data: allOrdersData } = useSalesOrdersQuery();

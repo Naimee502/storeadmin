@@ -23,6 +23,7 @@ import { LostReasonDialog, useChangeStage, waLink } from "..";
 import { CompleteDialog, FollowupDialog, FollowupRow, ShortcutButton } from "../../followups";
 import { AiDraftMessage, AiReadInquiry } from "../../../components/aileadtools";
 import { QUOTATION_STATUS, quotationNo, useQuotationsQuery } from "../../../graphql/hooks/quotation";
+import { fieldOn, useFormMode } from "../../../hooks/useformmode";
 
 // unit = "<unitid>--<pack qty>", the same value the Sales Invoice unit picker uses.
 type ProductLine = { productid: string; variantid: string; unit: string; name: string; qty: string; note: string };
@@ -58,7 +59,8 @@ const AddEditLead = () => {
   const authType = useAppSelector((s: any) => s.auth.type);
   // Business Settings → Business Form Permissions → Lead Fields.
   const formPerms = useAppSelector((s) => s.permissions.permissions?.formPermissions?.leads || {});
-  const on = (field: string) => formPerms[field] !== false;
+  const formMode = useFormMode();
+  const on = (field: string) => fieldOn(formPerms, field, formMode);
 
   const { stages, sources, stageOf } = useCrmLists();
   const { addLead, editLead, convertLead } = useLeadMutations();

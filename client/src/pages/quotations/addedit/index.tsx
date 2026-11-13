@@ -15,6 +15,7 @@ import { partyLabel } from "../../../utils/partylabel";
 import { stateOptions } from "../../../utils/constants";
 import { gstSplit, todayYMD } from "../../../utils/helper";
 import { OFFLINE_SAVED_MESSAGE, OfflineNumberNote, isOfflineSaved, savedOffline, useOfflineNumber, useOfflineStock } from "../../../offline/billing";
+import { fieldOn, useFormMode } from "../../../hooks/useformmode";
 
 type Line = InvoiceProduct & { description?: string; optional?: boolean };
 const idOf = (v: any) => (v && typeof v === "object" ? v.id : v) || null;
@@ -52,7 +53,8 @@ const AddEditQuotation = () => {
   const settings = useAppSelector((s: any) => s.adminsettings.settings);
   // Business Settings → Business Form Permissions → Quotation Fields.
   const formPerms = useAppSelector((s) => s.permissions.permissions?.formPermissions?.quotations || {});
-  const on = (field: string) => formPerms[field] !== false;
+  const formMode = useFormMode();
+  const on = (field: string) => fieldOn(formPerms, field, formMode);
 
   const { type, branch, staff } = useAppSelector((s) => s.auth);
   const selectedBranchId = useAppSelector((s) => s.selectedBranch.branchId);

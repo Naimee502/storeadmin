@@ -23,6 +23,7 @@ import { OfflineNumberNote, savedOffline as wasSavedOffline, useOfflineNumber } 
 import { OFFLINE_SAVED_MESSAGE } from "../../../offline/billing";
 import { isOfflineEnabled } from "../../../offline/settings";
 import { isOwnDeviceNumber } from "../../../offline/device";
+import { fieldOn, useFormMode } from "../../../hooks/useformmode";
 
 type Line = {
   productserviceid: string;
@@ -56,8 +57,9 @@ const AddEditPurchaseReturn: React.FC = () => {
   const fromInvoiceParam = queryParams.get("fromInvoice");
 
   const purchaseReturnFormPermissions = useAppSelector((state: any) => state.permissions.permissions?.formPermissions?.purchasereturn || {});
+  const formMode = useFormMode();
   const isFieldEnabled = (fieldId: string) => {
-    return purchaseReturnFormPermissions[fieldId] !== false;
+    return fieldOn(purchaseReturnFormPermissions, fieldId, formMode);
   };
 
   const { type, admin, branch, staff } = useAppSelector((s: any) => s.auth);

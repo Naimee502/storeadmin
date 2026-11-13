@@ -23,6 +23,7 @@ import { isVendorParty } from "../../../utils/partytype";
 import { BRANCH_REQUIRED } from "../../../utils/branch";
 import { OFFLINE_SAVED_MESSAGE } from "../../../offline/billing";
 import { OfflineNumberNote, savedOffline as wasSavedOffline, useOfflineNumber, useOfflineStock } from "../../../offline/billing";
+import { fieldOn, useFormMode } from "../../../hooks/useformmode";
 
 const AddEditPurchaseOrder = () => {
   const { id } = useParams<{ id?: string }>();
@@ -121,7 +122,8 @@ const AddEditPurchaseOrder = () => {
   const { number: offlineNo, noDevice } = useOfflineNumber("purchaseorder", !isEdit);
 
   const purchaseorderFormPermissions = useAppSelector(state => state.permissions.permissions?.formPermissions?.purchaseorder || {});
-  const isFieldEnabled = (fieldId: string) => purchaseorderFormPermissions[fieldId] !== false;
+  const formMode = useFormMode();
+  const isFieldEnabled = (fieldId: string) => fieldOn(purchaseorderFormPermissions, fieldId, formMode);
 
   // Vendor's last 5 orders — powers dropdown history
   const { data: allOrdersData } = usePurchaseOrdersQuery();

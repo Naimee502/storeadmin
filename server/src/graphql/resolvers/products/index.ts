@@ -585,7 +585,7 @@ export const productServiceResolvers = {
         // switched off in Business Settings is not demanded here either.
         // Branch / staff may hide more fields (Settings → Form Permissions):
         // use the caller's effective set so a hidden field isn't demanded.
-        const permissions: Record<string, boolean> =
+        const permissions: Record<string, any> =
           (await effectiveFormPermissions({
             adminid: tenant.adminid,
             userType: tenant.userType,

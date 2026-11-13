@@ -1,3 +1,4 @@
+import { fieldOn, type FieldMode } from "../formpermissions";
 /**
  * Server-side product validation.
  *
@@ -71,10 +72,11 @@ const NON_NEGATIVE_FIELDS: Record<string, string> = {
  */
 export const validateProductInput = (
   product: any,
-  permissions: Record<string, boolean | undefined> = {}
+  permissions: Record<string, any> = {},
+  mode: FieldMode = "add"
 ): ServerValidationIssue[] => {
   const issues: ServerValidationIssue[] = [];
-  const on = (fieldId: string) => permissions[fieldId] !== false;
+  const on = (fieldId: string) => fieldOn(permissions, fieldId, mode);
 
   if (on("name") && !String(product?.name ?? "").trim()) {
     issues.push({ field: "name", message: "Product name is required", scope: "product" });

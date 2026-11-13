@@ -26,6 +26,7 @@ import { BRANCH_REQUIRED } from "../../../utils/branch";
 import { isOfflineSaved, OFFLINE_SAVED_MESSAGE } from "../../../offline/billing";
 import { OfflineNumberNote, savedOffline as wasSavedOffline, useOfflineNumber, useOfflineStock } from "../../../offline/billing";
 import { useServiceMutations } from "../../../graphql/hooks/service";
+import { fieldOn, useFormMode } from "../../../hooks/useformmode";
 
 const AddEditSalesInvoice = () => {
   const { id } = useParams<{ id?: string }>();
@@ -78,8 +79,9 @@ const AddEditSalesInvoice = () => {
   const [addCustomerOpen, setAddCustomerOpen] = useState(false);
 
   const salesInvoiceFormPermissions = useAppSelector(state => state.permissions.permissions?.formPermissions?.salesinvoice || {});
+  const formMode = useFormMode();
   const isFieldEnabled = (fieldId: string) => {
-    return salesInvoiceFormPermissions[fieldId] !== false;
+    return fieldOn(salesInvoiceFormPermissions, fieldId, formMode);
   };
 
   const [paymentType, setPaymentType] = useState("");

@@ -29,6 +29,7 @@ import CustomFieldsSection, { ITEM_TYPES, cleanCustomFields, missingCustomFields
 import { useAccountLedgersQuery } from "../../../graphql/hooks/accountledgers";
 import Modal from "../../../components/modal";
 import { normalizeToYMD } from "../../../utils/helper";
+import { fieldOn, useFormMode } from "../../../hooks/useformmode";
 
 const AddEditProductService = () => {
   const { id } = useParams<{ id?: string }>();
@@ -39,7 +40,7 @@ const AddEditProductService = () => {
   const branchId = useAppSelector((state) => state.selectedBranch.branchId);
   const adminId = admin?.id;
 
-  const isAddVariantEnabled = useAppSelector(state => selectIsFormFieldEnabled(state, "products", "add_product_variant"));
+  const isAddVariantEnabled = useAppSelector(state => selectIsFormFieldEnabled(state, "products", "add_product_variant", id ? "edit" : "add"));
   const productFormPermissions = useAppSelector(state => state.permissions.permissions?.formPermissions?.products || {});
   const productCustomDefs = useCustomFieldDefs("product");
   // Item type matters to manufacturing; other businesses never see the field.
@@ -49,8 +50,9 @@ const AddEditProductService = () => {
   const extrasOn = useAppSelector((s: any) => !!s.adminsettings.settings?.productExtrasOn);
   const { data: allProductsData } = useProductServicesQuery(true, extrasOn ? 500 : 0, 0);
   const [uploadingDoc, setUploadingDoc] = useState(false);
+  const formMode = useFormMode();
   const isFieldEnabled = (fieldId: string) => {
-    return productFormPermissions[fieldId] !== false;
+    return fieldOn(productFormPermissions, fieldId, formMode);
   };
 
   const { data: categoryData, refetch: refetchCategories } = useCategoriesQuery();

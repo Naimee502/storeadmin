@@ -16,6 +16,7 @@ import { useExpenseNotesQuery } from "../../../graphql/hooks/expensenote";
 import { partyLabel } from "../../../utils/partylabel";
 import { todayYMD, normalizeToYMD } from "../../../utils/helper";
 import { isCustomerParty, isVendorParty } from "../../../utils/partytype";
+import { fieldOn, useFormMode } from "../../../hooks/useformmode";
 
 const AddEditTransaction = () => {
   const { id } = useParams();
@@ -36,7 +37,8 @@ const AddEditTransaction = () => {
   }, [type, admin, branch, staff]);
 
   const transactionFormPermissions = useAppSelector(state => state.permissions.permissions?.formPermissions?.transactions || {});
-  const isFieldEnabled = (fieldId: string) => transactionFormPermissions[fieldId] !== false;
+  const formMode = useFormMode();
+  const isFieldEnabled = (fieldId: string) => fieldOn(transactionFormPermissions, fieldId, formMode);
 
   const { data: existingData } = useTransactionByIDQuery(id || "");
   const { data: ledgerData } = useAccountLedgersQuery();

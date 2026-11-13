@@ -31,6 +31,7 @@ import { useAccountGroupsQuery } from "../../graphql/hooks/accountgroups";
 import { useChannelsQuery } from "../../graphql/hooks/channels";
 import { selectModuleActions } from "../../redux/slices/permissions";
 import { useServerTable, useServerPaging } from "../../hooks/useservertable";
+import { fieldOn } from "../../hooks/useformmode";
 
 // Columns the server can filter (Seq Number is per page).
 const SERVER_FILTER_KEYS = ["name", "mobile", "email", "salary", "commission", "target", "accountgroupname", "role", "status"];
@@ -83,7 +84,7 @@ const StaffAccounts = () => {
 
   const staffFormPermissions = useAppSelector((state: any) => state.permissions.permissions?.formPermissions?.staffaccounts || {});
   const isFieldEnabled = (fieldId: string) => {
-    return staffFormPermissions[fieldId] !== false;
+    return fieldOn(staffFormPermissions, fieldId, isEditing ? "edit" : "add");
   };
 
   // One page from the server.

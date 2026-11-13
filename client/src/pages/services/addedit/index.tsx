@@ -15,6 +15,7 @@ import { useProductServicesQuery } from "../../../graphql/hooks/products";
 import { PRICING_UNITS, useServiceByIdQuery, useServiceMasterMutations } from "../../../graphql/hooks/services";
 import { useAddNew } from "../../../hooks/useaddnew";
 import { OFFLINE_SAVED_MESSAGE, isOfflineSaved, savedOffline } from "../../../offline/billing";
+import { fieldOn, useFormMode } from "../../../hooks/useformmode";
 
 type Slot = { day: string[]; from: string; to: string };
 type Variant = {
@@ -80,7 +81,8 @@ const AddEditService = () => {
   const dispatch = useAppDispatch();
   // Business Settings → Form Permissions → Service Form.
   const perms = useAppSelector((s: any) => s.permissions.permissions?.formPermissions?.services || {});
-  const on = (f: string) => perms[f] !== false;
+  const formMode = useFormMode();
+  const on = (f: string) => fieldOn(perms, f, formMode);
   const { addService, updateService } = useServiceMasterMutations();
   const { data: own } = useServiceByIdQuery(id);
   const { data: catData } = useCategoriesQuery();

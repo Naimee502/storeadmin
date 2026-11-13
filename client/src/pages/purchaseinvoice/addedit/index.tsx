@@ -22,6 +22,7 @@ import { isVendorParty } from "../../../utils/partytype";
 import { BRANCH_REQUIRED } from "../../../utils/branch";
 import { isOfflineSaved, OFFLINE_SAVED_MESSAGE } from "../../../offline/billing";
 import { OfflineNumberNote, savedOffline as wasSavedOffline, useOfflineNumber, useOfflineStock } from "../../../offline/billing";
+import { fieldOn, useFormMode } from "../../../hooks/useformmode";
 
 const AddEditPurchaseInvoice = () => {
   const { id } = useParams<{ id?: string }>();
@@ -70,8 +71,9 @@ const AddEditPurchaseInvoice = () => {
   const [addVendorOpen, setAddVendorOpen] = useState(false);
 
   const purchaseInvoiceFormPermissions = useAppSelector(state => state.permissions.permissions?.formPermissions?.purchaseinvoice || {});
+  const formMode = useFormMode();
   const isFieldEnabled = (fieldId: string) => {
-    return purchaseInvoiceFormPermissions[fieldId] !== false;
+    return fieldOn(purchaseInvoiceFormPermissions, fieldId, formMode);
   };
 
   const [paymentType, setPaymentType] = useState("");

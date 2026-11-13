@@ -57,7 +57,7 @@ export const useProductImportExport = (
 ) => {
   const dispatch = useAppDispatch();
 
-  const permissions: Record<string, boolean | undefined> = useAppSelector(
+  const permissions: Record<string, any> = useAppSelector(
     (state) => state.permissions.permissions?.formPermissions?.products || {}
   );
 

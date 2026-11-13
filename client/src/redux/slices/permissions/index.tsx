@@ -1,5 +1,6 @@
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 import { findModule, DEFAULT_ON_MODULE_IDS, type ModuleAction } from "../../../config/modules";
+import { fieldOn, type FieldMode } from "../../../hooks/useformmode";
 
 interface PermissionsState {
   permissions: Record<string, Record<string, boolean>>;
@@ -151,18 +152,7 @@ export const selectModuleActions = (state: any, moduleId: string) => {
     showClaims: allow("claims"),
   };
 };
-export const selectIsFormFieldEnabled = (state: any, moduleId: string, fieldId: string): boolean => {
-  const { permissions } = state.permissions;
-  if (!permissions || !permissions.formPermissions) return true;
-
-  const modulePerms = permissions.formPermissions[moduleId];
-  if (!modulePerms) return true;
-
-  if (modulePerms[fieldId] !== undefined) {
-    return !!modulePerms[fieldId];
-  }
-
-  return true;
-};
+export const selectIsFormFieldEnabled = (state: any, moduleId: string, fieldId: string, mode?: FieldMode): boolean =>
+  fieldOn(state.permissions?.permissions?.formPermissions?.[moduleId], fieldId, mode);
 
 export default permissionsSlice.reducer;

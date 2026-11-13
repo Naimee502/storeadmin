@@ -9,6 +9,7 @@ import { belowCostError, getBelowCostLines, lineBelowCostError } from "../../uti
 import { useAppSelector } from "../../redux/hooks";
 import { usePriceResolvers } from "../../graphql/hooks/pricelists";
 import { getStockShortfalls } from "../../utils/products/stockcheck";
+import { fieldOn, useFormMode } from "../../hooks/useformmode";
 
 /* * Invoice line type */
 export type InvoiceProduct = {
@@ -153,8 +154,9 @@ const ProductSection: React.FC<ProductSectionProps> = ({
   const moduleId = permissionModuleId || defaultModuleId;
   const formPermissions = useAppSelector((state) => state.permissions.permissions?.formPermissions?.[moduleId] || {});
   const extrasOn = useAppSelector((state: any) => !!state.adminsettings.settings?.productExtrasOn);
+  const formMode = useFormMode();
   const isFieldEnabled = (fieldId: string) => {
-    return formPermissions[fieldId] !== false;
+    return fieldOn(formPermissions, fieldId, formMode);
   };
 
   const [selectedProduct, setSelectedProduct] = useState<Partial<InvoiceProduct>>({});

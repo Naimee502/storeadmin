@@ -13,7 +13,24 @@ import { StaffAccount } from "../models/staffaccounts";
  * if a branch document still holds an old `true` for it. A missing value
  * means "inherit".
  */
-export type FormPerms = Record<string, Record<string, boolean>>;
+// A field is `true`/`false` (both Add and Edit) or `{ add, edit }`; missing means on.
+export type FieldRule = boolean | { add?: boolean; edit?: boolean };
+export type FormPerms = Record<string, Record<string, FieldRule>>;
+export type FieldMode = "add" | "edit";
+
+const modeOf = (v: any, mode: FieldMode): boolean | undefined =>
+  v === undefined || v === null ? undefined : typeof v === "object" ? (v[mode] === undefined ? undefined : v[mode] !== false) : v !== false;
+
+/** Is this field on? Without a mode: on if it is on for Add or Edit. */
+export const fieldOn = (perms: Record<string, any> | undefined, field: string, mode?: FieldMode): boolean => {
+  const v = perms?.[field];
+  if (mode) return modeOf(v, mode) !== false;
+  return modeOf(v, "add") !== false || modeOf(v, "edit") !== false;
+};
+
+// Same value in both modes is kept as a plain boolean, so old readers still understand it.
+const compact = (add: boolean | undefined, edit: boolean | undefined): FieldRule | undefined =>
+  add === edit ? add : { ...(add !== undefined ? { add } : {}), ...(edit !== undefined ? { edit } : {}) };
 
 export const mergeFormPermissions = (parent: FormPerms = {}, child: FormPerms = {}): FormPerms => {
   const out: FormPerms = {};
@@ -22,11 +39,16 @@ export const mergeFormPermissions = (parent: FormPerms = {}, child: FormPerms = 
     const p = (parent || {})[m] || {};
     const c = (child || {})[m] || {};
     const fields = new Set([...Object.keys(p), ...Object.keys(c)]);
-    const merged: Record<string, boolean> = {};
+    const merged: Record<string, FieldRule> = {};
     fields.forEach((f) => {
-      if (p[f] === false) merged[f] = false; // parent off → always off
-      else if (c[f] !== undefined) merged[f] = c[f];
-      else merged[f] = p[f];
+      // Per mode: parent off → always off; otherwise the child's value, else the parent's.
+      const pick = (mode: FieldMode) => {
+        const pv = modeOf(p[f], mode);
+        const cv = modeOf(c[f], mode);
+        return pv === false ? false : cv !== undefined ? cv : pv;
+      };
+      const rule = compact(pick("add"), pick("edit"));
+      if (rule !== undefined) merged[f] = rule;
     });
     out[m] = merged;
   });
