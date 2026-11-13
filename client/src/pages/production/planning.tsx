@@ -1,4 +1,8 @@
 import { useMemo, useState } from "react";
+import { useNavigate } from "react-router";
+import { ShoppingCart } from "lucide-react";
+import { useAppSelector } from "../../redux/hooks";
+import { selectModuleActions } from "../../redux/slices/permissions";
 import HomeLayout from "../../layouts/home";
 import ReportTable from "../../components/reporttable";
 import { unitFactor, variantOf } from "../../components/mfglines";
@@ -17,6 +21,7 @@ const MaterialPlanning = () => {
   const { data: bomsData } = useBomsQuery();
   const { data: productData } = useProductServicesQuery();
   const products = useOfflineStock(productData?.getProductServices ?? [], branchId);
+  const products0 = products;
   const boms = bomsData?.getBoms || [];
   const [filters, setFilters] = useState<Record<string, any>>({});
   const [applied, setApplied] = useState<Record<string, any>>({});
@@ -43,7 +48,7 @@ const MaterialPlanning = () => {
       .map((t) => {
         const short = Math.max(t.need - t.stock, 0);
         return {
-          item: t.name, unit: t.unit, need: r3(t.need), stock: r3(t.stock), short: r3(short), rate: t.rate,
+          key: t.key, item: t.name, unit: t.unit, need: r3(t.need), stock: r3(t.stock), short: r3(short), rate: t.rate,
           value: Math.round(short * t.rate * 100) / 100, orders: [...t.orders].join(", "), status: short > 0 ? "Short" : "OK",
         };
       })
@@ -51,9 +56,34 @@ const MaterialPlanning = () => {
       .sort((a, b) => b.short - a.short);
   }, [open, boms, products, applied]);
 
+  // Shortage → Purchase Order draft (quantities in the base unit; review rates and vendor there).
+  const navigate = useNavigate();
+  const poActions = useAppSelector((s) => selectModuleActions(s, "purchaseorder"));
+  const toBuy = rows.filter((r) => r.short > 0);
+  const makePo = () => {
+    const products = toBuy.map((r) => {
+      const [pid, vid] = String(r.key).split("|");
+      const v: any = variantOf(products0, pid, vid || null);
+      return {
+        productserviceid: pid, variantid: vid || null, purchaseunitid: idOf(v?.baseunitid), productname: r.item,
+        unitquantity: 1, quantity: r.short, rate: Number(r.rate) || 0, discount: 0, gst: Number(v?.gst || 0), total: r.value,
+        selectedUnitValue: idOf(v?.baseunitid) ? `${idOf(v?.baseunitid)}--1` : null,
+      };
+    });
+    navigate("/purchaseorder/addedit", { state: { fromPlanning: { products } } });
+  };
+
   return (
     <HomeLayout>
       <div className="w-full p-4 font-sans">
+        {poActions.showAdd && toBuy.length > 0 && (
+          <div className="mb-2 flex justify-end">
+            <button type="button" onClick={makePo}
+              className="inline-flex h-8 items-center gap-1.5 rounded-md bg-indigo-600 px-3 text-[13px] font-semibold text-white hover:bg-indigo-700">
+              <ShoppingCart size={14} /> Make Purchase Order ({toBuy.length})
+            </button>
+          </div>
+        )}
         <ReportTable
           moduleId="materialplanning"
           title="Material Planning — Open Work Orders"

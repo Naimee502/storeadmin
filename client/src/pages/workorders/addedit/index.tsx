@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router";
+import { useNavigate, useParams, useSearchParams } from "react-router";
+import { useQuery } from "@apollo/client";
+import { GET_SALES_ORDER_BY_ID } from "../../../graphql/queries/salesorder";
 import FormField from "../../../components/formfiled";
 import FormPage from "../../../components/formpage";
 import { defaultBom, explodeBom, itemOptions, pickItem, unitFactor, unitOptions, variantOf } from "../../../components/mfglines";
@@ -54,6 +56,23 @@ const AddEditWorkOrder = () => {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [filled, setFilled] = useState(false);
+  // From a Sales Order (Make Work Order): pick one of its lines.
+  const [params] = useSearchParams();
+  const orderId = isEdit ? null : params.get("orderId");
+  const { data: orderData } = useQuery(GET_SALES_ORDER_BY_ID, { variables: { id: orderId }, skip: !orderId });
+  const order = orderData?.getSalesOrderById;
+  const orderLines = (order?.productservice || []).filter((l: any) => l.productserviceid?.id);
+  const [orderLine, setOrderLine] = useState("");
+  const pickOrderLine = (i: string) => {
+    setOrderLine(i);
+    const l = orderLines[Number(i)];
+    if (!l) return;
+    setF((x) => ({ ...x, productserviceid: l.productserviceid.id, variantid: l.variantid?.id || null, salesunitid: l.salesunitid?.id || null, bomid: "", qty: Number(l.qty) || 1, notes: x.notes || `For Sales Order ${order?.billnumber || ""}` }));
+  };
+  useEffect(() => {
+    if (orderLines.length === 1 && !orderLine) pickOrderLine("0");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orderLines.length]);
 
   useEffect(() => {
     const w = own?.getWorkOrderById;
@@ -90,6 +109,7 @@ const AddEditWorkOrder = () => {
       productserviceid: f.productserviceid, variantid: f.variantid || null, salesunitid: f.salesunitid || null,
       bomid: bom?.id || null, qty: Number(f.qty), billdate: f.billdate, duedate: f.duedate || null, notes: f.notes || undefined,
       branchid: branchId || undefined,
+      ...(orderId ? { sourceorderid: orderId } : {}),
     };
     if (!isEdit && offlineNo) input.billnumber = offlineNo;
     setSaving(true);
@@ -118,6 +138,11 @@ const AddEditWorkOrder = () => {
         <form onSubmit={(ev) => ev.preventDefault()} className="space-y-6">
           <fieldset className="border rounded-xl p-4 space-y-4">
             <legend className="text-sm font-medium px-2">Work Order</legend>
+            {orderLines.length > 0 && (
+              <FormField label={`From Sales Order ${order?.billnumber || ""}`} name="orderline" type="select" searchable value={orderLine}
+                options={orderLines.map((l: any, i: number) => ({ value: String(i), label: `${l.productserviceid.name}${l.variantid?.name ? ` - ${l.variantid.name}` : ""} × ${l.qty} ${l.salesunitid?.unitname || ""}` }))}
+                onChange={(e: any) => pickOrderLine(String(e.target.value ?? ""))} />
+            )}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <FormField label="WO No." name="billNumber" type="text" value={billNumber || (isEdit ? "" : "Auto")} onChange={() => {}} disabled />
               <FormField label="Date" name="billdate" type="date" value={f.billdate} error={errors.billdate} onChange={(e: any) => setF((x) => ({ ...x, billdate: e.target.value }))} />

@@ -4,7 +4,7 @@ import FormPage from "../../../components/formpage";
 import ProductSection from "../../../components/productsection";
 import type { InvoiceProduct } from "../../../components/productsection";
 import HomeLayout from "../../../layouts/home";
-import { useParams, useNavigate } from "react-router";
+import { useParams, useNavigate, useLocation } from "react-router";
 import { useAccountsLiteQuery } from "../../../graphql/hooks/accounts";
 import { useProductServicesQuery } from "../../../graphql/hooks/products";
 import {
@@ -93,6 +93,12 @@ const AddEditPurchaseOrder = () => {
   const [isService, setIsService] = useState(false);
   const [orderType, setOrderType] = useState("retail");
   const [products, setProducts] = useState<InvoiceProduct[]>([]);
+  // Draft from Material Planning: its short items, once.
+  const fromPlanning: any = (useLocation().state as any)?.fromPlanning;
+  useEffect(() => {
+    if (!isEdit && fromPlanning?.products?.length) setProducts(fromPlanning.products);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [status, setStatus] = useState(true);
   const [productsTotal, setProductsTotal] = useState(0.0);
   const [totalDiscount, setTotalDiscount] = useState(0.0);

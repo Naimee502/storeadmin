@@ -36,6 +36,7 @@ const SERVER_FILTER_KEYS = [
 const SalesOrders = () => {
   const navigate = useNavigate();
   const actions = useAppSelector(state => selectModuleActions(state, "salesorder"));
+  const woActions = useAppSelector(state => selectModuleActions(state, "workorders"));
   // With invoicing on, confirming means "Convert to Invoice" (business-level, same for all roles).
   const salesInvoiceEnabled = useAppSelector(state => selectIsModuleBusinessEnabled(state, "salesinvoice"));
   // Delivery Challans on: dispatch is done by making the challan, which then marks the order.
@@ -86,6 +87,8 @@ const SalesOrders = () => {
       if (actions.showConvert) opts.push({ label: "Confirmed", value: "confirmed" }, { label: "Cancelled", value: "cancelled" });
       return opts;
     }
+    // Make-to-order: a work order from this order's item (Manufacturing on).
+    if (woActions.showAdd && order.cancelStatus !== "cancelled") opts.push({ label: "Make Work Order", value: "workorder" });
     if (actions.showConvert) {
       opts.push(
         { label: "Dispatched", value: "dispatched" },
@@ -97,6 +100,10 @@ const SalesOrders = () => {
   };
   const handleStatusChange = async (row: any, status: string) => {
     try {
+      if (status === "workorder") {
+        navigate(`/workorders/addedit?orderId=${row.id}`);
+        return;
+      }
       if (status === "convert") {
         if (row.isConverted) { dispatch(showMessage({ message: "Order is already converted to an invoice.", type: "error" })); return; }
         navigate(`/salesinvoice/addedit?orderId=${row.id}`);

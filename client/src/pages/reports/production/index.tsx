@@ -1,17 +1,18 @@
 import React, { useEffect, useState } from "react";
 import HomeLayout from "../../../layouts/home";
 import ReportTable, { type ReportColumn, type ReportFilterField } from "../../../components/reporttable";
-import { QC_STATUS, WORK_STATUS, mfgNo, useDeletedProductionEntriesQuery, useProductionEntriesQuery, useWorkOrdersQuery } from "../../../graphql/hooks/manufacturing";
+import { QC_STATUS, WORK_STATUS, mfgNo, useBomsQuery, useDeletedProductionEntriesQuery, useProductionEntriesQuery, useWorkOrdersQuery } from "../../../graphql/hooks/manufacturing";
 import { formatDateDMY, normalizeToYMD, shiftDaysYMD, todayYMD } from "../../../utils/helper";
 import { itemName } from "../../bom";
 import { producedText } from "../../production";
-import { FaBoxOpen, FaClipboardList, FaCogs, FaIndustry, FaTrashAlt } from "react-icons/fa";
+import { FaBalanceScale, FaBoxOpen, FaClipboardList, FaCogs, FaIndustry, FaTrashAlt } from "react-icons/fa";
 
 const tabs = [
   { id: "register", label: "Production Register", icon: <FaClipboardList className="text-xs text-sky-600" /> },
   { id: "output", label: "Item-wise Output", icon: <FaIndustry className="text-xs text-emerald-600" /> },
   { id: "consumption", label: "Material Consumption", icon: <FaBoxOpen className="text-xs text-indigo-600" /> },
   { id: "workorders", label: "Work Order Status", icon: <FaCogs className="text-xs text-amber-600" /> },
+  { id: "costsheet", label: "Cost Sheet", icon: <FaBalanceScale className="text-xs text-slate-600" /> },
   { id: "deleted", label: "Deleted", icon: <FaTrashAlt className="text-xs text-rose-600" /> },
 ];
 const dateTo = (ymd?: string) => (ymd ? `${ymd}￿` : undefined);
@@ -50,6 +51,7 @@ const ProductionReports: React.FC = () => {
   const { data, loading } = useProductionEntriesQuery(dates);
   const { data: woData, loading: woLoading } = useWorkOrdersQuery(dates);
   const { data: delData, loading: delLoading } = useDeletedProductionEntriesQuery();
+  const { data: bomData } = useBomsQuery();
 
   const inRange = (ymd: string) => (!fromDate || ymd >= fromDate) && (!toDate || ymd <= toDate);
   const qcOk = (p: any) => !appliedFilters.qcstatus || p.qcstatus === appliedFilters.qcstatus;
@@ -103,6 +105,40 @@ const ProductionReports: React.FC = () => {
         { label: "Batch", key: "batch" },
       ];
       break;
+    case "costsheet": {
+      // Actual cost against the BOM's standard (BOM lines at their rates + BOM overhead, per run).
+      const r2 = (n: number) => Math.round(n * 100) / 100;
+      tableData = entries.map((p: any) => {
+        const bom = (bomData?.getBoms || []).find((b: any) => b.id === p.bomid);
+        const out = (p.outputs || [])[0];
+        const runs = bom && Number(bom.qty) > 0 ? Number(out?.qty || 0) / Number(bom.qty) : 0;
+        const perRun = (bom?.items || []).reduce((sum: number, l: any) => sum + (Number(l.amount) || Number(l.qty || 0) * Number(l.rate || 0)), 0);
+        const stdMaterial = r2(perRun * runs);
+        const stdOverhead = r2(Number(bom?.overhead || 0) * runs);
+        const standard = r2(stdMaterial + stdOverhead);
+        const actual = r2(Number(p.totalcost || 0));
+        return {
+          no: mfgNo(p, "PE-"), date: formatDateDMY(p.billdate), produced: producedText(p) || "-",
+          stdMaterial, material: r2(Number(p.materialcost || 0)), stdOverhead, labourOverhead: r2(Number(p.labourcost || 0) + Number(p.overhead || 0)),
+          standard, actual, variance: bom ? r2(actual - standard) : "",
+          unitCost: out && Number(out.qty) > 0 ? r2(actual / Number(out.qty)) : "",
+        };
+      });
+      columns = [
+        { label: "Entry No", key: "no" },
+        { label: "Date", key: "date" },
+        { label: "Produced", key: "produced" },
+        { label: "Std Material (₹)", key: "stdMaterial", numeric: true },
+        { label: "Actual Material (₹)", key: "material", numeric: true },
+        { label: "Std Overhead (₹)", key: "stdOverhead", numeric: true },
+        { label: "Labour + Overhead (₹)", key: "labourOverhead", numeric: true },
+        { label: "Standard (₹)", key: "standard", numeric: true },
+        { label: "Actual (₹)", key: "actual", numeric: true },
+        { label: "Variance (₹)", key: "variance", numeric: true },
+        { label: "Cost / Unit (₹)", key: "unitCost", numeric: true },
+      ];
+      break;
+    }
     case "output":
       tableData = [...groupLines(entries, "outputs"), ...groupLines(entries, "byproducts").map((r) => ({ ...r, item: `${r.item} (by-product)` }))];
       columns = lineCols;
