@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { useNavigate } from "react-router";
 import { CalendarDays, ChevronLeft, ChevronRight, List } from "lucide-react";
 import DataTable from "../../components/datatable";
-import StatusDropdown from "../../components/statusdropdown";
+import StatusDropdown, { BilledChip } from "../../components/statusdropdown";
 import HomeLayout from "../../layouts/home";
 import { useAppDispatch, useAppSelector } from "../../redux/hooks";
 import { selectIsModuleBusinessEnabled, selectModuleActions } from "../../redux/slices/permissions";
@@ -101,7 +101,7 @@ const Appointments = () => {
     partyacc: customerLabel(a),
     services: servicesText(a) || "—",
     staff: a.staffid?.name || "—",
-    apptStatus: <StatusDropdown current={a.apptStatus || "booked"} options={optionsFor(a)} onSelect={(v) => onStatus(a, v)} />,
+    apptStatus: <span className="inline-flex items-center gap-1"><StatusDropdown current={a.apptStatus || "booked"} options={optionsFor(a)} onSelect={(v) => onStatus(a, v)} /><BilledChip invoiceid={a.invoiceid} /></span>,
     notes: a.notes || "—",
     raw: a,
   });
@@ -151,7 +151,7 @@ const Appointments = () => {
                     <div key={a.id} className={`rounded-md border border-slate-200 border-l-4 bg-white p-2 text-[13px] shadow-sm ${STYLE[a.apptStatus] || ""}`}>
                       <div className="flex items-center justify-between gap-2">
                         <span className="font-semibold text-slate-800">{a.starttime} - {endOf(a)}</span>
-                        <StatusDropdown current={a.apptStatus || "booked"} options={optionsFor(a)} onSelect={(v) => onStatus(a, v)} />
+                        <span className="inline-flex items-center gap-1"><StatusDropdown current={a.apptStatus || "booked"} options={optionsFor(a)} onSelect={(v) => onStatus(a, v)} /><BilledChip invoiceid={a.invoiceid} /></span>
                       </div>
                       <button type="button" className="mt-1 block w-full truncate text-left text-slate-700 hover:text-indigo-600" title="Edit" onClick={() => actions.showEdit && navigate(`/appointments/addedit/${a.id}`)}>
                         {customerLabel(a)}

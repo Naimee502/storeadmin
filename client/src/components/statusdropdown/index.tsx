@@ -1,5 +1,7 @@
 import { useState, useRef, useEffect, useLayoutEffect } from "react";
 import { createPortal } from "react-dom";
+import { useNavigate } from "react-router";
+import { Receipt } from "lucide-react";
 
 export type StatusOption = { label: string; value: string };
 
@@ -83,7 +85,7 @@ const StatusDropdown: React.FC<{
     </span>
   );
 
-  if (disabled) return Badge;
+  if (disabled || !options.length) return Badge;
 
   return (
     <>
@@ -125,6 +127,18 @@ const StatusDropdown: React.FC<{
         document.body
       )}
     </>
+  );
+};
+
+// Marks a record already billed; opens that bill.
+export const BilledChip: React.FC<{ invoiceid?: string | null }> = ({ invoiceid }) => {
+  const navigate = useNavigate();
+  if (!invoiceid) return null;
+  return (
+    <button type="button" title="Open Bill" onClick={() => navigate(`/salesinvoice/addedit/${invoiceid}`)}
+      className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-indigo-50 px-2 py-0.5 text-[11px] font-medium text-indigo-700 ring-1 ring-inset ring-indigo-200 hover:bg-indigo-100">
+      <Receipt size={11} /> Billed
+    </button>
   );
 };
 

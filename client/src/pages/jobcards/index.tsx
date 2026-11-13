@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router";
 import DataTable from "../../components/datatable";
-import StatusDropdown from "../../components/statusdropdown";
+import StatusDropdown, { BilledChip } from "../../components/statusdropdown";
 import HomeLayout from "../../layouts/home";
 import { useAppDispatch, useAppSelector } from "../../redux/hooks";
 import { selectIsModuleBusinessEnabled, selectModuleActions } from "../../redux/slices/permissions";
@@ -120,7 +120,7 @@ const JobCards = () => {
       technician: j.technicianid?.name || "—",
       promisedate: j.promisedate ? <span className={late ? "font-semibold text-rose-600" : ""}>{formatDateDMY(j.promisedate)}{late ? " (late)" : ""}</span> : "—",
       estimatetotal: j.estimatetotal ? `₹${money(j.estimatetotal)}${j.approved ? "" : " (not approved)"}` : "—",
-      jobStatus: <StatusDropdown current={j.jobStatus || "received"} options={optionsFor(j)} onSelect={(v) => onStatus(j, v)} />,
+      jobStatus: <span className="inline-flex items-center gap-1"><StatusDropdown current={j.jobStatus || "received"} options={optionsFor(j)} onSelect={(v) => onStatus(j, v)} /><BilledChip invoiceid={j.invoiceid} /></span>,
       raw: j,
     };
   };
