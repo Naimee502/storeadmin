@@ -7,11 +7,11 @@ import { AI_LANGS, canSpeak, getAiLang, hasVoice, setAiLang, speak, stopSpeaking
 const money = (n: any) => `₹${Math.round(Number(n) || 0).toLocaleString("en-IN")}`;
 
 /** Today's briefing: the most important things, read aloud on tap. Works with AI off (list only). */
-export const BriefingCard = () => {
+export const BriefingCard = ({ focus }: { focus?: "crm" }) => {
   const [lang, setLang] = useState<AiLang>(getAiLang());
   const [playing, setPlaying] = useState(false);
   const [showUsage, setShowUsage] = useState(false);
-  const { data, loading, error } = useQuery(GET_BRIEFING, { variables: { language: lang }, fetchPolicy: "cache-and-network" });
+  const { data, loading, error } = useQuery(GET_BRIEFING, { variables: { language: lang, focus }, fetchPolicy: "cache-and-network" });
   const b = data?.getBriefing;
   const items: any[] = b?.items || [];
   const spoken = b?.script || items.map((i) => `${i.title}. ${i.detail || ""}`).join(" ");

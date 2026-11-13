@@ -72,6 +72,8 @@ const briefingSchema = new Schema(
     branchid: { type: Schema.Types.ObjectId, ref: "Branch" },
     date: { type: String, required: true },
     language: { type: String },
+    // "crm" = leads and follow-ups only; unset = whole business.
+    focus: { type: String },
     items: [{ _id: false, kind: String, title: String, detail: String, value: Number }],
     script: { type: String },
   },

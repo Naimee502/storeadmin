@@ -165,8 +165,8 @@ export const aiTypeDefs = gql`
   type AiUsage { days: [AiUsageDay!]!, tasks: [AiUsageTask!]! }
 
   extend type Query {
-    "Today's briefing (built once a day). language: en, hi or gu."
-    getBriefing(language: String): Briefing!
+    "Today's briefing (built once a day). language: en, hi or gu; focus: crm for leads and follow-ups only."
+    getBriefing(language: String, focus: String): Briefing!
     "AI calls per day and per task over the last N days."
     getAiUsage(days: Int): AiUsage!
     getCrmDashboard(days: Int): CrmDashboard!

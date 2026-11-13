@@ -274,7 +274,7 @@ const CrmDashboard = () => {
           </div>
 
           <div className="space-y-2.5">
-            <BriefingCard />
+            <BriefingCard focus="crm" />
             <div className="h-[420px]"><AiAgent /></div>
 
             <Panel title="Today's Follow Ups" sub={`${d?.followupsOverdue ?? 0} overdue`}

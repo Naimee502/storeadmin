@@ -557,11 +557,41 @@ async function briefingScript(scope: any, lang: string, items: any[], user: any)
   return r.ok ? r.text : "";
 }
 
+/** CRM briefing: leads, follow-ups and quotations only. */
+async function crmBriefingItems(scope: any) {
+  const today = new Date(Date.now() + 330 * 60000).toISOString().slice(0, 10);
+  const dayStart = new Date(`${today}T00:00:00+05:30`);
+  const dayEnd = new Date(`${today}T23:59:59.999+05:30`);
+  const closed = (await stagesOf(scope.adminid)).filter((s: any) => s.kind !== "open").map((s: any) => s.key);
+  const leadBase = { ...(await leadQuery(scope)), status: true, stage: { $nin: closed } };
+  const fupBase = { ...(await followupQuery(scope)), status: true, doneAt: null };
+  const quoteBase: any = { adminid: scope.adminid, status: true, quotationStatus: "sent" };
+  if (scope.branchid) quoteBase.$or = [{ branchid: scope.branchid }, { branchid: null }];
+  const [due, overdue, fresh, noNext, hot, quotes] = await Promise.all([
+    Followup.countDocuments({ ...fupBase, dueAt: { $gte: dayStart, $lte: dayEnd } }),
+    Followup.countDocuments({ ...fupBase, dueAt: { $lt: dayStart } }),
+    Lead.countDocuments({ ...leadBase, lastcontactAt: null }),
+    Lead.countDocuments({ ...leadBase, lastcontactAt: { $ne: null }, nextfollowupAt: null }),
+    Lead.countDocuments({ ...leadBase, temperature: "hot" }),
+    Quotation.aggregate([{ $match: quoteBase }, { $group: { _id: null, n: { $sum: 1 }, value: { $sum: { $ifNull: ["$totalamount", 0] } } } }]),
+  ]);
+  const s = (n: number) => (n === 1 ? "" : "s");
+  const items: any[] = [];
+  if (overdue) items.push({ kind: "followups", title: `${overdue} follow-up${s(overdue)} overdue`, detail: "Call these first.", value: overdue });
+  if (due) items.push({ kind: "followups", title: `${due} follow-up${s(due)} due today`, detail: "Open Follow Ups to call them.", value: due });
+  if (fresh) items.push({ kind: "followups", title: `${fresh} new lead${s(fresh)} not contacted yet`, detail: "First call within the day wins more.", value: fresh });
+  if (hot) items.push({ kind: "followups", title: `${hot} hot lead${s(hot)} open`, detail: "Push these to a quotation.", value: hot });
+  if (noNext) items.push({ kind: "followups", title: `${noNext} lead${s(noNext)} with no next follow-up`, detail: "Book a follow-up so none go cold.", value: noNext });
+  const q = quotes[0];
+  if (q?.n) items.push({ kind: "quotes", title: `${q.n} quotation${s(q.n)} waiting for a reply`, detail: "Follow up on the ones sent.", value: Math.round(q.value || 0) });
+  return items;
+}
+
 /** Today's 5-7 most important things, from the finders (no AI); a spoken script when AI is on. Built once a day. */
-async function briefingFor(scope: any, language: string, user: any) {
+async function briefingFor(scope: any, language: string, user: any, focus = "") {
   const lang = LANG_NAME[language] ? language : "en";
   const date = new Date(Date.now() + 330 * 60000).toISOString().slice(0, 10);
-  const key = { adminid: scope.adminid, branchid: scope.branchid || null, date, language: lang };
+  const key = { adminid: scope.adminid, branchid: scope.branchid || null, date, language: lang, focus: focus || null };
   const saved: any = await Briefing.findOne(key).lean();
   if (saved && (saved.script || !saved.items?.length)) return saved;
   // Saved without a script (AI was off or failed): try the script again, keep the list.
@@ -569,6 +599,12 @@ async function briefingFor(scope: any, language: string, user: any) {
     const script = await briefingScript(scope, lang, saved.items, user);
     if (script) await Briefing.updateOne({ _id: saved._id }, { $set: { script } });
     return { ...saved, script };
+  }
+  if (focus === "crm") {
+    const items = await crmBriefingItems(scope);
+    const doc = { ...key, items, script: await briefingScript(scope, lang, items, user) };
+    try { await Briefing.create(doc); } catch { /* another request saved it */ }
+    return doc;
   }
 
   // Refresh the finders once a day before reading them.
@@ -613,10 +649,10 @@ export const aiResolvers = {
       return rows.map(formatOpportunity);
     },
 
-    getBriefing: async (_: any, { language }: any, context: any) => {
+    getBriefing: async (_: any, { language, focus }: any, context: any) => {
       // CRM Dashboard or Business Pulse (main dashboard), whichever this login has.
       const scope = await assistantGate(context);
-      const b: any = await briefingFor(scope, String(language || "en"), context?.user);
+      const b: any = await briefingFor(scope, String(language || "en"), context?.user, focus === "crm" ? "crm" : "");
       return { date: b.date, language: b.language, items: b.items || [], script: b.script || "" };
     },
 

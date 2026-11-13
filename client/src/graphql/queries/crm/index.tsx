@@ -43,8 +43,8 @@ export const GET_AI_LOGS = gql`
 `;
 
 export const GET_BRIEFING = gql`
-  query GetBriefing($language: String) {
-    getBriefing(language: $language) { date language script items { kind title detail value } }
+  query GetBriefing($language: String, $focus: String) {
+    getBriefing(language: $language, focus: $focus) { date language script items { kind title detail value } }
   }
 `;
 
