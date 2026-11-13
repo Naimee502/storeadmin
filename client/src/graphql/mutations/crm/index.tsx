@@ -14,7 +14,7 @@ export const CONVERT_OPPORTUNITY_TO_LEAD = gql`
   mutation ConvertOpportunityToLead($id: ID!) { convertOpportunityToLead(id: $id) { ${LEAD_FIELDS} } }
 `;
 export const ASK_AI = gql`
-  mutation AskAi($question: String!) { askAi(question: $question) { ok answer steps reason } }
+  mutation AskAi($question: String!, $language: String) { askAi(question: $question, language: $language) { ok answer steps reason } }
 `;
 export const AI_READ_INQUIRY = gql`
   mutation AiReadInquiry($text: String!) {

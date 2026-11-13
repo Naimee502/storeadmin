@@ -8,6 +8,7 @@ import { selectIsModuleAllowed } from "../../redux/slices/permissions";
 import { waLink } from "../../graphql/hooks/crm";
 import { GET_BUSINESS_PULSE, SCAN_BUSINESS_PULSE, SET_INSIGHT_STATE } from "../../graphql/queries/insight";
 import AiAgent from "../aiagent";
+import { BriefingCard } from "../aiagent/briefing";
 
 // needs: the module whose records the card is read from, so a login that cannot
 // see payments does not get payment cards.
@@ -16,6 +17,8 @@ const KINDS: Record<string, { label: string; icon: React.ReactNode; color: strin
   paymentrisk: { label: "Payment Risk", icon: <Wallet size={11} />, color: "text-rose-600", bg: "bg-rose-50", needs: "payments" },
   stoppeditem: { label: "Stopped Item", icon: <Package size={11} />, color: "text-violet-600", bg: "bg-violet-50", needs: "salesinvoice" },
   stockout: { label: "Running Out", icon: <AlertTriangle size={11} />, color: "text-sky-600", bg: "bg-sky-50", needs: "products" },
+  deadstock: { label: "Not Selling", icon: <Package size={11} />, color: "text-slate-600", bg: "bg-slate-100", needs: "products" },
+  latework: { label: "Late Work Order", icon: <AlertTriangle size={11} />, color: "text-orange-600", bg: "bg-orange-50", needs: "workorders" },
 };
 const money = (n: any) => `₹${Math.round(Number(n) || 0).toLocaleString("en-IN")}`;
 const chip = "inline-flex h-6 items-center gap-1 whitespace-nowrap rounded border border-slate-200 bg-white px-1.5 text-[10.5px] font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-50";
@@ -69,6 +72,8 @@ const BusinessPulse: React.FC = () => {
   };
 
   return (
+    <div className="space-y-2">
+    <BriefingCard />
     <div className="rounded-lg border border-slate-200 bg-white p-2.5 font-sans">
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-2 border-b border-slate-200 pb-2 mb-2">
         <div className="min-w-0 lg:flex-1">
@@ -172,6 +177,11 @@ const BusinessPulse: React.FC = () => {
                       <MessageCircle size={11} /> WhatsApp
                     </a>
                   )}
+                  {i.kind === "latework" && (
+                    <button type="button" className={chip} onClick={() => navigate("/workorders")}>
+                      <Package size={11} /> Work Orders
+                    </button>
+                  )}
                   {i.kind === "stockout" && (
                     <button type="button" className={chip} onClick={() => navigate("/purchaseorder/addedit")}>
                       <Package size={11} /> Purchase Order
@@ -189,6 +199,7 @@ const BusinessPulse: React.FC = () => {
           })}
         </div>
       )}
+    </div>
     </div>
   );
 };

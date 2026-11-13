@@ -158,7 +158,17 @@ export const aiTypeDefs = gql`
     kinds: [OpportunityKind!]!
   }
 
+  type BriefingItem { kind: String, title: String, detail: String, value: Float }
+  type Briefing { date: String!, language: String, items: [BriefingItem!]!, script: String }
+  type AiUsageDay { date: String!, calls: Int!, failed: Int!, intokens: Int!, outtokens: Int! }
+  type AiUsageTask { task: String!, calls: Int! }
+  type AiUsage { days: [AiUsageDay!]!, tasks: [AiUsageTask!]! }
+
   extend type Query {
+    "Today's briefing (built once a day). language: en, hi, gu or hinglish."
+    getBriefing(language: String): Briefing!
+    "AI calls per day and per task over the last N days."
+    getAiUsage(days: Int): AiUsage!
     getCrmDashboard(days: Int): CrmDashboard!
     getOpportunities(kind: String, state: String, limit: Int): [Opportunity!]!
     getAiStatus: AiStatus!
@@ -170,8 +180,8 @@ export const aiTypeDefs = gql`
     refreshOpportunities: OpportunityScan!
     setOpportunityState(id: ID!, state: String!): Opportunity
     convertOpportunityToLead(id: ID!): Lead
-    "The CRM dashboard agent. Reads this tenant's data only; changes nothing."
-    askAi(question: String!): AiAnswer!
+    "The CRM dashboard agent. Reads this tenant's data only; changes nothing. language: en, hi, gu or hinglish (blank = as asked)."
+    askAi(question: String!, language: String): AiAnswer!
     aiReadInquiry(text: String!): AiInquiry!
     "channel: whatsapp, email or call."
     aiDraftMessage(leadid: ID!, channel: String, instruction: String): AiText!

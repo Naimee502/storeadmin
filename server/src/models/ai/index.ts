@@ -64,3 +64,18 @@ opportunitySchema.index({ adminid: 1, state: 1, score: -1 });
 
 export const AiLog = mongoose.model("AiLog", aiLogSchema);
 export const Opportunity = mongoose.model("Opportunity", opportunitySchema);
+
+// Daily briefing per business, branch and language: the list is from the finders, the script from AI (optional).
+const briefingSchema = new Schema(
+  {
+    adminid: { type: Schema.Types.ObjectId, ref: "Admin", required: true },
+    branchid: { type: Schema.Types.ObjectId, ref: "Branch" },
+    date: { type: String, required: true },
+    language: { type: String },
+    items: [{ _id: false, kind: String, title: String, detail: String, value: Number }],
+    script: { type: String },
+  },
+  { timestamps: true }
+);
+briefingSchema.index({ adminid: 1, branchid: 1, date: 1, language: 1 });
+export const Briefing = mongoose.model("Briefing", briefingSchema);

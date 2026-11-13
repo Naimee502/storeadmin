@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { Bot, Send, Sparkles } from "lucide-react";
+import { Bot, Mic, Send, Sparkles, Volume2 } from "lucide-react";
+import { AI_LANGS, canListen, canSpeak, getAiLang, listen, setAiLang, speak, type AiLang } from "./voice";
 import { useAiStatusQuery, useCrmMutations } from "../../graphql/hooks/crm";
 
 type Turn = { me: boolean; text: string; steps?: string[] };
@@ -29,6 +30,11 @@ const STEP_LABEL: Record<string, string> = {
   stock_alerts: "Stock",
   salesman_performance: "Salesmen",
   business_pulse: "Business Pulse",
+  purchase_summary: "Purchases",
+  expense_summary: "Expenses",
+  production_summary: "Production",
+  service_summary: "Service",
+  stock_movements: "Stock ledger",
 };
 
 /** The agent: answers from this business's own data and changes nothing. */
@@ -40,6 +46,20 @@ const AiAgent = ({ compact = false, scope = "crm" }: { compact?: boolean; scope?
   const [turns, setTurns] = useState<Turn[]>([]);
   const [q, setQ] = useState("");
   const [busy, setBusy] = useState(false);
+  const [lang, setLangState] = useState<AiLang>(getAiLang());
+  const [listening, setListening] = useState(false);
+  const changeLang = (l: AiLang) => { setLangState(l); setAiLang(l); };
+  const voiceAsk = async () => {
+    setListening(true);
+    try {
+      const said = await listen(lang);
+      if (said.trim()) ask(said);
+    } catch (e: any) {
+      setTurns((t) => [...t, { me: false, text: e?.message || "Voice did not work." }]);
+    } finally {
+      setListening(false);
+    }
+  };
   const endRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -53,7 +73,7 @@ const AiAgent = ({ compact = false, scope = "crm" }: { compact?: boolean; scope?
     setQ("");
     setBusy(true);
     try {
-      const r = await askAi({ variables: { question } });
+      const r = await askAi({ variables: { question, language: lang } });
       const a = r?.data?.askAi;
       setTurns((t) => [...t, { me: false, text: a?.ok ? a.answer : a?.reason || "The assistant could not answer that.", steps: a?.steps || [] }]);
     } catch (e: any) {
@@ -76,6 +96,10 @@ const AiAgent = ({ compact = false, scope = "crm" }: { compact?: boolean; scope?
           <h3 className="text-[13px] font-semibold text-slate-900">{scope === "business" ? "Business Assistant" : "CRM Assistant"}</h3>
           <p className="truncate text-[11px] text-slate-500">Asks your own data. It prepares; you send.</p>
         </div>
+        <select value={lang} onChange={(e) => changeLang(e.target.value as AiLang)} aria-label="Answer language"
+          className="h-6 shrink-0 rounded border border-slate-200 bg-white px-1 text-[11px] text-slate-600">
+          {AI_LANGS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+        </select>
         {status?.on && (
           <span className="shrink-0 rounded bg-slate-100 px-1.5 py-0.5 text-[10.5px] font-medium text-slate-600" title="AI actions left this month">
             {status.left} left
@@ -107,6 +131,10 @@ const AiAgent = ({ compact = false, scope = "crm" }: { compact?: boolean; scope?
               t.me ? "bg-indigo-600 text-white" : "border border-slate-200 bg-slate-50 text-slate-800"
             }`}>
               {t.text}
+              {!t.me && canSpeak && t.text && (
+                <button type="button" title="Listen" onClick={() => speak(t.text, lang)}
+                  className="ml-1 inline-flex align-middle text-slate-400 hover:text-indigo-600"><Volume2 size={13} /></button>
+              )}
               {!!t.steps?.length && (
                 <div className="mt-1 flex flex-wrap gap-1 border-t border-slate-200 pt-1">
                   {[...new Set(t.steps)].map((s) => (
@@ -134,6 +162,12 @@ const AiAgent = ({ compact = false, scope = "crm" }: { compact?: boolean; scope?
           disabled={!!off || busy}
           onChange={(e) => setQ(e.target.value)}
         />
+        {canListen && (
+          <button type="button" disabled={!!off || busy || listening} title="Speak your question" onClick={voiceAsk}
+            className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-md border ${listening ? "border-rose-300 bg-rose-50 text-rose-600" : "border-slate-300 text-slate-600 hover:bg-slate-50"} disabled:opacity-40`}>
+            <Mic size={14} />
+          </button>
+        )}
         <button type="submit" disabled={!!off || busy || !q.trim()} title="Ask"
           className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-40">
           <Send size={14} />

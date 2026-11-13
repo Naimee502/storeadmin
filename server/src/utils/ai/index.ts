@@ -11,6 +11,8 @@ const DEFAULT_MODEL = "gemini-3.5-flash-lite";
 const DEFAULT_CAP = 500;
 
 export type AiConfig = {
+  /** gemini, or openai for any OpenAI-compatible API (Groq, OpenRouter…) on the platform key. */
+  provider: "gemini" | "openai";
   on: boolean;
   key: string;
   keysource: "platform" | "own" | "";
@@ -31,7 +33,10 @@ const monthStart = () => {
 export async function aiConfig(adminid: any): Promise<AiConfig> {
   const s: any = await AdminSettings.getOrCreateForAdmin(adminid);
   const own = decryptSecret(s?.aiApiKey);
-  const platform = String(process.env.GEMINI_API_KEY || "").trim();
+  // AI_PROVIDER=openai switches the platform key to an OpenAI-compatible API; a business's own key stays Gemini.
+  const openaiPlatform = String(process.env.AI_PROVIDER || "").toLowerCase() === "openai";
+  const platform = String((openaiPlatform ? process.env.AI_API_KEY : process.env.GEMINI_API_KEY) || "").trim();
+  const provider: AiConfig["provider"] = !own && openaiPlatform ? "openai" : "gemini";
   // The business's own key is used first, so its usage never counts against the platform key.
   const key = own || platform;
   const keysource: AiConfig["keysource"] = own ? "own" : platform ? "platform" : "";
@@ -39,14 +44,15 @@ export async function aiConfig(adminid: any): Promise<AiConfig> {
   const used = await AiLog.countDocuments({ adminid, ok: true, createdAt: { $gte: monthStart() } });
   const on = s?.aiEnabled === true;
   return {
+    provider,
     on,
     key,
     keysource,
-    model: String(s?.aiModel || process.env.GEMINI_MODEL || DEFAULT_MODEL),
+    model: String(provider === "openai" ? (process.env.AI_MODEL || "llama-3.3-70b-versatile") : (s?.aiModel || process.env.GEMINI_MODEL || DEFAULT_MODEL)),
     cap,
     used,
     left: Math.max(cap - used, 0),
-    reason: !on ? "AI is switched off for this business." : !key ? "No Gemini API key is set." : used >= cap ? "This month's AI limit is used up." : "",
+    reason: !on ? "AI is switched off for this business." : !key ? "No AI API key is set." : used >= cap ? "This month's AI limit is used up." : "",
   };
 }
 
@@ -125,7 +131,12 @@ export async function aiAsk(adminid: any, opts: AskOpts): Promise<AiResult> {
   let outtokens = 0;
   let error = "";
   try {
-    for (let step = 0; step < (opts.maxSteps ?? 4); step++) {
+    if (cfg.provider === "openai") {
+      const r = await openaiLoop(cfg, opts, steps);
+      text = r.text;
+      intokens = r.intokens;
+      outtokens = r.outtokens;
+    } else for (let step = 0; step < (opts.maxSteps ?? 4); step++) {
       const res = await fetch(`${ENDPOINT}/${encodeURIComponent(cfg.model)}:generateContent`, {
         method: "POST",
         headers: { "Content-Type": "application/json", "x-goog-api-key": cfg.key },
@@ -184,4 +195,47 @@ export async function aiAsk(adminid: any, opts: AskOpts): Promise<AiResult> {
 
   if (error) return { ok: false, text: "", steps, reason: error };
   return { ok: true, text, data: opts.json ? parseJson(text) : undefined, steps };
+}
+
+// OpenAI-compatible chat completions with tool calls (Groq, OpenRouter, OpenAI…).
+async function openaiLoop(cfg: AiConfig, opts: AskOpts, steps: { tool: string; args: any }[]) {
+  const base = String(process.env.AI_BASE_URL || "https://api.groq.com/openai/v1").replace(/\/$/, "");
+  const messages: any[] = [];
+  if (opts.system) messages.push({ role: "system", content: opts.system });
+  messages.push({ role: "user", content: opts.prompt + (opts.json ? "\nReply with JSON only." : "") });
+  const tools = opts.tools?.length
+    ? opts.tools.map(({ name, description, parameters }) => ({ type: "function", function: { name, description, parameters } }))
+    : undefined;
+  let intokens = 0;
+  let outtokens = 0;
+  for (let step = 0; step < (opts.maxSteps ?? 4); step++) {
+    const res = await fetch(`${base}/chat/completions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${cfg.key}` },
+      body: JSON.stringify({ model: cfg.model, temperature: 0.2, messages, ...(tools ? { tools } : {}), ...(opts.json ? { response_format: { type: "json_object" } } : {}) }),
+    });
+    const json: any = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(String(json?.error?.message || `AI answered ${res.status}`).slice(0, 300));
+    intokens += Number(json?.usage?.prompt_tokens || 0);
+    outtokens += Number(json?.usage?.completion_tokens || 0);
+    const msg = json?.choices?.[0]?.message || {};
+    const calls: any[] = msg.tool_calls || [];
+    if (!calls.length) return { text: String(msg.content || "").trim(), intokens, outtokens };
+    messages.push(msg);
+    for (const c of calls) {
+      const name = c?.function?.name;
+      let args: any = {};
+      try { args = JSON.parse(c?.function?.arguments || "{}"); } catch { /* empty args */ }
+      steps.push({ tool: name, args });
+      const tool = opts.tools?.find((t) => t.name === name);
+      let out: any;
+      try {
+        out = tool ? await tool.run(args) : { error: "unknown tool" };
+      } catch (e: any) {
+        out = { error: String(e?.message || e).slice(0, 200) };
+      }
+      messages.push({ role: "tool", tool_call_id: c.id, content: JSON.stringify(out).slice(0, 20000) });
+    }
+  }
+  return { text: "", intokens, outtokens };
 }

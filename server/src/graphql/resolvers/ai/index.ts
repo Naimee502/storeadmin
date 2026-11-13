@@ -1,5 +1,6 @@
 import { Types } from "mongoose";
-import { AiLog, Opportunity } from "../../../models/ai";
+import { AiLog, Briefing, Opportunity } from "../../../models/ai";
+import { findInsights } from "../../../utils/insightfinder";
 import { Lead, Followup } from "../../../models/lead";
 import { Quotation } from "../../../models/quotation";
 import { SalesInvoice } from "../../../models/salesinvoice";
@@ -16,6 +17,12 @@ import { getPartiesTotalDue } from "../../../utils/allocation";
 import { partyTypeQuery } from "../../../utils/partytype";
 import { ProductService } from "../../../models/products";
 import { Insight } from "../../../models/insight";
+import { PurchaseInvoice } from "../../../models/purchaseinvoice";
+import { ExpenseNote } from "../../../models/expensenote";
+import { AccountLedger } from "../../../models/accountledgers";
+import { ProductionEntry, WorkOrder } from "../../../models/manufacturing";
+import { Appointment, JobCard } from "../../../models/service";
+import { StockMove } from "../../../models/stockmove";
 import { leadQuery, followupQuery, stagesOf, nextLeadNumber, formatLead, LEAD_POPULATE } from "../lead";
 
 const DAY = 86400000;
@@ -170,6 +177,14 @@ Reply in the language and script the user wrote in: English, Hindi, Hinglish, Gu
 You may suggest what to do next, but you cannot send anything or change any record: the staff taps to do that.
 When the user asks for a message to a customer, write the message itself, ready to copy.`;
 
+// The language picked on the screen (voice), when the user wants a fixed one.
+const LANG_NOTE: Record<string, string> = {
+  en: "\nAnswer in simple English.",
+  hi: "\nAnswer in Hindi (Devanagari script).",
+  gu: "\nAnswer in Gujarati (ગુજરાતી script).",
+  hinglish: "\nAnswer in Hinglish (Hindi in English letters).",
+};
+
 /** Read-only tools, already scoped to this login's tenant and branch. */
 async function agentTools(scope: any): Promise<AiTool[]> {
   const leadBase = async () => ({ ...(await leadQuery(scope)), status: true });
@@ -179,13 +194,19 @@ async function agentTools(scope: any): Promise<AiTool[]> {
     staffid: scope.userType === "staff" ? scope.userId : undefined,
   };
   // The agent may only read what this login could open itself.
-  const [canLeads, canSales, canPayments, canStock, canStaff] = await Promise.all([
+  const [canLeads, canSales, canPayments, canStock, canStaff, canPurchase, canExpense, canProduction, canService] = await Promise.all([
     isActionAllowed("leads", "view", where),
     isActionAllowed("salesinvoice", "view", where),
     isActionAllowed("payments", "view", where),
     isActionAllowed("products", "view", where),
     isActionAllowed("reports.salesmen", "view", where),
+    isActionAllowed("purchaseinvoice", "view", where),
+    isActionAllowed("expensenote", "view", where),
+    isActionAllowed("production", "view", where),
+    isActionAllowed("appointments", "view", where),
   ]);
+  const since = (days: number) => ymd(new Date(Date.now() - days * DAY));
+  const branchOnly = (q: any) => (scope.branchid ? { ...q, branchid: oid(scope.branchid) } : q);
   const billQuery = (days: number) => {
     const q: any = { adminid: oid(scope.adminid), status: true, cancelStatus: { $ne: "cancelled" }, billdate: { $gte: ymd(new Date(Date.now() - days * DAY)) } };
     if (scope.branchid) q.branchid = oid(scope.branchid);
@@ -399,13 +420,172 @@ async function agentTools(scope: any): Promise<AiTool[]> {
     },
   ];
 
+  // Purchase, expense, production, service and stock movement: read-only, same tenant scope.
+  const days = (a: any) => Math.min(Math.max(Number(a?.days) || 30, 1), 365);
+  const moreTools: AiTool[] = [
+    ...(canPurchase ? [{
+      name: "purchase_summary",
+      description: "Purchases over the last N days: total bought, bills, top vendors and top items bought.",
+      parameters: { type: "object", properties: { days: { type: "integer" } } },
+      run: async (a: any) => {
+        const q = branchOnly({ adminid: oid(scope.adminid), status: true, cancelStatus: { $ne: "cancelled" }, billdate: { $gte: since(days(a)) } });
+        const [tot, vendors, items] = await Promise.all([
+          PurchaseInvoice.aggregate([{ $match: q }, { $group: { _id: null, total: { $sum: "$totalamount" }, bills: { $sum: 1 } } }]),
+          PurchaseInvoice.aggregate([{ $match: q }, { $group: { _id: "$partyacc", total: { $sum: "$totalamount" }, bills: { $sum: 1 } } }, { $sort: { total: -1 } }, { $limit: 5 }]),
+          PurchaseInvoice.aggregate([{ $match: q }, { $unwind: "$productservice" }, { $group: { _id: "$productservice.productserviceid", qty: { $sum: "$productservice.qty" }, amount: { $sum: "$productservice.amount" } } }, { $sort: { amount: -1 } }, { $limit: 5 }]),
+        ]);
+        const [vNames, iNames] = await Promise.all([
+          Account.find({ _id: { $in: vendors.map((v: any) => v._id) } }).select("name").lean(),
+          ProductService.find({ _id: { $in: items.map((i: any) => i._id) } }).select("name").lean(),
+        ]);
+        const vBy = new Map(vNames.map((x: any) => [String(x._id), x.name]));
+        const iBy = new Map(iNames.map((x: any) => [String(x._id), x.name]));
+        return {
+          days: days(a), bought: money(tot[0]?.total || 0), bills: tot[0]?.bills || 0,
+          topVendors: vendors.map((v: any) => ({ name: vBy.get(String(v._id)), amount: money(v.total), bills: v.bills })),
+          topItems: items.map((i: any) => ({ name: iBy.get(String(i._id)), qty: Math.round(Number(i.qty)), amount: money(i.amount) })),
+        };
+      },
+    }] : []),
+    ...(canExpense ? [{
+      name: "expense_summary",
+      description: "Expenses over the last N days by expense head, with the total and the change from the N days before.",
+      parameters: { type: "object", properties: { days: { type: "integer" } } },
+      run: async (a: any) => {
+        const n = days(a);
+        const base = branchOnly({ adminid: oid(scope.adminid), status: true });
+        const [now, before] = await Promise.all([
+          ExpenseNote.aggregate([{ $match: { ...base, expensedate: { $gte: new Date(Date.now() - n * DAY) } } }, { $unwind: "$expenses" }, { $group: { _id: "$expenses.expenseledgerid", amount: { $sum: "$expenses.amount" } } }, { $sort: { amount: -1 } }]),
+          ExpenseNote.aggregate([{ $match: { ...base, expensedate: { $gte: new Date(Date.now() - n * 2 * DAY), $lt: new Date(Date.now() - n * DAY) } } }, { $group: { _id: null, total: { $sum: "$totalamount" } } }]),
+        ]);
+        const heads = await AccountLedger.find({ _id: { $in: now.map((r: any) => r._id) } }).select("ledgername").lean();
+        const hBy = new Map(heads.map((h: any) => [String(h._id), h.ledgername]));
+        const total = now.reduce((t: number, r: any) => t + Number(r.amount || 0), 0);
+        const prev = Number(before[0]?.total || 0);
+        return {
+          days: n, total: money(total), previousPeriod: money(prev), changePercent: prev ? Math.round(((total - prev) / prev) * 100) : null,
+          byHead: now.slice(0, 8).map((r: any) => ({ head: hBy.get(String(r._id)) || "Other", amount: money(r.amount) })),
+        };
+      },
+    }] : []),
+    ...(canProduction ? [{
+      name: "production_summary",
+      description: "Production over the last N days (entries, cost) and work orders that are open or late.",
+      parameters: { type: "object", properties: { days: { type: "integer" } } },
+      run: async (a: any) => {
+        const n = days(a);
+        const today = ymd(new Date());
+        const [made, open] = await Promise.all([
+          ProductionEntry.aggregate([{ $match: branchOnly({ adminid: oid(scope.adminid), status: true, billdate: { $gte: since(n) } }) }, { $group: { _id: null, entries: { $sum: 1 }, cost: { $sum: "$totalcost" } } }]),
+          WorkOrder.find(branchOnly({ adminid: oid(scope.adminid), status: true, workStatus: { $in: ["planned", "inprogress"] } })).populate("productserviceid", "name").select("billnumber duedate qty qtyproduced productserviceid").limit(50).lean(),
+        ]);
+        const late = open.filter((w: any) => w.duedate && w.duedate < today);
+        return {
+          days: n, entries: made[0]?.entries || 0, productionCost: money(made[0]?.cost || 0),
+          openWorkOrders: open.length, lateWorkOrders: late.length,
+          late: late.slice(0, 10).map((w: any) => ({ no: `WO-${w.billnumber}`, item: w.productserviceid?.name, due: w.duedate, pending: Math.max(Number(w.qty) - Number(w.qtyproduced || 0), 0) })),
+        };
+      },
+    }] : []),
+    ...(canService ? [{
+      name: "service_summary",
+      description: "Appointments over the last N days by status (booked, done, no-show, cancelled) and job cards still open.",
+      parameters: { type: "object", properties: { days: { type: "integer" } } },
+      run: async (a: any) => {
+        const n = days(a);
+        const [appts, jobs] = await Promise.all([
+          Appointment.aggregate([{ $match: branchOnly({ adminid: oid(scope.adminid), status: true, billdate: { $gte: since(n) } }) }, { $group: { _id: "$apptStatus", count: { $sum: 1 } } }]),
+          JobCard.aggregate([{ $match: branchOnly({ adminid: oid(scope.adminid), status: true, jobStatus: { $nin: ["delivered", "cancelled"] } }) }, { $group: { _id: "$jobStatus", count: { $sum: 1 } } }]),
+        ]);
+        return { days: n, appointments: appts.map((r: any) => ({ status: r._id || "booked", count: r.count })), openJobCards: jobs.map((r: any) => ({ status: r._id, count: r.count })) };
+      },
+    }] : []),
+    ...(canStock ? [{
+      name: "stock_movements",
+      description: "Where an item's stock went: recent movements (bill, return, transfer, production…) with the balance after each. Give part of the item name.",
+      parameters: { type: "object", properties: { item: { type: "string" }, limit: { type: "integer" } }, required: ["item"] },
+      run: async (a: any) => {
+        const rx = new RegExp(String(a?.item || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
+        const prods: any[] = await ProductService.find({ adminid: scope.adminid, status: true, name: rx }).select("name").limit(5).lean();
+        if (!prods.length) return { found: false };
+        const rows: any[] = await StockMove.find(branchOnly({ adminid: oid(scope.adminid), productid: { $in: prods.map((p) => p._id) } }))
+          .sort({ createdAt: -1 }).limit(Math.min(Number(a?.limit) || 15, 40)).lean();
+        const nBy = new Map(prods.map((p) => [String(p._id), p.name]));
+        return rows.map((r) => ({ item: nBy.get(String(r.productid)), when: r.date || r.createdAt, doc: `${r.doctype} ${r.docno || ""}`.trim(), qty: r.qty, balance: r.balance, note: r.note }));
+      },
+    }] : []),
+  ];
+
   return [
+    ...moreTools,
     ...(canLeads ? crmTools : []),
     ...(canSales ? [...salesTools, ...pulseTools] : []),
     ...(canPayments ? paymentTools : []),
     ...(canStock ? stockTools : []),
     ...(canStaff ? staffTools : []),
   ];
+}
+
+/** The assistant's own screens: CRM Dashboard or Business Pulse (main dashboard), either is enough. */
+async function assistantGate(context: any) {
+  const scope = await requireBackofficeTenant(context);
+  const where = {
+    adminid: scope.adminid,
+    branchid: scope.userType === "admin" ? undefined : scope.branchid,
+    staffid: scope.userType === "staff" ? scope.userId : undefined,
+  };
+  if (!(await isModuleOn("crmdashboard", where)) && !(await isModuleOn("reports.pulse", where))) {
+    throw new TenantError("The assistant is not switched on for this business.");
+  }
+  return scope;
+}
+
+// ---------- Daily briefing ----------
+
+const LANG_NAME: Record<string, string> = { en: "simple English", hi: "Hindi (Devanagari)", gu: "Gujarati (ગુજરાતી)", hinglish: "Hinglish (Hindi in English letters)" };
+
+/** Today's 5-7 most important things, from the finders (no AI); a spoken script when AI is on. Built once a day. */
+async function briefingFor(scope: any, language: string, user: any) {
+  const lang = LANG_NAME[language] ? language : "en";
+  const date = new Date(Date.now() + 330 * 60000).toISOString().slice(0, 10);
+  const key = { adminid: scope.adminid, branchid: scope.branchid || null, date, language: lang };
+  const saved: any = await Briefing.findOne(key).lean();
+  if (saved) return saved;
+
+  // Refresh the finders once a day before reading them.
+  const last: any = await Insight.findOne({ adminid: scope.adminid }).sort({ foundAt: -1 }).select("foundAt").lean();
+  if (!last?.foundAt || Date.now() - new Date(last.foundAt).getTime() > 20 * 3600000) {
+    try { await findInsights(scope.adminid); } catch { /* use what is there */ }
+  }
+  const items: any[] = [];
+  const endOfDay = new Date(); endOfDay.setHours(23, 59, 59, 999);
+  try {
+    const due = await Followup.countDocuments({ ...(await followupQuery(scope)), status: true, doneAt: null, dueAt: { $lte: endOfDay } });
+    if (due) items.push({ kind: "followups", title: `${due} follow-up${due === 1 ? "" : "s"} due today`, detail: "Open Follow Ups to call them.", value: due });
+  } catch { /* no CRM */ }
+  const insightQ: any = { adminid: scope.adminid, status: true, state: "open" };
+  if (scope.branchid) insightQ.$or = [{ branchid: scope.branchid }, { branchid: null }];
+  const found: any[] = await Insight.find(insightQ).sort({ score: -1, value: -1 }).limit(6).select("kind name title reason value").lean();
+  found.forEach((f) => items.push({ kind: f.kind, title: `${f.name}: ${f.title}`, detail: f.reason, value: f.value }));
+  const opps: any[] = await Opportunity.find({ ...oppScope(scope), state: "open" }).sort({ value: -1 }).limit(2).select("kind name title value").lean();
+  opps.forEach((o) => items.push({ kind: o.kind, title: `${o.name}: ${o.title}`, detail: "", value: o.value }));
+  const top = items.slice(0, 7);
+
+  let script = "";
+  if (top.length) {
+    const r = await aiAsk(scope.adminid, {
+      task: "briefing",
+      system: `Write a short spoken morning briefing (60-90 seconds) for the owner of a small Indian business, in ${LANG_NAME[lang]}. Use only the items given; never add numbers. Most important first, then one line on what to do. Plain sentences, no lists or symbols.`,
+      prompt: JSON.stringify(top),
+      user,
+      branchid: scope.branchid,
+      maxSteps: 1,
+    });
+    if (r.ok) script = r.text;
+  }
+  const doc = { ...key, items: top, script };
+  try { await Briefing.create(doc); } catch { /* another request saved it */ }
+  return doc;
 }
 
 // ---------- Resolver ----------
@@ -423,6 +603,27 @@ export const aiResolvers = {
       if (kind) q.kind = kind;
       const rows = await Opportunity.find(q).sort({ score: -1, dueAt: 1 }).limit(Math.min(Number(limit) || 50, 200)).lean();
       return rows.map(formatOpportunity);
+    },
+
+    getBriefing: async (_: any, { language }: any, context: any) => {
+      // CRM Dashboard or Business Pulse (main dashboard), whichever this login has.
+      const scope = await assistantGate(context);
+      const b: any = await briefingFor(scope, String(language || "en"), context?.user);
+      return { date: b.date, language: b.language, items: b.items || [], script: b.script || "" };
+    },
+
+    getAiUsage: async (_: any, { days = 30 }: any, context: any) => {
+      const scope = await assistantGate(context);
+      const from = new Date(Date.now() - Math.min(Math.max(Number(days) || 30, 1), 365) * DAY);
+      const match = { adminid: oid(scope.adminid), createdAt: { $gte: from } };
+      const [byDay, byTask] = await Promise.all([
+        AiLog.aggregate([{ $match: match }, { $group: { _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt", timezone: "Asia/Kolkata" } }, calls: { $sum: 1 }, failed: { $sum: { $cond: ["$ok", 0, 1] } }, intokens: { $sum: "$intokens" }, outtokens: { $sum: "$outtokens" } } }, { $sort: { _id: -1 } }]),
+        AiLog.aggregate([{ $match: match }, { $group: { _id: "$task", calls: { $sum: 1 } } }, { $sort: { calls: -1 } }]),
+      ]);
+      return {
+        days: byDay.map((d: any) => ({ date: d._id, calls: d.calls, failed: d.failed, intokens: d.intokens || 0, outtokens: d.outtokens || 0 })),
+        tasks: byTask.map((t: any) => ({ task: t._id || "other", calls: t.calls })),
+      };
     },
 
     getAiStatus: async (_: any, __: any, context: any) => {
@@ -499,7 +700,7 @@ export const aiResolvers = {
     },
 
     /** The dashboard agent: answers from this tenant's data only. */
-    askAi: async (_: any, { question }: any, context: any) => {
+    askAi: async (_: any, { question, language }: any, context: any) => {
       const scope = await requireBackofficeTenant(context);
       const where = {
         adminid: scope.adminid,
@@ -517,7 +718,7 @@ export const aiResolvers = {
       const today = new Date().toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata", day: "2-digit", month: "short", year: "numeric" });
       const r = await aiAsk(scope.adminid, {
         task: "ask",
-        system: `${SYSTEM}\nToday is ${today}.`,
+        system: `${SYSTEM}\nToday is ${today}.${LANG_NOTE[String(language || "")] || ""}`,
         prompt: q,
         question: q,
         tools: await agentTools(scope),

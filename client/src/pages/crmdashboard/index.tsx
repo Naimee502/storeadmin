@@ -8,6 +8,7 @@ import { Check, MessageCircle, Phone, RefreshCw, Sparkles, UserPlus, X } from "l
 import HomeLayout from "../../layouts/home";
 import FormField from "../../components/formfiled";
 import AiAgent from "../../components/aiagent";
+import { BriefingCard } from "../../components/aiagent/briefing";
 import { useAppDispatch, useAppSelector } from "../../redux/hooks";
 import { selectModuleActions } from "../../redux/slices/permissions";
 import { showMessage } from "../../redux/slices/message";
@@ -273,6 +274,7 @@ const CrmDashboard = () => {
           </div>
 
           <div className="space-y-2.5">
+            <BriefingCard />
             <div className="h-[420px]"><AiAgent /></div>
 
             <Panel title="Today's Follow Ups" sub={`${d?.followupsOverdue ?? 0} overdue`}

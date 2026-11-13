@@ -6,6 +6,7 @@ import { Payment } from "../../models/payments";
 import { ProductService } from "../../models/products";
 import { ProductBranchStock } from "../../models/productbranchstock";
 import { Branch } from "../../models/branches";
+import { WorkOrder } from "../../models/manufacturing";
 import { getPartiesTotalDue, getPartyOutstandingBills, getPartyTotalDue } from "../allocation";
 import { partyTypeQuery } from "../partytype";
 
@@ -376,6 +377,78 @@ async function stockOut(adminid: any): Promise<Insighted[]> {
   });
 }
 
+/** Stock worth money that has not sold for 90 days (needs at least 90 days of billing). */
+async function deadStock(adminid: any): Promise<Insighted[]> {
+  const firstBill: any = await SalesInvoice.findOne({ adminid: oid(adminid), status: true }).sort({ billdate: 1 }).select("billdate").lean();
+  if (!firstBill || dateOf(firstBill.billdate).getTime() > daysAgo(90).getTime()) return [];
+  const stocks: any[] = await ProductBranchStock.find({ adminid, currentstock: { $gt: 0 }, currentstockamount: { $gt: 0 } })
+    .sort({ currentstockamount: -1 }).limit(300).select("productid variantid branchid currentstock currentstockamount").lean();
+  if (!stocks.length) return [];
+  const sold: any[] = await SalesInvoice.aggregate([
+    { $match: liveBills(adminid, daysAgo(90)) },
+    { $unwind: "$productservice" },
+    { $group: { _id: { i: "$productservice.productserviceid", v: "$productservice.variantid" } } },
+  ]);
+  const soldSet = new Set(sold.map((x) => `${x._id.i}|${x._id.v || ""}`));
+  const idle = stocks.filter((st) => !soldSet.has(`${st.productid}|${st.variantid || ""}`) && Number(st.currentstockamount) >= 1000).slice(0, 25);
+  if (!idle.length) return [];
+  const items: any[] = await ProductService.find({ _id: { $in: idle.map((x) => x.productid) }, isservice: { $ne: true } }).select("name productvariants._id productvariants.name").lean();
+  const itemBy = new Map(items.map((i: any) => [String(i._id), i]));
+  return idle.flatMap((st) => {
+    const item: any = itemBy.get(String(st.productid));
+    if (!item) return [];
+    const variant = st.variantid ? (item.productvariants || []).find((v: any) => String(v._id) === String(st.variantid)) : null;
+    const label = variant?.name ? `${item.name} (${variant.name})` : item.name;
+    const value = Number(st.currentstockamount) || 0;
+    return [{
+      kind: "deadstock",
+      dedupekey: `deadstock:${st.productid}:${st.variantid || ""}:${st.branchid}`,
+      branchid: st.branchid, productid: st.productid, variantid: st.variantid || undefined,
+      name: label,
+      title: "Not sold in 90 days",
+      reason: `${Number(st.currentstock)} in stock worth ${money(value)}, and no bill in the last 90 days. A discount or a return to the vendor frees this money.`,
+      evidence: [
+        { label: "In stock", amount: Number(st.currentstock) },
+        { label: "Stock value", amount: Math.round(value) },
+        { label: "Last 90 days", detail: "no sale" },
+      ],
+      value: Math.round(value),
+      score: scoreOf(value, 0, 40),
+      draftmessage: `Special offer on ${label} — ask for the best price.`,
+    }];
+  });
+}
+
+/** Work orders past their due date that are still not finished. */
+async function lateWorkOrders(adminid: any): Promise<Insighted[]> {
+  const today = ymd(new Date());
+  const rows: any[] = await WorkOrder.find({ adminid, status: true, duedate: { $lt: today, $ne: "" }, workStatus: { $in: ["planned", "inprogress"] } })
+    .sort({ duedate: 1 }).limit(25).populate("productserviceid", "name").lean();
+  return rows.flatMap((w) => {
+    const pending = Math.max(Number(w.qty || 0) - Number(w.qtyproduced || 0), 0);
+    if (!pending) return [];
+    const late = daysBetween(dateOf(w.duedate), new Date());
+    const name = `WO-${w.billnumber || ""} · ${w.productserviceid?.name || "item"}`;
+    return [{
+      kind: "latework",
+      dedupekey: `latework:${w._id}`,
+      branchid: w.branchid,
+      productid: w.productserviceid?._id,
+      name,
+      title: `${late} days late`,
+      reason: `Due on ${String(w.duedate).slice(0, 10)}; ${pending} of ${w.qty} still to make.`,
+      evidence: [
+        { label: "Due", detail: String(w.duedate).slice(0, 10) },
+        { label: "Made", amount: Number(w.qtyproduced || 0) },
+        { label: "Pending", amount: pending },
+      ],
+      value: pending,
+      score: Math.min(100, 50 + late),
+      draftmessage: "",
+    }];
+  });
+}
+
 /** Runs every detector and saves what it found, one row per thing and kind. */
 export async function findInsights(adminid: any): Promise<{ found: number; kinds: Record<string, number> }> {
   const lists = await Promise.all([
@@ -383,6 +456,8 @@ export async function findInsights(adminid: any): Promise<{ found: number; kinds
     paymentRisk(adminid).catch(() => []),
     stoppedItem(adminid).catch(() => []),
     stockOut(adminid).catch(() => []),
+    deadStock(adminid).catch(() => []),
+    lateWorkOrders(adminid).catch(() => []),
   ]);
   // No rows to check the claim against, no card.
   const all = lists.flat().filter((f) => f.evidence.length > 0);

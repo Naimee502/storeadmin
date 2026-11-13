@@ -41,3 +41,15 @@ export const GET_AI_LOGS = gql`
     getAiLogs(limit: $limit) { id task model keysource intokens outtokens ms ok error question username createdAt }
   }
 `;
+
+export const GET_BRIEFING = gql`
+  query GetBriefing($language: String) {
+    getBriefing(language: $language) { date language script items { kind title detail value } }
+  }
+`;
+
+export const GET_AI_USAGE = gql`
+  query GetAiUsage($days: Int) {
+    getAiUsage(days: $days) { days { date calls failed intokens outtokens } tasks { task calls } }
+  }
+`;
