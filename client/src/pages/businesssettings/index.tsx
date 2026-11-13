@@ -1,4 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router";
+import { Search } from "lucide-react";
 import HomeLayout from "../../layouts/home";
 import loginBg from "../../assets/images/loginbg.jpg";
 import FormField from "../../components/formfiled";
@@ -28,6 +30,7 @@ import {
   type ModuleAction,
 } from "../../config/modules";
 import FormPermissionsTab from "./formpermissionstab";
+import { SETTINGS_TABS, SECTION_HOME, sectionId, searchSettings, type SettingsTab } from "../../config/settings";
 import { LeadSourcesPanel } from "../leadsources";
 import { stateOptions } from "../../utils/constants";
 import { DEFAULT_LOST_REASONS, DEFAULT_SOURCES, DEFAULT_STAGES, type CrmStage } from "../../graphql/hooks/lead";
@@ -36,7 +39,10 @@ import { DEFAULT_LOST_REASONS, DEFAULT_SOURCES, DEFAULT_STAGES, type CrmStage } 
 const deepStripTypename = (value: any): any =>
   JSON.parse(JSON.stringify(value), (key, val) => (key === "__typename" ? undefined : val));
 
-type TabKey = "general" | "modules" | "permissions" | "formpermissions" | "leadsources";
+type TabKey = SettingsTab;
+
+// Which tab GeneralTab is drawn for; null shows every section.
+const ViewContext = createContext<SettingsTab | null>(null);
 
 const FEATURE_TO_MODULES: Record<string, string[]> = {
   enableGst: ["reports.gst"],
@@ -46,7 +52,26 @@ const BusinessSettings = () => {
   const dispatch = useAppDispatch();
   const { type, admin } = useAppSelector((s: any) => s.auth);
   const [selectedAdminId, setSelectedAdminId] = useState<string>("");
-  const [tab, setTab] = useState<TabKey>("general");
+  const [params] = useSearchParams();
+  const [tab, setTab] = useState<TabKey>((params.get("tab") as TabKey) || "general");
+  const [find, setFind] = useState("");
+  const [target, setTarget] = useState<string | null>(params.get("section"));
+  const found = useMemo(() => searchSettings(find), [find]);
+
+  // Open the searched (or linked) section once its tab has drawn it.
+  useEffect(() => {
+    if (!target) return;
+    const t = setTimeout(() => {
+      const el = document.getElementById(sectionId(target));
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "start" });
+        el.classList.add("ring-2", "ring-indigo-400");
+        setTimeout(() => el.classList.remove("ring-2", "ring-indigo-400"), 1600);
+      }
+      setTarget(null);
+    }, 400);
+    return () => clearTimeout(t);
+  }, [target, tab]);
 
   const { data: adminsData } = useAdminsQuery();
   const adminOptions = useMemo(() => 
@@ -60,13 +85,7 @@ const BusinessSettings = () => {
     }
   }, [type, admin, selectedAdminId]);
 
-  const visibleTabs = useMemo<Array<[TabKey, string]>>(() => [
-    ["general", "General"],
-    ["modules", "Business Modules"],
-    ["permissions", "Business Permissions"],
-    ["formpermissions", "Business Form Permissions"],
-    ["leadsources", "Lead Sources"],
-  ], []);
+  const visibleTabs = SETTINGS_TABS;
 
   // Auto-fix current tab if it becomes hidden
   useEffect(() => {
@@ -98,6 +117,31 @@ const BusinessSettings = () => {
 
         {selectedAdminId ? (
           <>
+            <div className="relative">
+              <Search size={14} className="pointer-events-none absolute left-2.5 top-2 text-slate-400" />
+              <input
+                value={find}
+                onChange={(e) => setFind(e.target.value)}
+                placeholder="Search settings (e.g. spec, negative stock, print)"
+                className="h-8 w-full rounded-md border border-slate-300 bg-white pl-8 pr-3 text-[13px] outline-none focus:border-indigo-500"
+              />
+              {find && (
+                <div className="absolute z-20 mt-1 w-full rounded-md border border-slate-200 bg-white shadow-lg">
+                  {found.length ? found.map((e) => (
+                    <button
+                      key={e.label}
+                      type="button"
+                      onClick={() => { setTab(e.tab); setTarget(e.section); setFind(""); }}
+                      className="flex w-full items-center justify-between px-3 py-1.5 text-left text-[13px] hover:bg-slate-50"
+                    >
+                      <span className="text-slate-800">{e.label}</span>
+                      <span className="text-[11px] text-slate-500">{SETTINGS_TABS.find((t) => t[0] === e.tab)?.[1]} › {e.section}</span>
+                    </button>
+                  )) : <div className="px-3 py-2 text-[12px] text-slate-500">No setting matches.</div>}
+                </div>
+              )}
+            </div>
+
             {/* Tabs */}
             <div className="flex gap-1 overflow-x-auto overflow-y-hidden border-b border-slate-200 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
               {visibleTabs.map(([key, label]) => (
@@ -115,8 +159,10 @@ const BusinessSettings = () => {
               ))}
             </div>
 
-            {tab === "general" && (
+            {(tab === "general" || tab === "print" || tab === "ai") && (
               <GeneralTab
+                key={tab}
+                view={tab}
                 adminId={selectedAdminId}
                 dispatch={dispatch}
                 allowedModules={adminsData?.getAdmins?.find((a: any) => a.id === selectedAdminId)?.allowedmodules ?? admin?.allowedmodules}
@@ -136,6 +182,14 @@ const BusinessSettings = () => {
                   adminsData?.getAdmins?.find((a: any) => a.id === selectedAdminId)?.allowedmodules
                   ?? admin?.allowedmodules
                 }
+              />
+            )}
+            {tab === "formpermissions" && (
+              <GeneralTab
+                view="formpermissions"
+                adminId={selectedAdminId}
+                dispatch={dispatch}
+                allowedModules={adminsData?.getAdmins?.find((a: any) => a.id === selectedAdminId)?.allowedmodules ?? admin?.allowedmodules}
               />
             )}
             {tab === "formpermissions" && (
@@ -182,10 +236,11 @@ const defaultSmtpPort = (host: string): number => {
   return 465;
 };
 
-const GeneralTab: React.FC<{ adminId?: string; dispatch: any; allowedModules?: string[] | null }> = ({
+const GeneralTab: React.FC<{ adminId?: string; dispatch: any; allowedModules?: string[] | null; view?: SettingsTab | null }> = ({
   adminId,
   dispatch,
   allowedModules,
+  view = null,
 }) => {
   const { admin: loggedInAdmin } = useAppSelector((s: any) => s.auth);
   const { data, refetch } = useAdminSettingsQuery(adminId);
@@ -257,8 +312,9 @@ const GeneralTab: React.FC<{ adminId?: string; dispatch: any; allowedModules?: s
     : [];
 
   return (
+    <ViewContext.Provider value={view}>
     <div className="space-y-3">
-      {stockWarnings.length > 0 && (
+      {(!view || view === "general") && stockWarnings.length > 0 && (
         <div className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-[13px] text-amber-900">
           <div className="font-semibold">
             Sales Invoice is off ({hasModule("payments") ? "Orders + Payments" : "Orders only"}), but stock settings are still on
@@ -453,18 +509,21 @@ const GeneralTab: React.FC<{ adminId?: string; dispatch: any; allowedModules?: s
           <FormField label="Default terms & conditions" type="text" name="q-terms" multiline value={draft.quoteTerms ?? ""}
             placeholder={"1. Prices are ex-works.\n2. GST extra as applicable.\n3. Delivery: 2-3 weeks from order."} onChange={(e: any) => set("quoteTerms", e.target.value)} />
           <FormField label="Footer" type="text" name="q-footer" value={draft.quoteFooter ?? ""} placeholder="Bank details, website, thank-you line" onChange={(e: any) => set("quoteFooter", e.target.value)} />
-          <div className="border-t border-slate-200 pt-2">
-            <h4 className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-500">Extra Fields (Product / Lead)</h4>
-            <CustomFieldEditor draft={draft} set={set} />
-          </div>
+        </Section>
+      )}
+
+      <Section title="Form Extras">
+        <h4 className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-500">Extra Fields (Product / Lead)</h4>
+        <CustomFieldEditor draft={draft} set={set} />
+        <Grid>
           <Toggle label="Spec fields per category" checked={draft.productSpecsOn}
             hint="Each category defines its own specs (size, grade, rating); products fill them in per variant."
             onChange={(v) => set("productSpecsOn", v)} />
           <Toggle label="Extra product fields" checked={draft.productExtrasOn}
             hint="Minimum order qty, sale multiples, warranty months, alternate items, what a spare fits, and documents."
             onChange={(v) => set("productExtrasOn", v)} />
-        </Section>
-      )}
+        </Grid>
+      </Section>
 
       <Section title="Invoice Print">
         <Grid>
@@ -694,10 +753,17 @@ const GeneralTab: React.FC<{ adminId?: string; dispatch: any; allowedModules?: s
         </p>
       </Section>
 
+      {view === "ai" && !hasModule("crmdashboard") && (
+        <div className="rounded-lg border border-slate-200 bg-white py-4 text-center text-[13px] text-slate-500">
+          AI settings appear when the CRM Dashboard module is on for this business.
+        </div>
+      )}
+
       <div className="flex justify-end">
-        <Button variant="outline" onClick={handleSave}>Save Business Settings</Button>
+        <Button variant="outline" onClick={handleSave}>{view === "formpermissions" ? "Save Form Extras" : "Save Business Settings"}</Button>
       </div>
     </div>
+    </ViewContext.Provider>
   );
 };
 
@@ -1101,12 +1167,16 @@ const CrmSettings: React.FC<{ draft: any; set: (k: string, v: any) => void }> = 
   );
 };
 
-const Section: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (
-  <div className="rounded-lg border border-slate-200 bg-white p-3">
-    <div className="text-[13px] font-semibold mb-2 text-slate-900">{title}</div>
-    <div className="space-y-2">{children}</div>
-  </div>
-);
+const Section: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => {
+  const view = useContext(ViewContext);
+  if (view && (SECTION_HOME[title] || "general") !== view) return null;
+  return (
+    <div id={sectionId(title)} className="scroll-mt-4 rounded-lg border border-slate-200 bg-white p-3 transition-shadow">
+      <div className="text-[13px] font-semibold mb-2 text-slate-900">{title}</div>
+      <div className="space-y-2">{children}</div>
+    </div>
+  );
+};
 
 /** 4 switches per row on wide screens, 2 on tablets, 1 on phones. */
 const Grid: React.FC<{ children: React.ReactNode }> = ({ children }) => (
