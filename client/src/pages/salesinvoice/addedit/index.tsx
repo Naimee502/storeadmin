@@ -120,6 +120,7 @@ const AddEditSalesInvoice = () => {
   const salesInvoices = useMemo(() => billSourceData?.getSalesInvoices || [], [billSourceData]);
 
   const [otherCharges, setOtherCharges] = useState<OtherCharge[]>([]);
+  const [showCharges, setShowCharges] = useState(false);
   const [deliveryDate, setDeliveryDate] = useState("");
   const [dueDate, setDueDate] = useState("");
   const [transportName, setTransportName] = useState("");
@@ -899,11 +900,16 @@ const AddEditSalesInvoice = () => {
           />
 
           {/* Transport & Delivery */}
-          {(isFieldEnabled("deliverydate") || isFieldEnabled("duedate") || isFieldEnabled("transportname") || isFieldEnabled("vehiclenumber") || isFieldEnabled("ewaybill") || isFieldEnabled("distance")) && (
+          {(() => {
+            // Service bills skip goods-only fields unless an old bill already has them.
+            const on = (id: string, v: any) => isFieldEnabled(id) && (!isService || !!v);
+            const tOn = { deliverydate: on("deliverydate", deliveryDate), transportname: on("transportname", transportName), vehiclenumber: on("vehiclenumber", vehicleNumber), ewaybill: on("ewaybill", ewayBillNo), distance: on("distance", distance) };
+            return (
+          (tOn.deliverydate || isFieldEnabled("duedate") || tOn.transportname || tOn.vehiclenumber || tOn.ewaybill || tOn.distance) && (
           <fieldset className="border rounded-xl p-4 space-y-4">
-            <legend className="text-sm font-medium px-2">Transport & Delivery</legend>
+            <legend className="text-sm font-medium px-2">{isService && !tOn.transportname && !tOn.vehiclenumber ? "Payment Terms" : "Transport & Delivery"}</legend>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 xl:grid-cols-6">
-              {isFieldEnabled("deliverydate") && <FormField
+              {tOn.deliverydate && <FormField
                 label="Delivery Date"
                 name="deliveryDate"
                 type="date"
@@ -917,7 +923,7 @@ const AddEditSalesInvoice = () => {
                 value={dueDate}
                 onChange={(e) => setDueDate(e.target.value)}
               />}
-              {isFieldEnabled("transportname") && <FormField
+              {tOn.transportname && <FormField
                 label="Transport Name"
                 name="transportName"
                 type="text"
@@ -925,7 +931,7 @@ const AddEditSalesInvoice = () => {
                 value={transportName}
                 onChange={(e) => setTransportName(e.target.value)}
               />}
-              {isFieldEnabled("vehiclenumber") && <FormField
+              {tOn.vehiclenumber && <FormField
                 label="Vehicle Number"
                 name="vehicleNumber"
                 type="text"
@@ -933,14 +939,14 @@ const AddEditSalesInvoice = () => {
                 value={vehicleNumber}
                 onChange={(e) => setVehicleNumber(e.target.value)}
               />}
-              {isFieldEnabled("ewaybill") && <FormField
+              {tOn.ewaybill && <FormField
                 label="E-Way Bill No."
                 name="ewayBillNo"
                 type="text"
                 value={ewayBillNo}
                 onChange={(e) => setEwayBillNo(e.target.value)}
               />}
-              {isFieldEnabled("distance") && <FormField
+              {tOn.distance && <FormField
                 label="Distance (km)"
                 name="distance"
                 type="number"
@@ -949,14 +955,21 @@ const AddEditSalesInvoice = () => {
               />}
             </div>
           </fieldset>
-          )}
+          ));
+          })()}
 
-          {/* Other Charges */}
-          <OtherChargesSection
-            otherCharges={otherCharges}
-            setOtherCharges={setOtherCharges}
-            type="sales"
-          />
+          {/* Other Charges; on a service bill only when added or asked for. */}
+          {!isService || showCharges || otherCharges.length > 0 ? (
+            <OtherChargesSection
+              otherCharges={otherCharges}
+              setOtherCharges={setOtherCharges}
+              type="sales"
+            />
+          ) : (
+            <button type="button" onClick={() => setShowCharges(true)} className="self-start text-[13px] font-medium text-indigo-600 hover:underline">
+              + Other Charges (visit fee, travel)
+            </button>
+          )}
 
           {/* Summary */}
           {(isFieldEnabled("productstotal") || isFieldEnabled("totaldiscount") || isFieldEnabled("taxamount") || isFieldEnabled("summary_othercharges") || isFieldEnabled("invoicediscount") || isFieldEnabled("roundoff") || isFieldEnabled("grandtotal") || isFieldEnabled("received")) && (

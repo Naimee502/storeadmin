@@ -116,6 +116,9 @@ const ProductSection: React.FC<ProductSectionProps> = ({
   originalProducts,
 }) => {
   const normalizedProducts = productData.map(normalizeProduct);
+  const lineLabel = (p: any, v: any) => p?.isservice ? `${p?.name} - ${v?.name}` : `${p?.name} - ${v?.name} - (Stock: ${v?.currentstock ?? 0})`;
+  // Services have no unit; the column shows only when a goods line is on the bill.
+  const showUnit = type === "sales" && products.some((x) => !normalizedProducts.find((pd) => pd.id === x.productserviceid)?.isservice);
   // Product picker options; on sales forms nothing-in-stock items go to the bottom.
   const variantOptions = (() => {
     // Services only on a service bill (listed first); a goods bill lists goods as before.
@@ -912,7 +915,7 @@ const ProductSection: React.FC<ProductSectionProps> = ({
               <thead>
                 <tr>
                   <th className="border border-slate-200 bg-slate-50 px-2 py-1.5 text-[10.5px] font-semibold uppercase text-slate-500 w-80">Name</th>
-                  {type === "sales" && (<th className="border border-slate-200 bg-slate-50 px-2 py-1.5 text-[10.5px] font-semibold uppercase text-slate-500 w-20">Unit</th>)}
+                  {showUnit && (<th className="border border-slate-200 bg-slate-50 px-2 py-1.5 text-[10.5px] font-semibold uppercase text-slate-500 w-20">Unit</th>)}
                   {isFieldEnabled("quantity") && (<th className="border border-slate-200 bg-slate-50 px-2 py-1.5 text-[10.5px] font-semibold uppercase text-slate-500 w-16">Qty</th>)}
                   {isFieldEnabled("rate") && (<th className="border border-slate-200 bg-slate-50 px-2 py-1.5 text-[10.5px] font-semibold uppercase text-slate-500 w-24">Rate</th>)}
                   {isFieldEnabled("discount") && (<th className="border border-slate-200 bg-slate-50 px-2 py-1.5 text-[10.5px] font-semibold uppercase text-slate-500 w-20">Disc</th>)}
@@ -960,7 +963,7 @@ const ProductSection: React.FC<ProductSectionProps> = ({
                               value={normalizedProducts.flatMap((prod) =>
                                 prod.productvariants.map((v: any) => ({
                                   value: `${prod.id}--${v.id}`,
-                                  label: `${prod.name} - ${v.name} - (Stock: ${v.currentstock ?? 0})`,
+                                  label: lineLabel(prod, v),
                                 }))
                               ).find((opt) => opt.value === `${p.productserviceid}--${p.variantid}`) || null}
                               onChange={(selected: any) => {
@@ -1008,7 +1011,7 @@ const ProductSection: React.FC<ProductSectionProps> = ({
                             }}
                             style={{ cursor: "pointer" }}
                           >
-                            {product?.name} - {variant?.name} - (Stock: {variant?.currentstock ?? 0})
+                            {lineLabel(product, variant)}
                             {shortfall && (
                               <div className="text-xs font-medium text-red-600 mt-1">
                                 Not enough stock — ordered {shortfall.required}, available{" "}
@@ -1022,9 +1025,11 @@ const ProductSection: React.FC<ProductSectionProps> = ({
                     </td>
 
                     {/* Unit (Sales only) - Double-click to edit */}
-                    {type === "sales" && (
+                    {showUnit && (
                       <td className="border border-slate-200 px-2 py-1 w-20 truncate text-center">
-                        {editingCell?.rowIndex === i && editingCell?.field === "unit" ? (
+                        {product?.isservice ? (
+                          <span className="text-slate-400">—</span>
+                        ) : editingCell?.rowIndex === i && editingCell?.field === "unit" ? (
                           <select
                             autoFocus
                             // Driven by the row itself, so box and saved line always match.
@@ -1270,7 +1275,7 @@ const ProductSection: React.FC<ProductSectionProps> = ({
               <tfoot>
                 <tr className="bg-indigo-50/60 font-semibold">
                   <td className="border border-slate-200 px-2 py-1 w-80 text-right">Total</td>
-                  {type === "sales" && <td className="border border-slate-200 px-2 py-1 w-20 text-center">—</td>}
+                  {showUnit && <td className="border border-slate-200 px-2 py-1 w-20 text-center">—</td>}
                   {isFieldEnabled("quantity") && (
                     <td className="border border-slate-200 px-2 py-1 w-16 text-center">
                       {products.reduce((t, x) => t + (Number(x.quantity) || 0), 0).toFixed(2)}
