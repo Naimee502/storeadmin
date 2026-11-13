@@ -6,6 +6,7 @@ import Button from "../../components/button";
 import registerImage from "../../assets/images/login.jpg";
 import { useCreateAdminMutation } from "../../graphql/hooks/admin";
 import { ADMIN_REGISTER_MODULES } from "../../config/modules";
+import { profileForType, profileModules } from "../../config/profiles";
 
 const AdminRegister = () => {
   const navigate = useNavigate();
@@ -22,8 +23,12 @@ const AdminRegister = () => {
   const [subscription, setSubscription] = useState("monthly");
   const [businesstype, setBusinesstype] = useState("retail");
 
-  // All modules are enabled on registration; managed later in Business Settings.
+  // The business type's profile decides the starting modules; other types start with everything.
   const allModules = ADMIN_REGISTER_MODULES.map((m) => m.id);
+  const startModules = (type: string) => {
+    const p = profileForType(type);
+    return p ? profileModules(p) : allModules;
+  };
 
   const [emailError, setEmailError] = useState("");
   const [passwordError, setPasswordError] = useState("");
@@ -89,8 +94,7 @@ const AdminRegister = () => {
             noOfBranches: Number(noOfBranches),
             subscriptionType: subscription,
             businesstype,
-            // All modules enabled by default — restricted later via Business Settings
-            allowedmodules: allModules,
+            allowedmodules: startModules(businesstype),
           },
         },
       });

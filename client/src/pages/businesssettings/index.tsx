@@ -31,6 +31,7 @@ import {
 } from "../../config/modules";
 import FormPermissionsTab from "./formpermissionstab";
 import { SETTINGS_TABS, SECTION_HOME, sectionId, searchSettings, type SettingsTab } from "../../config/settings";
+import { BUSINESS_PROFILES, profileModules, profileForType } from "../../config/profiles";
 import { LeadSourcesPanel } from "../leadsources";
 import { stateOptions } from "../../utils/constants";
 import { DEFAULT_LOST_REASONS, DEFAULT_SOURCES, DEFAULT_STAGES, type CrmStage } from "../../graphql/hooks/lead";
@@ -811,6 +812,17 @@ const ModulesTab: React.FC<{ adminId?: string; dispatch: any }> = ({
     return out;
   }, [settings]);
 
+  // Business profile: preview what turns on, then add it to the draft (nothing is turned off).
+  const [profileId, setProfileId] = useState<string>("");
+  useEffect(() => { setProfileId(profileForType(targetAdmin?.businesstype)?.id || ""); }, [targetAdmin?.businesstype]);
+  const profile = BUSINESS_PROFILES.find((p) => p.id === profileId);
+  const willTurnOn = useMemo(() => {
+    if (!profile) return [] as string[];
+    const eligible = new Set(allCatalogIds);
+    return profileModules(profile).filter((id) => eligible.has(id) && !draft.includes(id) && !featureDisabledIds.has(id));
+  }, [profile, draft, allCatalogIds, featureDisabledIds]);
+  const labelOf = (id: string) => MODULES.find((m) => m.id === id)?.label || id;
+
   const toggleOne = (id: string) => {
     setDirty(true);
     setDraft((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
@@ -839,6 +851,26 @@ const ModulesTab: React.FC<{ adminId?: string; dispatch: any }> = ({
 
   return (
     <div className="space-y-3">
+      <div className="rounded-lg border border-indigo-200 bg-indigo-50/40 p-3 space-y-2">
+        <div className="text-[13px] font-semibold text-slate-900">Business Profile</div>
+        <div className="grid grid-cols-1 gap-2 md:grid-cols-3 md:items-end">
+          <FormField label="Profile" type="select" name="profile" value={profileId} searchable
+            options={BUSINESS_PROFILES.map((p) => ({ value: p.id, label: p.label }))}
+            onChange={(e: any) => setProfileId(e.target.value || "")} />
+          <div className="md:col-span-2 text-[12px] text-slate-600">{profile?.note || "Pick a profile to see which modules it turns on."}</div>
+        </div>
+        {profile && (
+          willTurnOn.length ? (
+            <div className="space-y-2">
+              <div className="text-[12px] text-slate-700">Will turn on ({willTurnOn.length}): {willTurnOn.map(labelOf).join(", ")}</div>
+              <div className="flex items-center gap-2">
+                <Button onClick={() => { setDraft((prev) => Array.from(new Set([...prev, ...willTurnOn]))); setDirty(true); }}>Apply Profile</Button>
+                <span className="text-[11px] text-slate-500">Nothing is turned off. Review below, then Save Business Modules.</span>
+              </div>
+            </div>
+          ) : <div className="text-[12px] text-emerald-700">Every module of this profile is already on.</div>
+        )}
+      </div>
       {Object.entries(grouped).map(([section, items]) => (
         <div key={section} className="rounded-lg border border-slate-200 bg-white p-3">
           <div className="flex items-center justify-between mb-2">
