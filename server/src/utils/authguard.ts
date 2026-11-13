@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import mongoose, { Types } from "mongoose";
 import { resolveTenant, TenantError } from "./tenant";
+import { isActionAllowed } from "./permissiongate";
 
 // Callable without a login: sign-in, sign-up and storefront reads.
 const PUBLIC = new Set([
@@ -46,10 +47,51 @@ own("SalesOrder", ["editSalesOrder", "deleteSalesOrder", "resetSalesOrder"]);
 own("SalesReturn", ["editSalesReturn", "deleteSalesReturn", "resetSalesReturn"]);
 own("SalesRoute", ["updateSalesRoute", "deleteSalesRoute", "resetSalesRoute", "updateSalesRouteStatus"]);
 own("StaffAccount", ["editStaffAccount", "deleteStaffAccount", "resetStaffAccount"]);
-own("StockAdjustment", ["editStockAdjustment", "deleteStockAdjustment", "cancelStockAdjustment", "resetStockAdjustment"]);
+own("StockAdjustment", ["updateStockAdjustment", "deleteStockAdjustment", "cancelStockAdjustment", "resetStockAdjustment"]);
 own("Transaction", ["editTransaction", "deleteTransaction", "resetTransaction"]);
 own("TransferStock", ["editTransferStock", "deleteTransferStock", "resetTransferStock"]);
 own("Visit", ["editVisit", "deleteVisit"]);
+
+// Admin-panel mutations checked against the login's module permissions (the app's own calls are not listed).
+const ACTION: Record<string, [string, string]> = {};
+const act = (module: string, pairs: Record<string, string>) =>
+  Object.entries(pairs).forEach(([field, action]) => (ACTION[field] = [module, action]));
+const crud = (module: string, add: string, edit: string, del: string, reset: string) =>
+  act(module, { [add]: "add", [edit]: "edit", [del]: "delete", [reset]: "reset" });
+crud("categories", "addCategory", "editCategory", "deleteCategory", "resetCategory");
+crud("subcategories", "addSubCategory", "editSubCategory", "deleteSubCategory", "resetSubCategory");
+act("categories", { reorderCategories: "rearrange" });
+act("subcategories", { reorderSubCategories: "rearrange" });
+crud("brands", "addBrand", "editBrand", "deleteBrand", "resetBrand");
+crud("models", "addModel", "editModel", "deleteModel", "resetModel");
+crud("productgroups", "addProductGroup", "editProductGroup", "deleteProductGroup", "resetProductGroup");
+crud("sizes", "addSize", "editSize", "deleteSize", "resetSize");
+crud("units", "addUnit", "editUnit", "deleteUnit", "resetUnit");
+crud("accountgroups", "addAccountGroup", "editAccountGroup", "deleteAccountGroup", "resetAccountGroup");
+crud("accountledgers", "addAccountLedger", "editAccountLedger", "deleteAccountLedger", "resetAccountLedger");
+crud("staffaccounts", "addStaffAccount", "editStaffAccount", "deleteStaffAccount", "resetStaffAccount");
+crud("branches", "addBranch", "editBranch", "deleteBranch", "resetBranch");
+act("branches", { addBranches: "add" });
+act("accounts", { deleteAccount: "delete", resetAccount: "reset" });
+crud("transferstock", "addTransferStock", "editTransferStock", "deleteTransferStock", "resetTransferStock");
+crud("stockadjustments", "createStockAdjustment", "updateStockAdjustment", "deleteStockAdjustment", "resetStockAdjustment");
+act("stockadjustments", { cancelStockAdjustment: "edit" });
+crud("purchaseorder", "addPurchaseOrder", "editPurchaseOrder", "deletePurchaseOrder", "resetPurchaseOrder");
+act("purchaseorder", { cancelPurchaseOrder: "cancel", reopenPurchaseOrder: "cancel", confirmPurchaseOrder: "edit", markPurchaseOrderReceived: "edit" });
+crud("purchaseinvoice", "addPurchaseInvoice", "editPurchaseInvoice", "deletePurchaseInvoice", "resetPurchaseInvoice");
+act("purchaseinvoice", { cancelPurchaseInvoice: "edit", reopenPurchaseInvoice: "edit", convertPurchaseOrderToInvoice: "add" });
+crud("purchasereturn", "addPurchaseReturn", "editPurchaseReturn", "deletePurchaseReturn", "resetPurchaseReturn");
+act("salesinvoice", { deleteSalesInvoice: "delete", resetSalesInvoice: "reset" });
+act("salesreturn", { editSalesReturn: "edit", deleteSalesReturn: "delete", resetSalesReturn: "reset" });
+act("salesorder", { resetSalesOrder: "reset" });
+act("payments", { editPayment: "edit", deletePayment: "delete", resetPayment: "reset", reallocatePayment: "edit" });
+act("transactions", { editTransaction: "edit", deleteTransaction: "delete", resetTransaction: "reset" });
+crud("channels", "createChannel", "updateChannel", "deleteChannel", "resetChannel");
+act("salesroutes", { createSalesRoute: "add", deleteSalesRoute: "delete", resetSalesRoute: "reset", updateSalesRouteStatus: "edit" });
+crud("pricelists", "createPriceList", "updatePriceList", "deletePriceList", "resetPriceList");
+crud("priceassignments", "createPriceAssignment", "updatePriceAssignment", "deletePriceAssignment", "resetPriceAssignment");
+crud("chargerules", "addChargeRule", "editChargeRule", "deleteChargeRule", "resetChargeRule");
+crud("expensenote", "addExpenseNote", "editExpenseNote", "deleteExpenseNote", "resetExpenseNote");
 
 // Fields that take the business id as an argument instead of a record id.
 const ADMIN_ARG: Record<string, string> = {
@@ -109,6 +151,19 @@ const check = async (field: string, args: any, context: any) => {
   if (field === "updateAdminById") {
     if (context.user.type !== "admin" || String(args?.id) !== String(context.user.id)) throw denied();
     return;
+  }
+
+  if (ACTION[field]) {
+    const [module, action] = ACTION[field];
+    const scope = await resolveTenant(context, { backofficeOnly: true });
+    const where = {
+      adminid: scope.adminid,
+      branchid: scope.userType === "admin" ? undefined : scope.branchid,
+      staffid: scope.userType === "staff" ? scope.userId : undefined,
+    };
+    if (!(await isActionAllowed(module, action, where))) {
+      throw denied(`You do not have ${action} permission for this screen. Ask the business owner to allow it.`);
+    }
   }
 
   if (OWNED[field] && args?.id != null) {
