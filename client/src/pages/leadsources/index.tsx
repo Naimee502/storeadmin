@@ -11,16 +11,10 @@ import { GET_LEAD_INBOX, GET_LEAD_SOURCES } from "../../graphql/queries/lead";
 import { PULL_LEAD_SOURCE_NOW, REGENERATE_LEAD_SOURCE_LINK, RETRY_LEAD_INBOX, SAVE_LEAD_SOURCE, TEST_LEAD_SOURCE } from "../../graphql/mutations/lead";
 import { formatDateTimeDMY } from "../../utils/helper";
 
-type Lang = "en" | "hi" | "gu";
-const LANGS: Array<[Lang, string]> = [["en", "English"], ["hi", "हिंदी"], ["gu", "ગુજરાતી"]];
-
 type Info = {
   title: string;
   about: string;
   steps: string[];
-  // Same steps in Hindi and Gujarati (step count matches `steps`).
-  hi?: string[];
-  gu?: string[];
   // Optional 1-minute help video for this portal.
   video?: string;
   link?: boolean;
@@ -39,16 +33,6 @@ const INFO: Record<string, Info> = {
       "Choose “Other”, platform name “Rudra”, and paste the link below. Confirm with the OTP.",
       "Optional backup: generate the Pull API key there and paste it below; we fetch every 15 minutes.",
     ],
-    hi: [
-      "seller.indiamart.com पर लॉगिन करें → Lead Manager → ⋮ → Import/Export Leads → Push API.",
-      "“Other” चुनें, platform का नाम “Rudra” लिखें और नीचे वाला लिंक पेस्ट करें। OTP से पक्का करें।",
-      "चाहें तो वहीं Pull API key बनाकर नीचे डालें; हम हर 15 मिनट में लीड लाएंगे।",
-    ],
-    gu: [
-      "seller.indiamart.com પર લૉગિન કરો → Lead Manager → ⋮ → Import/Export Leads → Push API.",
-      "“Other” પસંદ કરો, platform નું નામ “Rudra” લખો અને નીચેની લિંક પેસ્ટ કરો. OTP થી પાકું કરો.",
-      "ઇચ્છો તો ત્યાં જ Pull API key બનાવી નીચે મૂકો; અમે દર 15 મિનિટે લીડ લાવીશું.",
-    ],
     link: true,
     pull: true,
     keys: [{ k: "key1", label: "CRM Pull API Key (optional)" }],
@@ -57,8 +41,6 @@ const INFO: Record<string, Info> = {
     title: "TradeIndia",
     about: "Enquiries are fetched every 15 minutes with your Inquiry API details. Needs a paid TradeIndia seller account.",
     steps: ["TradeIndia seller panel → My Profile → Inquiries & Contacts → My Inquiry API.", "Copy the User ID, Profile ID and Key into the boxes below and save."],
-    hi: ["TradeIndia seller panel → My Profile → Inquiries & Contacts → My Inquiry API.", "User ID, Profile ID और Key नीचे के बॉक्स में डालें और Save दबाएं।"],
-    gu: ["TradeIndia seller panel → My Profile → Inquiries & Contacts → My Inquiry API.", "User ID, Profile ID અને Key નીચેના બોક્સમાં મૂકો અને Save દબાવો."],
     pull: true,
     keys: [{ k: "key1", label: "User ID" }, { k: "key2", label: "Profile ID" }, { k: "key3", label: "Key" }],
   },
@@ -66,8 +48,6 @@ const INFO: Record<string, Info> = {
     title: "JustDial",
     about: "JustDial sets the link up on their side; you send it to your JustDial account manager.",
     steps: ["Copy the ready message below and send it to your JustDial account manager.", "Once they confirm, every JustDial lead lands here as a new lead."],
-    hi: ["नीचे का तैयार मैसेज कॉपी करें और अपने JustDial account manager को भेजें।", "वो हाँ बोल दें, उसके बाद हर JustDial लीड यहाँ नई लीड बनकर आएगी।"],
-    gu: ["નીચેનો તૈયાર મેસેજ કૉપિ કરો અને તમારા JustDial account manager ને મોકલો.", "તેઓ હા પાડે પછી દરેક JustDial લીડ અહીં નવી લીડ તરીકે આવશે."],
     link: true,
   },
   meta: {
@@ -78,16 +58,6 @@ const INFO: Record<string, Info> = {
       "Make a Page access token with leads_retrieval and pages_manage_ads, and paste it below.",
       "Test it with Meta’s Lead Ads Testing Tool.",
     ],
-    hi: [
-      "अपने Meta app (developers.facebook.com) → Webhooks → Page → “leadgen” को नीचे के लिंक और verify token के साथ subscribe करें।",
-      "leads_retrieval और pages_manage_ads वाला Page access token बनाकर नीचे डालें।",
-      "Meta के Lead Ads Testing Tool से जाँच करें।",
-    ],
-    gu: [
-      "તમારી Meta app (developers.facebook.com) → Webhooks → Page → “leadgen” ને નીચેની લિંક અને verify token સાથે subscribe કરો.",
-      "leads_retrieval અને pages_manage_ads વાળો Page access token બનાવી નીચે મૂકો.",
-      "Meta ના Lead Ads Testing Tool થી ચકાસો.",
-    ],
     link: true,
     verify: true,
     keys: [{ k: "key1", label: "Page Access Token" }],
@@ -96,8 +66,6 @@ const INFO: Record<string, Info> = {
     title: "WhatsApp (Cloud API)",
     about: "Every new chat on your WhatsApp Business number becomes a lead; Click-to-WhatsApp ad details are kept as the campaign.",
     steps: ["Meta app → WhatsApp → Configuration → Webhook: paste the link and verify token below.", "Subscribe to the “messages” field."],
-    hi: ["Meta app → WhatsApp → Configuration → Webhook: नीचे का लिंक और verify token पेस्ट करें।", "“messages” field को subscribe करें।"],
-    gu: ["Meta app → WhatsApp → Configuration → Webhook: નીચેની લિંક અને verify token પેસ્ટ કરો.", "“messages” field ને subscribe કરો."],
     link: true,
     verify: true,
   },
@@ -105,16 +73,12 @@ const INFO: Record<string, Info> = {
     title: "Website Form",
     about: "Any website (yours, WordPress, Wix) can send its enquiry form here. Paste the code below into the page.",
     steps: ["Copy the form code below into your website’s HTML.", "Fields used: name, mobile, email, city, product, message."],
-    hi: ["नीचे का form code अपनी वेबसाइट के HTML में डालें।", "इस्तेमाल होने वाले field: name, mobile, email, city, product, message."],
-    gu: ["નીચેનો form code તમારી વેબસાઇટના HTML માં મૂકો.", "વપરાતા field: name, mobile, email, city, product, message."],
     link: true,
   },
   webhook: {
     title: "Other Portal (Webhook)",
     about: "For Exporters India, Google Ads lead forms, Zapier, Pabbly or any app that can send a webhook.",
     steps: ["Send a POST (JSON or form) to the link below with fields name, mobile, email, city, product, message."],
-    hi: ["नीचे वाले लिंक पर POST (JSON या form) भेजें, field: name, mobile, email, city, product, message."],
-    gu: ["નીચેની લિંક પર POST (JSON કે form) મોકલો, field: name, mobile, email, city, product, message."],
     link: true,
   },
 };
@@ -146,7 +110,7 @@ const STATUS: Record<string, [string, string]> = {
   problem: ["Problem", "bg-rose-50 text-rose-700"],
 };
 
-function SourceCard({ cfg, staffOptions, adminid, lang }: { cfg: any; staffOptions: { value: string; label: string }[]; adminid?: string; lang: Lang }) {
+function SourceCard({ cfg, staffOptions, adminid }: { cfg: any; staffOptions: { value: string; label: string }[]; adminid?: string }) {
   const dispatch = useAppDispatch();
   const info = INFO[cfg.source];
   const refetchQueries = ["GetLeadSources", "GetLeadInbox", "GetLeadsPage", "GetLeads", "GetFollowups"];
@@ -160,7 +124,7 @@ function SourceCard({ cfg, staffOptions, adminid, lang }: { cfg: any; staffOptio
   const [testResult, setTestResult] = useState<{ ok: boolean; text: string } | null>(null);
   useEffect(() => setOwners(cfg.ownerids || []), [cfg.ownerids]);
   if (!info) return null;
-  const steps = (lang !== "en" && info[lang]?.length ? info[lang] : info.steps) as string[];
+  const steps = info.steps;
   const [statusLabel, statusClass] = STATUS[cfg.status || (cfg.enabled ? "waiting" : "off")] || STATUS.off;
   const runTest = async () => {
     setTestResult(null);
@@ -226,7 +190,7 @@ function SourceCard({ cfg, staffOptions, adminid, lang }: { cfg: any; staffOptio
           </label>
         </div>
       </div>
-      {/* One step at a time, big number, in the chosen language. */}
+      {/* One step at a time, big number. */}
       <div className="flex items-start gap-3 rounded-md border border-indigo-100 bg-indigo-50/40 p-3">
         <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-indigo-600 text-[16px] font-bold text-white">{step + 1}</div>
         <div className="min-w-0 flex-1 space-y-2">
@@ -316,13 +280,6 @@ export const LeadSourcesPanel = ({ adminid, title }: { adminid?: string; title?:
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const [tab, setTab] = useState<"sources" | "inbox">("sources");
-  const [lang, setLangState] = useState<Lang>(() => {
-    try { return (localStorage.getItem("leadSourceLang") as Lang) || "en"; } catch { return "en"; }
-  });
-  const setLang = (l: Lang) => {
-    setLangState(l);
-    try { localStorage.setItem("leadSourceLang", l); } catch { /* remembered for this visit only */ }
-  };
   const [result, setResult] = useState("");
   const { data, loading, error } = useQuery(GET_LEAD_SOURCES, { variables: { adminid }, fetchPolicy: "network-only" });
   const { data: inbox } = useQuery(GET_LEAD_INBOX, { variables: { adminid, result: result || undefined, limit: 200 }, skip: tab !== "inbox", fetchPolicy: "network-only" });
@@ -334,12 +291,6 @@ export const LeadSourcesPanel = ({ adminid, title }: { adminid?: string; title?:
     <>
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
           {title ? <h1 className="text-[15px] font-semibold text-slate-800">{title}</h1> : <span />}
-          <div className="inline-flex h-8 overflow-hidden rounded-md border border-slate-300 text-[13px]" aria-label="Steps language">
-            {LANGS.map(([l, label]) => (
-              <button key={l} type="button" onClick={() => setLang(l)}
-                className={`px-3 ${lang === l ? "bg-slate-900 text-white" : "bg-white text-slate-700 hover:bg-slate-50"}`}>{label}</button>
-            ))}
-          </div>
           <div className="inline-flex h-8 overflow-hidden rounded-md border border-slate-300 text-[13px]">
             {(["sources", "inbox"] as const).map((t) => (
               <button key={t} type="button" onClick={() => setTab(t)}
@@ -358,7 +309,7 @@ export const LeadSourcesPanel = ({ adminid, title }: { adminid?: string; title?:
             {loading && <div className="text-[13px] text-slate-500">Loading…</div>}
             {error && <div className="text-[13px] text-rose-600">{error.message}</div>}
             <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
-              {(data?.getLeadSources || []).map((cfg: any) => <SourceCard key={cfg.source} cfg={cfg} staffOptions={staffOptions} adminid={adminid} lang={lang} />)}
+              {(data?.getLeadSources || []).map((cfg: any) => <SourceCard key={cfg.source} cfg={cfg} staffOptions={staffOptions} adminid={adminid} />)}
             </div>
           </>
         ) : (
