@@ -1,10 +1,10 @@
 // Browser voice (free): speech-to-text and text-to-speech in the chosen language.
-export type AiLang = "en" | "hi" | "gu" | "hinglish";
-export const AI_LANGS: Array<[AiLang, string]> = [["en", "English"], ["hi", "हिंदी"], ["gu", "ગુજરાતી"], ["hinglish", "Hinglish"]];
-const BCP: Record<AiLang, string> = { en: "en-IN", hi: "hi-IN", gu: "gu-IN", hinglish: "hi-IN" };
+export type AiLang = "en" | "hi" | "gu";
+export const AI_LANGS: Array<[AiLang, string]> = [["en", "English"], ["hi", "हिंदी"], ["gu", "ગુજરાતી"]];
+const BCP: Record<AiLang, string> = { en: "en-IN", hi: "hi-IN", gu: "gu-IN" };
 
 export const getAiLang = (): AiLang => {
-  try { return (localStorage.getItem("aiLang") as AiLang) || "en"; } catch { return "en"; }
+  try { const l = localStorage.getItem("aiLang") as AiLang; return l && l in BCP ? l : "en"; } catch { return "en"; }
 };
 export const setAiLang = (l: AiLang) => {
   try { localStorage.setItem("aiLang", l); } catch { /* this visit only */ }

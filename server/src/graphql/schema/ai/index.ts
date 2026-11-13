@@ -165,7 +165,7 @@ export const aiTypeDefs = gql`
   type AiUsage { days: [AiUsageDay!]!, tasks: [AiUsageTask!]! }
 
   extend type Query {
-    "Today's briefing (built once a day). language: en, hi, gu or hinglish."
+    "Today's briefing (built once a day). language: en, hi or gu."
     getBriefing(language: String): Briefing!
     "AI calls per day and per task over the last N days."
     getAiUsage(days: Int): AiUsage!
@@ -180,7 +180,7 @@ export const aiTypeDefs = gql`
     refreshOpportunities: OpportunityScan!
     setOpportunityState(id: ID!, state: String!): Opportunity
     convertOpportunityToLead(id: ID!): Lead
-    "The CRM dashboard agent. Reads this tenant's data only; changes nothing. language: en, hi, gu or hinglish (blank = as asked)."
+    "The CRM dashboard agent. Reads this tenant's data only; changes nothing. language: en, hi or gu (blank = as asked)."
     askAi(question: String!, language: String): AiAnswer!
     aiReadInquiry(text: String!): AiInquiry!
     "channel: whatsapp, email or call."

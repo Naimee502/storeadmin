@@ -182,7 +182,6 @@ const LANG_NOTE: Record<string, string> = {
   en: "\nAnswer in simple English.",
   hi: "\nAnswer in Hindi (Devanagari script).",
   gu: "\nAnswer in Gujarati (ગુજરાતી script).",
-  hinglish: "\nAnswer in Hinglish (Hindi in English letters).",
 };
 
 /** Read-only tools, already scoped to this login's tenant and branch. */
@@ -542,7 +541,7 @@ async function assistantGate(context: any) {
 
 // ---------- Daily briefing ----------
 
-const LANG_NAME: Record<string, string> = { en: "simple English", hi: "Hindi (Devanagari)", gu: "Gujarati (ગુજરાતી)", hinglish: "Hinglish (Hindi in English letters)" };
+const LANG_NAME: Record<string, string> = { en: "simple English", hi: "Hindi (Devanagari)", gu: "Gujarati (ગુજરાતી)" };
 
 /** Spoken script in the chosen language; "" when AI is off or fails. */
 async function briefingScript(scope: any, lang: string, items: any[], user: any) {
