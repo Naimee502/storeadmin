@@ -105,7 +105,7 @@ export const GET_DELETED_FOLLOWUPS = gql`
 // Lead integrations (Lead Sources screen).
 export const GET_LEAD_SOURCES = gql`
   query GetLeadSources($adminid: ID) {
-    getLeadSources(adminid: $adminid) { source enabled webhookUrl verifyToken ownerids autoFollowup hasKey1 hasKey2 hasKey3 lastPulledAt lastError leadsToday }
+    getLeadSources(adminid: $adminid) { source enabled webhookUrl verifyToken ownerids autoFollowup hasKey1 hasKey2 hasKey3 lastPulledAt lastError leadsToday lastLeadAt status }
   }
 `;
 export const GET_LEAD_INBOX = gql`

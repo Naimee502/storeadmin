@@ -16,6 +16,10 @@ export const leadSourceTypeDefs = gql`
     lastPulledAt: String
     lastError: String
     leadsToday: Int
+    "Last real lead (tests not counted)."
+    lastLeadAt: String
+    "off, waiting (no lead yet), running, problem"
+    status: String
   }
 
   input LeadSourceInput {

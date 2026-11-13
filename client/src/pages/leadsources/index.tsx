@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router";
 import { useMutation, useQuery } from "@apollo/client";
-import { Copy, RefreshCw, Send, Link2, Inbox, Plug } from "lucide-react";
+import { Copy, RefreshCw, Send, Link2, Inbox, Plug, ChevronLeft, ChevronRight, CheckCircle2, XCircle, MessageCircle, PlayCircle } from "lucide-react";
 import HomeLayout from "../../layouts/home";
 import FormField from "../../components/formfiled";
 import { useAppDispatch } from "../../redux/hooks";
@@ -11,10 +11,18 @@ import { GET_LEAD_INBOX, GET_LEAD_SOURCES } from "../../graphql/queries/lead";
 import { PULL_LEAD_SOURCE_NOW, REGENERATE_LEAD_SOURCE_LINK, RETRY_LEAD_INBOX, SAVE_LEAD_SOURCE, TEST_LEAD_SOURCE } from "../../graphql/mutations/lead";
 import { formatDateTimeDMY } from "../../utils/helper";
 
+type Lang = "en" | "hi" | "gu";
+const LANGS: Array<[Lang, string]> = [["en", "English"], ["hi", "हिंदी"], ["gu", "ગુજરાતી"]];
+
 type Info = {
   title: string;
   about: string;
   steps: string[];
+  // Same steps in Hindi and Gujarati (step count matches `steps`).
+  hi?: string[];
+  gu?: string[];
+  // Optional 1-minute help video for this portal.
+  video?: string;
   link?: boolean;
   verify?: boolean;
   pull?: boolean;
@@ -31,6 +39,16 @@ const INFO: Record<string, Info> = {
       "Choose “Other”, platform name “Rudra”, and paste the link below. Confirm with the OTP.",
       "Optional backup: generate the Pull API key there and paste it below; we fetch every 15 minutes.",
     ],
+    hi: [
+      "seller.indiamart.com पर लॉगिन करें → Lead Manager → ⋮ → Import/Export Leads → Push API.",
+      "“Other” चुनें, platform का नाम “Rudra” लिखें और नीचे वाला लिंक पेस्ट करें। OTP से पक्का करें।",
+      "चाहें तो वहीं Pull API key बनाकर नीचे डालें; हम हर 15 मिनट में लीड लाएंगे।",
+    ],
+    gu: [
+      "seller.indiamart.com પર લૉગિન કરો → Lead Manager → ⋮ → Import/Export Leads → Push API.",
+      "“Other” પસંદ કરો, platform નું નામ “Rudra” લખો અને નીચેની લિંક પેસ્ટ કરો. OTP થી પાકું કરો.",
+      "ઇચ્છો તો ત્યાં જ Pull API key બનાવી નીચે મૂકો; અમે દર 15 મિનિટે લીડ લાવીશું.",
+    ],
     link: true,
     pull: true,
     keys: [{ k: "key1", label: "CRM Pull API Key (optional)" }],
@@ -39,6 +57,8 @@ const INFO: Record<string, Info> = {
     title: "TradeIndia",
     about: "Enquiries are fetched every 15 minutes with your Inquiry API details. Needs a paid TradeIndia seller account.",
     steps: ["TradeIndia seller panel → My Profile → Inquiries & Contacts → My Inquiry API.", "Copy the User ID, Profile ID and Key into the boxes below and save."],
+    hi: ["TradeIndia seller panel → My Profile → Inquiries & Contacts → My Inquiry API.", "User ID, Profile ID और Key नीचे के बॉक्स में डालें और Save दबाएं।"],
+    gu: ["TradeIndia seller panel → My Profile → Inquiries & Contacts → My Inquiry API.", "User ID, Profile ID અને Key નીચેના બોક્સમાં મૂકો અને Save દબાવો."],
     pull: true,
     keys: [{ k: "key1", label: "User ID" }, { k: "key2", label: "Profile ID" }, { k: "key3", label: "Key" }],
   },
@@ -46,6 +66,8 @@ const INFO: Record<string, Info> = {
     title: "JustDial",
     about: "JustDial sets the link up on their side; you send it to your JustDial account manager.",
     steps: ["Copy the ready message below and send it to your JustDial account manager.", "Once they confirm, every JustDial lead lands here as a new lead."],
+    hi: ["नीचे का तैयार मैसेज कॉपी करें और अपने JustDial account manager को भेजें।", "वो हाँ बोल दें, उसके बाद हर JustDial लीड यहाँ नई लीड बनकर आएगी।"],
+    gu: ["નીચેનો તૈયાર મેસેજ કૉપિ કરો અને તમારા JustDial account manager ને મોકલો.", "તેઓ હા પાડે પછી દરેક JustDial લીડ અહીં નવી લીડ તરીકે આવશે."],
     link: true,
   },
   meta: {
@@ -56,6 +78,16 @@ const INFO: Record<string, Info> = {
       "Make a Page access token with leads_retrieval and pages_manage_ads, and paste it below.",
       "Test it with Meta’s Lead Ads Testing Tool.",
     ],
+    hi: [
+      "अपने Meta app (developers.facebook.com) → Webhooks → Page → “leadgen” को नीचे के लिंक और verify token के साथ subscribe करें।",
+      "leads_retrieval और pages_manage_ads वाला Page access token बनाकर नीचे डालें।",
+      "Meta के Lead Ads Testing Tool से जाँच करें।",
+    ],
+    gu: [
+      "તમારી Meta app (developers.facebook.com) → Webhooks → Page → “leadgen” ને નીચેની લિંક અને verify token સાથે subscribe કરો.",
+      "leads_retrieval અને pages_manage_ads વાળો Page access token બનાવી નીચે મૂકો.",
+      "Meta ના Lead Ads Testing Tool થી ચકાસો.",
+    ],
     link: true,
     verify: true,
     keys: [{ k: "key1", label: "Page Access Token" }],
@@ -64,6 +96,8 @@ const INFO: Record<string, Info> = {
     title: "WhatsApp (Cloud API)",
     about: "Every new chat on your WhatsApp Business number becomes a lead; Click-to-WhatsApp ad details are kept as the campaign.",
     steps: ["Meta app → WhatsApp → Configuration → Webhook: paste the link and verify token below.", "Subscribe to the “messages” field."],
+    hi: ["Meta app → WhatsApp → Configuration → Webhook: नीचे का लिंक और verify token पेस्ट करें।", "“messages” field को subscribe करें।"],
+    gu: ["Meta app → WhatsApp → Configuration → Webhook: નીચેની લિંક અને verify token પેસ્ટ કરો.", "“messages” field ને subscribe કરો."],
     link: true,
     verify: true,
   },
@@ -71,12 +105,16 @@ const INFO: Record<string, Info> = {
     title: "Website Form",
     about: "Any website (yours, WordPress, Wix) can send its enquiry form here. Paste the code below into the page.",
     steps: ["Copy the form code below into your website’s HTML.", "Fields used: name, mobile, email, city, product, message."],
+    hi: ["नीचे का form code अपनी वेबसाइट के HTML में डालें।", "इस्तेमाल होने वाले field: name, mobile, email, city, product, message."],
+    gu: ["નીચેનો form code તમારી વેબસાઇટના HTML માં મૂકો.", "વપરાતા field: name, mobile, email, city, product, message."],
     link: true,
   },
   webhook: {
     title: "Other Portal (Webhook)",
     about: "For Exporters India, Google Ads lead forms, Zapier, Pabbly or any app that can send a webhook.",
     steps: ["Send a POST (JSON or form) to the link below with fields name, mobile, email, city, product, message."],
+    hi: ["नीचे वाले लिंक पर POST (JSON या form) भेजें, field: name, mobile, email, city, product, message."],
+    gu: ["નીચેની લિંક પર POST (JSON કે form) મોકલો, field: name, mobile, email, city, product, message."],
     link: true,
   },
 };
@@ -95,7 +133,20 @@ const RESULT_STYLE: Record<string, string> = {
   created: "bg-emerald-50 text-emerald-700", duplicate: "bg-amber-50 text-amber-700", failed: "bg-rose-50 text-rose-700", ignored: "bg-slate-100 text-slate-500",
 };
 
-function SourceCard({ cfg, staffOptions, adminid }: { cfg: any; staffOptions: { value: string; label: string }[]; adminid?: string }) {
+const ago = (iso?: string) => {
+  if (!iso) return "";
+  const m = Math.max(1, Math.round((Date.now() - new Date(iso).getTime()) / 60000));
+  return m < 60 ? `${m} min ago` : m < 1440 ? `${Math.round(m / 60)} h ago` : `${Math.round(m / 1440)} days ago`;
+};
+
+const STATUS: Record<string, [string, string]> = {
+  off: ["Not set up", "bg-slate-100 text-slate-600"],
+  waiting: ["Waiting for first lead", "bg-amber-50 text-amber-700"],
+  running: ["Working", "bg-emerald-50 text-emerald-700"],
+  problem: ["Problem", "bg-rose-50 text-rose-700"],
+};
+
+function SourceCard({ cfg, staffOptions, adminid, lang }: { cfg: any; staffOptions: { value: string; label: string }[]; adminid?: string; lang: Lang }) {
   const dispatch = useAppDispatch();
   const info = INFO[cfg.source];
   const refetchQueries = ["GetLeadSources", "GetLeadInbox", "GetLeadsPage", "GetLeads", "GetFollowups"];
@@ -105,8 +156,22 @@ function SourceCard({ cfg, staffOptions, adminid }: { cfg: any; staffOptions: { 
   const [test, { loading: testing }] = useMutation(TEST_LEAD_SOURCE, { refetchQueries });
   const [keys, setKeys] = useState({ key1: "", key2: "", key3: "" });
   const [owners, setOwners] = useState<string[]>(cfg.ownerids || []);
+  const [step, setStep] = useState(0);
+  const [testResult, setTestResult] = useState<{ ok: boolean; text: string } | null>(null);
   useEffect(() => setOwners(cfg.ownerids || []), [cfg.ownerids]);
   if (!info) return null;
+  const steps = (lang !== "en" && info[lang]?.length ? info[lang] : info.steps) as string[];
+  const [statusLabel, statusClass] = STATUS[cfg.status || (cfg.enabled ? "waiting" : "off")] || STATUS.off;
+  const runTest = async () => {
+    setTestResult(null);
+    try {
+      await test({ variables: { source: cfg.source, adminid } });
+      setTestResult({ ok: true, text: "Lead arrived — everything is working. You can see it in Leads." });
+    } catch (e: any) {
+      setTestResult({ ok: false, text: e?.message || "The test lead did not arrive. Check the steps above and try again." });
+    }
+  };
+  const helpText = encodeURIComponent(`Hello, I need help setting up ${info.title} leads in Rudra.`);
 
   const run = async (fn: () => Promise<any>, ok: (r: any) => string) => {
     try {
@@ -141,6 +206,9 @@ function SourceCard({ cfg, staffOptions, adminid }: { cfg: any; staffOptions: { 
           <div className="text-[12px] text-slate-500">{info.about}</div>
         </div>
         <div className="flex items-center gap-3">
+          <span className={`rounded px-2 py-0.5 text-[11px] font-semibold ${statusClass}`} title={cfg.lastLeadAt ? `Last lead ${ago(cfg.lastLeadAt)}` : undefined}>
+            {statusLabel}{cfg.status === "running" && cfg.lastLeadAt ? ` · ${ago(cfg.lastLeadAt)}` : ""}
+          </span>
           <span className="text-[12px] text-slate-500">Today: <b>{cfg.leadsToday}</b></span>
           {/* Same switch as Business Settings. */}
           <label className="flex cursor-pointer items-center gap-1.5 text-[12px]">
@@ -158,9 +226,28 @@ function SourceCard({ cfg, staffOptions, adminid }: { cfg: any; staffOptions: { 
           </label>
         </div>
       </div>
-      <ol className="list-decimal space-y-0.5 pl-5 text-[12px] text-slate-600">
-        {info.steps.map((s) => <li key={s}>{s}</li>)}
-      </ol>
+      {/* One step at a time, big number, in the chosen language. */}
+      <div className="flex items-start gap-3 rounded-md border border-indigo-100 bg-indigo-50/40 p-3">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-indigo-600 text-[16px] font-bold text-white">{step + 1}</div>
+        <div className="min-w-0 flex-1 space-y-2">
+          <div className="text-[11px] font-semibold uppercase tracking-wider text-indigo-700">Step {step + 1} of {steps.length}</div>
+          <div className="text-[13.5px] leading-snug text-slate-800">{steps[Math.min(step, steps.length - 1)]}</div>
+          <div className="flex flex-wrap items-center gap-2">
+            <button type="button" className={btn} disabled={step === 0} onClick={() => setStep((n) => Math.max(0, n - 1))}><ChevronLeft size={13} /> Back</button>
+            {step < steps.length - 1
+              ? <button type="button" className={primary} onClick={() => setStep((n) => n + 1)}>Next <ChevronRight size={13} /></button>
+              : <button type="button" className={primary} disabled={testing} onClick={runTest}><Send size={13} /> {testing ? "Testing…" : "Done — Test Now"}</button>}
+            {info.video && <a href={info.video} target="_blank" rel="noreferrer" className={btn}><PlayCircle size={13} /> 1-min Video</a>}
+            <a href={`https://wa.me/?text=${helpText}`} target="_blank" rel="noreferrer" className={btn}><MessageCircle size={13} /> Need Help</a>
+          </div>
+        </div>
+      </div>
+      {testResult && (
+        <div className={`flex items-start gap-2 rounded-md px-3 py-2 text-[13px] ${testResult.ok ? "bg-emerald-50 text-emerald-800" : "bg-rose-50 text-rose-800"}`}>
+          {testResult.ok ? <CheckCircle2 size={16} className="mt-0.5 shrink-0" /> : <XCircle size={16} className="mt-0.5 shrink-0" />}
+          <span>{testResult.text}</span>
+        </div>
+      )}
       {info.link && (
         <div className="flex gap-2">
           <input readOnly className="h-8 min-w-0 flex-1 rounded-md border border-slate-300 bg-slate-50 px-2 text-[12px]" value={cfg.webhookUrl} />
@@ -210,7 +297,7 @@ function SourceCard({ cfg, staffOptions, adminid }: { cfg: any; staffOptions: { 
       {cfg.lastError && <div className="rounded-md bg-rose-50 px-3 py-1.5 text-[12px] text-rose-700">Last problem: {cfg.lastError}</div>}
       {info.pull && cfg.lastPulledAt && <div className="text-[11px] text-slate-400">Last fetched {formatDateTimeDMY(cfg.lastPulledAt)}</div>}
       <div className="flex flex-wrap justify-end gap-2">
-        <button type="button" className={btn} disabled={testing} onClick={() => run(() => test({ variables: { source: cfg.source, adminid } }), () => "Test lead made — see Leads.")}>
+        <button type="button" className={btn} disabled={testing} onClick={runTest}>
           <Send size={13} /> Send Test Lead
         </button>
         {info.pull && (
@@ -229,6 +316,13 @@ export const LeadSourcesPanel = ({ adminid, title }: { adminid?: string; title?:
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const [tab, setTab] = useState<"sources" | "inbox">("sources");
+  const [lang, setLangState] = useState<Lang>(() => {
+    try { return (localStorage.getItem("leadSourceLang") as Lang) || "en"; } catch { return "en"; }
+  });
+  const setLang = (l: Lang) => {
+    setLangState(l);
+    try { localStorage.setItem("leadSourceLang", l); } catch { /* remembered for this visit only */ }
+  };
   const [result, setResult] = useState("");
   const { data, loading, error } = useQuery(GET_LEAD_SOURCES, { variables: { adminid }, fetchPolicy: "network-only" });
   const { data: inbox } = useQuery(GET_LEAD_INBOX, { variables: { adminid, result: result || undefined, limit: 200 }, skip: tab !== "inbox", fetchPolicy: "network-only" });
@@ -240,6 +334,12 @@ export const LeadSourcesPanel = ({ adminid, title }: { adminid?: string; title?:
     <>
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
           {title ? <h1 className="text-[15px] font-semibold text-slate-800">{title}</h1> : <span />}
+          <div className="inline-flex h-8 overflow-hidden rounded-md border border-slate-300 text-[13px]" aria-label="Steps language">
+            {LANGS.map(([l, label]) => (
+              <button key={l} type="button" onClick={() => setLang(l)}
+                className={`px-3 ${lang === l ? "bg-slate-900 text-white" : "bg-white text-slate-700 hover:bg-slate-50"}`}>{label}</button>
+            ))}
+          </div>
           <div className="inline-flex h-8 overflow-hidden rounded-md border border-slate-300 text-[13px]">
             {(["sources", "inbox"] as const).map((t) => (
               <button key={t} type="button" onClick={() => setTab(t)}
@@ -258,7 +358,7 @@ export const LeadSourcesPanel = ({ adminid, title }: { adminid?: string; title?:
             {loading && <div className="text-[13px] text-slate-500">Loading…</div>}
             {error && <div className="text-[13px] text-rose-600">{error.message}</div>}
             <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
-              {(data?.getLeadSources || []).map((cfg: any) => <SourceCard key={cfg.source} cfg={cfg} staffOptions={staffOptions} adminid={adminid} />)}
+              {(data?.getLeadSources || []).map((cfg: any) => <SourceCard key={cfg.source} cfg={cfg} staffOptions={staffOptions} adminid={adminid} lang={lang} />)}
             </div>
           </>
         ) : (

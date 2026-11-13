@@ -3,6 +3,7 @@ import { StaffAccount } from "../../../models/staffaccounts";
 import { Admin } from "../../../models/admin";
 import { requireBackofficeTenant, TenantError, assertOwnedIds } from "../../../utils/tenant";
 import { isActionAllowed } from "../../../utils/permissiongate";
+import { isPlatform } from "../../../utils/authguard";
 import { encryptSecret } from "../../../utils/secret";
 import { isoOf } from "../../../utils/offlinesync";
 import { PUBLIC_BASE_URL } from "../../../config/serverconfig";
@@ -20,6 +21,11 @@ const where = (scope: any) => ({
 // An admin login may name another business, so Business Settings can set a
 // client's sources up for them; branch and staff logins are always their own.
 async function gate(context: any, adminid?: string) {
+  // The platform owner (Business Settings) sets any business up; a business only itself.
+  if (isPlatform(context) && adminid) {
+    if (!(await Admin.exists({ _id: adminid, status: true }))) throw new TenantError("Business not found.", "BAD_USER_INPUT");
+    return adminid as any;
+  }
   const scope = await requireBackofficeTenant(context);
   if (scope.userType !== "admin") {
     if (!(await isActionAllowed("leadsources", "edit", where(scope)))) {
@@ -27,9 +33,7 @@ async function gate(context: any, adminid?: string) {
     }
     return scope.adminid;
   }
-  if (!adminid || String(adminid) === String(scope.adminid)) return scope.adminid;
-  if (!(await Admin.exists({ _id: adminid, status: true }))) throw new TenantError("Business not found.", "BAD_USER_INPUT");
-  return adminid as any;
+  return scope.adminid;
 }
 
 async function configOf(adminid: any, source: string) {
@@ -49,6 +53,10 @@ async function shape(cfg: any) {
   const start = new Date();
   start.setHours(0, 0, 0, 0);
   const leadsToday = await LeadInbox.countDocuments({ adminid: cfg.adminid, source: cfg.source, result: "created", createdAt: { $gte: start } });
+  // Real leads only: test leads carry payload.test.
+  const last: any = await LeadInbox.findOne({ adminid: cfg.adminid, source: cfg.source, result: { $in: ["created", "duplicate"] }, "payload.test": { $ne: true } })
+    .sort({ createdAt: -1 }).select("createdAt").lean();
+  const status = !cfg.enabled ? "off" : cfg.lastError ? "problem" : last ? "running" : "waiting";
   return {
     source: cfg.source,
     enabled: !!cfg.enabled,
@@ -62,6 +70,8 @@ async function shape(cfg: any) {
     lastPulledAt: isoOf(cfg.lastPulledAt),
     lastError: cfg.lastError || null,
     leadsToday,
+    lastLeadAt: isoOf(last?.createdAt),
+    status,
   };
 }
 
@@ -141,7 +151,14 @@ export const leadSourceResolvers = {
       const n = MAP[source](sample);
       // A fresh mobile each time, so the test is not merged into the last test lead.
       const mobile = `9${String(Date.now()).slice(-9)}`;
-      return !!(await ingestLead(cfg, { ...n, externalid: undefined, mobile, name: `${n.name} (test)` }, { test: true, ...sample }));
+      const ok = await ingestLead(cfg, { ...n, externalid: undefined, mobile, name: `${n.name} (test)` }, { test: true, ...sample });
+      if (!ok) {
+        const row: any = await LeadInbox.findOne({ adminid: target, source }).sort({ createdAt: -1 }).select("error").lean();
+        throw new Error(`The test lead could not be saved: ${row?.error || "unknown reason"}.`);
+      }
+      // A working test clears an old problem note.
+      if (cfg.lastError) await LeadSource.updateOne({ _id: cfg._id }, { $unset: { lastError: 1 } });
+      return true;
     },
 
     retryLeadInbox: async (_: any, { id, adminid }: any, context: any) => {

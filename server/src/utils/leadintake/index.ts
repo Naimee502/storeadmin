@@ -3,7 +3,7 @@ import express from "express";
 import cron from "node-cron";
 import { LeadSource, LeadInbox } from "../../models/leadsource";
 import { Lead, Followup } from "../../models/lead";
-import { pushNotification } from "../../models/notifications";
+import { Notification, pushNotification } from "../../models/notifications";
 import { decryptSecret } from "../secret";
 import { nextLeadNumber, stagesOf } from "../../graphql/resolvers/lead";
 
@@ -259,7 +259,29 @@ export async function pullSource(cfg: any): Promise<number> {
 }
 
 /** Every 15 minutes: pull the enabled sources that have keys (also keeps the IndiaMART key in use). */
+// An enabled source with no real lead for 3 days: tell the admin once a day.
+async function warnQuietSources() {
+  const since = new Date(Date.now() - 3 * 86400000);
+  const list: any[] = await LeadSource.find({ enabled: true, createdAt: { $lt: since } }).lean();
+  for (const cfg of list) {
+    try {
+      const recent = await LeadInbox.exists({ adminid: cfg.adminid, source: cfg.source, createdAt: { $gte: since }, "payload.test": { $ne: true } });
+      if (recent) continue;
+      const day = new Date(); day.setHours(0, 0, 0, 0);
+      const told = await Notification.exists({ adminid: cfg.adminid, ntype: "leadsource", title: { $regex: `^No leads from ${cfg.source}` }, createdAt: { $gte: day } });
+      if (told) continue;
+      await pushNotification({
+        adminid: cfg.adminid, targettype: "admin", ntype: "leadsource",
+        title: `No leads from ${cfg.source} for 3 days`,
+        message: "Open Lead Sources and press Send Test Lead to check the link.",
+        webpath: "/leadsources",
+      });
+    } catch { /* best-effort */ }
+  }
+}
+
 export const startLeadPullScheduler = () => {
+  cron.schedule("17 10 * * *", () => { warnQuietSources().catch(() => {}); });
   cron.schedule("*/15 * * * *", async () => {
     const list: any[] = await LeadSource.find({ enabled: true, source: { $in: ["indiamart", "tradeindia"] }, key1: { $exists: true, $ne: "" } }).lean();
     for (const cfg of list) {
