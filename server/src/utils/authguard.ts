@@ -2,6 +2,7 @@ import crypto from "crypto";
 import mongoose, { Types } from "mongoose";
 import { resolveTenant, TenantError } from "./tenant";
 import { isActionAllowed } from "./permissiongate";
+import { effectiveFormPermissions, fieldOn } from "./formpermissions";
 
 // Callable without a login: sign-in, sign-up and storefront reads.
 const PUBLIC = new Set([
@@ -93,6 +94,15 @@ crud("priceassignments", "createPriceAssignment", "updatePriceAssignment", "dele
 crud("chargerules", "addChargeRule", "editChargeRule", "deleteChargeRule", "resetChargeRule");
 crud("expensenote", "addExpenseNote", "editExpenseNote", "deleteExpenseNote", "resetExpenseNote");
 
+// Edit mutations of forms with field settings: a field switched off for Edit keeps its saved value.
+const FORM_EDIT: Record<string, string> = {
+  editSalesInvoice: "salesinvoice", editPurchaseInvoice: "purchaseinvoice", editSalesOrder: "salesorder",
+  editPurchaseOrder: "purchaseorder", editDeliveryChallan: "deliverychallan", editSalesReturn: "salesreturn",
+  editPurchaseReturn: "purchasereturn", updateProductService: "products", editExpenseNote: "expensenote",
+  editTransaction: "transactions", editPayment: "payments", editQuotation: "quotations", editLead: "leads",
+  updateService: "services", editAccount: "accounts", editStaffAccount: "staffaccounts",
+};
+
 // Fields that take the business id as an argument instead of a record id.
 const ADMIN_ARG: Record<string, string> = {
   updateAdminSettings: "adminid", testBusinessSmtp: "adminid",
@@ -163,6 +173,16 @@ const check = async (field: string, args: any, context: any) => {
     };
     if (!(await isActionAllowed(module, action, where))) {
       throw denied(`You do not have ${action} permission for this screen. Ask the business owner to allow it.`);
+    }
+  }
+
+  if (FORM_EDIT[field] && args?.input && typeof args.input === "object") {
+    const scope = await resolveTenant({ ...context, branchid: null }, {});
+    if (scope.mode === "backoffice") {
+      const perms = (await effectiveFormPermissions({ adminid: scope.adminid, userType: scope.userType, userId: scope.userId }))[FORM_EDIT[field]];
+      if (perms) for (const key of Object.keys(args.input)) {
+        if (key in perms && !fieldOn(perms, key, "edit")) delete args.input[key];
+      }
     }
   }
 
