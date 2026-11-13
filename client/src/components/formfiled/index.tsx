@@ -198,6 +198,18 @@ const FormFieldInner: React.FC<FormFieldProps> = ({
 
   // Close history when value changes (e.g., dropdown selection)
   React.useEffect(() => { setHistoryOpen(false); }, [value]);
+  // Menu side and height from the space around the box, so the list and "Add New" stay on screen.
+  const boxRef = React.useRef<HTMLDivElement>(null);
+  const [menuPlace, setMenuPlace] = React.useState<{ placement: 'top' | 'bottom'; max: number }>({ placement: 'bottom', max: 240 });
+  const placeMenu = () => {
+    const r = boxRef.current?.getBoundingClientRect();
+    if (!r) return;
+    const extra = addable && onAddNew ? 44 : 8;
+    const below = window.innerHeight - r.bottom - 12 - extra;
+    const above = r.top - 12 - extra;
+    const top = below < 240 && above > below;
+    setMenuPlace({ placement: top ? 'top' : 'bottom', max: Math.max(120, Math.min(240, top ? above : below)) });
+  };
 
   const isCheckbox = type === 'checkbox';
   const isRadio = type === 'radio';
@@ -226,7 +238,7 @@ const FormFieldInner: React.FC<FormFieldProps> = ({
     if ((isSelect || isMultiSelect) && searchable) {
       const SelectWithCustom = Select as any;
       return (
-        <div className="relative">
+        <div className="relative" ref={boxRef}>
         <SelectWithCustom
           inputId={name}
           name={name}
@@ -269,6 +281,7 @@ const FormFieldInner: React.FC<FormFieldProps> = ({
           historyEmptyText={historyEmptyText}
           onHistoryToggle={() => setHistoryOpen((s) => !s)}
           onMenuOpen={() => {
+            placeMenu();
             setHistoryOpen(false);
             // Nothing to pick yet: go straight to Add New.
             if (!options.length && addable && onAddNew) {
@@ -279,8 +292,8 @@ const FormFieldInner: React.FC<FormFieldProps> = ({
           noOptionsMessage={() => "No options"}
           menuPortalTarget={typeof document !== 'undefined' ? document.body : undefined}
           menuPosition="fixed"
-          menuPlacement="auto"
-          maxMenuHeight={240}
+          menuPlacement={menuPlace.placement}
+          maxMenuHeight={menuPlace.max}
           menuShouldScrollIntoView={false}
           styles={{
             menuPortal: (base: any) => ({ ...base, zIndex: 9999 }),
