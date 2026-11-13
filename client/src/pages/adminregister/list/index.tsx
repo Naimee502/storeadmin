@@ -11,12 +11,13 @@ import { useAdminsQuery, useDeleteAdminMutation, useUpdateAdminMutation } from "
 import { showLoading, hideLoading } from "../../../redux/slices/loader";
 import { showMessage } from "../../../redux/slices/message";
 import { selectModuleActions } from "../../../redux/slices/permissions";
+import { clearPlatformKey } from "../../../graphql/platformkey";
 
 const AdminList = () => {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const actions = useAppSelector(state => selectModuleActions(state, "adminregister"));
-  const { data, refetch } = useAdminsQuery();
+  const { data, error, refetch } = useAdminsQuery();
   const [updateAdminMutation] = useUpdateAdminMutation();
   const [deleteAdminMutation] = useDeleteAdminMutation();
   const isLoading = useAppSelector((state) => state.loader.isLoading);
@@ -172,6 +173,12 @@ const AdminList = () => {
   return (
     <LoginLayout>
       <div className="w-[95vw] max-w-7xl px-2 sm:px-4 py-2">
+        {error && (
+          <div className="mb-3 flex items-center justify-between gap-3 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-[13px] text-rose-800">
+            <span>Could not load admins: {error.message}</span>
+            <button type="button" onClick={clearPlatformKey} className="h-8 shrink-0 rounded-md border border-rose-300 bg-white px-3 text-[13px] font-medium hover:bg-rose-100">Re-enter Key</button>
+          </div>
+        )}
         <DataTable
           title="Manage Admins"
           columns={columns}
