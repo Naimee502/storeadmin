@@ -1,5 +1,5 @@
-import { useMemo } from "react";
-import { ITEM_QUERIES, useAddNew } from "../../hooks/useaddnew";
+import { useEffect, useMemo, useState } from "react";
+import QuickItemModal from "../quickitem";
 import { Plus, Trash2 } from "lucide-react";
 import FormField from "../formfiled";
 
@@ -79,7 +79,15 @@ export default function ServiceLines({
   hint?: string;
 }) {
   const options = useMemo(() => itemChoices(products, kind), [products, kind]);
-  const addNew = useAddNew(kind === "service" ? "/services/addedit" : "/products/addedit", ITEM_QUERIES);
+  // Row whose "Add New" opened the quick add, and the item made for it.
+  const [quickRow, setQuickRow] = useState<number | null>(null);
+  const [made, setMade] = useState<{ row: number; value: string } | null>(null);
+  useEffect(() => {
+    if (made && products.some((x: any) => x.id === made.value.split("|")[0])) {
+      setLines(lines.map((l, j) => (j === made.row ? { ...l, ...pickLine(products, made.value) } : l)));
+      setMade(null);
+    }
+  }, [made, products]);
 
   const edit = (i: number, patch: Partial<SvcLine>) => setLines(lines.map((l, j) => (j === i ? { ...l, ...patch } : l)));
   return (
@@ -110,7 +118,7 @@ export default function ServiceLines({
                 <tr key={i} className="border-t border-slate-100 align-top">
                   <td className="py-1.5 text-slate-500">{i + 1}</td>
                   <td className="py-1 pr-2">
-                    <FormField label="" name={`svc${i}`} type="select" searchable options={options} addable onAddNew={addNew}
+                    <FormField label="" name={`svc${i}`} type="select" searchable options={options} addable onAddNew={() => setQuickRow(i)}
                       value={l.productserviceid ? `${l.productserviceid}|${l.variantid || ""}` : ""}
                       onChange={(e: any) => edit(i, pickLine(products, e.target.value))} />
                   </td>
@@ -145,6 +153,7 @@ export default function ServiceLines({
         </button>
         {lines.length > 0 && <span className="text-[13px] font-semibold text-slate-800">Total ₹{svcTotal(lines).toFixed(2)}</span>}
       </div>
+      <QuickItemModal open={quickRow !== null} kind={kind} onClose={() => setQuickRow(null)} onCreated={(value) => setMade({ row: quickRow ?? 0, value })} />
     </fieldset>
   );
 }

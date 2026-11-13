@@ -1,5 +1,5 @@
-import { useMemo } from "react";
-import { ITEM_QUERIES, useAddNew } from "../../hooks/useaddnew";
+import { useEffect, useMemo, useState } from "react";
+import QuickItemModal from "../quickitem";
 import { Plus, Trash2 } from "lucide-react";
 import FormField from "../formfiled";
 
@@ -121,7 +121,15 @@ export default function MfgLines({
   bare?: boolean;
 }) {
   const options = useMemo(() => itemOptions(products, true, types), [products, types]);
-  const addNew = useAddNew("/products/addedit", ITEM_QUERIES);
+  // Row whose "Add New" opened the quick add, and the item made for it.
+  const [quickRow, setQuickRow] = useState<number | null>(null);
+  const [made, setMade] = useState<{ row: number; value: string } | null>(null);
+  useEffect(() => {
+    if (made && products.some((x: any) => x.id === made.value.split("|")[0])) {
+      setLines(lines.map((l, j) => (j === made.row ? { ...l, ...pickItem(products, made.value) } : l)));
+      setMade(null);
+    }
+  }, [made, products]);
 
   const edit = (i: number, patch: Partial<MfgLine>) => setLines(lines.map((l, j) => (j === i ? { ...l, ...patch } : l)));
   const add = () => setLines([...lines, { productserviceid: "", variantid: null, salesunitid: null, qty: 1 }]);
@@ -154,7 +162,7 @@ export default function MfgLines({
                 <tr key={i} className="border-t border-slate-100 align-top">
                   <td className="py-1.5 text-slate-500">{i + 1}</td>
                   <td className="py-1 pr-2">
-                    <FormField label="" name={`item${i}`} type="select" searchable options={options} addable onAddNew={addNew}
+                    <FormField label="" name={`item${i}`} type="select" searchable options={options} addable onAddNew={() => setQuickRow(i)}
                       value={l.productserviceid ? `${l.productserviceid}|${l.variantid || ""}` : ""}
                       onChange={(e: any) => edit(i, pickItem(products, e.target.value))} />
                   </td>
@@ -202,6 +210,7 @@ export default function MfgLines({
       <button type="button" onClick={add} className="inline-flex h-8 items-center gap-1.5 rounded-md border border-dashed border-indigo-300 px-3 text-[13px] font-medium text-indigo-600 hover:bg-indigo-50">
         <Plus size={14} /> Add Item
       </button>
+      <QuickItemModal open={quickRow !== null} kind="goods" onClose={() => setQuickRow(null)} onCreated={(value) => setMade({ row: quickRow ?? 0, value })} />
     </Wrap>
   );
 }

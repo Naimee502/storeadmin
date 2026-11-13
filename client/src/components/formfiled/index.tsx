@@ -279,6 +279,8 @@ const FormFieldInner: React.FC<FormFieldProps> = ({
           noOptionsMessage={() => "No options"}
           menuPortalTarget={typeof document !== 'undefined' ? document.body : undefined}
           menuPosition="fixed"
+          menuPlacement="auto"
+          maxMenuHeight={240}
           menuShouldScrollIntoView={false}
           styles={{
             menuPortal: (base: any) => ({ ...base, zIndex: 9999 }),
