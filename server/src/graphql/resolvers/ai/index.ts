@@ -543,9 +543,9 @@ async function assistantGate(context: any) {
 
 const LANG_NAME: Record<string, string> = { en: "simple English", hi: "Hindi (Devanagari)", gu: "Gujarati (ગુજરાતી)" };
 
-/** Spoken script in the chosen language; "" when AI is off or fails. */
-async function briefingScript(scope: any, lang: string, items: any[], user: any) {
-  if (!items.length) return "";
+/** Spoken script in the chosen language; "" when AI is off or fails (reason says why). */
+async function briefingScript(scope: any, lang: string, items: any[], user: any): Promise<{ script: string; reason: string }> {
+  if (!items.length) return { script: "", reason: "" };
   const r = await aiAsk(scope.adminid, {
     task: "briefing",
     system: `Write a short spoken morning briefing (60-90 seconds) for the owner of a small Indian business, in ${LANG_NAME[lang]}. Use only the items given; never add numbers. Most important first, then one line on what to do. Plain sentences, no lists or symbols.`,
@@ -554,7 +554,7 @@ async function briefingScript(scope: any, lang: string, items: any[], user: any)
     branchid: scope.branchid,
     maxSteps: 1,
   });
-  return r.ok ? r.text : "";
+  return r.ok ? { script: r.text, reason: "" } : { script: "", reason: String(r.reason || "AI did not answer.") };
 }
 
 /** CRM briefing: leads, follow-ups and quotations only. */
@@ -596,15 +596,16 @@ async function briefingFor(scope: any, language: string, user: any, focus = "") 
   if (saved && (saved.script || !saved.items?.length)) return saved;
   // Saved without a script (AI was off or failed): try the script again, keep the list.
   if (saved) {
-    const script = await briefingScript(scope, lang, saved.items, user);
+    const { script, reason } = await briefingScript(scope, lang, saved.items, user);
     if (script) await Briefing.updateOne({ _id: saved._id }, { $set: { script } });
-    return { ...saved, script };
+    return { ...saved, script, aiReason: reason };
   }
   if (focus === "crm") {
     const items = await crmBriefingItems(scope);
-    const doc = { ...key, items, script: await briefingScript(scope, lang, items, user) };
+    const { script, reason } = await briefingScript(scope, lang, items, user);
+    const doc = { ...key, items, script };
     try { await Briefing.create(doc); } catch { /* another request saved it */ }
-    return doc;
+    return { ...doc, aiReason: reason };
   }
 
   // Refresh the finders once a day before reading them.
@@ -626,10 +627,10 @@ async function briefingFor(scope: any, language: string, user: any, focus = "") 
   opps.forEach((o) => items.push({ kind: o.kind, title: `${o.name}: ${o.title}`, detail: "", value: o.value }));
   const top = items.slice(0, 7);
 
-  const script = await briefingScript(scope, lang, top, user);
+  const { script, reason } = await briefingScript(scope, lang, top, user);
   const doc = { ...key, items: top, script };
   try { await Briefing.create(doc); } catch { /* another request saved it */ }
-  return doc;
+  return { ...doc, aiReason: reason };
 }
 
 // ---------- Resolver ----------
@@ -653,7 +654,7 @@ export const aiResolvers = {
       // CRM Dashboard or Business Pulse (main dashboard), whichever this login has.
       const scope = await assistantGate(context);
       const b: any = await briefingFor(scope, String(language || "en"), context?.user, focus === "crm" ? "crm" : "");
-      return { date: b.date, language: b.language, items: b.items || [], script: b.script || "" };
+      return { date: b.date, language: b.language, items: b.items || [], script: b.script || "", aiReason: b.aiReason || "" };
     },
 
     getAiUsage: async (_: any, { days = 30 }: any, context: any) => {

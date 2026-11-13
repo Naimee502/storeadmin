@@ -159,7 +159,7 @@ export const aiTypeDefs = gql`
   }
 
   type BriefingItem { kind: String, title: String, detail: String, value: Float }
-  type Briefing { date: String!, language: String, items: [BriefingItem!]!, script: String }
+  type Briefing { date: String!, language: String, items: [BriefingItem!]!, script: String, aiReason: String }
   type AiUsageDay { date: String!, calls: Int!, failed: Int!, intokens: Int!, outtokens: Int! }
   type AiUsageTask { task: String!, calls: Int! }
   type AiUsage { days: [AiUsageDay!]!, tasks: [AiUsageTask!]! }

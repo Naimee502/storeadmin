@@ -61,7 +61,7 @@ export const BriefingCard = ({ focus }: { focus?: "crm" }) => {
         ))}
         {b?.script && <p className="border-t border-slate-100 pt-1.5 text-[11.5px] italic text-slate-500">{b.script}</p>}
         {b && items.length > 0 && lang !== "en" && !b.script && (
-          <p className="border-t border-slate-100 pt-1.5 text-[11.5px] text-amber-700">Turn on AI in Business Settings → AI &amp; Agent to hear this in {AI_LANGS.find(([v]) => v === lang)?.[1]}; until then it is read in English.</p>
+          <p className="border-t border-slate-100 pt-1.5 text-[11.5px] text-amber-700">Read in English because AI could not write it in {AI_LANGS.find(([v]) => v === lang)?.[1]}: {b.aiReason || "AI is off."}</p>
         )}
         {b?.script && !hasVoice(lang) && (
           <p className="border-t border-slate-100 pt-1.5 text-[11.5px] text-amber-700">This device has no {AI_LANGS.find(([v]) => v === lang)?.[1]} voice, so it may be read in another voice. Add one in your computer's speech settings.</p>
