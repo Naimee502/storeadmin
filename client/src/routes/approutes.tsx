@@ -113,6 +113,7 @@ import DeletedLeads from "../pages/leads/deletedentries";
 import Followups from "../pages/followups";
 import Quotations from "../pages/quotations";
 import LeadSources from "../pages/leadsources";
+import MarketplaceOrders from "../pages/marketplaceorders";
 import AddEditQuotation from "../pages/quotations/addedit";
 import DeletedQuotations from "../pages/quotations/deletedentries";
 import Boms from "../pages/bom";
@@ -1077,6 +1078,7 @@ const AppRoutes = () => {
       <Route path="/followups" element={<ProtectedRoutes><Followups /></ProtectedRoutes>} />
       <Route path="/quotations" element={<ProtectedRoutes><Quotations /></ProtectedRoutes>} />
       <Route path="/leadsources" element={<ProtectedRoutes><LeadSources /></ProtectedRoutes>} />
+      <Route path="/marketplaceorders" element={<ProtectedRoutes><MarketplaceOrders /></ProtectedRoutes>} />
       <Route path="/quotations/addedit" element={<ProtectedRoutes><AddEditQuotation /></ProtectedRoutes>} />
       <Route path="/quotations/addedit/:id" element={<ProtectedRoutes><AddEditQuotation /></ProtectedRoutes>} />
       <Route path="/quotations/deletedentries" element={<ProtectedRoutes><DeletedQuotations /></ProtectedRoutes>} />

@@ -31,7 +31,7 @@ const salesOrderSchema = new mongoose.Schema(
     routeid: { type: mongoose.Schema.Types.ObjectId, ref: "SalesRoute", default: null },
     ordersource: {
       type: String,
-      enum: ["app", "manual", "pos"],
+      enum: ["app", "manual", "pos", "marketplace"],
       default: "manual",
     },
 
