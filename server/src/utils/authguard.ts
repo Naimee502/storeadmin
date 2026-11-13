@@ -197,7 +197,14 @@ const wrapMap = (map: any) => {
 
 /** Login and tenant check in one place, so no resolver can be missed. */
 export const guardResolvers = (list: any[]) =>
-  list.map((r) => (r ? { ...r, Query: wrapMap(r.Query), Mutation: wrapMap(r.Mutation) } : r));
+  list.map((r) => {
+    if (!r) return r;
+    const out = { ...r };
+    // Only set keys a map really has: an `undefined` Query would wipe the merged one.
+    if (r.Query) out.Query = wrapMap(r.Query);
+    if (r.Mutation) out.Mutation = wrapMap(r.Mutation);
+    return out;
+  });
 
 const blank = () => "";
 
