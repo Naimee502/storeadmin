@@ -11,6 +11,7 @@
 import mongoose from "mongoose";
 import { billNumberGuard, nextMainBillNumber } from "../../utils/billnumber";
 import { ProductBranchStock, writeStockRow } from "../productbranchstock";
+import { moveOf } from "../stockmove";
 import { ProductService } from "../products";
 import { convertToBaseUnit } from "../../utils/unitconversation";
 import { Transaction } from "../transactions";
@@ -145,7 +146,7 @@ purchaseReturnSchema.statics.adjustStockAndTransactions = async function (oldRet
           const newStock = stock.currentstock + qtyBase;
           const newAmt = newStock * stock.averagecost;
           return { currentstock: newStock, currentstockamount: newAmt, closingstock: newStock, closingstockamount: newAmt, adminid: newRet.adminid };
-        });
+        }, { move: moveOf(oldRet, "PurchaseReturn", "Previous version reversed") });
       }
     }
 
@@ -168,7 +169,7 @@ purchaseReturnSchema.statics.adjustStockAndTransactions = async function (oldRet
           newAmt = stock.currentstockamount - qtyBase * stock.averagecost;
         }
         return { currentstock: newStock, currentstockamount: newAmt, closingstock: newStock, closingstockamount: newAmt, adminid: newRet.adminid };
-      }, { upsert: true });
+      }, { upsert: true, move: moveOf(newRet, "PurchaseReturn") });
     }
   }
 

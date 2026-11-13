@@ -60,6 +60,7 @@ import { leadSourceResolvers } from "./leadsource";
 
 import { withOfflineActions, withOfflineWrites } from "../../utils/offlinesync";
 import { guardResolvers, hidePasswords } from "../../utils/authguard";
+import { stockMoveResolvers } from "./stockmove";
 import { SalesOrder } from "../../models/salesorder";
 import { SalesInvoice } from "../../models/salesinvoice";
 import { PurchaseOrder } from "../../models/purchaseorder";
@@ -87,6 +88,7 @@ import { Holiday, LeaveType } from "../../models/attendance";
 
 export const resolvers = guardResolvers([
   hidePasswords,
+  stockMoveResolvers,
   branchResolvers,
   withOfflineWrites(categoryResolvers, { model: Category, typename: "Category", tenant: "admin", add: "addCategory", edit: "editCategory", del: "deleteCategory", isoUpdatedAt: true }),
   withOfflineWrites(subCategoryResolvers, { model: SubCategory, typename: "SubCategory", tenant: "admin", add: "addSubCategory", edit: "editSubCategory", del: "deleteSubCategory", isoUpdatedAt: true }),

@@ -2,6 +2,7 @@
 import mongoose from "mongoose";
 import { billNumberGuard, nextMainBillNumber } from "../../utils/billnumber";
 import { ProductBranchStock, writeStockRow } from "../productbranchstock";
+import { moveOf } from "../stockmove";
 import { ProductService } from "../products";
 import { convertToBaseUnit } from "../../utils/unitconversation";
 import { Transaction } from "../transactions";
@@ -450,7 +451,7 @@ purchaseInvoiceSchema.statics.adjustStockAndTransactions = async function (oldIn
           closingstockamount: newCurrentStockAmount,
           adminid: newInv.adminid
         };
-      });
+      }, { move: moveOf(oldInv, "PurchaseInvoice", "Previous version reversed") });
     }
   }
 
@@ -506,7 +507,7 @@ purchaseInvoiceSchema.statics.adjustStockAndTransactions = async function (oldIn
         closingstockamount: newCurrentStockAmount,
         adminid: newInv.adminid
       };
-    }, { upsert: true });
+    }, { upsert: true, move: moveOf(newInv, "PurchaseInvoice") });
   }
 }
 

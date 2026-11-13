@@ -2,6 +2,7 @@
 import mongoose from "mongoose";
 import { billNumberGuard, nextMainBillNumber } from "../../utils/billnumber";
 import { ProductBranchStock, writeStockRow } from "../productbranchstock";
+import { moveOf } from "../stockmove";
 import { ProductService } from "../products";
 import { convertToBaseUnit } from "../../utils/unitconversation";
 import { Transaction } from "../transactions";
@@ -496,7 +497,7 @@ salesInvoiceSchema.statics.adjustStockAndTransactions = async function (oldInv: 
           const newStock = stock.currentstock + qtyBase;
           const newAmt = newStock * stock.averagecost;
           return { currentstock: newStock, currentstockamount: newAmt, closingstock: newStock, closingstockamount: newAmt, adminid: newInv.adminid };
-        });
+        }, { move: moveOf(oldInv, "SalesInvoice", "Previous version reversed") });
       }
     }
 
@@ -524,7 +525,7 @@ salesInvoiceSchema.statics.adjustStockAndTransactions = async function (oldInv: 
           newAmt = stock.currentstockamount - qtyBase * stock.averagecost;
         }
         return { currentstock: newStock, currentstockamount: newAmt, closingstock: newStock, closingstockamount: newAmt, adminid: newInv.adminid };
-      }, { upsert: true });
+      }, { upsert: true, move: moveOf(newInv, "SalesInvoice") });
     }
   }
 

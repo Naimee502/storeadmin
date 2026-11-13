@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import { billNumberGuard, nextMainBillNumber } from "../../utils/billnumber";
 import { ProductBranchStock, writeStockRow } from "../productbranchstock";
+import { moveOf } from "../stockmove";
 import { ProductService } from "../products";
 import { convertToBaseUnit } from "../../utils/unitconversation";
 
@@ -160,7 +161,7 @@ export async function moveJobCardStock(doc: any, sign: 1 | -1) {
       const avg = Number(stock?.averagecost || 0);
       const next = Number(stock?.currentstock || 0) + sign * qtyBase;
       return { currentstock: next, currentstockamount: next * avg, closingstock: next, closingstockamount: next * avg, adminid: doc.adminid };
-    }, { upsert: true, onInsert: { openingstock: 0 } });
+    }, { upsert: true, onInsert: { openingstock: 0 }, move: moveOf(doc, doc?.doctype || "JobCard", sign > 0 ? "Put back" : undefined) });
   }
 }
 
@@ -182,7 +183,7 @@ export async function moveAppointmentMaterials(appt: any, sign: 1 | -1) {
   (appt.services || []).forEach((l: any, i: number) => {
     for (const m of variants[i]?.materials || []) spares.push({ ...m, qty: Number(m.qty || 0) * (Number(l.qty) || 1) });
   });
-  await moveJobCardStock({ spares, branchid: appt.branchid, adminid: appt.adminid }, sign);
+  await moveJobCardStock({ spares, branchid: appt.branchid, adminid: appt.adminid, _id: appt._id, billnumber: appt.billnumber, billdate: appt.billdate, doctype: "Appointment" }, sign);
 }
 
 jobCardSchema.plugin(billNumberGuard("JobCard"));

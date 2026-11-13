@@ -1,4 +1,5 @@
 import { accountGroupTypeDefs } from "./accountgroups";
+import { stockMoveTypeDefs } from "./stockmove";
 import { accountLedgerTypeDefs } from "./accountledgers";
 import { accountTypeDefs } from "./accounts";
 import { adminTypeDefs } from "./admin";
@@ -106,4 +107,5 @@ export const typeDefs = [
   aiTypeDefs,
   insightTypeDefs,
   leadSourceTypeDefs,
+  stockMoveTypeDefs,
 ];

@@ -1,6 +1,7 @@
 import { Types } from "mongoose";
 import { IProductVariant } from "../../models/products";
 import { ProductBranchStock } from "../../models/productbranchstock";
+import { recordStockMove, type MoveInfo } from "../../models/stockmove";
 import { convertToBaseUnit } from "../unitconversation";
 
 export type StockAction = "SET" | "PURCHASE" | "SALE" | "TRANSFER_IN" | "TRANSFER_OUT" | "ADJUST";
@@ -18,6 +19,8 @@ interface StockManagerParams {
   /** The given `rate` is already per BASE unit (stock adjustments enter qty in
    *  base units), so it must not be divided by the purchase-unit factor again. */
   rateIsBase?: boolean;
+  /** Ledger context (which document moved the stock). */
+  move?: MoveInfo;
 }
 
 function getPurchaseRate(variant: IProductVariant, overrideRate?: number): number {
@@ -49,7 +52,9 @@ export async function manageStock(params: StockManagerParams, attempt = 0): Prom
     allowCreate = true,
     rate: overrideRate,
     rateIsBase = false,
+    move,
   } = params;
+  const ids = { adminid: adminId, branchid: branchId, productid: productId, variantid: variant?._id };
 
   if (!variant._id) throw new Error("Variant _id required");
 
@@ -98,6 +103,7 @@ export async function manageStock(params: StockManagerParams, attempt = 0): Prom
         reorderlevel: variant.reorderlevel || 0,
         averagecost: rate,
       });
+      await recordStockMove(ids, 0, Number(stock.currentstock || 0), move);
       return stock;
     }
 
@@ -116,6 +122,7 @@ export async function manageStock(params: StockManagerParams, attempt = 0): Prom
       reorderlevel: variant.reorderlevel || 0,
       averagecost: rate,
     });
+    await recordStockMove(ids, 0, Number(stock.currentstock || 0), move);
     return stock;
   }
 
@@ -173,6 +180,7 @@ export async function manageStock(params: StockManagerParams, attempt = 0): Prom
       await new Promise((r) => setTimeout(r, Math.random() * 20 * Math.min(attempt + 1, 5)));
       return manageStock(params, attempt + 1);
     }
+    await recordStockMove(ids, Number(seenStock ?? 0), Number(stock.currentstock ?? 0), move);
   }
   return stock;
 }

@@ -1,5 +1,6 @@
 import mongoose, { Model, Schema, Document, Types } from 'mongoose';
 import { ProductBranchStock, writeStockRow } from '../productbranchstock';
+import { moveOf } from "../stockmove";
 import { convertToBaseUnit } from '../../utils/unitconversation';
 import { ProductService } from '../products';
 import { NUMERIC_COLLATION } from '../../utils/billnumber';
@@ -113,7 +114,7 @@ transferStockSchema.statics.adjustStock = async function (
         const next = (stock ? stock.currentstock : 0) + delta;
         return { currentstock: next, closingstock: next };
       },
-      { upsert: true, onInsert: { openingstock: 0, openingstockamount: 0, currentstockamount: 0, closingstockamount: 0, averagecost: 0 } }
+      { upsert: true, onInsert: { openingstock: 0, openingstockamount: 0, currentstockamount: 0, closingstockamount: 0, averagecost: 0 }, move: moveOf(newDoc || oldDoc, "TransferStock") }
     );
   };
 

@@ -1,20 +1,28 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@apollo/client";
 import { useAppSelector } from "../../../redux/hooks";
-import { STOCK_REPORT_PRODUCTS } from "../../../graphql/queries/reports/stock";
+import { GET_STOCK_MOVES, STOCK_REPORT_PRODUCTS } from "../../../graphql/queries/reports/stock";
 import { GET_TRANSFER_STOCKS, GET_DELETED_TRANSFER_STOCKS } from "../../../graphql/queries/transferstock";
 import { GET_BRANCHES } from "../../../graphql/queries/branches";
 import HomeLayout from "../../../layouts/home";
 import ReportTable, { type ReportFilterField } from "../../../components/reporttable";
 import { normalizeToYMD, formatDateDMY, todayYMD, shiftDaysYMD } from "../../../utils/helper";
-import { FaBoxes, FaExclamationTriangle, FaChartLine, FaExchangeAlt } from "react-icons/fa";
+import { FaBoxes, FaExclamationTriangle, FaChartLine, FaExchangeAlt, FaListOl } from "react-icons/fa";
 
 const reportTabsObj = [
   { id: "Current Stock", label: "Current Stock", icon: <FaBoxes className="text-xs text-blue-600" /> },
   { id: "Low Stock", label: "Low Stock", icon: <FaExclamationTriangle className="text-xs text-amber-600" /> },
   { id: "Stock Valuation", label: "Stock Valuation", icon: <FaChartLine className="text-xs text-emerald-600" /> },
   { id: "Stock Transfers", label: "Stock Transfers", icon: <FaExchangeAlt className="text-xs text-purple-600" /> },
+  { id: "Stock Ledger", label: "Stock Ledger", icon: <FaListOl className="text-xs text-slate-600" /> },
 ];
+
+// What moved the stock, in words.
+const DOC_LABEL: Record<string, string> = {
+  SalesInvoice: "Sales Invoice", PurchaseInvoice: "Purchase Invoice", SalesReturn: "Sales Return", PurchaseReturn: "Purchase Return",
+  DeliveryChallan: "Delivery Challan", TransferStock: "Stock Transfer", StockAdjustment: "Stock Adjustment",
+  ProductionEntry: "Production", JobCard: "Job Card", Appointment: "Appointment", Product: "Product", Import: "Import", Opening: "Opening Balance",
+};
 
 const StockReports: React.FC = () => {
   const [activeTab, setActiveTab] = useState<string>(reportTabsObj[0].id);
@@ -26,6 +34,7 @@ const StockReports: React.FC = () => {
   const branchid = type === 'admin' ? selectedBranchId : type === 'branch' ? branch?.id : type === 'staff' ? staff?.branchid?.id : undefined;
   const authAdminId = useAppSelector((state) => state.auth.admin?.id);
   const isTransfers = activeTab === "Stock Transfers";
+  const isLedger = activeTab === "Stock Ledger";
 
   // Lite product/variant stock (active + deleted) — every tab needs these.
   const { data: productData } = useQuery(STOCK_REPORT_PRODUCTS, {
@@ -125,6 +134,13 @@ const StockReports: React.FC = () => {
 
   const handleApplyFilters = () => setAppliedFilters({ ...filters });
 
+  // Ledger rows load on the Stock Ledger tab only, for the applied filters.
+  const { data: ledgerData } = useQuery(GET_STOCK_MOVES, {
+    variables: { productid: appliedFilters.productId || undefined, branchid: branchid || undefined, from: appliedFilters.fromDate || undefined, to: appliedFilters.toDate || undefined, limit: 500, offset: 0 },
+    skip: !isLedger || !adminId,
+    fetchPolicy: "cache-and-network",
+  });
+
   // Columns and filters
 
   let tableData: any[] = [];
@@ -194,6 +210,32 @@ const StockReports: React.FC = () => {
       filterFields = [
         { name: "productId", label: "Product", type: "select", options: productOptions, searchable: true },
         { name: "status", label: "Status", type: "select", options: statusFilterOptions },
+      ];
+      break;
+
+    case "Stock Ledger":
+      tableData = (ledgerData?.getStockMoves?.rows || []).map((r: any) => ({
+        date: formatDateDMY(r.date || r.createdAt),
+        productName: r.productname,
+        document: [DOC_LABEL[r.doctype] || r.doctype, r.docno].filter(Boolean).join(" "),
+        qtyIn: r.qty > 0 ? r.qty : "",
+        qtyOut: r.qty < 0 ? -r.qty : "",
+        balance: r.balance,
+        note: r.note || "",
+      }));
+      columns = [
+        { label: "Date", key: "date" },
+        { label: "Product", key: "productName" },
+        { label: "Document", key: "document" },
+        { label: "In", key: "qtyIn", numeric: true },
+        { label: "Out", key: "qtyOut", numeric: true },
+        { label: "Balance", key: "balance" },
+        { label: "Note", key: "note" },
+      ];
+      filterFields = [
+        { name: "productId", label: "Product", type: "select", options: productOptions, searchable: true },
+        { name: "fromDate", label: "From Date", type: "date" },
+        { name: "toDate", label: "To Date", type: "date" },
       ];
       break;
 

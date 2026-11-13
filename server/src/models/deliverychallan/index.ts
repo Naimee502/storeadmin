@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import { billNumberGuard, nextMainBillNumber } from "../../utils/billnumber";
 import { ProductBranchStock, writeStockRow } from "../productbranchstock";
+import { moveOf } from "../stockmove";
 import { ProductService } from "../products";
 import { convertToBaseUnit } from "../../utils/unitconversation";
 
@@ -95,7 +96,7 @@ export async function moveChallanStock(doc: any, sign: 1 | -1) {
       const avg = Number(stock?.averagecost || 0);
       const next = cur + sign * qtyBase;
       return { currentstock: next, currentstockamount: next * avg, closingstock: next, closingstockamount: next * avg, adminid: doc.adminid };
-    }, { upsert: true });
+    }, { upsert: true, move: moveOf(doc, "DeliveryChallan", sign > 0 ? "Returned / reversed" : undefined) });
   }
 }
 

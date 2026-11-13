@@ -5,6 +5,7 @@ import { ProductService } from "../../../models/products";
 import { containsRx, pageWindow, textMatch, notCleared } from "../../../utils/listquery";
 import { dmyOrDash, fixed2, searchAndFilterClauses, textOr } from "../transactions/listtext";
 import { assertFresh, conflictError, createOnce, parseExpectedUpdatedAt, raiseDeviceSeq, takeDeviceNumber, updateByIdGuarded } from "../../../utils/offlinesync";
+import { moveOf, type MoveInfo } from "../../../models/stockmove";
 
 function normalizeId(value: any) {
   if (!value) return null;
@@ -71,7 +72,7 @@ async function assertNoNegative(net: Map<string, any>, adminid: any, branchid: a
 
 /** Move stock for every row (Excess = in, Shortage = out). */
 async function applyRows(
-  rows: AdjRow[], adminid: any, branchid: any, action: StockAction, strict: boolean
+  rows: AdjRow[], adminid: any, branchid: any, action: StockAction, strict: boolean, move?: MoveInfo
 ) {
   for (const row of rows) {
     if (!(Number(row.quantity) > 0)) continue;
@@ -88,6 +89,7 @@ async function applyRows(
       allowCreate: true,
       rate: Number(row.rate) || 0,
       rateIsBase: true,
+      move,
     });
   }
 }
@@ -112,10 +114,10 @@ async function reverseAndDeactivate(id: any, expected: Date | null = null) {
       { status: false, stockreversed: true }
     );
     if (!claimed) throw await conflictError(() => loadAdjustment(id));
-    await applyRows(adj.items, adj.adminid, adj.branchid, outAction(adj.type), false);
+    await applyRows(adj.items, adj.adminid, adj.branchid, outAction(adj.type), false, moveOf(adj, "StockAdjustment", "Reversed"));
     return true;
   }
-  await applyRows(adj.items, adj.adminid, adj.branchid, outAction(adj.type), false);
+  await applyRows(adj.items, adj.adminid, adj.branchid, outAction(adj.type), false, moveOf(adj, "StockAdjustment", "Reversed"));
   adj.status = false;
   adj.stockreversed = true;
   await adj.save();
@@ -255,7 +257,7 @@ async function createStockAdjustmentNow(_: any, { input }: any, context: any) {
         });
         await raiseDeviceSeq(adminId, deviceNo);
 
-        await applyRows(items, adminId, branchId, inAction(input.type), true);
+        await applyRows(items, adminId, branchId, inAction(input.type), true, moveOf(newAdj, "StockAdjustment"));
 
         return { ...newAdj.toObject(), id: newAdj._id.toString() };
       } catch (err) {
@@ -396,8 +398,8 @@ export const stockAdjustmentResolvers = {
         const claimed = guardAt ? await updateByIdGuarded(StockAdjustment, id, guardAt, fields, { new: true }) : null;
         if (guardAt && !claimed) throw await conflictError(() => loadAdjustment(id));
 
-        await applyRows(adj.items, adj.adminid, adj.branchid, outAction(adj.type), false);
-        await applyRows(newItems, adj.adminid, adj.branchid, inAction(newType), true);
+        await applyRows(adj.items, adj.adminid, adj.branchid, outAction(adj.type), false, moveOf(adj, "StockAdjustment", "Reversed"));
+        await applyRows(newItems, adj.adminid, adj.branchid, inAction(newType), true, moveOf(adj, "StockAdjustment"));
 
         const updated = claimed || await StockAdjustment.findByIdAndUpdate(id, fields, { new: true });
 
@@ -427,7 +429,7 @@ export const stockAdjustmentResolvers = {
         if (adj.type !== "Excess") {
           await assertNoNegative(qtyByVariant(adj.items, -1), adj.adminid, adj.branchid, "restore this shortage");
         }
-        await applyRows(adj.items, adj.adminid, adj.branchid, inAction(adj.type), false);
+        await applyRows(adj.items, adj.adminid, adj.branchid, inAction(adj.type), false, moveOf(adj, "StockAdjustment", "Restored"));
       }
 
       adj.status = true;

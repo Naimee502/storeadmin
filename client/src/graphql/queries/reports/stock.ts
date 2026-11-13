@@ -19,3 +19,13 @@ export const STOCK_REPORT_PRODUCTS = gql`
     }
   }
 `;
+
+// Stock ledger rows (newest first).
+export const GET_STOCK_MOVES = gql`
+  query GetStockMoves($productid: ID, $branchid: ID, $from: String, $to: String, $limit: Int, $offset: Int) {
+    getStockMoves(productid: $productid, branchid: $branchid, from: $from, to: $to, limit: $limit, offset: $offset) {
+      total
+      rows { id productid productname variantid qty balance doctype docno date note createdAt }
+    }
+  }
+`;

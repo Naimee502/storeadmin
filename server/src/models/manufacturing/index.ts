@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import { billNumberGuard, nextMainBillNumber } from "../../utils/billnumber";
 import { ProductBranchStock, writeStockRow } from "../productbranchstock";
+import { moveOf } from "../stockmove";
 import { ProductService } from "../products";
 import { convertToBaseUnit } from "../../utils/unitconversation";
 
@@ -157,7 +158,7 @@ export async function moveProductionStock(doc: any, sign: 1 | -1) {
         if (next > 0) nextAvg = Math.max(0, (held + delta * unitCost) / next);
       }
       return { currentstock: next, currentstockamount: next * nextAvg, closingstock: next, closingstockamount: next * nextAvg, averagecost: nextAvg, adminid: doc.adminid };
-    }, { upsert: true, onInsert: { openingstock: 0 } });
+    }, { upsert: true, onInsert: { openingstock: 0 }, move: moveOf(doc, "ProductionEntry", sign < 0 ? "Entry reversed" : undefined) });
   };
   for (const l of doc?.components || []) await move(l, -1);
   for (const l of doc?.outputs || []) await move(l, 1);

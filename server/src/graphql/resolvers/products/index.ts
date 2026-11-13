@@ -24,6 +24,7 @@ import {
   textMatch,
   type ColumnFilter,
 } from "../../../utils/listquery";
+import { moveOf } from "../../../models/stockmove";
 
 function normalizeId(value: any) {
   if (!value) return null;
@@ -661,6 +662,7 @@ export const productServiceResolvers = {
               unitId: v.baseunitid ? v.baseunitid : undefined,
               action: "SET",
               allowCreate: true,
+              move: moveOf({ _id: savedProductForStock._id, billnumber: savedProductForStock.name }, "Product", "Opening stock on product form"),
             });
           }
         }
@@ -821,6 +823,7 @@ export const productServiceResolvers = {
               unitId: v.baseunitid,
               action: "SET",
               allowCreate: false,
+              move: moveOf({ _id: saved._id, billnumber: saved.name }, "Product", "Stock set on product form"),
             });
 
           } else {
@@ -839,6 +842,7 @@ export const productServiceResolvers = {
                 unitId: v.baseunitid,
                 action: "SET",
                 allowCreate: true,
+                move: moveOf({ _id: saved._id, billnumber: saved.name }, "Product", "Stock set on product form"),
               });
             }
           }

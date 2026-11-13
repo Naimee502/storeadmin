@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { recordStockMove, type MoveInfo } from '../stockmove';
 
 const productBranchStockSchema = new mongoose.Schema({
   adminid: {
@@ -79,8 +80,14 @@ export const ProductBranchStock = mongoose.model(
 export const writeStockRow = async (
   key: Record<string, any>,
   compute: (row: any) => Record<string, any> | null,
-  opts: { upsert?: boolean; onInsert?: Record<string, any> } = {}
+  opts: { upsert?: boolean; onInsert?: Record<string, any>; move?: MoveInfo } = {}
 ) => {
+  const log = (row: any, set: any) => recordStockMove(
+    { adminid: set.adminid ?? row?.adminid ?? key.adminid, branchid: key.branchid, productid: key.productid, variantid: key.variantid },
+    Number(row?.currentstock ?? 0),
+    Number(set.currentstock ?? row?.currentstock ?? 0),
+    opts.move
+  );
   for (let attempt = 0; attempt < 30; attempt++) {
     if (attempt) await new Promise((r) => setTimeout(r, Math.random() * 20 * Math.min(attempt, 5)));
     const row: any = await ProductBranchStock.findOne(key);
@@ -91,7 +98,7 @@ export const writeStockRow = async (
         if (!opts.upsert) return;
         // $setOnInsert: if another bill created the row meanwhile, nothing is overwritten and we retry.
         const res = await ProductBranchStock.updateOne(key, { $setOnInsert: { ...opts.onInsert, ...set } }, { upsert: true });
-        if (res.upsertedCount) return;
+        if (res.upsertedCount) return log(null, set);
       } else {
         const filter = {
           _id: row._id,
@@ -99,7 +106,7 @@ export const writeStockRow = async (
           currentstock: row.$isDefault("currentstock") ? null : row.currentstock,
         };
         const res = await ProductBranchStock.updateOne(filter, { $set: set });
-        if (res.matchedCount) return;
+        if (res.matchedCount) return log(row, set);
       }
     } catch (e: any) {
       if (e?.code !== 11000) throw e;

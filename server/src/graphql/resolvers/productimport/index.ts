@@ -15,6 +15,7 @@ import { manageStock } from "../../../utils/stockmanager";
 import { requireBackofficeTenant, TenantError } from "../../../utils/tenant";
 import { validateProductInput } from "../../../utils/productvalidation";
 import { ImportMasterPlanner, type ImageOffer } from "../../../utils/importmasters";
+import { moveOf } from "../../../models/stockmove";
 
 /** Which tab of the import workbook each kind of issue belongs to. */
 const SHEET_FOR_SCOPE: Record<string, string> = {
@@ -470,6 +471,7 @@ export const productImportResolvers = {
               unitId: variant.baseunitid ? variant.baseunitid : undefined,
               action: "SET",
               allowCreate: true,
+              move: moveOf({ _id: doc._id, billnumber: doc.name }, "Import", "Opening stock from import"),
             });
           }
         }
