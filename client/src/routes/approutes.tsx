@@ -239,7 +239,9 @@ const AppRoutes = () => {
         path="/businesssettings"
         element={
           <PublicRoutes>
-            <BusinessSettings />
+            <PlatformKeyGate>
+              <BusinessSettings />
+            </PlatformKeyGate>
           </PublicRoutes>
         }
       />

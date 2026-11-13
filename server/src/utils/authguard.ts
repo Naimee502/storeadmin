@@ -141,7 +141,7 @@ const check = async (field: string, args: any, context: any) => {
     if (!platform) throw denied("This action is for the platform owner only.");
     return;
   }
-  if (platform && (field === "getAdmins" || field === "updateAdminById")) return;
+  if (platform) return; // the platform owner manages every business (Business Settings, admin register)
   if (!context?.user) throw new TenantError("Please sign in again.", "UNAUTHENTICATED");
 
   if (field === "getAdmins") {
