@@ -544,13 +544,33 @@ async function assistantGate(context: any) {
 
 const LANG_NAME: Record<string, string> = { en: "simple English", hi: "Hindi (Devanagari)", gu: "Gujarati (ગુજરાતી)", hinglish: "Hinglish (Hindi in English letters)" };
 
+/** Spoken script in the chosen language; "" when AI is off or fails. */
+async function briefingScript(scope: any, lang: string, items: any[], user: any) {
+  if (!items.length) return "";
+  const r = await aiAsk(scope.adminid, {
+    task: "briefing",
+    system: `Write a short spoken morning briefing (60-90 seconds) for the owner of a small Indian business, in ${LANG_NAME[lang]}. Use only the items given; never add numbers. Most important first, then one line on what to do. Plain sentences, no lists or symbols.`,
+    prompt: JSON.stringify(items),
+    user,
+    branchid: scope.branchid,
+    maxSteps: 1,
+  });
+  return r.ok ? r.text : "";
+}
+
 /** Today's 5-7 most important things, from the finders (no AI); a spoken script when AI is on. Built once a day. */
 async function briefingFor(scope: any, language: string, user: any) {
   const lang = LANG_NAME[language] ? language : "en";
   const date = new Date(Date.now() + 330 * 60000).toISOString().slice(0, 10);
   const key = { adminid: scope.adminid, branchid: scope.branchid || null, date, language: lang };
   const saved: any = await Briefing.findOne(key).lean();
-  if (saved) return saved;
+  if (saved && (saved.script || !saved.items?.length)) return saved;
+  // Saved without a script (AI was off or failed): try the script again, keep the list.
+  if (saved) {
+    const script = await briefingScript(scope, lang, saved.items, user);
+    if (script) await Briefing.updateOne({ _id: saved._id }, { $set: { script } });
+    return { ...saved, script };
+  }
 
   // Refresh the finders once a day before reading them.
   const last: any = await Insight.findOne({ adminid: scope.adminid }).sort({ foundAt: -1 }).select("foundAt").lean();
@@ -571,18 +591,7 @@ async function briefingFor(scope: any, language: string, user: any) {
   opps.forEach((o) => items.push({ kind: o.kind, title: `${o.name}: ${o.title}`, detail: "", value: o.value }));
   const top = items.slice(0, 7);
 
-  let script = "";
-  if (top.length) {
-    const r = await aiAsk(scope.adminid, {
-      task: "briefing",
-      system: `Write a short spoken morning briefing (60-90 seconds) for the owner of a small Indian business, in ${LANG_NAME[lang]}. Use only the items given; never add numbers. Most important first, then one line on what to do. Plain sentences, no lists or symbols.`,
-      prompt: JSON.stringify(top),
-      user,
-      branchid: scope.branchid,
-      maxSteps: 1,
-    });
-    if (r.ok) script = r.text;
-  }
+  const script = await briefingScript(scope, lang, top, user);
   const doc = { ...key, items: top, script };
   try { await Briefing.create(doc); } catch { /* another request saved it */ }
   return doc;

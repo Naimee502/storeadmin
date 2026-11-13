@@ -28,6 +28,17 @@ export const listen = (lang: AiLang): Promise<string> =>
     r.start();
   });
 
+const voiceFor = (lang: AiLang) => {
+  const code = BCP[lang].toLowerCase();
+  const all = window.speechSynthesis.getVoices();
+  return all.find((v) => v.lang?.toLowerCase().replace("_", "-") === code) || all.find((v) => v.lang?.toLowerCase().startsWith(code.slice(0, 2)));
+};
+// Chrome loads its voice list late; ask early so the first Play has it.
+if (canSpeak) window.speechSynthesis.getVoices();
+
+/** True when this device has a voice for the language. */
+export const hasVoice = (lang: AiLang) => !canSpeak || lang === "en" || !window.speechSynthesis.getVoices().length || !!voiceFor(lang);
+
 /** Reads text aloud with a voice for the language, if the device has one. */
 export const speak = (text: string, lang: AiLang) => {
   if (!canSpeak || !text) return;
@@ -35,7 +46,7 @@ export const speak = (text: string, lang: AiLang) => {
   synth.cancel();
   const u = new SpeechSynthesisUtterance(text);
   u.lang = BCP[lang];
-  const voice = synth.getVoices().find((v) => v.lang?.toLowerCase().startsWith(BCP[lang].slice(0, 2)));
+  const voice = voiceFor(lang);
   if (voice) u.voice = voice;
   u.rate = 0.95;
   synth.speak(u);

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery } from "@apollo/client";
 import { BarChart3, Play, Square, Sunrise } from "lucide-react";
 import { GET_AI_USAGE, GET_BRIEFING } from "../../graphql/queries/crm";
-import { AI_LANGS, canSpeak, getAiLang, setAiLang, speak, stopSpeaking, type AiLang } from "./voice";
+import { AI_LANGS, canSpeak, getAiLang, hasVoice, setAiLang, speak, stopSpeaking, type AiLang } from "./voice";
 
 const money = (n: any) => `₹${Math.round(Number(n) || 0).toLocaleString("en-IN")}`;
 
@@ -15,9 +15,11 @@ export const BriefingCard = () => {
   const b = data?.getBriefing;
   const items: any[] = b?.items || [];
   const spoken = b?.script || items.map((i) => `${i.title}. ${i.detail || ""}`).join(" ");
+  // Without an AI script the list is English, so it is read in English.
+  const voiceLang: AiLang = b?.script ? lang : "en";
   const play = () => {
     if (playing) { stopSpeaking(); setPlaying(false); return; }
-    speak(spoken, lang);
+    speak(spoken, voiceLang);
     setPlaying(true);
     const tick = setInterval(() => {
       if (!window.speechSynthesis.speaking) { setPlaying(false); clearInterval(tick); }
@@ -58,6 +60,12 @@ export const BriefingCard = () => {
           </div>
         ))}
         {b?.script && <p className="border-t border-slate-100 pt-1.5 text-[11.5px] italic text-slate-500">{b.script}</p>}
+        {b && items.length > 0 && lang !== "en" && !b.script && (
+          <p className="border-t border-slate-100 pt-1.5 text-[11.5px] text-amber-700">Turn on AI in Business Settings → AI &amp; Agent to hear this in {AI_LANGS.find(([v]) => v === lang)?.[1]}; until then it is read in English.</p>
+        )}
+        {b?.script && !hasVoice(lang) && (
+          <p className="border-t border-slate-100 pt-1.5 text-[11.5px] text-amber-700">This device has no {AI_LANGS.find(([v]) => v === lang)?.[1]} voice, so it may be read in another voice. Add one in your computer's speech settings.</p>
+        )}
       </div>
       {showUsage && <AiUsagePanel />}
     </div>
