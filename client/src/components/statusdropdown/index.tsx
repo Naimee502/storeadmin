@@ -41,12 +41,22 @@ const StatusDropdown: React.FC<{
   const key = (current || "").toLowerCase();
   const st = STYLES[key] || FALLBACK;
 
+  // Below the badge, kept inside the window: shifted left at the right edge, opened upwards near the bottom.
   const place = () => {
     const r = btnRef.current?.getBoundingClientRect();
-    if (r) setPos({ top: r.bottom + 4, left: r.left, width: r.width });
+    if (!r) return;
+    const m = menuRef.current;
+    const w = m?.offsetWidth || Math.max(r.width, 150);
+    const h = m?.offsetHeight || 0;
+    const left = Math.max(8, Math.min(r.left, window.innerWidth - w - 8));
+    const below = r.bottom + 4;
+    const top = h && below + h > window.innerHeight - 8 && r.top - h - 4 >= 8 ? r.top - h - 4 : below;
+    setPos({ top, left, width: r.width });
   };
 
+  // Placed twice: once to draw the menu, then again with its real size.
   useLayoutEffect(() => { if (open) place(); }, [open]);
+  useLayoutEffect(() => { if (open && menuRef.current) place(); }, [open, options.length]);
 
   useEffect(() => {
     if (!open) return;
@@ -106,7 +116,7 @@ const StatusDropdown: React.FC<{
                 onClick={() => { setOpen(false); onSelect(o.value); }}
               >
                 <span className={`w-1.5 h-1.5 rounded-full ${ost.dot}`} />
-                <span className="font-medium text-gray-700">{o.label}</span>
+                <span className="whitespace-nowrap font-medium text-gray-700">{o.label}</span>
                 {active && <span className="ml-auto text-[10px] text-gray-400">current</span>}
               </button>
             );
