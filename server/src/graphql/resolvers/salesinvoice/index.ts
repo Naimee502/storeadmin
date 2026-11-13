@@ -1,3 +1,4 @@
+import { ProductService } from "../../../models/products";
 import { sortLinesByCategory } from "../../../utils/linesort";
 import { SalesInvoice } from "../../../models/salesinvoice";
 import { AdminSettings } from "../../../models/adminsettings";
@@ -399,16 +400,16 @@ const loadInvoice = async (id: any) => {
 };
 
 // ✅ GraphQL resolvers
-// Every line needs a unit. Without one the quantity cannot be converted to the
-// product's base unit, so stock moves by the wrong amount and the rate belongs
-// to a pack size nobody chose. The form blocks this, but the API is reachable
-// without the form — a saved line missing its unit is silently wrong rather
-// than loudly rejected, so reject it here.
-function assertLineUnits(input: any) {
+// Goods lines need a unit to convert qty to base stock; service lines have none.
+async function assertLineUnits(input: any) {
   const lines = Array.isArray(input?.productservice) ? input.productservice : [];
+  const ids = lines.filter((l: any) => !l?.salesunitid && l?.productserviceid).map((l: any) => l.productserviceid);
+  const services = new Set(
+    ids.length ? (await ProductService.find({ _id: { $in: ids }, isservice: true }).select("_id").lean()).map((d: any) => String(d._id)) : []
+  );
   const missing: number[] = [];
   lines.forEach((line: any, i: number) => {
-    if (!line?.salesunitid) missing.push(i + 1);
+    if (!line?.salesunitid && !services.has(String(line?.productserviceid))) missing.push(i + 1);
   });
   if (missing.length) {
     const which = missing.length === 1 ? `line ${missing[0]}` : `lines ${missing.join(", ")}`;
@@ -645,7 +646,7 @@ const findInvoiceByRequest = async (adminid: string, requestId: string) => {
 };
 
 async function addSalesInvoiceNow(_: any, { input, autoPayment }: any, context: any) {
-      assertLineUnits(input);
+      await assertLineUnits(input);
       // A device number is provisional: moved to offlineNumber.
       const deviceNo = takeDeviceNumber("salesinvoice", input);
       // ✅ Extract user info from context and populate createdby fields
@@ -1191,7 +1192,7 @@ export const salesInvoiceResolvers = {
     editSalesInvoice: async (_: any, { id, input, expectedUpdatedAt }: any, context: any) => {
       dropDeviceNumber("salesinvoice", input);
       const expected = parseExpectedUpdatedAt(expectedUpdatedAt);
-      assertLineUnits(input);
+      await assertLineUnits(input);
       const { user } = context;
       const userContext = {
         createdby_id: user?.id,
