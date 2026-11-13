@@ -80,7 +80,7 @@ const AddEditBranch = () => {
     if (!formData.branchname.trim()) newErrors.branchname = "Branch name is required";
     if (!formData.mobile.trim()) newErrors.mobile = "Mobile number is required";
     if (!formData.email.trim()) newErrors.email = "Email is required";
-    if (!formData.password.trim()) newErrors.password = "Password is required";
+    if (!isEdit && !formData.password.trim()) newErrors.password = "Password is required";
     return newErrors;
   };
 
@@ -178,7 +178,7 @@ const AddEditBranch = () => {
               <FormField label="Branch Name" name="branchname" required value={formData.branchname} onChange={handleChange} icon={<FaStore />} placeholder="e.g. Tragad" error={errors.branchname} />
               <FormField label="Mobile Number" name="mobile" required value={formData.mobile} onChange={handleChange} icon={<FaMobileAlt />} placeholder="10-digit mobile" error={errors.mobile} />
               <FormField label="Email" name="email" type="email" required value={formData.email} onChange={handleChange} icon={<FaEnvelope />} placeholder="branch@email.com" error={errors.email} />
-              <FormField label="Password" name="password" type="password" required value={formData.password} onChange={handleChange} icon={<FaLock />} placeholder="Login password" error={errors.password} noAutofill />
+              <FormField label="Password" name="password" type="password" required={!isEdit} value={formData.password} onChange={handleChange} icon={<FaLock />} placeholder={isEdit ? "Leave blank to keep it" : "Login password"} error={errors.password} noAutofill />
               <FormField label="Location" name="location" value={formData.location} onChange={handleChange} icon={<FaMapMarkerAlt />} placeholder="Area / locality" />
               <FormField label="Phone Number" name="phone" type="tel" value={formData.phone} onChange={handleChange} icon={<FaPhone />} placeholder="Landline (optional)" />
             </FormSection>

@@ -1,6 +1,7 @@
 import { Branch } from "../../../models/branches";
 import { generateTokens, sendRefreshToken } from "../../../utils/auth";
 import { enforceLoginOtp } from "../../../utils/loginotp";
+import { verifyPassword, upgradePassword } from "../../../utils/password";
 import {
   activeFilters,
   containsRx,
@@ -117,16 +118,20 @@ export const branchResolvers = {
       return await Branch.find({ _id: { $in: branchIds } }).populate('admin');
     },
 
-    editBranch: async (_: any, { id, input }: any) =>
-      await Branch.findByIdAndUpdate(id, input, { new: true }).populate('admin'),
+    editBranch: async (_: any, { id, input }: any) => {
+      // A blank password on edit keeps the current one.
+      if (input && (input.password === "" || input.password == null)) delete input.password;
+      return await Branch.findByIdAndUpdate(id, input, { new: true }).populate('admin');
+    },
 
     loginBranch: async (_: any, { email, password, otp }: any, { res }: any) => {
       const branch = await Branch.findOne({ email }).populate("admin");
       if (!branch) throw new Error("Branch not found");
 
-      if (branch.password !== password) {
+      if (!verifyPassword(branch.password, password)) {
         throw new Error("Invalid credentials");
       }
+      await upgradePassword(Branch, branch._id, branch.password, password);
 
       // Business Settings -> login email OTP (no-op when the switch is off).
       await enforceLoginOtp({

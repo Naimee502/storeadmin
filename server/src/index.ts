@@ -73,7 +73,7 @@ const startServer = async () => {
         .catch(() => callback(null, false));
     },
     credentials: true,
-    allowedHeaders: ['Content-Type', 'Authorization', 'x-branch-id'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'x-branch-id', 'x-platform-key'],
   };
 
   // The admin panel calls this directly (dev: localhost:4000 from :5173).

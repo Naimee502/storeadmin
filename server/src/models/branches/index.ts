@@ -2,6 +2,7 @@ import mongoose from 'mongoose';
 import { ProductBranchStock } from '../productbranchstock';
 import { ProductService } from '../products';
 import { convertToBaseUnit } from '../../utils/unitconversation';
+import { hashPasswordPlugin } from '../../utils/password';
 
 const branchSchema = new mongoose.Schema({
   branchcode: { type: String },
@@ -127,5 +128,7 @@ branchSchema.post("save", async function (doc) {
   }
 });
 
+
+branchSchema.plugin(hashPasswordPlugin);
 
 export const Branch = mongoose.model('Branch', branchSchema);

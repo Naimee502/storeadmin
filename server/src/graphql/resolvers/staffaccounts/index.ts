@@ -2,6 +2,7 @@ import { StaffAccount } from "../../../models/staffaccounts";
 import { Account } from "../../../models/accounts";
 import { generateTokens, sendRefreshToken } from "../../../utils/auth";
 import { enforceLoginOtp } from "../../../utils/loginotp";
+import { verifyPassword, upgradePassword } from "../../../utils/password";
 import { AccountGroup } from "../../../models/accountgroups";
 import {
   activeFilters,
@@ -313,8 +314,9 @@ export const staffAccountResolvers = {
         .populate("assignedChannels");
       if (!candidates.length) throw new Error("Staff account not found");
 
-      const staff = candidates.find((c: any) => c.password === password);
+      const staff = candidates.find((c: any) => verifyPassword(c.password, password));
       if (!staff) throw new Error("Invalid credentials");
+      await upgradePassword(StaffAccount, staff._id, staff.password, password);
       if (!staff.status) throw new Error("Your account is currently disabled.");
 
       // Billing-panel login: Business Settings -> login email OTP (no-op when
@@ -343,7 +345,8 @@ export const staffAccountResolvers = {
         .populate("assignedChannels");
       if (!staff) throw new Error("Mobile number not registered.");
 
-      if (staff.password !== password) throw new Error("Invalid password.");
+      if (!verifyPassword(staff.password, password)) throw new Error("Invalid password.");
+      await upgradePassword(StaffAccount, staff._id, staff.password, password);
       if (!staff.status) throw new Error("Your account is currently disabled.");
 
       const { accessToken, refreshToken } = generateTokens({

@@ -51,6 +51,7 @@ import DeletedPurchaseOrders from "../pages/purchaseorder/deletedentries";
 import AdminRegister from "../pages/adminregister";
 import Subscription from "../pages/subscription";
 import SubscriptionReview from "../pages/subscriptionreview";
+import PlatformKeyGate from "../components/platformkeygate";
 import AddEditAccount from "../pages/accounts/addedit";
 import PartyView from "../pages/accounts/view";
 import StaffView from "../pages/staffaccounts/view";
@@ -150,7 +151,9 @@ const AppRoutes = () => {
         path="/adminregister"
         element={
           <PublicRoutes>
-            <AdminRegister />
+            <PlatformKeyGate>
+              <AdminRegister />
+            </PlatformKeyGate>
           </PublicRoutes>
         }
       />
@@ -158,7 +161,9 @@ const AppRoutes = () => {
         path="/adminregister/list"
         element={
           <PublicRoutes>
-            <AdminList />
+            <PlatformKeyGate>
+              <AdminList />
+            </PlatformKeyGate>
           </PublicRoutes>
         }
       />
@@ -166,7 +171,9 @@ const AppRoutes = () => {
         path="/adminregister/deletedentries"
         element={
           <PublicRoutes>
-            <DeletedAdmins />
+            <PlatformKeyGate>
+              <DeletedAdmins />
+            </PlatformKeyGate>
           </PublicRoutes>
         }
       />
@@ -182,7 +189,9 @@ const AppRoutes = () => {
         path="/subscriptionreview"
         element={
           <PublicRoutes>
-            <SubscriptionReview />
+            <PlatformKeyGate>
+              <SubscriptionReview />
+            </PlatformKeyGate>
           </PublicRoutes>
         }
       />

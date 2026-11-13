@@ -4,6 +4,8 @@ import { AdminSettings } from "../../../models/adminsettings";
 import { generateTokens, sendRefreshToken } from "../../../utils/auth";
 import { ApolloError } from "apollo-server-express";
 import { enforceLoginOtp } from "../../../utils/loginotp";
+import { verifyPassword, upgradePassword } from "../../../utils/password";
+import { isPlatform } from "../../../utils/authguard";
 
 export const adminResolvers = {
   Query: {
@@ -82,9 +84,18 @@ export const adminResolvers = {
       return admin;
     },
 
-    updateAdminById: async (_: any, { id, input }: any) => {
+    updateAdminById: async (_: any, { id, input }: any, context: any) => {
       const admin = await Admin.findById(id);
       if (!admin) throw new Error("Admin not found");
+      if (!isPlatform(context)) {
+        // A business editing itself cannot change its plan or widen its modules.
+        input = { ...input };
+        delete input.subscriptionType; delete input.status; delete input.noOfBranches;
+        const mine = (admin as any).allowedmodules;
+        if (Array.isArray(input.allowedmodules) && Array.isArray(mine)) {
+          input.allowedmodules = input.allowedmodules.filter((m: string) => mine.includes(m));
+        }
+      }
 
       // Safely update allowed fields
       if (input.name) admin.name = input.name;
@@ -176,9 +187,10 @@ export const adminResolvers = {
       const admin = await Admin.findOne({ email });
       if (!admin) throw new Error("Admin not found");
 
-      if (admin.password !== password) {
+      if (!verifyPassword(admin.password, password)) {
         throw new Error("Invalid credentials");
       }
+      await upgradePassword(Admin, admin._id, admin.password, password);
 
       // Carry a machine-readable code so the client can route the admin to the
       // right screen (e.g. redirect to /subscription) instead of only printing

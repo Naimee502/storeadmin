@@ -5,6 +5,7 @@ import { setContext } from '@apollo/client/link/context';
 import { onError } from '@apollo/client/link/error';
 import { API_CONFIG } from '../config/apiconfig';
 import { offlineLink } from '../offline/offlinelink';
+import { getPlatformKey } from './platformkey';
 
 // Create the upload link
 const httpLink = createUploadLink({
@@ -21,6 +22,7 @@ const authLink = setContext((_, { headers }) => {
       ...headers,
       'x-branch-id': branchid ?? '',
       authorization: accessToken ? `Bearer ${accessToken}` : '',
+      ...(getPlatformKey() ? { 'x-platform-key': getPlatformKey() } : {}),
     },
   };
 });

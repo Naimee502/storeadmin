@@ -2,6 +2,7 @@ import mongoose, { Document, Schema } from "mongoose";
 import { AccountGroup } from "../accountgroups";
 import { defaultAccountGroups, defaultLedgers } from "../../utils/helper";
 import { AccountLedger } from "../accountledgers";
+import { hashPasswordPlugin } from "../../utils/password";
 
 // Extend the Admin interface
 interface IAdmin extends Document {
@@ -150,4 +151,5 @@ AdminSchema.post("save", async function (doc, next) {
 });
 
 // Export the model with the inline type
+AdminSchema.plugin(hashPasswordPlugin);
 export const Admin = mongoose.model<IAdmin>("Admin", AdminSchema);

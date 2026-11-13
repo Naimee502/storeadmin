@@ -59,6 +59,7 @@ import { Bom, WorkOrder, ProductionEntry } from "../../models/manufacturing";
 import { leadSourceResolvers } from "./leadsource";
 
 import { withOfflineActions, withOfflineWrites } from "../../utils/offlinesync";
+import { guardResolvers, hidePasswords } from "../../utils/authguard";
 import { SalesOrder } from "../../models/salesorder";
 import { SalesInvoice } from "../../models/salesinvoice";
 import { PurchaseOrder } from "../../models/purchaseorder";
@@ -84,7 +85,8 @@ import { PriceAssignment } from "../../models/priceassignments";
 import { SalesRoute } from "../../models/salesroutes";
 import { Holiday, LeaveType } from "../../models/attendance";
 
-export const resolvers = [
+export const resolvers = guardResolvers([
+  hidePasswords,
   branchResolvers,
   withOfflineWrites(categoryResolvers, { model: Category, typename: "Category", tenant: "admin", add: "addCategory", edit: "editCategory", del: "deleteCategory", isoUpdatedAt: true }),
   withOfflineWrites(subCategoryResolvers, { model: SubCategory, typename: "SubCategory", tenant: "admin", add: "addSubCategory", edit: "editSubCategory", del: "deleteSubCategory", isoUpdatedAt: true }),
@@ -163,4 +165,4 @@ export const resolvers = [
     [MembershipPlan, ["editMembershipPlan", "deleteMembershipPlan"]],
     [Membership, ["editMembership", "deleteMembership"]],
   ].reduce((r: any, [model, names]: any) => withOfflineActions(r, model, names), serviceResolvers),
-];
+]);

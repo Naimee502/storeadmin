@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { hashPasswordPlugin } from "../../utils/password";
 
 const staffAccountSchema = new mongoose.Schema(
   {
@@ -198,5 +199,6 @@ staffAccountSchema.pre("findOneAndUpdate", async function (next) {
   next();
 });
 
+staffAccountSchema.plugin(hashPasswordPlugin);
 
 export const StaffAccount = mongoose.model("StaffAccount", staffAccountSchema);

@@ -100,6 +100,10 @@ const isNetworkError = (e: any) => {
   return !e?.graphQLErrors?.length && !e?.errors?.length && (!status || status >= 502);
 };
 
+// Signed out: keep the entry queued until the user signs in again.
+const isSignedOut = (e: any) =>
+  (e?.graphQLErrors || e?.errors || []).some((g: any) => g?.extensions?.code === 'UNAUTHENTICATED');
+
 // Object shaped like a selection; ids and cache refs are resolved from the saved entities.
 function fill(set: any, src: any, entities: Record<string, any>, byId: Map<string, any>): any {
   const out: any = {};
@@ -502,7 +506,7 @@ export function createOffline(opts: {
           const savedId = (Object.values(res?.data || {})[0] as any)?.id;
           if (CREATES[item.name] && savedId) queue = queue.map((i) => ({ ...i, variables: swapId(i.variables, `${TEMP}${item.id}`, String(savedId)) }));
         } catch (e: any) {
-          if (isNetworkError(e?.networkError ?? e)) break;
+          if (isNetworkError(e?.networkError ?? e) || isSignedOut(e)) break;
           queue = queue.filter((i) => i.id !== id);
           set({ message: `An offline entry could not be saved: ${e?.message || 'unknown error'}` });
         }
