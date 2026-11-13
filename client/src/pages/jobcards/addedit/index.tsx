@@ -5,6 +5,7 @@ import FormPage from "../../../components/formpage";
 import ServiceLines, { type SvcLine, svcInput, svcTotal, toSvcLines } from "../../../components/servicelines";
 import HomeLayout from "../../../layouts/home";
 import { PartyQuickAdd } from "../../../components/posaddcustomer";
+import QuickItemModal from "../../../components/quickitem";
 import { useAccountsLiteQuery } from "../../../graphql/hooks/accounts";
 import { useProductServicesQuery } from "../../../graphql/hooks/products";
 import { useStaffListQuery } from "../../../graphql/hooks/staffaccounts";
@@ -24,6 +25,7 @@ const AddEditJobCard = () => {
   const isEdit = Boolean(id);
   const navigate = useNavigate();
   const [partyOpen, setPartyOpen] = useState(false);
+  const [itemOpen, setItemOpen] = useState(false);
   const dispatch = useAppDispatch();
   const branchId = useServiceBranch();
   const settings = useAppSelector((s: any) => s.adminsettings.settings);
@@ -150,8 +152,8 @@ const AddEditJobCard = () => {
               {!f.partyacc && <FormField label="Walk-in Name" name="customername" type="text" value={f.customername} onChange={set("customername")} />}
               {!f.partyacc && <FormField label="Mobile" name="customermobile" type="tel" value={f.customermobile} onChange={set("customermobile")} />}
               <div className="md:col-span-2">
-                <FormField label="Item (from your products)" name="productserviceid" type="select" searchable error={errors.device} value={f.productserviceid}
-                  options={products.map((p: any) => ({ value: p.id, label: p.name }))} onChange={set("productserviceid")} />
+                <FormField label="Item (from your products)" name="productserviceid" type="select" searchable addable onAddNew={() => setItemOpen(true)} error={errors.device} value={f.productserviceid}
+                  options={products.filter((p: any) => !p.isservice).map((p: any) => ({ value: p.id, label: p.name }))} onChange={set("productserviceid")} />
               </div>
               <FormField label="Device / Model" name="devicename" type="text" value={f.devicename} placeholder="Device / Model" onChange={set("devicename")} />
               <FormField label="Serial / IMEI" name="serial" type="text" value={f.serial} onChange={set("serial")} />
@@ -194,6 +196,7 @@ const AddEditJobCard = () => {
             <FormField label="" name="notes" type="text" multiline value={f.notes} onChange={set("notes")} />
           </fieldset>
         </form>
+        <QuickItemModal open={itemOpen} kind="goods" onClose={() => setItemOpen(false)} onCreated={(v) => setF((x) => ({ ...x, productserviceid: v.split("|")[0] }))} />
         <PartyQuickAdd open={partyOpen} onClose={() => setPartyOpen(false)} onPicked={(id) => set("partyacc")({ target: { value: id } })} />
       </FormPage>
     </HomeLayout>
