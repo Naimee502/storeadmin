@@ -295,6 +295,16 @@ export const serviceResolvers = {
   },
 
   Mutation: {
+    linkServiceInvoice: async (_: any, { kind, id, invoiceid }: any, context: any) => {
+      const scope = await requireBackofficeTenant(context);
+      const model: any = kind === "membership" ? Membership : kind === "contract" ? Contract : null;
+      if (!model) throw new TenantError("Unknown record type.", "BAD_USER_INPUT");
+      const inv: any = await SalesInvoice.findOne({ _id: invoiceid, adminid: scope.adminid }).select("_id").lean();
+      if (!inv) throw new TenantError("Invoice not found.", "BAD_USER_INPUT");
+      const res = await model.updateOne({ _id: id, adminid: scope.adminid }, { $set: { invoiceid: inv._id } });
+      return res.matchedCount > 0;
+    },
+
     addAppointment: addWith(Appointment, loadAppointment, async (input, context) => {
       const scope = await gate(context, "appointments", "add");
       const data: any = { ...input, branchid: scope.branchid || input.branchid || undefined };

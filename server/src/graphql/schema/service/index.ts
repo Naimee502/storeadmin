@@ -34,6 +34,8 @@ export const serviceTypeDefs = gql`
   }
 
   type Appointment {
+    "Business-defined extra fields (Business Settings → Extra Fields)."
+    customfields: [CustomFieldValue!]
     id: ID
     branchid: ID
     partyacc: ServiceParty
@@ -55,6 +57,7 @@ export const serviceTypeDefs = gql`
   }
 
   input AppointmentInput {
+    customfields: [CustomFieldInput!]
     branchid: ID
     partyacc: ID
     customername: String
@@ -70,6 +73,8 @@ export const serviceTypeDefs = gql`
   }
 
   type JobCard {
+    "Business-defined extra fields (Business Settings → Extra Fields)."
+    customfields: [CustomFieldValue!]
     id: ID
     branchid: ID
     billnumber: String
@@ -102,6 +107,7 @@ export const serviceTypeDefs = gql`
   }
 
   input JobCardInput {
+    customfields: [CustomFieldInput!]
     billnumber: String
     billdate: String!
     branchid: ID
@@ -138,6 +144,8 @@ export const serviceTypeDefs = gql`
   }
 
   type Contract {
+    "Business-defined extra fields (Business Settings → Extra Fields)."
+    customfields: [CustomFieldValue!]
     id: ID
     branchid: ID
     partyacc: ServiceParty
@@ -149,6 +157,7 @@ export const serviceTypeDefs = gql`
     visitsallowed: Float
     visitsdone: Float
     amount: Float
+    invoiceid: ID
     contractStatus: String
     notes: String
     createdby_name: String
@@ -158,6 +167,7 @@ export const serviceTypeDefs = gql`
   }
 
   input ContractInput {
+    customfields: [CustomFieldInput!]
     branchid: ID
     partyacc: ID!
     title: String
@@ -209,6 +219,7 @@ export const serviceTypeDefs = gql`
     "Done appointments booked against this membership."
     sessionsused: Float
     amount: Float
+    invoiceid: ID
     memberStatus: String
     notes: String
     createdby_name: String
@@ -268,6 +279,8 @@ export const serviceTypeDefs = gql`
   }
 
   extend type Mutation {
+    "Link the Sales Invoice made for a membership or AMC (kind: membership | contract)."
+    linkServiceInvoice(kind: String!, id: ID!, invoiceid: ID!): Boolean
     addAppointment(input: AppointmentInput!): Appointment
     editAppointment(id: ID!, input: AppointmentInput!, expectedUpdatedAt: String): Appointment
     "booked, confirmed, arrived, done, noshow or cancelled; invoiceid links the bill made from it."

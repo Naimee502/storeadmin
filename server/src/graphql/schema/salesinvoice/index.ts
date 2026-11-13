@@ -105,6 +105,7 @@ export const salesInvoiceTypeDefs = gql`
     invoicediscounttype: String
     received: Float
     isservice: Boolean!
+    linestock: Boolean
     autocreate: Boolean!
     createdby_id: ID
     createdby_name: String
@@ -183,6 +184,8 @@ export const salesInvoiceTypeDefs = gql`
     invoicediscounttype: String
     received: Float
     isservice: Boolean
+    "Service bill: goods lines move stock (sent on new bills)."
+    linestock: Boolean
     autocreate: Boolean
     createdby_id: ID
     createdby_name: String

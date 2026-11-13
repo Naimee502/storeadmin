@@ -30,7 +30,8 @@ const priceListSchema = new Schema<IPriceList>(
       {
         productid: { type: Schema.Types.ObjectId, ref: "ProductService", required: true },
         variantid: { type: Schema.Types.ObjectId, required: true },
-        unitid: { type: Schema.Types.ObjectId, ref: "Unit", required: true },
+        // Blank for a service line (services have no unit).
+        unitid: { type: Schema.Types.ObjectId, ref: "Unit" },
         quantity: { type: Number, default: 1 },
         rate: { type: Number, required: true },
         discount: { type: Number, default: 0 },

@@ -17,6 +17,7 @@ import { partyLabel } from "../../../utils/partylabel";
 import { todayYMD } from "../../../utils/helper";
 import { OFFLINE_SAVED_MESSAGE, isOfflineSaved, savedOffline } from "../../../offline/billing";
 import { FormRules } from "../../../hooks/useformmode";
+import CustomFieldsSection, { cleanCustomFields, missingCustomFields, useCustomFieldDefs, type CustomFieldValue } from "../../../components/customfields";
 
 const idOf = (v: any) => (v && typeof v === "object" ? v.id : v) || null;
 const DURATIONS = [15, 30, 45, 60, 90, 120, 180].map((m) => ({ value: String(m), label: m < 60 ? `${m} min` : `${m / 60} hr${m > 60 ? "s" : ""}` }));
@@ -42,6 +43,8 @@ const AddEditAppointment = () => {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [filled, setFilled] = useState(false);
+  const [custom, setCustom] = useState<CustomFieldValue[]>([]);
+  const customDefs = useCustomFieldDefs("appointment");
   const set = (k: keyof typeof f) => (e: any) => setF((x) => ({ ...x, [k]: e.target.value }));
 
   const { data: memberData } = useMembershipsQuery(f.partyacc ? { partyacc: f.partyacc } : {}, !f.partyacc && !f.customermobile);
@@ -53,6 +56,7 @@ const AddEditAppointment = () => {
     const a = own?.getAppointmentById;
     if (!isEdit || !a || filled) return;
     setFilled(true);
+    setCustom((a.customfields || []).map((x: any) => ({ key: x.key, value: x.value ?? "" })));
     setF({
       partyacc: idOf(a.partyacc) || "", customername: a.customername || "", customermobile: a.customermobile || "", staffid: idOf(a.staffid) || "",
       billdate: a.billdate, starttime: a.starttime, duration: String(a.duration || 30), membershipid: a.membershipid || "", notes: a.notes || "",
@@ -80,6 +84,8 @@ const AddEditAppointment = () => {
     if (!f.partyacc && !f.customername.trim()) e.customer = "Pick a party or type the customer name";
     if (!f.billdate) e.billdate = "Date is required";
     if (!/^\d{2}:\d{2}$/.test(f.starttime)) e.starttime = "Pick a time";
+    const missing = missingCustomFields(customDefs, custom);
+    if (missing.length) e.custom = `Fill in: ${missing.join(", ")}`;
     setErrors(e);
     if (Object.keys(e).length) return;
     const input: any = {
@@ -93,6 +99,7 @@ const AddEditAppointment = () => {
       membershipid: f.membershipid || null,
       services: svcInput(services),
       notes: f.notes || undefined,
+      customfields: cleanCustomFields(customDefs, custom),
       branchid: branchId || undefined,
     };
     setSaving(true);
@@ -152,6 +159,9 @@ const AddEditAppointment = () => {
 
           <ServiceLines title="Services" lines={services} setLines={setLines} products={products} kind="service"
             hint="Duration fills from the services' own duration; one staff member cannot be booked twice in the same slot." />
+
+          <CustomFieldsSection entity="appointment" title="Appointment Details" values={custom} onChange={setCustom} />
+          {errors.custom && <div className="text-[12px] text-rose-600">{errors.custom}</div>}
 
           <fieldset className="border rounded-xl p-4">
             <legend className="text-sm font-medium px-2">Notes</legend>

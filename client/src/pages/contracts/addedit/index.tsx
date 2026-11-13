@@ -14,6 +14,7 @@ import { partyLabel } from "../../../utils/partylabel";
 import { todayYMD } from "../../../utils/helper";
 import { OFFLINE_SAVED_MESSAGE, isOfflineSaved, savedOffline } from "../../../offline/billing";
 import { FormRules } from "../../../hooks/useformmode";
+import CustomFieldsSection, { cleanCustomFields, missingCustomFields, useCustomFieldDefs, type CustomFieldValue } from "../../../components/customfields";
 
 type Item = { productserviceid?: string; serial?: string; note?: string };
 const idOf = (v: any) => (v && typeof v === "object" ? v.id : v) || null;
@@ -38,6 +39,8 @@ const AddEditContract = () => {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [filled, setFilled] = useState(false);
+  const [custom, setCustom] = useState<CustomFieldValue[]>([]);
+  const customDefs = useCustomFieldDefs("contract");
   const set = (k: keyof typeof f) => (e: any) => setF((x) => ({ ...x, [k]: e.target.value }));
   const editItem = (i: number, patch: Partial<Item>) => setItems(items.map((x, j) => (j === i ? { ...x, ...patch } : x)));
 
@@ -45,6 +48,7 @@ const AddEditContract = () => {
     const c = own?.getContractById;
     if (!isEdit || !c || filled) return;
     setFilled(true);
+    setCustom((c.customfields || []).map((x: any) => ({ key: x.key, value: x.value ?? "" })));
     setF({
       partyacc: idOf(c.partyacc) || "", title: c.title || "", contractType: c.contractType || "amc", startdate: c.startdate, enddate: c.enddate,
       visitsallowed: c.visitsallowed ? String(c.visitsallowed) : "", visitsdone: c.visitsdone ? String(c.visitsdone) : "",
@@ -58,12 +62,15 @@ const AddEditContract = () => {
     if (!f.partyacc) e.partyacc = "Pick the party";
     if (!f.startdate || !f.enddate) e.enddate = "Start and end dates are required";
     else if (f.enddate < f.startdate) e.enddate = "End date is before the start date";
+    const missing = missingCustomFields(customDefs, custom);
+    if (missing.length) e.custom = `Fill in: ${missing.join(", ")}`;
     setErrors(e);
     if (Object.keys(e).length) return;
     const num = (v: string) => (v === "" ? null : Number(v));
     const input: any = {
       partyacc: f.partyacc, title: f.title || undefined, contractType: f.contractType, startdate: f.startdate, enddate: f.enddate,
       visitsallowed: num(f.visitsallowed), visitsdone: num(f.visitsdone), amount: num(f.amount), contractStatus: f.contractStatus, notes: f.notes || undefined,
+      customfields: cleanCustomFields(customDefs, custom),
       items: items.filter((x) => x.productserviceid || x.serial).map((x) => ({ productserviceid: x.productserviceid || null, serial: x.serial || undefined, note: x.note || undefined })),
       branchid: branchId || undefined,
     };
@@ -137,6 +144,9 @@ const AddEditContract = () => {
               <Plus size={14} /> Add Item
             </button>
           </fieldset>
+
+          <CustomFieldsSection entity="contract" title="Contract Details" values={custom} onChange={setCustom} />
+          {errors.custom && <div className="text-[12px] text-rose-600">{errors.custom}</div>}
 
           <fieldset className="border rounded-xl p-4">
             <legend className="text-sm font-medium px-2">Notes</legend>

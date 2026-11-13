@@ -6,6 +6,9 @@ import { ProductService } from "../products";
 import { convertToBaseUnit } from "../../utils/unitconversation";
 
 const { ObjectId } = mongoose.Schema.Types;
+// Business-defined extra fields; blank on old records.
+const customfields = { type: [{ _id: false, key: { type: String, required: true }, value: { type: String } }], default: undefined };
+
 const tenant = {
   adminid: { type: ObjectId, ref: "Admin", required: true },
   branchid: { type: ObjectId, ref: "Branch" },
@@ -39,6 +42,7 @@ const oncePerRequest = (s: mongoose.Schema) =>
 const appointmentSchema = new mongoose.Schema(
   {
     ...tenant,
+    customfields,
     ...customer,
     staffid: { type: ObjectId, ref: "StaffAccount" },
     services: { type: [lineSchema], default: undefined },
@@ -62,6 +66,7 @@ appointmentSchema.index({ adminid: 1, billdate: 1, staffid: 1 });
 const jobCardSchema = new mongoose.Schema(
   {
     ...tenant,
+    customfields,
     ...customer,
     billnumber: { type: String },
     offlineNumber: { type: String },
@@ -99,6 +104,7 @@ oncePerRequest(jobCardSchema);
 const contractSchema = new mongoose.Schema(
   {
     ...tenant,
+    customfields,
     partyacc: { type: ObjectId, ref: "Account", required: true },
     title: { type: String },
     // amc or warranty
@@ -109,6 +115,8 @@ const contractSchema = new mongoose.Schema(
     visitsallowed: { type: Number },
     visitsdone: { type: Number },
     amount: { type: Number },
+    // Sales Invoice made for this amount (Make Bill).
+    invoiceid: { type: ObjectId, ref: "SalesInvoice" },
     // active or cancelled; expired is worked out from enddate
     contractStatus: { type: String, default: "active" },
     notes: { type: String },
@@ -140,6 +148,8 @@ const membershipSchema = new mongoose.Schema(
     enddate: { type: String },
     sessions: { type: Number },
     amount: { type: Number },
+    // Sales Invoice made for this amount (Make Bill).
+    invoiceid: { type: ObjectId, ref: "SalesInvoice" },
     // active or cancelled
     memberStatus: { type: String, default: "active" },
     notes: { type: String },

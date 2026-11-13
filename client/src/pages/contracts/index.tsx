@@ -3,7 +3,7 @@ import { useNavigate } from "react-router";
 import DataTable from "../../components/datatable";
 import HomeLayout from "../../layouts/home";
 import { useAppDispatch, useAppSelector } from "../../redux/hooks";
-import { selectModuleActions } from "../../redux/slices/permissions";
+import { selectIsModuleBusinessEnabled, selectModuleActions } from "../../redux/slices/permissions";
 import { showMessage } from "../../redux/slices/message";
 import { useServerPaging, useServerTable } from "../../hooks/useservertable";
 import { useOfflineList } from "../../offline/listing";
@@ -27,6 +27,11 @@ const Contracts = () => {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const actions = useAppSelector((s) => selectModuleActions(s, "contracts"));
+  const invoiceOn = useAppSelector((s) => selectIsModuleBusinessEnabled(s, "salesinvoice"));
+  // Make Bill: a service Sales Invoice for the AMC / warranty amount, linked back once saved.
+  const makeBill = (c: any) => navigate("/salesinvoice/addedit", {
+    state: { fromService: { kind: "contract", id: c.id, partyacc: c.partyacc, isservice: true, notes: `${CONTRACT_TYPE[c.contractType] || "AMC"}: ${c.title || ""} (${formatDateDMY(c.startdate)} – ${formatDateDMY(c.enddate)}) ₹${money(c.amount || 0)}`, products: [] } },
+  });
   const [tab, setTab] = useState<"all" | "due">("all");
   const table = useServerTable("contracts", SERVER_FILTER_KEYS);
   const { items, total, loading, refetch } = useContractsPageQuery(table.variables);
@@ -57,7 +62,14 @@ const Contracts = () => {
       startdate: formatDateDMY(c.startdate),
       enddate: formatDateDMY(c.enddate),
       visits: c.visitsallowed ? `${c.visitsdone || 0} / ${c.visitsallowed}` : "—",
-      amount: c.amount ? `₹${money(c.amount)}` : "—",
+      amount: c.amount ? (
+        <span className="whitespace-nowrap">
+          ₹{money(c.amount)}
+          {c.invoiceid ? <span className="ml-2 text-[11px] text-emerald-700">Billed</span>
+            : invoiceOn && actions.showAdd && c.partyacc?.id && !c.isOffline
+              ? <button type="button" className="ml-2 inline-flex h-6 items-center rounded border border-indigo-200 bg-indigo-50 px-2 text-[11px] font-semibold text-indigo-700 hover:bg-indigo-100" onClick={(e) => { e.stopPropagation(); makeBill(c); }}>Make Bill</button> : null}
+        </span>
+      ) : "—",
       state: <span className={STATE_CLS[st]}>{st}</span>,
       raw: c,
     };

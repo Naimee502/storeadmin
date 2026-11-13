@@ -41,7 +41,7 @@ export const priceListTypeDefs = gql`
   input PriceListItemInput {
     productid: ID!
     variantid: ID!
-    unitid: ID!
+    unitid: ID
     quantity: Float
     rate: Float
     discount: Float
@@ -82,7 +82,7 @@ export const priceListTypeDefs = gql`
     resolvePrice(
       productid: ID!
       variantid: ID!
-      unitid: ID!
+      unitid: ID
       adminid: ID
       accountid: ID
       channelid: ID

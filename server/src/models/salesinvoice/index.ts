@@ -100,6 +100,8 @@ const salesInvoiceSchema = new mongoose.Schema(
     paymentsplit: { type: [{ mode: String, amount: Number, _id: false }], default: undefined },
 
     isservice: { type: Boolean, default: false },
+    // Service bill whose goods lines move stock (new bills only; blank = old rule, no stock).
+    linestock: { type: Boolean },
     autocreate: {
       // Stock is the only thing still worth a switch: a service line moves none,
       // and some businesses bill first and enter their purchases later. Journals
@@ -467,7 +469,8 @@ salesInvoiceSchema.statics.adjustStockAndTransactions = async function (oldInv: 
   // ========================= PARTY STOCK (party under party) =================
   // With "Track party stock" on, a bill to a SUB-party is the parent party
   // selling from its own stock: the company's branch stock must not move.
-  const partyStockOn = wantsStock && !newInv.isservice && (await partyStockEnabled(newInv.adminid));
+  const goodsMove = !newInv.isservice || !!newInv.linestock;
+  const partyStockOn = wantsStock && goodsMove && (await partyStockEnabled(newInv.adminid));
   const newSeller = partyStockOn ? await sellerPartyOf(newInv.partyacc) : null;
   const oldPartyApplied = !!oldInv?.partystockapplied;
   const oldSeller = oldInv?.partystockseller ? String(oldInv.partystockseller) : null;
@@ -476,7 +479,7 @@ salesInvoiceSchema.statics.adjustStockAndTransactions = async function (oldInv: 
   const newTouchesBranch = !(partyStockOn && newSeller);
 
   // ========================= STOCK ADJUSTMENT =========================
-  if (wantsStock && !newInv.isservice) {
+  if (wantsStock && goodsMove) {
     // Restore old stock if invoice updated. Skipped when the previous state was
     // already cancelled — that stock came back at cancel time.
     if (oldInv && !wasCancelled && oldTouchedBranch) {

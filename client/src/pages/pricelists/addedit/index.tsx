@@ -51,6 +51,22 @@ const AddEditPriceList = () => {
             discounttype: "fixed",
           }))
         )
+      ).concat(
+        // Services: one line per service variant, no unit.
+        products.filter((p: any) => p.isservice).flatMap((p: any) =>
+          (p.servicevariants || []).map((v: any) => ({
+            productid: p.id,
+            productname: p.name,
+            variantid: v.id,
+            variantname: v.name,
+            unitid: null,
+            unitname: "Service",
+            quantity: 1,
+            rate: v.servicerate,
+            discount: 0,
+            discounttype: "fixed",
+          }))
+        )
       );
 
       if (isEdit && priceListData?.getPriceListById) {
@@ -62,7 +78,7 @@ const AddEditPriceList = () => {
           const found = existingItems.find((e: any) =>
             (e.productid?.id || e.productid) === m.productid &&
             e.variantid === m.variantid &&
-            (e.unitid?.id || e.unitid) === m.unitid &&
+            ((e.unitid?.id || e.unitid) ?? null) === (m.unitid ?? null) &&
             e.quantity === m.quantity
           );
           if (found) {

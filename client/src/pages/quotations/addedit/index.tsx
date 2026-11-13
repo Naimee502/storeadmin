@@ -11,6 +11,7 @@ import { useLeadByIdQuery, useLeadsQuery } from "../../../graphql/hooks/lead";
 import { quotationNo, useQuotationByIdQuery, useQuotationMutations } from "../../../graphql/hooks/quotation";
 import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
 import { showMessage } from "../../../redux/slices/message";
+import { selectIsModuleAllowed } from "../../../redux/slices/permissions";
 import { partyLabel } from "../../../utils/partylabel";
 import { stateOptions } from "../../../utils/constants";
 import { gstSplit, todayYMD } from "../../../utils/helper";
@@ -54,6 +55,8 @@ const AddEditQuotation = () => {
   // Business Settings → Business Form Permissions → Quotation Fields.
   const formPerms = useAppSelector((s) => s.permissions.permissions?.formPermissions?.quotations || {});
   const formMode = useFormMode();
+  // Service lines on quotations when the Services module is on.
+  const servicesOn = useAppSelector((st: any) => selectIsModuleAllowed(st, "services"));
   const on = (field: string) => fieldOn(formPerms, field, formMode);
 
   const { type, branch, staff } = useAppSelector((s) => s.auth);
@@ -284,7 +287,7 @@ const AddEditQuotation = () => {
             partyAccount={party}
             type="sales"
             navigate={navigate}
-            iservice={false}
+            iservice={servicesOn}
           />
 
           {products.length > 0 && (on("description") || on("optional")) && (

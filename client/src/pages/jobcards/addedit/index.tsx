@@ -15,6 +15,7 @@ import { partyLabel } from "../../../utils/partylabel";
 import { todayYMD } from "../../../utils/helper";
 import { OFFLINE_SAVED_MESSAGE, OfflineNumberNote, isOfflineSaved, savedOffline, useOfflineNumber, useOfflineStock } from "../../../offline/billing";
 import { FormRules } from "../../../hooks/useformmode";
+import CustomFieldsSection, { cleanCustomFields, missingCustomFields, useCustomFieldDefs, type CustomFieldValue } from "../../../components/customfields";
 
 const idOf = (v: any) => (v && typeof v === "object" ? v.id : v) || null;
 
@@ -45,12 +46,15 @@ const AddEditJobCard = () => {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [filled, setFilled] = useState(false);
+  const [custom, setCustom] = useState<CustomFieldValue[]>([]);
+  const customDefs = useCustomFieldDefs("jobcard");
   const set = (k: keyof typeof f) => (e: any) => setF((x) => ({ ...x, [k]: e.target.value }));
 
   useEffect(() => {
     const j = own?.getJobCardById;
     if (!isEdit || !j || filled) return;
     setFilled(true);
+    setCustom((j.customfields || []).map((x: any) => ({ key: x.key, value: x.value ?? "" })));
     setF({
       partyacc: idOf(j.partyacc) || "", customername: j.customername || "", customermobile: j.customermobile || "", billdate: j.billdate,
       productserviceid: idOf(j.productserviceid) || "", devicename: j.devicename || "", serial: j.serial || "", problem: j.problem || "",
@@ -84,6 +88,8 @@ const AddEditJobCard = () => {
     if (!f.billdate) e.billdate = "Date is required";
     if (!f.productserviceid && !f.devicename.trim()) e.device = "Pick the item or type the device";
     if (shortSpares && settings?.allowNegativeStock !== true) e.spares = "Some spares are short of stock";
+    const missing = missingCustomFields(customDefs, custom);
+    if (missing.length) e.custom = `Fill in: ${missing.join(", ")}`;
     setErrors(e);
     if (Object.keys(e).length) return;
     const input: any = {
@@ -105,6 +111,7 @@ const AddEditJobCard = () => {
       promisedate: f.promisedate || null,
       warrantydays: f.warrantydays ? Number(f.warrantydays) : null,
       notes: f.notes || undefined,
+      customfields: cleanCustomFields(customDefs, custom),
       branchid: branchId || undefined,
     };
     if (!isEdit && offlineNo) input.billnumber = offlineNo;
@@ -180,6 +187,9 @@ const AddEditJobCard = () => {
 
           <ServiceLines title="Spares Used (Goes out of Stock)" lines={spares} setLines={setSpares} products={products} kind="goods" stock />
           {errors.spares && <p className="-mt-4 text-[12px] text-rose-600">{errors.spares}</p>}
+
+          <CustomFieldsSection entity="jobcard" title="Job Details" values={custom} onChange={setCustom} />
+          {errors.custom && <div className="text-[12px] text-rose-600">{errors.custom}</div>}
 
           <fieldset className="border rounded-xl p-4">
             <legend className="text-sm font-medium px-2">Notes</legend>

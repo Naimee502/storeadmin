@@ -50,6 +50,7 @@ export const useServiceMutations = () => {
     addMembershipPlan: useOne(M.ADD_MEMBERSHIP_PLAN), editMembershipPlan: useOne(M.EDIT_MEMBERSHIP_PLAN),
     deleteMembershipPlan: useOne(M.DELETE_MEMBERSHIP_PLAN), resetMembershipPlan: useOne(M.RESET_MEMBERSHIP_PLAN),
     addMembership: useOne(M.ADD_MEMBERSHIP), editMembership: useOne(M.EDIT_MEMBERSHIP), deleteMembership: useOne(M.DELETE_MEMBERSHIP), resetMembership: useOne(M.RESET_MEMBERSHIP),
+    linkServiceInvoice: useOne(M.LINK_SERVICE_INVOICE),
   };
 };
 

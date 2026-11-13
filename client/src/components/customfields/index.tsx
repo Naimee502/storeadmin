@@ -5,7 +5,9 @@ export type CustomFieldDef = { key: string; label: string; entity: string; type:
 export type CustomFieldValue = { key: string; value?: string };
 
 /** The business's custom fields for an entity (Business Settings → Custom Fields). */
-export const useCustomFieldDefs = (entity: "product" | "lead"): CustomFieldDef[] =>
+export type CustomFieldEntity = "product" | "lead" | "appointment" | "jobcard" | "contract";
+
+export const useCustomFieldDefs = (entity: CustomFieldEntity): CustomFieldDef[] =>
   useAppSelector((s: any) => (s.adminsettings.settings?.customFieldDefs || []).filter((d: CustomFieldDef) => d.entity === entity));
 
 export const ITEM_TYPES = [
@@ -29,7 +31,7 @@ export const missingCustomFields = (defs: CustomFieldDef[], values: CustomFieldV
 
 /** Inputs for an entity's custom fields; nothing when the business has none. */
 export default function CustomFieldsSection({ entity, values, onChange, title = "Specifications" }: {
-  entity: "product" | "lead";
+  entity: CustomFieldEntity;
   values: CustomFieldValue[];
   onChange: (next: CustomFieldValue[]) => void;
   title?: string;

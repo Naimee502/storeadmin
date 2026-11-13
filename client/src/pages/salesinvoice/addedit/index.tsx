@@ -49,7 +49,7 @@ const AddEditSalesInvoice = () => {
   // Bill made from an Appointment or a Job Card (Service): { kind, id, partyacc, products, notes }.
   const fromService: any = (location.state as any)?.fromService;
   const serviceFilled = React.useRef(false);
-  const { setAppointmentStatus, setJobCardStatus } = useServiceMutations();
+  const { setAppointmentStatus, setJobCardStatus, linkServiceInvoice } = useServiceMutations();
 
   const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
   const selectedBranchId = useAppSelector((state) => state.selectedBranch.branchId);
@@ -569,6 +569,8 @@ const AddEditSalesInvoice = () => {
       invoicediscount: invoiceDiscount ? Number(invoiceDiscount) : 0,
       invoicediscounttype: invoiceDiscountType,
       isservice: isService,
+      // New service bills move stock for their goods lines; old bills keep their rule.
+      ...(isService && !isEdit ? { linestock: true } : {}),
       productservice: products.map((p) => ({
         productserviceid: p.productserviceid,
         variantid: p.variantid,
@@ -613,7 +615,9 @@ const AddEditSalesInvoice = () => {
           const link = { id: fromService.id, invoiceid: invoiceId };
           await (fromService.kind === "jobcard"
             ? setJobCardStatus({ variables: { ...link, jobStatus: "delivered" } })
-            : setAppointmentStatus({ variables: { ...link, apptStatus: "done" } })
+            : fromService.kind === "membership" || fromService.kind === "contract"
+              ? linkServiceInvoice({ variables: { kind: fromService.kind, ...link } })
+              : setAppointmentStatus({ variables: { ...link, apptStatus: "done" } })
           ).catch(() => undefined);
         }
         if (orderId && !savedOffline) {

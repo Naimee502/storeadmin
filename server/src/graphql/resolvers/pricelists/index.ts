@@ -71,9 +71,9 @@ export const priceListResolvers = {
         if (priceList) {
           const item = priceList.items.find(
             (i: any) => 
-              i.productid.toString() === productid && 
-              i.variantid.toString() === variantid && 
-              i.unitid.toString() === unitid
+              i.productid.toString() === productid &&
+              i.variantid.toString() === variantid &&
+              String(i.unitid || "") === String(unitid || "")
           );
           if (item) {
             // Every caller (POS, admin orders, party app, website) treats

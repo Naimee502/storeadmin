@@ -1120,7 +1120,7 @@ const CustomFieldEditor: React.FC<{ draft: any; set: (k: string, v: any) => void
         <div key={d.key} className="flex flex-wrap items-center gap-1.5">
           <input className={`${cell} w-44`} value={d.label} placeholder="Label" onChange={(e) => edit(i, { label: e.target.value })} />
           <div className="w-32">
-            <FormField label="" name={`cf${i}entity`} type="select" value={d.entity} options={[{ value: "product", label: "Product" }, { value: "lead", label: "Lead" }]}
+            <FormField label="" name={`cf${i}entity`} type="select" value={d.entity} options={[{ value: "product", label: "Product" }, { value: "lead", label: "Lead" }, { value: "appointment", label: "Appointment" }, { value: "jobcard", label: "Job Card" }, { value: "contract", label: "AMC / Warranty" }]}
               onChange={(e: any) => e.target.value && edit(i, { entity: e.target.value })} />
           </div>
           <div className="w-32">

@@ -14,7 +14,7 @@ import { DEFAULT_LEAD_STAGES } from "../lead";
 export const quotationPopulate: any[] = [
   { path: "partyacc", select: "name accountname mobile address city state gstnumber" },
   { path: "leadid", select: "name mobile city company" },
-  { path: "productservice.productserviceid", select: "name imageurl productvariants._id productvariants.name" },
+  { path: "productservice.productserviceid", select: "name imageurl productvariants._id productvariants.name servicevariants._id servicevariants.name" },
   { path: "productservice.salesunitid", select: "unitname" },
 ];
 
@@ -35,7 +35,9 @@ export const formatQuotation = (q: any) => ({
   partyacc: q.partyacc ? ref(q.partyacc, ["name", "accountname", "mobile", "address", "city", "state", "gstnumber"]) : null,
   leadid: q.leadid ? ref(q.leadid, ["name", "mobile", "city"]) : null,
   productservice: (q.productservice || []).map((l: any) => {
-    const variant = l.productserviceid?.productvariants?.find((v: any) => String(v._id) === String(l.variantid));
+    // A service line's variant is one of the service's variants.
+    const variant = [...(l.productserviceid?.productvariants || []), ...(l.productserviceid?.servicevariants || [])]
+      .find((v: any) => String(v._id) === String(l.variantid));
     return {
       ...l,
       productserviceid: l.productserviceid ? ref(l.productserviceid, ["name", "imageurl"]) : null,

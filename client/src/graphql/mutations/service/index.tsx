@@ -23,3 +23,5 @@ export const DELETE_MEMBERSHIP = gql`mutation DeleteMembership($id: ID!, $expect
 export const RESET_MEMBERSHIP = gql`mutation ResetMembership($id: ID!) { resetMembership(id: $id) }`;
 export const SET_APPOINTMENT_STATUS = gql`mutation SetAppointmentStatus($id: ID!, $apptStatus: String!, $invoiceid: ID, $expectedUpdatedAt: String) { setAppointmentStatus(id: $id, apptStatus: $apptStatus, invoiceid: $invoiceid, expectedUpdatedAt: $expectedUpdatedAt) { ${APPOINTMENT_FIELDS} } }`;
 export const SET_JOB_CARD_STATUS = gql`mutation SetJobCardStatus($id: ID!, $jobStatus: String!, $invoiceid: ID, $expectedUpdatedAt: String) { setJobCardStatus(id: $id, jobStatus: $jobStatus, invoiceid: $invoiceid, expectedUpdatedAt: $expectedUpdatedAt) { ${JOB_CARD_FIELDS} } }`;
+
+export const LINK_SERVICE_INVOICE = gql`mutation LinkServiceInvoice($kind: String!, $id: ID!, $invoiceid: ID!) { linkServiceInvoice(kind: $kind, id: $id, invoiceid: $invoiceid) }`;

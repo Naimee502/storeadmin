@@ -4,7 +4,7 @@ import DataTable from "../../components/datatable";
 import FormField from "../../components/formfiled";
 import HomeLayout from "../../layouts/home";
 import { useAppDispatch, useAppSelector } from "../../redux/hooks";
-import { selectModuleActions } from "../../redux/slices/permissions";
+import { selectIsModuleBusinessEnabled, selectModuleActions } from "../../redux/slices/permissions";
 import { showMessage } from "../../redux/slices/message";
 import { useServerPaging, useServerTable } from "../../hooks/useservertable";
 import { useOfflineList } from "../../offline/listing";
@@ -69,6 +69,11 @@ const Memberships = () => {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const actions = useAppSelector((s) => selectModuleActions(s, "memberships"));
+  const invoiceOn = useAppSelector((s) => selectIsModuleBusinessEnabled(s, "salesinvoice"));
+  // Make Bill: a service Sales Invoice for the membership amount, linked back once saved.
+  const makeBill = (m: any) => navigate("/salesinvoice/addedit", {
+    state: { fromService: { kind: "membership", id: m.id, partyacc: m.partyacc, isservice: true, notes: `Membership: ${m.planid?.name || ""} (${formatDateDMY(m.startdate)}${m.enddate ? ` – ${formatDateDMY(m.enddate)}` : ""}) ₹${money(m.amount || 0)}`, products: [] } },
+  });
   const [tab, setTab] = useState<"members" | "plans">("members");
   const [editing, setEditing] = useState<typeof EMPTY_PLAN | null>(null);
   const table = useServerTable("memberships", SERVER_FILTER_KEYS);
@@ -101,7 +106,14 @@ const Memberships = () => {
       startdate: formatDateDMY(m.startdate),
       enddate: m.enddate ? formatDateDMY(m.enddate) : "—",
       left: left === null ? "Unlimited" : `${left} of ${m.sessions}`,
-      amount: m.amount ? `₹${money(m.amount)}` : "—",
+      amount: m.amount ? (
+        <span className="whitespace-nowrap">
+          ₹{money(m.amount)}
+          {m.invoiceid ? <span className="ml-2 text-[11px] text-emerald-700">Billed</span>
+            : invoiceOn && actions.showAdd && m.partyacc?.id && !m.isOffline
+              ? <button type="button" className="ml-2 inline-flex h-6 items-center rounded border border-indigo-200 bg-indigo-50 px-2 text-[11px] font-semibold text-indigo-700 hover:bg-indigo-100" onClick={(e) => { e.stopPropagation(); makeBill(m); }}>Make Bill</button> : null}
+        </span>
+      ) : "—",
       state: <span className={state === "Active" ? "text-emerald-700" : "font-semibold text-rose-600"}>{state}</span>,
       raw: m,
     };

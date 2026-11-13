@@ -5,14 +5,14 @@ const LINE = `productserviceid { id name } variantid { id name } salesunitid { i
 const STAMP = `status createdAt updatedAt createdby_name`;
 
 export const APPOINTMENT_FIELDS = `id branchid ${PARTY} customername customermobile staffid { id name } services { ${LINE} }
-  billdate starttime duration apptStatus membershipid invoiceid notes ${STAMP}`;
+  billdate starttime duration apptStatus membershipid invoiceid notes customfields { key value } ${STAMP}`;
 export const JOB_CARD_FIELDS = `id branchid billnumber offlineNumber billdate ${PARTY} customername customermobile productserviceid { id name }
   devicename serial problem accessories estimate { ${LINE} } estimatetotal approved approvedAt spares { ${LINE} }
-  technicianid { id name } jobStatus promisedate deliveredAt warrantydays invoiceid notes ${STAMP}`;
+  technicianid { id name } jobStatus promisedate deliveredAt warrantydays invoiceid notes customfields { key value } ${STAMP}`;
 export const CONTRACT_FIELDS = `id branchid ${PARTY} title contractType items { productserviceid { id name } serial note }
-  startdate enddate visitsallowed visitsdone amount contractStatus notes ${STAMP}`;
+  startdate enddate visitsallowed visitsdone amount invoiceid contractStatus notes customfields { key value } ${STAMP}`;
 export const PLAN_FIELDS = `id name sessions validitydays price services { id name } notes status createdAt updatedAt`;
-export const MEMBERSHIP_FIELDS = `id branchid planid { id name } ${PARTY} customername customermobile startdate enddate sessions sessionsused amount memberStatus notes ${STAMP}`;
+export const MEMBERSHIP_FIELDS = `id branchid planid { id name } ${PARTY} customername customermobile startdate enddate sessions sessionsused amount invoiceid memberStatus notes ${STAMP}`;
 
 const PAGE_ARGS = `$filter: ServiceFilterInput, $page: Int, $pageSize: Int, $search: String, $columnFilters: [ColumnFilter!]`;
 const PAGE_VARS = `filter: $filter, page: $page, pageSize: $pageSize, search: $search, columnFilters: $columnFilters`;
