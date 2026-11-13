@@ -37,7 +37,7 @@ function getPurchaseRate(variant: IProductVariant, overrideRate?: number): numbe
   return rate;
 }
 
-export async function manageStock(params: StockManagerParams): Promise<any> {
+export async function manageStock(params: StockManagerParams, attempt = 0): Promise<any> {
   const {
     adminId,
     productId,
@@ -60,6 +60,8 @@ export async function manageStock(params: StockManagerParams): Promise<any> {
     variantid: variant._id,
     branchid: branchId,
   });
+  const seenAt = (stock as any)?.updatedAt;
+  const seenStock = stock && !(stock as any).$isDefault("currentstock") ? stock.currentstock : null;
 
   // Normalize quantity to base unit
   const qtyInBase = convertToBaseUnit(qty, unitId, variant);
@@ -159,7 +161,19 @@ export async function manageStock(params: StockManagerParams): Promise<any> {
     stock.averagecost = rate;
   }
 
-  await stock.save();
+  // Write only if nobody changed the row since it was read; otherwise redo the whole move.
+  const changes = stock.getChanges();
+  if (Object.keys(changes).length) {
+    const res = await ProductBranchStock.updateOne(
+      { _id: stock._id, updatedAt: seenAt ?? null, currentstock: seenStock },
+      changes
+    );
+    if (!res.matchedCount) {
+      if (attempt >= 30) throw new Error("Stock was being changed by another entry at the same moment. Please save again.");
+      await new Promise((r) => setTimeout(r, Math.random() * 20 * Math.min(attempt + 1, 5)));
+      return manageStock(params, attempt + 1);
+    }
+  }
   return stock;
 }
 

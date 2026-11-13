@@ -1,5 +1,5 @@
 import mongoose, { Model, Schema, Document, Types } from 'mongoose';
-import { ProductBranchStock } from '../productbranchstock';
+import { ProductBranchStock, writeStockRow } from '../productbranchstock';
 import { convertToBaseUnit } from '../../utils/unitconversation';
 import { ProductService } from '../products';
 import { NUMERIC_COLLATION } from '../../utils/billnumber';
@@ -107,32 +107,14 @@ transferStockSchema.statics.adjustStock = async function (
     variantId: Types.ObjectId | undefined,
     delta: number
   ) => {
-    let stock = await ProductBranchStock.findOne({
-      adminid: adminId,
-      productid: productId,
-      branchid: branchId,
-      variantid: variantId || null,
-    });
-
-    if (!stock) {
-      stock = await ProductBranchStock.create({
-        adminid: adminId,
-        productid: productId,
-        branchid: branchId,
-        variantid: variantId || null,
-        openingstock: 0,
-        currentstock: 0,
-        closingstock: 0,
-        openingstockamount: 0,
-        currentstockamount: 0,
-        closingstockamount: 0,
-        averagecost: 0,
-      });
-    }
-
-    stock.currentstock += delta;
-    stock.closingstock = stock.currentstock;
-    await stock.save();
+    await writeStockRow(
+      { adminid: adminId, productid: productId, branchid: branchId, variantid: variantId || null },
+      (stock) => {
+        const next = (stock ? stock.currentstock : 0) + delta;
+        return { currentstock: next, closingstock: next };
+      },
+      { upsert: true, onInsert: { openingstock: 0, openingstockamount: 0, currentstockamount: 0, closingstockamount: 0, averagecost: 0 } }
+    );
   };
 
   // Convert transfer qty to base units using product variant's unit conversions

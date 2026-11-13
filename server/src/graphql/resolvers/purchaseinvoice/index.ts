@@ -414,8 +414,9 @@ async function addPurchaseInvoiceNow(_: any, { input, autoPayment }: any, contex
           }
           console.log("✅ Stock and transactions adjusted successfully");
         } catch (stockError: any) {
-          console.warn("⚠️ Stock adjustment warning:", stockError.message);
-          // Don't throw - just warn
+          // Same as sales: the user must know stock / accounts did not post.
+          console.error("Purchase invoice posting failed:", created.billnumber, stockError?.message);
+          throw new Error(`Bill ${created.billnumber} was saved, but stock / accounts could not be updated: ${stockError?.message || "unknown error"}. Please contact support before editing it.`);
         }
 
         // ✅ Step 6: Fetch and Format Invoice
