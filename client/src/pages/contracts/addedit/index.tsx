@@ -4,7 +4,7 @@ import { Plus, Trash2 } from "lucide-react";
 import FormField from "../../../components/formfiled";
 import FormPage from "../../../components/formpage";
 import HomeLayout from "../../../layouts/home";
-import { PARTY_QUERIES, useAddNew } from "../../../hooks/useaddnew";
+import { PartyQuickAdd } from "../../../components/posaddcustomer";
 import { useAccountsLiteQuery } from "../../../graphql/hooks/accounts";
 import { useProductServicesQuery } from "../../../graphql/hooks/products";
 import { CONTRACT_TYPE, addDaysYMD, useContractByIdQuery, useServiceBranch, useServiceMutations } from "../../../graphql/hooks/service";
@@ -23,7 +23,7 @@ const AddEditContract = () => {
   const { id } = useParams<{ id?: string }>();
   const isEdit = Boolean(id);
   const navigate = useNavigate();
-  const addParty = useAddNew("/accounts/addedit", PARTY_QUERIES);
+  const [partyOpen, setPartyOpen] = useState(false);
   const dispatch = useAppDispatch();
   const branchId = useServiceBranch();
   const { addContract, editContract } = useServiceMutations();
@@ -100,7 +100,7 @@ const AddEditContract = () => {
             <legend className="text-sm font-medium px-2">Contract</legend>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div className="md:col-span-2">
-                <FormField label="Party" name="partyacc" type="select" searchable addable onAddNew={addParty} error={errors.partyacc} value={f.partyacc}
+                <FormField label="Party" name="partyacc" type="select" searchable addable onAddNew={() => setPartyOpen(true)} error={errors.partyacc} value={f.partyacc}
                   options={(accountData?.getAccounts || []).map((a: any) => ({ value: a.id, label: partyLabel(a) }))} onChange={set("partyacc")} />
               </div>
               <FormField label="Type" name="contractType" type="select" searchable value={f.contractType}
@@ -153,6 +153,7 @@ const AddEditContract = () => {
             <FormField label="" name="notes" type="text" multiline value={f.notes} onChange={set("notes")} />
           </fieldset>
         </form>
+        <PartyQuickAdd open={partyOpen} onClose={() => setPartyOpen(false)} onPicked={(id) => set("partyacc")({ target: { value: id } })} />
       </FormPage>
     </HomeLayout>
   );

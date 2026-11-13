@@ -3,7 +3,7 @@ import { useNavigate, useParams } from "react-router";
 import FormField from "../../../components/formfiled";
 import FormPage from "../../../components/formpage";
 import HomeLayout from "../../../layouts/home";
-import { PARTY_QUERIES, useAddNew } from "../../../hooks/useaddnew";
+import { PartyQuickAdd } from "../../../components/posaddcustomer";
 import { useAccountsLiteQuery } from "../../../graphql/hooks/accounts";
 import { addDaysYMD, useMembershipByIdQuery, useMembershipPlansQuery, useServiceBranch, useServiceMutations } from "../../../graphql/hooks/service";
 import { useAppDispatch } from "../../../redux/hooks";
@@ -19,7 +19,7 @@ const AddEditMembership = () => {
   const { id } = useParams<{ id?: string }>();
   const isEdit = Boolean(id);
   const navigate = useNavigate();
-  const addParty = useAddNew("/accounts/addedit", PARTY_QUERIES);
+  const [partyOpen, setPartyOpen] = useState(false);
   const dispatch = useAppDispatch();
   const branchId = useServiceBranch();
   const { addMembership, editMembership } = useServiceMutations();
@@ -99,7 +99,7 @@ const AddEditMembership = () => {
                   options={plans.map((p: any) => ({ value: p.id, label: p.name }))} onChange={(e: any) => pickPlan(e.target.value)} />
               </div>
               <div className="md:col-span-2">
-                <FormField label="Party" name="partyacc" type="select" searchable addable onAddNew={addParty} error={errors.customer} value={f.partyacc}
+                <FormField label="Party" name="partyacc" type="select" searchable addable onAddNew={() => setPartyOpen(true)} error={errors.customer} value={f.partyacc}
                   options={(accountData?.getAccounts || []).map((a: any) => ({ value: a.id, label: partyLabel(a) }))} onChange={set("partyacc")} />
               </div>
               {!f.partyacc && <FormField label="Member Name" name="customername" type="text" value={f.customername} onChange={set("customername")} />}
@@ -115,6 +115,7 @@ const AddEditMembership = () => {
             <p className="text-[12px] text-slate-500">Each appointment marked Done with this membership uses one session.</p>
           </fieldset>
         </form>
+        <PartyQuickAdd open={partyOpen} onClose={() => setPartyOpen(false)} onPicked={(id) => set("partyacc")({ target: { value: id } })} />
       </FormPage>
     </HomeLayout>
   );

@@ -4,7 +4,7 @@ import FormField from "../../../components/formfiled";
 import FormPage from "../../../components/formpage";
 import ServiceLines, { type SvcLine, svcInput, svcTotal, toSvcLines } from "../../../components/servicelines";
 import HomeLayout from "../../../layouts/home";
-import { PARTY_QUERIES, useAddNew } from "../../../hooks/useaddnew";
+import { PartyQuickAdd } from "../../../components/posaddcustomer";
 import { useAccountsLiteQuery } from "../../../graphql/hooks/accounts";
 import { useProductServicesQuery } from "../../../graphql/hooks/products";
 import { useStaffListQuery } from "../../../graphql/hooks/staffaccounts";
@@ -23,7 +23,7 @@ const AddEditJobCard = () => {
   const { id } = useParams<{ id?: string }>();
   const isEdit = Boolean(id);
   const navigate = useNavigate();
-  const addParty = useAddNew("/accounts/addedit", PARTY_QUERIES);
+  const [partyOpen, setPartyOpen] = useState(false);
   const dispatch = useAppDispatch();
   const branchId = useServiceBranch();
   const settings = useAppSelector((s: any) => s.adminsettings.settings);
@@ -143,7 +143,7 @@ const AddEditJobCard = () => {
               <FormField label="Job No." name="billNumber" type="text" value={billNumber || (isEdit ? "" : "Auto")} onChange={() => {}} disabled />
               <FormField label="Date" name="billdate" type="date" value={f.billdate} error={errors.billdate} onChange={set("billdate")} />
               <div className="md:col-span-2">
-                <FormField label="Party" name="partyacc" type="select" searchable addable onAddNew={addParty} error={errors.customer} value={f.partyacc}
+                <FormField label="Party" name="partyacc" type="select" searchable addable onAddNew={() => setPartyOpen(true)} error={errors.customer} value={f.partyacc}
                   options={accounts.map((a: any) => ({ value: a.id, label: partyLabel(a) }))} onChange={set("partyacc")} />
               </div>
               <OfflineNumberNote show={!isEdit && noDevice} />
@@ -196,6 +196,7 @@ const AddEditJobCard = () => {
             <FormField label="" name="notes" type="text" multiline value={f.notes} onChange={set("notes")} />
           </fieldset>
         </form>
+        <PartyQuickAdd open={partyOpen} onClose={() => setPartyOpen(false)} onPicked={(id) => set("partyacc")({ target: { value: id } })} />
       </FormPage>
     </HomeLayout>
   );

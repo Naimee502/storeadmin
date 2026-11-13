@@ -4,6 +4,8 @@ import FormField from "../formfiled";
 import { useAccountMutations } from "../../graphql/hooks/accounts";
 import { useAccountGroupsQuery } from "../../graphql/hooks/accountgroups";
 import { useAppSelector } from "../../redux/hooks";
+import { useApolloClient } from "@apollo/client";
+import { PARTY_QUERIES } from "../../hooks/useaddnew";
 
 type ErrorState = {
     name?: string;
@@ -360,5 +362,17 @@ export default function PosAddCustomer({
                 </button>
             </div>
         </div>
+    );
+}
+
+/** Party "Add New" popup: creates the customer, reloads party lists, then picks it. */
+export function PartyQuickAdd({ open, onClose, onPicked }: { open: boolean; onClose: () => void; onPicked: (id: string) => void }) {
+    const client = useApolloClient();
+    return (
+        <PosAddCustomer open={open} onClose={onClose} mode="customer"
+            onCreated={async (id) => {
+                await client.refetchQueries({ include: PARTY_QUERIES }).catch(() => undefined);
+                if (id) onPicked(id);
+            }} />
     );
 }

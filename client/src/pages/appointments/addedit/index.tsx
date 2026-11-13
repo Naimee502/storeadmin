@@ -4,7 +4,7 @@ import FormField from "../../../components/formfiled";
 import FormPage from "../../../components/formpage";
 import ServiceLines, { type SvcLine, serviceMinutes, svcInput, toSvcLines } from "../../../components/servicelines";
 import HomeLayout from "../../../layouts/home";
-import { PARTY_QUERIES, useAddNew } from "../../../hooks/useaddnew";
+import { PartyQuickAdd } from "../../../components/posaddcustomer";
 import { useAccountsLiteQuery } from "../../../graphql/hooks/accounts";
 import { useProductServicesQuery } from "../../../graphql/hooks/products";
 import { useStaffListQuery } from "../../../graphql/hooks/staffaccounts";
@@ -27,7 +27,7 @@ const AddEditAppointment = () => {
   const isEdit = Boolean(id);
   const date = new URLSearchParams(useLocation().search).get("date");
   const navigate = useNavigate();
-  const addParty = useAddNew("/accounts/addedit", PARTY_QUERIES);
+  const [partyOpen, setPartyOpen] = useState(false);
   const dispatch = useAppDispatch();
   const branchId = useServiceBranch();
   const { addAppointment, editAppointment } = useServiceMutations();
@@ -128,7 +128,7 @@ const AddEditAppointment = () => {
             <legend className="text-sm font-medium px-2">Customer &amp; Slot</legend>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div className="md:col-span-2">
-                <FormField label="Party" name="partyacc" type="select" searchable addable onAddNew={addParty} error={errors.customer} value={f.partyacc}
+                <FormField label="Party" name="partyacc" type="select" searchable addable onAddNew={() => setPartyOpen(true)} error={errors.customer} value={f.partyacc}
                   options={accounts.map((a: any) => ({ value: a.id, label: partyLabel(a) }))}
                   onChange={(e: any) => setF((x) => ({ ...x, partyacc: e.target.value || "", membershipid: "" }))} />
               </div>
@@ -168,6 +168,7 @@ const AddEditAppointment = () => {
             <FormField label="" name="notes" type="text" multiline value={f.notes} onChange={set("notes")} />
           </fieldset>
         </form>
+        <PartyQuickAdd open={partyOpen} onClose={() => setPartyOpen(false)} onPicked={(id) => setF((x) => ({ ...x, partyacc: id, membershipid: "" }))} />
       </FormPage>
     </HomeLayout>
   );
