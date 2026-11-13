@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import { nextMainBillNumber } from "../../utils/billnumber";
+import { billNumberGuard, nextMainBillNumber } from "../../utils/billnumber";
 
 // A price offer. Posts nothing and moves no stock; revisions share the number (R0, R1, ...).
 const quotationSchema = new mongoose.Schema(
@@ -76,4 +76,5 @@ quotationSchema.index({ adminid: 1, clientRequestId: 1 }, { unique: true, partia
 quotationSchema.index({ adminid: 1, billnumber: 1, revision: -1 });
 quotationSchema.index({ adminid: 1, leadid: 1 });
 
+quotationSchema.plugin(billNumberGuard("Quotation"));
 export const Quotation = mongoose.model("Quotation", quotationSchema);

@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import { nextMainBillNumber } from "../../utils/billnumber";
+import { billNumberGuard, nextMainBillNumber } from "../../utils/billnumber";
 import { ProductBranchStock, writeStockRow } from "../productbranchstock";
 import { ProductService } from "../products";
 import { convertToBaseUnit } from "../../utils/unitconversation";
@@ -185,6 +185,7 @@ export async function moveAppointmentMaterials(appt: any, sign: 1 | -1) {
   await moveJobCardStock({ spares, branchid: appt.branchid, adminid: appt.adminid }, sign);
 }
 
+jobCardSchema.plugin(billNumberGuard("JobCard"));
 export const Appointment = mongoose.model("Appointment", appointmentSchema);
 export const JobCard = mongoose.model("JobCard", jobCardSchema);
 export const Contract = mongoose.model("Contract", contractSchema);

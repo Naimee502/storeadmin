@@ -35,3 +35,25 @@ export async function nextMainBillNumber(modelName: string, adminid: any, prefix
     .lean();
   return nextMainNumber([top?.billnumber], prefix);
 }
+
+/**
+ * Two bills saved at the same moment can take the same number (highest + 1).
+ * After a new bill is saved, the later one of a clash moves to the next free number.
+ */
+export const billNumberGuard = (modelName: string, prefix = "") => (schema: any) => {
+  schema.pre("save", function (this: any, next: any) {
+    this.$locals.billIsNew = this.isNew;
+    next();
+  });
+  schema.post("save", async function (doc: any) {
+    if (!doc?.$locals?.billIsNew || !mainSeriesRx(prefix).test(String(doc.billnumber || ""))) return;
+    const M = mongoose.model(modelName);
+    for (let i = 0; i < 20; i++) {
+      const earlier = await M.exists({ adminid: doc.adminid, billnumber: doc.billnumber, _id: { $lt: doc._id } });
+      if (!earlier) return;
+      const fresh = await nextMainBillNumber(modelName, doc.adminid, prefix);
+      await M.updateOne({ _id: doc._id }, { $set: { billnumber: fresh } });
+      doc.billnumber = fresh;
+    }
+  });
+};

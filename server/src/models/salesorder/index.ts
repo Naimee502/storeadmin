@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import { nextMainBillNumber } from "../../utils/billnumber";
+import { billNumberGuard, nextMainBillNumber } from "../../utils/billnumber";
 
 const salesOrderSchema = new mongoose.Schema(
   {
@@ -133,4 +133,5 @@ salesOrderSchema.index(
   { unique: true, partialFilterExpression: { clientRequestId: { $type: "string" } } }
 );
 
+salesOrderSchema.plugin(billNumberGuard("SalesOrder"));
 export const SalesOrder = mongoose.model("SalesOrder", salesOrderSchema);

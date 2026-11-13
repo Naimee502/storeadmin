@@ -9,7 +9,7 @@
 //                that debits Cash/Bank and credits the supplier.
 
 import mongoose from "mongoose";
-import { nextMainBillNumber } from "../../utils/billnumber";
+import { billNumberGuard, nextMainBillNumber } from "../../utils/billnumber";
 import { ProductBranchStock, writeStockRow } from "../productbranchstock";
 import { ProductService } from "../products";
 import { convertToBaseUnit } from "../../utils/unitconversation";
@@ -450,4 +450,5 @@ interface PurchaseReturnModel extends mongoose.Model<any> {
   adjustStockAndTransactions(oldDoc: any, newDoc: any, userContext?: any): Promise<void>;
 }
 
+purchaseReturnSchema.plugin(billNumberGuard("PurchaseReturn", "DN-"));
 export const PurchaseReturn = mongoose.model<any, PurchaseReturnModel>("PurchaseReturn", purchaseReturnSchema);

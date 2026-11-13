@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import { nextMainBillNumber } from "../../utils/billnumber";
+import { billNumberGuard, nextMainBillNumber } from "../../utils/billnumber";
 import { ProductBranchStock, writeStockRow } from "../productbranchstock";
 import { ProductService } from "../products";
 import { convertToBaseUnit } from "../../utils/unitconversation";
@@ -164,6 +164,8 @@ export async function moveProductionStock(doc: any, sign: 1 | -1) {
   for (const l of doc?.byproducts || []) await move(l, 1);
 }
 
+workOrderSchema.plugin(billNumberGuard("WorkOrder"));
+productionSchema.plugin(billNumberGuard("ProductionEntry"));
 export const Bom = mongoose.model("Bom", bomSchema);
 export const WorkOrder = mongoose.model("WorkOrder", workOrderSchema);
 export const ProductionEntry = mongoose.model("ProductionEntry", productionSchema);

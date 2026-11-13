@@ -1,6 +1,6 @@
 // models/purchaseinvoice.ts
 import mongoose from "mongoose";
-import { nextMainBillNumber } from "../../utils/billnumber";
+import { billNumberGuard, nextMainBillNumber } from "../../utils/billnumber";
 import { ProductBranchStock, writeStockRow } from "../productbranchstock";
 import { ProductService } from "../products";
 import { convertToBaseUnit } from "../../utils/unitconversation";
@@ -1036,6 +1036,7 @@ purchaseInvoiceSchema.index(
   { unique: true, partialFilterExpression: { clientRequestId: { $type: "string" } } }
 );
 
+purchaseInvoiceSchema.plugin(billNumberGuard("PurchaseInvoice"));
 export const PurchaseInvoice = mongoose.model<any, PurchaseInvoiceModel>(
   "PurchaseInvoice",
   purchaseInvoiceSchema

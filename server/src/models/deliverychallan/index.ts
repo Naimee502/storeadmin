@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import { nextMainBillNumber } from "../../utils/billnumber";
+import { billNumberGuard, nextMainBillNumber } from "../../utils/billnumber";
 import { ProductBranchStock, writeStockRow } from "../productbranchstock";
 import { ProductService } from "../products";
 import { convertToBaseUnit } from "../../utils/unitconversation";
@@ -99,4 +99,5 @@ export async function moveChallanStock(doc: any, sign: 1 | -1) {
   }
 }
 
+deliveryChallanSchema.plugin(billNumberGuard("DeliveryChallan"));
 export const DeliveryChallan = mongoose.model("DeliveryChallan", deliveryChallanSchema);

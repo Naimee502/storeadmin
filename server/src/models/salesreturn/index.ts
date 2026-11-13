@@ -11,7 +11,7 @@
 // Accounting:    Debit "Sales Return" ledger + Output GST, Credit customer.
 
 import mongoose from "mongoose";
-import { nextMainBillNumber } from "../../utils/billnumber";
+import { billNumberGuard, nextMainBillNumber } from "../../utils/billnumber";
 import { ProductBranchStock, writeStockRow } from "../productbranchstock";
 import { ProductService } from "../products";
 import { convertToBaseUnit } from "../../utils/unitconversation";
@@ -519,4 +519,5 @@ salesReturnSchema.index(
   { unique: true, partialFilterExpression: { clientRequestId: { $type: "string" } } }
 );
 
+salesReturnSchema.plugin(billNumberGuard("SalesReturn", "CN-"));
 export const SalesReturn = mongoose.model<any, SalesReturnModel>("SalesReturn", salesReturnSchema);
