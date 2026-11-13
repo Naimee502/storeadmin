@@ -11,6 +11,7 @@ import { showMessage } from "../../../redux/slices/message";
 import { partyLabel } from "../../../utils/partylabel";
 import { todayYMD } from "../../../utils/helper";
 import { OFFLINE_SAVED_MESSAGE, isOfflineSaved, savedOffline } from "../../../offline/billing";
+import { FormRules } from "../../../hooks/useformmode";
 
 const idOf = (v: any) => (v && typeof v === "object" ? v.id : v) || null;
 
@@ -119,4 +120,10 @@ const AddEditMembership = () => {
   );
 };
 
-export default AddEditMembership;
+const AddEditMembershipWithRules = (props: any) => (
+  <FormRules module="memberships">
+    <AddEditMembership {...props} />
+  </FormRules>
+);
+
+export default AddEditMembershipWithRules;

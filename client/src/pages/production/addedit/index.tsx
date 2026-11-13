@@ -14,6 +14,7 @@ import { showMessage } from "../../../redux/slices/message";
 import { todayYMD } from "../../../utils/helper";
 import { OFFLINE_SAVED_MESSAGE, OfflineNumberNote, isOfflineSaved, savedOffline, useOfflineNumber, useOfflineStock } from "../../../offline/billing";
 import { itemName, money } from "../../bom";
+import { FormRules } from "../../../hooks/useformmode";
 
 type Test = { parameter: string; expected?: string; actual?: string; ok?: boolean };
 const idOf = (v: any) => (v && typeof v === "object" ? v.id : v) || null;
@@ -249,4 +250,10 @@ const AddEditProduction = () => {
   );
 };
 
-export default AddEditProduction;
+const AddEditProductionWithRules = (props: any) => (
+  <FormRules module="production">
+    <AddEditProduction {...props} />
+  </FormRules>
+);
+
+export default AddEditProductionWithRules;

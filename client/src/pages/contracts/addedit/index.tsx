@@ -13,6 +13,7 @@ import { showMessage } from "../../../redux/slices/message";
 import { partyLabel } from "../../../utils/partylabel";
 import { todayYMD } from "../../../utils/helper";
 import { OFFLINE_SAVED_MESSAGE, isOfflineSaved, savedOffline } from "../../../offline/billing";
+import { FormRules } from "../../../hooks/useformmode";
 
 type Item = { productserviceid?: string; serial?: string; note?: string };
 const idOf = (v: any) => (v && typeof v === "object" ? v.id : v) || null;
@@ -147,4 +148,10 @@ const AddEditContract = () => {
   );
 };
 
-export default AddEditContract;
+const AddEditContractWithRules = (props: any) => (
+  <FormRules module="contracts">
+    <AddEditContract {...props} />
+  </FormRules>
+);
+
+export default AddEditContractWithRules;

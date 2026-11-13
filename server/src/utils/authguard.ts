@@ -101,6 +101,10 @@ const FORM_EDIT: Record<string, string> = {
   editPurchaseReturn: "purchasereturn", updateProductService: "products", editExpenseNote: "expensenote",
   editTransaction: "transactions", editPayment: "payments", editQuotation: "quotations", editLead: "leads",
   updateService: "services", editAccount: "accounts", editStaffAccount: "staffaccounts",
+  editAppointment: "appointments", editJobCard: "jobcards", editContract: "contracts", editMembership: "memberships",
+  editBom: "bom", editWorkOrder: "workorders", editProductionEntry: "production", editBranch: "branches",
+  updatePriceList: "pricelists", updateSalesRoute: "salesroutes", updateStockAdjustment: "stockadjustments",
+  editTransferStock: "transferstock",
 };
 
 // Fields that take the business id as an argument instead of a record id.

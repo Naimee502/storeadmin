@@ -11,6 +11,7 @@ import { useAppDispatch } from "../../../redux/hooks";
 import { showMessage } from "../../../redux/slices/message";
 import { OFFLINE_SAVED_MESSAGE, isOfflineSaved, savedOffline } from "../../../offline/billing";
 import { bomRunCost, money } from "..";
+import { FormRules } from "../../../hooks/useformmode";
 
 type Op = { name: string; workcenter?: string; minutes?: number | string; costperhour?: number | string; outsourced?: boolean };
 const idOf = (v: any) => (v && typeof v === "object" ? v.id : v) || null;
@@ -187,4 +188,10 @@ const AddEditBom = () => {
   );
 };
 
-export default AddEditBom;
+const AddEditBomWithRules = (props: any) => (
+  <FormRules module="bom">
+    <AddEditBom {...props} />
+  </FormRules>
+);
+
+export default AddEditBomWithRules;

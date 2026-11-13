@@ -13,6 +13,7 @@ import { useAccountsQuery } from "../../../graphql/hooks/accounts";
 import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
 import { showMessage } from "../../../redux/slices/message";
 import { isCustomerParty } from "../../../utils/partytype";
+import { FormRules } from "../../../hooks/useformmode";
 
 // Constants
 
@@ -524,4 +525,10 @@ const SalesRouteAddEdit: React.FC = () => {
   );
 };
 
-export default SalesRouteAddEdit;
+const SalesRouteAddEditWithRules = (props: any) => (
+  <FormRules module="salesroutes">
+    <SalesRouteAddEdit {...props} />
+  </FormRules>
+);
+
+export default SalesRouteAddEditWithRules;

@@ -18,6 +18,7 @@ import {
 import { BRANCH_REQUIRED } from "../../../utils/branch";
 import { useOfflineNumber, savedOffline } from "../../../offline/billing";
 import { OFFLINE_SAVED_MESSAGE } from "../../../offline/billing";
+import { FormRules } from "../../../hooks/useformmode";
 
 // Types
 
@@ -617,4 +618,10 @@ const TransferStockAddEdit: React.FC = () => {
   );
 };
 
-export default TransferStockAddEdit;
+const TransferStockAddEditWithRules = (props: any) => (
+  <FormRules module="transferstock">
+    <TransferStockAddEdit {...props} />
+  </FormRules>
+);
+
+export default TransferStockAddEditWithRules;

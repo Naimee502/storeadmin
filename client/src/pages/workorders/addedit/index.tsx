@@ -10,6 +10,7 @@ import { useAppDispatch } from "../../../redux/hooks";
 import { showMessage } from "../../../redux/slices/message";
 import { todayYMD } from "../../../utils/helper";
 import { OFFLINE_SAVED_MESSAGE, OfflineNumberNote, isOfflineSaved, savedOffline, useOfflineNumber, useOfflineStock } from "../../../offline/billing";
+import { FormRules } from "../../../hooks/useformmode";
 
 const idOf = (v: any) => (v && typeof v === "object" ? v.id : v) || null;
 const fmt = (n: number) => Number(n.toFixed(3)).toString();
@@ -170,4 +171,10 @@ const AddEditWorkOrder = () => {
   );
 };
 
-export default AddEditWorkOrder;
+const AddEditWorkOrderWithRules = (props: any) => (
+  <FormRules module="workorders">
+    <AddEditWorkOrder {...props} />
+  </FormRules>
+);
+
+export default AddEditWorkOrderWithRules;

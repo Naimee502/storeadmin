@@ -14,6 +14,7 @@ import { showMessage } from "../../../redux/slices/message";
 import { partyLabel } from "../../../utils/partylabel";
 import { todayYMD } from "../../../utils/helper";
 import { OFFLINE_SAVED_MESSAGE, OfflineNumberNote, isOfflineSaved, savedOffline, useOfflineNumber, useOfflineStock } from "../../../offline/billing";
+import { FormRules } from "../../../hooks/useformmode";
 
 const idOf = (v: any) => (v && typeof v === "object" ? v.id : v) || null;
 
@@ -190,4 +191,10 @@ const AddEditJobCard = () => {
   );
 };
 
-export default AddEditJobCard;
+const AddEditJobCardWithRules = (props: any) => (
+  <FormRules module="jobcards">
+    <AddEditJobCard {...props} />
+  </FormRules>
+);
+
+export default AddEditJobCardWithRules;

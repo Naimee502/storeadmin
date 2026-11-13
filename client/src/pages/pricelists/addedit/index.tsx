@@ -8,6 +8,7 @@ import { useUnitsQuery } from "../../../graphql/hooks/units";
 import { usePriceListByIdQuery, usePriceListMutations } from "../../../graphql/hooks/pricelists";
 import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
 import { showMessage } from "../../../redux/slices/message";
+import { FormRules } from "../../../hooks/useformmode";
 
 const AddEditPriceList = () => {
   const { id } = useParams<{ id?: string }>();
@@ -240,4 +241,10 @@ const AddEditPriceList = () => {
   );
 };
 
-export default AddEditPriceList;
+const AddEditPriceListWithRules = (props: any) => (
+  <FormRules module="pricelists">
+    <AddEditPriceList {...props} />
+  </FormRules>
+);
+
+export default AddEditPriceListWithRules;

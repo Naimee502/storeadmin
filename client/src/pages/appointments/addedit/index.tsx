@@ -16,6 +16,7 @@ import { showMessage } from "../../../redux/slices/message";
 import { partyLabel } from "../../../utils/partylabel";
 import { todayYMD } from "../../../utils/helper";
 import { OFFLINE_SAVED_MESSAGE, isOfflineSaved, savedOffline } from "../../../offline/billing";
+import { FormRules } from "../../../hooks/useformmode";
 
 const idOf = (v: any) => (v && typeof v === "object" ? v.id : v) || null;
 const DURATIONS = [15, 30, 45, 60, 90, 120, 180].map((m) => ({ value: String(m), label: m < 60 ? `${m} min` : `${m / 60} hr${m > 60 ? "s" : ""}` }));
@@ -162,4 +163,10 @@ const AddEditAppointment = () => {
   );
 };
 
-export default AddEditAppointment;
+const AddEditAppointmentWithRules = (props: any) => (
+  <FormRules module="appointments">
+    <AddEditAppointment {...props} />
+  </FormRules>
+);
+
+export default AddEditAppointmentWithRules;

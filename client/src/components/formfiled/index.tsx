@@ -16,6 +16,7 @@ import {
 } from 'react-icons/fa';
 import Select, { components, type MultiValue, type SingleValue } from 'react-select';
 import { useIsCompact } from '../formpage/density';
+import { useFieldVisible } from "../../hooks/useformmode";
 
 export type InputType =
   | 'text'
@@ -161,7 +162,7 @@ const DropdownFooter = (props: any) => {
   );
 };
 
-const FormField: React.FC<FormFieldProps> = ({
+const FormFieldInner: React.FC<FormFieldProps> = ({
   label,
   name,
   type = 'text' as InputType,
@@ -526,5 +527,9 @@ const FormField: React.FC<FormFieldProps> = ({
     </div>
   );
 };
+
+// Hidden when a surrounding <FormRules> has this field switched off.
+const FormField: React.FC<FormFieldProps> = (props) =>
+  useFieldVisible(props.name) ? <FormFieldInner {...props} /> : null;
 
 export default FormField;

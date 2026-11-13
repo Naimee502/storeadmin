@@ -788,4 +788,190 @@ export const FORM_PERMISSIONS_CONFIG: FormConfig[] = [
       },
     ],
   },
+  // Optional fields only: these forms hide them through <FormRules>.
+  {
+    moduleId: "branches",
+    label: "Branch Fields",
+    sections: [
+      {
+        id: "details",
+        label: "Details",
+        fields: [
+          { id: "location", label: "Location" },
+          { id: "phone", label: "Phone Number" },
+          { id: "address", label: "Address" },
+          { id: "city", label: "City" },
+          { id: "pincode", label: "Pincode" },
+          { id: "logo", label: "Branch Logo" },
+        ],
+      },
+    ],
+  },
+  {
+    moduleId: "pricelists",
+    label: "Price List Fields",
+    sections: [
+      {
+        id: "details",
+        label: "Details",
+        fields: [
+          { id: "description", label: "Description" },
+        ],
+      },
+    ],
+  },
+  {
+    moduleId: "salesroutes",
+    label: "Sales Route Fields",
+    sections: [
+      {
+        id: "details",
+        label: "Details",
+        fields: [
+          { id: "description", label: "Description / Notes" },
+        ],
+      },
+    ],
+  },
+  {
+    moduleId: "stockadjustments",
+    label: "Stock Adjustment Fields",
+    sections: [
+      {
+        id: "details",
+        label: "Details",
+        fields: [
+          { id: "reason", label: "Reason / Narration" },
+        ],
+      },
+    ],
+  },
+  {
+    moduleId: "transferstock",
+    label: "Transfer Stock Fields",
+    sections: [
+      {
+        id: "details",
+        label: "Details",
+        fields: [
+          { id: "narration", label: "Narration / Remarks" },
+        ],
+      },
+    ],
+  },
+  {
+    moduleId: "appointments",
+    label: "Appointment Fields",
+    sections: [
+      {
+        id: "details",
+        label: "Details",
+        fields: [
+          { id: "staffid", label: "Staff" },
+          { id: "duration", label: "Duration" },
+          { id: "membershipid", label: "Use Membership" },
+          { id: "notes", label: "Notes" },
+        ],
+      },
+    ],
+  },
+  {
+    moduleId: "jobcards",
+    label: "Job Card Fields",
+    sections: [
+      {
+        id: "details",
+        label: "Details",
+        fields: [
+          { id: "devicename", label: "Device / Model" },
+          { id: "serial", label: "Serial / IMEI" },
+          { id: "problem", label: "Problem Reported" },
+          { id: "accessories", label: "Accessories Received" },
+          { id: "approvedAt", label: "Approved On" },
+          { id: "technicianid", label: "Technician" },
+          { id: "promisedate", label: "Promised Date" },
+          { id: "warrantydays", label: "Warranty on Repair" },
+          { id: "notes", label: "Notes" },
+        ],
+      },
+    ],
+  },
+  {
+    moduleId: "contracts",
+    label: "AMC / Warranty Fields",
+    sections: [
+      {
+        id: "details",
+        label: "Details",
+        fields: [
+          { id: "visitsallowed", label: "Visits Allowed" },
+          { id: "visitsdone", label: "Visits Done" },
+          { id: "amount", label: "Amount" },
+          { id: "notes", label: "Notes" },
+        ],
+      },
+    ],
+  },
+  {
+    moduleId: "memberships",
+    label: "Membership Fields",
+    sections: [
+      {
+        id: "details",
+        label: "Details",
+        fields: [
+          { id: "sessions", label: "Sessions" },
+          { id: "amount", label: "Amount" },
+          { id: "memberStatus", label: "Status" },
+          { id: "notes", label: "Notes" },
+        ],
+      },
+    ],
+  },
+  {
+    moduleId: "bom",
+    label: "BOM Fields",
+    sections: [
+      {
+        id: "details",
+        label: "Details",
+        fields: [
+          { id: "overhead", label: "Overhead / Run" },
+          { id: "notes", label: "Notes" },
+        ],
+      },
+    ],
+  },
+  {
+    moduleId: "workorders",
+    label: "Work Order Fields",
+    sections: [
+      {
+        id: "details",
+        label: "Details",
+        fields: [
+          { id: "duedate", label: "Due Date" },
+          { id: "notes", label: "Notes" },
+        ],
+      },
+    ],
+  },
+  {
+    moduleId: "production",
+    label: "Production Fields",
+    sections: [
+      {
+        id: "details",
+        label: "Details",
+        fields: [
+          { id: "qcstatus", label: "QC Status" },
+          { id: "batchnumber", label: "Batch No." },
+          { id: "serials", label: "Serial Nos." },
+          { id: "labourcost", label: "Labour Cost" },
+          { id: "overhead", label: "Overhead" },
+          { id: "notes", label: "Notes" },
+        ],
+      },
+    ],
+  },
 ];

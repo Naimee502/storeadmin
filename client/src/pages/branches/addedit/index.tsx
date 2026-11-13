@@ -10,6 +10,7 @@ import { useBranchByIDQuery, useBranchMutations } from "../../../graphql/hooks/b
 import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
 import { showMessage } from "../../../redux/slices/message";
 import { useImageUpload } from "../../../graphql/hooks/uploads";
+import { FormRules } from "../../../hooks/useformmode";
 
 const AddEditBranch = () => {
   const { id } = useParams<{ id?: string }>();
@@ -227,4 +228,10 @@ const AddEditBranch = () => {
   );
 };
 
-export default AddEditBranch;
+const AddEditBranchWithRules = (props: any) => (
+  <FormRules module="branches">
+    <AddEditBranch {...props} />
+  </FormRules>
+);
+
+export default AddEditBranchWithRules;

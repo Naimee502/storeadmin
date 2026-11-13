@@ -17,6 +17,7 @@ import { todayYMD, normalizeToYMD } from "../../../utils/helper";
 import { BRANCH_REQUIRED } from "../../../utils/branch";
 import { useOfflineNumber, savedOffline } from "../../../offline/billing";
 import { OFFLINE_SAVED_MESSAGE } from "../../../offline/billing";
+import { FormRules } from "../../../hooks/useformmode";
 
 // Shared row template so columns align; written in full so Tailwind generates it.
 const ROW_GRID_SM =
@@ -543,4 +544,10 @@ const StockAdjustmentAddEdit: React.FC = () => {
   );
 };
 
-export default StockAdjustmentAddEdit;
+const StockAdjustmentAddEditWithRules = (props: any) => (
+  <FormRules module="stockadjustments">
+    <StockAdjustmentAddEdit {...props} />
+  </FormRules>
+);
+
+export default StockAdjustmentAddEditWithRules;

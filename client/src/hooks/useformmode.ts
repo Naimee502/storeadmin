@@ -1,4 +1,6 @@
+import { createContext, createElement, useContext, type ReactNode } from "react";
 import { useParams } from "react-router";
+import { useAppSelector } from "../redux/hooks";
 
 // A field is true/false (both Add and Edit) or { add, edit }; missing means on.
 export type FieldMode = "add" | "edit";
@@ -22,3 +24,18 @@ export const compactRule = (add: boolean, edit: boolean): FieldRule => (add === 
 
 /** Add or Edit, from the form route (`/x/addedit/:id` is Edit). */
 export const useFormMode = (): FieldMode => (useParams<{ id?: string }>().id ? "edit" : "add");
+
+// Lets FormField hide a switched-off field by its `name`, for forms wrapped in <FormRules>.
+const FormRulesContext = createContext<{ perms: Record<string, any> | undefined; mode: FieldMode } | null>(null);
+
+export const FormRules = ({ module, children }: { module: string; children: ReactNode }) => {
+  const perms = useAppSelector((s: any) => s.permissions?.permissions?.formPermissions?.[module]);
+  const mode = useFormMode();
+  return createElement(FormRulesContext.Provider, { value: { perms, mode } }, children);
+};
+
+/** False when the surrounding <FormRules> has this field off for the current mode. */
+export const useFieldVisible = (name?: string): boolean => {
+  const rules = useContext(FormRulesContext);
+  return !rules || !name || fieldOn(rules.perms, name, rules.mode);
+};
