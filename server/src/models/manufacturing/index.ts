@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 import { nextMainBillNumber } from "../../utils/billnumber";
-import { ProductBranchStock } from "../productbranchstock";
+import { ProductBranchStock, writeStockRow } from "../productbranchstock";
 import { ProductService } from "../products";
 import { convertToBaseUnit } from "../../utils/unitconversation";
 
@@ -144,26 +144,20 @@ export async function moveProductionStock(doc: any, sign: 1 | -1) {
     const qtyBase = await baseQty(line);
     if (qtyBase === null) return;
     const key = { productid: line.productserviceid, variantid: line.variantid, branchid: doc.branchid };
-    const stock: any = await ProductBranchStock.findOne(key).lean();
-    const cur = Number(stock?.currentstock || 0);
-    const avg = Number(stock?.averagecost || 0);
-    const delta = sign * dir * qtyBase;
-    const next = cur + delta;
-    let nextAvg = avg;
-    if (dir === 1) {
-      // Rate is per line unit; spread it over base units.
-      const unitCost = qtyBase ? (Number(line.rate || 0) * Number(line.qty || 0)) / qtyBase : 0;
-      const held = Math.max(cur, 0) * avg;
-      if (next > 0) nextAvg = Math.max(0, (held + delta * unitCost) / next);
-    }
-    await ProductBranchStock.updateOne(
-      key,
-      {
-        $set: { currentstock: next, currentstockamount: next * nextAvg, closingstock: next, closingstockamount: next * nextAvg, averagecost: nextAvg, adminid: doc.adminid },
-        $setOnInsert: { openingstock: 0 },
-      },
-      { upsert: true }
-    );
+    await writeStockRow(key, (stock) => {
+      const cur = Number(stock?.currentstock || 0);
+      const avg = Number(stock?.averagecost || 0);
+      const delta = sign * dir * qtyBase;
+      const next = cur + delta;
+      let nextAvg = avg;
+      if (dir === 1) {
+        // Rate is per line unit; spread it over base units.
+        const unitCost = qtyBase ? (Number(line.rate || 0) * Number(line.qty || 0)) / qtyBase : 0;
+        const held = Math.max(cur, 0) * avg;
+        if (next > 0) nextAvg = Math.max(0, (held + delta * unitCost) / next);
+      }
+      return { currentstock: next, currentstockamount: next * nextAvg, closingstock: next, closingstockamount: next * nextAvg, averagecost: nextAvg, adminid: doc.adminid };
+    }, { upsert: true, onInsert: { openingstock: 0 } });
   };
   for (const l of doc?.components || []) await move(l, -1);
   for (const l of doc?.outputs || []) await move(l, 1);

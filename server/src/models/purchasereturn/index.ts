@@ -10,7 +10,7 @@
 
 import mongoose from "mongoose";
 import { nextMainBillNumber } from "../../utils/billnumber";
-import { ProductBranchStock } from "../productbranchstock";
+import { ProductBranchStock, writeStockRow } from "../productbranchstock";
 import { ProductService } from "../products";
 import { convertToBaseUnit } from "../../utils/unitconversation";
 import { Transaction } from "../transactions";
@@ -140,17 +140,12 @@ purchaseReturnSchema.statics.adjustStockAndTransactions = async function (oldRet
         const variant = product.productvariants?.find(v => String(v._id) === String(item.variantid));
         const qtyBase = convertToBaseUnit(Number(item.qty) * Number(item.unitqty), item.purchaseunitid, variant);
 
-        const stock = await ProductBranchStock.findOne({
-          productid: item.productserviceid, variantid: item.variantid, branchid
+        await writeStockRow({ productid: item.productserviceid, variantid: item.variantid, branchid }, (stock) => {
+          if (!stock) return null;
+          const newStock = stock.currentstock + qtyBase;
+          const newAmt = newStock * stock.averagecost;
+          return { currentstock: newStock, currentstockamount: newAmt, closingstock: newStock, closingstockamount: newAmt, adminid: newRet.adminid };
         });
-        if (!stock) continue;
-
-        const newStock = stock.currentstock + qtyBase;
-        const newAmt = newStock * stock.averagecost;
-        await ProductBranchStock.updateOne(
-          { productid: item.productserviceid, variantid: item.variantid, branchid },
-          { $set: { currentstock: newStock, currentstockamount: newAmt, closingstock: newStock, closingstockamount: newAmt, adminid: newRet.adminid } }
-        );
       }
     }
 
@@ -160,25 +155,20 @@ purchaseReturnSchema.statics.adjustStockAndTransactions = async function (oldRet
       const variant = product.productvariants?.find(v => String(v._id) === String(item.variantid));
       const qtyBase = convertToBaseUnit(Number(item.qty) * Number(item.unitqty), item.purchaseunitid, variant);
 
-      const stock = await ProductBranchStock.findOne({
-        productid: item.productserviceid, variantid: item.variantid, branchid
-      });
-      let newStock, newAmt;
-      if (!stock) {
-        newStock = -qtyBase;
-        newAmt = 0;
-      } else {
-        newStock = stock.currentstock - qtyBase;
-        newAmt = stock.currentstockamount - qtyBase * stock.averagecost;
-      }
       // adminid is written too: an upserted row without it is invisible to
       // getStockDetails (which matches on adminid), so the movement would
       // never show up in any stock listing.
-      await ProductBranchStock.updateOne(
-        { productid: item.productserviceid, variantid: item.variantid, branchid },
-        { $set: { currentstock: newStock, currentstockamount: newAmt, closingstock: newStock, closingstockamount: newAmt, adminid: newRet.adminid } },
-        { upsert: true }
-      );
+      await writeStockRow({ productid: item.productserviceid, variantid: item.variantid, branchid }, (stock) => {
+        let newStock, newAmt;
+        if (!stock) {
+          newStock = -qtyBase;
+          newAmt = 0;
+        } else {
+          newStock = stock.currentstock - qtyBase;
+          newAmt = stock.currentstockamount - qtyBase * stock.averagecost;
+        }
+        return { currentstock: newStock, currentstockamount: newAmt, closingstock: newStock, closingstockamount: newAmt, adminid: newRet.adminid };
+      }, { upsert: true });
     }
   }
 

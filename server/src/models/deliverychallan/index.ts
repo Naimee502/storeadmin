@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 import { nextMainBillNumber } from "../../utils/billnumber";
-import { ProductBranchStock } from "../productbranchstock";
+import { ProductBranchStock, writeStockRow } from "../productbranchstock";
 import { ProductService } from "../products";
 import { convertToBaseUnit } from "../../utils/unitconversation";
 
@@ -89,16 +89,13 @@ export async function moveChallanStock(doc: any, sign: 1 | -1) {
     const variant = product.productvariants?.find((v: any) => String(v._id) === String(item.variantid));
     const qtyBase = convertToBaseUnit(Number(item.qty) * Number(item.unitqty || 1), item.salesunitid, variant);
     const key = { productid: item.productserviceid, variantid: item.variantid, branchid: doc.branchid };
-    const stock: any = await ProductBranchStock.findOne(key).lean();
-    const cur = Number(stock?.currentstock || 0);
-    const avg = Number(stock?.averagecost || 0);
-    const next = cur + sign * qtyBase;
     // adminid is written so an upserted row stays visible to stock reports.
-    await ProductBranchStock.updateOne(
-      key,
-      { $set: { currentstock: next, currentstockamount: next * avg, closingstock: next, closingstockamount: next * avg, adminid: doc.adminid } },
-      { upsert: true }
-    );
+    await writeStockRow(key, (stock) => {
+      const cur = Number(stock?.currentstock || 0);
+      const avg = Number(stock?.averagecost || 0);
+      const next = cur + sign * qtyBase;
+      return { currentstock: next, currentstockamount: next * avg, closingstock: next, closingstockamount: next * avg, adminid: doc.adminid };
+    }, { upsert: true });
   }
 }
 

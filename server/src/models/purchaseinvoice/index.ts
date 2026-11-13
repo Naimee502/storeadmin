@@ -1,7 +1,7 @@
 // models/purchaseinvoice.ts
 import mongoose from "mongoose";
 import { nextMainBillNumber } from "../../utils/billnumber";
-import { ProductBranchStock } from "../productbranchstock";
+import { ProductBranchStock, writeStockRow } from "../productbranchstock";
 import { ProductService } from "../products";
 import { convertToBaseUnit } from "../../utils/unitconversation";
 import { Transaction } from "../transactions";
@@ -439,32 +439,18 @@ purchaseInvoiceSchema.statics.adjustStockAndTransactions = async function (oldIn
         variant
       );
 
-      const stock = await ProductBranchStock.findOne({
-        productid: item.productserviceid,
-        variantid: item.variantid,
-        branchid
+      await writeStockRow({ productid: item.productserviceid, variantid: item.variantid, branchid }, (stock) => {
+        if (!stock) return null;
+        const newCurrentStock = stock.currentstock - qtyBase;
+        const newCurrentStockAmount = newCurrentStock * stock.averagecost;
+        return {
+          currentstock: newCurrentStock,
+          currentstockamount: newCurrentStockAmount,
+          closingstock: newCurrentStock,
+          closingstockamount: newCurrentStockAmount,
+          adminid: newInv.adminid
+        };
       });
-
-      if (!stock) continue;
-
-      const newCurrentStock = stock.currentstock - qtyBase;
-      const newCurrentStockAmount = newCurrentStock * stock.averagecost;
-
-      const closingstock = newCurrentStock;
-      const closingstockamount = newCurrentStockAmount;
-
-      await ProductBranchStock.updateOne(
-        { productid: item.productserviceid, variantid: item.variantid, branchid },
-        {
-          $set: {
-            currentstock: newCurrentStock,
-            currentstockamount: newCurrentStockAmount,
-            closingstock,
-            closingstockamount,
-            adminid: newInv.adminid
-          }
-        }
-      );
     }
   }
 
@@ -487,53 +473,40 @@ purchaseInvoiceSchema.statics.adjustStockAndTransactions = async function (oldIn
       variant
     );
 
-    const stock = await ProductBranchStock.findOne({
-      productid: item.productserviceid,
-      variantid: item.variantid,
-      branchid
-    });
-
-    let avgCost, newCurrentStock, newCurrentStockAmount;
-
-    if (!stock) {
-      // first-time purchase entry
-      avgCost = Number(item.rate) || 0;
-      newCurrentStock = qtyBase;
-      newCurrentStockAmount = qtyBase * avgCost;
-    } else {
-      // Weighted Avg Cost calculation (Purchase Invoice)
-      const oldQty = stock.currentstock;
-      const oldAmount = stock.currentstockamount;
-
-      const newAmount = qtyBase * Number(item.rate);
-      const totalQty = oldQty + qtyBase;
-      const totalAmount = oldAmount + newAmount;
-
-      avgCost = totalQty > 0 ? totalAmount / totalQty : stock.averagecost;
-
-      newCurrentStock = totalQty;
-      newCurrentStockAmount = totalAmount;
-    }
-
-    const closingstock = newCurrentStock;
-    const closingstockamount = newCurrentStockAmount;
-
     // adminid is written too — a row created by an upsert without it is
     // invisible to getStockDetails, which matches on adminid.
-    await ProductBranchStock.updateOne(
-      { productid: item.productserviceid, variantid: item.variantid, branchid },
-      {
-        $set: {
-          currentstock: newCurrentStock,
-          currentstockamount: newCurrentStockAmount,
-          averagecost: avgCost,
-          closingstock,
-          closingstockamount,
-          adminid: newInv.adminid
-        }
-      },
-      { upsert: true }
-    );
+    await writeStockRow({ productid: item.productserviceid, variantid: item.variantid, branchid }, (stock) => {
+      let avgCost, newCurrentStock, newCurrentStockAmount;
+
+      if (!stock) {
+        // first-time purchase entry
+        avgCost = Number(item.rate) || 0;
+        newCurrentStock = qtyBase;
+        newCurrentStockAmount = qtyBase * avgCost;
+      } else {
+        // Weighted Avg Cost calculation (Purchase Invoice)
+        const oldQty = stock.currentstock;
+        const oldAmount = stock.currentstockamount;
+
+        const newAmount = qtyBase * Number(item.rate);
+        const totalQty = oldQty + qtyBase;
+        const totalAmount = oldAmount + newAmount;
+
+        avgCost = totalQty > 0 ? totalAmount / totalQty : stock.averagecost;
+
+        newCurrentStock = totalQty;
+        newCurrentStockAmount = totalAmount;
+      }
+
+      return {
+        currentstock: newCurrentStock,
+        currentstockamount: newCurrentStockAmount,
+        averagecost: avgCost,
+        closingstock: newCurrentStock,
+        closingstockamount: newCurrentStockAmount,
+        adminid: newInv.adminid
+      };
+    }, { upsert: true });
   }
 }
 
