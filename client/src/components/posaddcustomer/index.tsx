@@ -60,7 +60,6 @@ export default function PosAddCustomer({
     onClose,
     onCreated,
     mode = "customer",            // ⭐ CUSTOMER | VENDOR
-    variant = "default",
 }: {
     open: boolean;
     onClose: () => void;
@@ -170,196 +169,107 @@ export default function PosAddCustomer({
         setLoading(false);
     };
 
-    if (variant === "pos") {
-        return (
-            <div
-                className={`fixed inset-0 z-[70] bg-slate-900/50 flex items-center justify-center p-3 transition ${
-                    open ? "opacity-100" : "opacity-0 pointer-events-none"
-                }`}
-            >
-                <div className="bg-white w-full max-w-[440px] rounded-lg shadow-2xl border border-slate-300 text-sm text-slate-800">
-                    <div className="h-10 px-4 bg-slate-100 border-b border-slate-300 flex items-center justify-between rounded-t-lg">
-                        <div className="font-semibold">
-                            {mode === "customer" ? "New Customer" : "New Vendor"}
-                        </div>
-                        <button type="button" onClick={onClose} className="!bg-transparent text-slate-500 hover:text-slate-900 cursor-pointer">
-                            <X size={16} />
-                        </button>
-                    </div>
-
-                    <div className="p-4 space-y-3">
-                        <FormField
-                            label={mode === "customer" ? "Customer Name" : "Vendor Name"}
-                            name="name"
-                            required
-                            value={name}
-                            placeholder="Enter name"
-                            onChange={(e) => {
-                                setName(e.target.value);
-                                setErrors((prev) => ({ ...prev, name: "" }));
-                            }}
-                            error={errors.name}
-                        />
-
-                        <div className="grid grid-cols-2 gap-3">
-                            <FormField
-                                label="Mobile"
-                                name="mobile"
-                                required
-                                value={mobile}
-                                placeholder="10 digits"
-                                onChange={(e) => {
-                                    setMobile(e.target.value.replace(/\D/g, "").slice(0, 10));
-                                    setErrors((prev) => ({ ...prev, mobile: "" }));
-                                }}
-                                error={errors.mobile}
-                            />
-                            <FormField
-                                label="Email (Optional)"
-                                name="email"
-                                value={email}
-                                placeholder="Optional"
-                                onChange={(e) => setEmail(e.target.value)}
-                            />
-                        </div>
-
-                        <FormField
-                            label="State"
-                            name="state"
-                            type="select"
-                            value={stateName}
-                            searchable
-                            onChange={(e) => setStateName(e.target.value)}
-                            options={regionOptions}
-                        />
-
-                        {mode === "vendor" && (
-                            <FormField
-                                label="Account Type"
-                                name="accounttype"
-                                type="select"
-                                value={accountType}
-                                onChange={(e) => setAccountType(e.target.value)}
-                                options={[
-                                    { label: "End User", value: "enduser" },
-                                    { label: "Retail", value: "retail" },
-                                    { label: "Dealer", value: "dealer" },
-                                    { label: "Super Stockist", value: "superstockist" },
-                                    { label: "Distributor", value: "distributor" },
-                                    { label: "Manufacturer", value: "manufacturer" },
-                                    { label: "Exporter", value: "exporter" },
-                                ]}
-                                placeholder="Select account type"
-                            />
-                        )}
-                    </div>
-
-                    <div className="border-t border-slate-300 bg-slate-50 px-4 py-3 flex justify-end gap-2 rounded-b-lg">
-                        <button
-                            type="button"
-                            onClick={onClose}
-                            className="h-9 px-4 rounded border !border-slate-300 !bg-white hover:!bg-slate-100 !text-slate-700 font-medium text-sm cursor-pointer"
-                        >
-                            Cancel
-                        </button>
-                        <button
-                            type="button"
-                            onClick={handleCreate}
-                            disabled={loading}
-                            className="h-9 px-5 rounded !bg-[#4f46e5] hover:!bg-[#4338ca] disabled:!bg-slate-300 !text-white font-semibold text-sm cursor-pointer disabled:cursor-not-allowed"
-                        >
-                            {loading ? "Saving..." : `Save ${mode === "customer" ? "Customer" : "Vendor"}`}
-                        </button>
-                    </div>
-                </div>
-            </div>
-        );
-    }
-
+    // One popup design everywhere (POS look).
     return (
         <div
-            className={`fixed inset-0 z-[70] bg-black/40 flex items-center justify-center transition ${
+            className={`fixed inset-0 z-[70] bg-slate-900/50 flex items-center justify-center p-3 transition ${
                 open ? "opacity-100" : "opacity-0 pointer-events-none"
             }`}
         >
-            <div className="bg-white w-[400px] rounded-xl shadow-xl p-5">
-                <div className="flex justify-between items-center mb-4 border-b pb-2">
-                    <h2 className="text-lg font-semibold">
-                     {mode === "customer" ? "Add Customer" : "Add Vendor"}
-                    </h2>
-                    <button type="button" onClick={onClose}><X /></button>
+            <div className="bg-white w-full max-w-[440px] rounded-lg shadow-2xl border border-slate-300 text-sm text-slate-800">
+                <div className="h-10 px-4 bg-slate-100 border-b border-slate-300 flex items-center justify-between rounded-t-lg">
+                    <div className="font-semibold">
+                        {mode === "customer" ? "New Customer" : "New Vendor"}
+                    </div>
+                    <button type="button" onClick={onClose} className="!bg-transparent text-slate-500 hover:text-slate-900 cursor-pointer">
+                        <X size={16} />
+                    </button>
                 </div>
 
-                <FormField
-                     label={mode === "customer" ? "Customer Name" : "Vendor Name"}
-                    name="name"
-                    value={name}
-                    onChange={(e) => {
-                        setName(e.target.value);
-                        setErrors((prev) => ({ ...prev, name: "" }));
-                    }}
-                    placeholder="Enter name"
-                    error={errors.name}
-                />
-
-                <FormField
-                    label="Mobile"
-                    name="mobile"
-                    value={mobile}
-                    onChange={(e) => {
-                        setMobile(e.target.value);
-                        setErrors((prev) => ({ ...prev, mobile: "" }));
-                    }}
-                    placeholder="Enter mobile number"
-                    error={errors.mobile}
-                />
-
-                <FormField
-                    label="Email (Optional)"
-                    name="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="Enter email (optional)"
-                />
-
-                <FormField
-                    label="State"
-                    name="state"
-                    type="select"
-                    value={stateName}
-                    searchable
-                    onChange={(e) => setStateName(e.target.value)}
-                    options={regionOptions}
-                />
-
-                { mode === "vendor" && (
+                <div className="p-4 space-y-3">
                     <FormField
-                        label="Account Type"
-                        name="accounttype"
-                        type="select"
-                        value={accountType}
-                        onChange={(e) => setAccountType(e.target.value)}
-                        options={[
-                            { label: "End User", value: "enduser" },
-                            { label: "Retail", value: "retail" },
-                            { label: "Dealer", value: "dealer" },
-                            { label: "Super Stockist", value: "superstockist" },
-                            { label: "Distributor", value: "distributor" },
-                            { label: "Manufacturer", value: "manufacturer" },
-                            { label: "Exporter", value: "exporter" },
-                        ]}
-                        placeholder="Select account type"
+                        label={mode === "customer" ? "Customer Name" : "Vendor Name"}
+                        name="name"
+                        required
+                        value={name}
+                        placeholder="Enter name"
+                        onChange={(e) => {
+                            setName(e.target.value);
+                            setErrors((prev) => ({ ...prev, name: "" }));
+                        }}
+                        error={errors.name}
                     />
-                )}
 
-                <button
-                    type="button"
-                    className="mt-4 w-full bg-blue-600 text-white py-2 rounded-lg border disabled:opacity-60"
-                    onClick={handleCreate}
-                    disabled={loading}
-                >
-                    {loading ? "Saving..." : `Add ${mode === "customer" ? "Customer" : "Vendor"}`}
-                </button>
+                    <div className="grid grid-cols-2 gap-3">
+                        <FormField
+                            label="Mobile"
+                            name="mobile"
+                            required
+                            value={mobile}
+                            placeholder="10 digits"
+                            onChange={(e) => {
+                                setMobile(e.target.value.replace(/\D/g, "").slice(0, 10));
+                                setErrors((prev) => ({ ...prev, mobile: "" }));
+                            }}
+                            error={errors.mobile}
+                        />
+                        <FormField
+                            label="Email (Optional)"
+                            name="email"
+                            value={email}
+                            placeholder="Optional"
+                            onChange={(e) => setEmail(e.target.value)}
+                        />
+                    </div>
+
+                    <FormField
+                        label="State"
+                        name="state"
+                        type="select"
+                        value={stateName}
+                        searchable
+                        onChange={(e) => setStateName(e.target.value)}
+                        options={regionOptions}
+                    />
+
+                    {mode === "vendor" && (
+                        <FormField
+                            label="Account Type"
+                            name="accounttype"
+                            type="select"
+                            value={accountType}
+                            onChange={(e) => setAccountType(e.target.value)}
+                            options={[
+                                { label: "End User", value: "enduser" },
+                                { label: "Retail", value: "retail" },
+                                { label: "Dealer", value: "dealer" },
+                                { label: "Super Stockist", value: "superstockist" },
+                                { label: "Distributor", value: "distributor" },
+                                { label: "Manufacturer", value: "manufacturer" },
+                                { label: "Exporter", value: "exporter" },
+                            ]}
+                            placeholder="Select account type"
+                        />
+                    )}
+                </div>
+
+                <div className="border-t border-slate-300 bg-slate-50 px-4 py-3 flex justify-end gap-2 rounded-b-lg">
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        className="h-9 px-4 rounded border !border-slate-300 !bg-white hover:!bg-slate-100 !text-slate-700 font-medium text-sm cursor-pointer"
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        type="button"
+                        onClick={handleCreate}
+                        disabled={loading}
+                        className="h-9 px-5 rounded !bg-[#4f46e5] hover:!bg-[#4338ca] disabled:!bg-slate-300 !text-white font-semibold text-sm cursor-pointer disabled:cursor-not-allowed"
+                    >
+                        {loading ? "Saving..." : `Save ${mode === "customer" ? "Customer" : "Vendor"}`}
+                    </button>
+                </div>
             </div>
         </div>
     );
