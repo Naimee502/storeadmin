@@ -155,10 +155,8 @@ const AddEditJobCard = () => {
               </div>
               <FormField label="Device / Model" name="devicename" type="text" value={f.devicename} placeholder="Device / Model" onChange={set("devicename")} />
               <FormField label="Serial / IMEI" name="serial" type="text" value={f.serial} onChange={set("serial")} />
-              <div className="md:col-span-2">
-                <FormField label="Problem Reported" name="problem" type="text" multiline value={f.problem} onChange={set("problem")} />
-              </div>
-              <div className="md:col-span-2">
+              <div className="grid grid-cols-1 gap-4 md:col-span-4 md:grid-cols-2">
+                <FormField label="Problem Reported" name="problem" type="text" multiline value={f.problem} placeholder="Problem Reported" onChange={set("problem")} />
                 <FormField label="Accessories Received" name="accessories" type="text" multiline value={f.accessories} placeholder="Accessories Received" onChange={set("accessories")} />
               </div>
             </div>
