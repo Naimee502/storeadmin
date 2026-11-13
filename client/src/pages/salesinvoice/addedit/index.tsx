@@ -571,7 +571,8 @@ const AddEditSalesInvoice = () => {
       invoicediscounttype: invoiceDiscountType,
       isservice: isService,
       // New service bills move stock for their goods lines; old bills keep their rule.
-      ...(isService && !isEdit ? { linestock: true } : {}),
+      // Job card spares already left stock, so its bill moves none.
+      ...(isService && !isEdit && !fromService?.stockdone ? { linestock: true } : {}),
       productservice: products.map((p) => ({
         productserviceid: p.productserviceid,
         variantid: p.variantid,

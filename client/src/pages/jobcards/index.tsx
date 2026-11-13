@@ -82,8 +82,12 @@ const JobCards = () => {
   const onStatus = async (j: any, v: string) => {
     if (v === "invoice") {
       const products = productData?.getProductServices || [];
+      // Bill the estimate, plus spares not already quoted; spares left stock with the job card.
+      const est = toInvoiceProducts(j.estimate, products);
+      const quoted = new Set(est.map((l: any) => `${l.productserviceid}|${l.variantid || ""}`));
+      const extra = toInvoiceProducts(j.spares, products).filter((l: any) => !quoted.has(`${l.productserviceid}|${l.variantid || ""}`));
       return navigate("/salesinvoice/addedit", {
-        state: { fromService: { kind: "jobcard", id: j.id, partyacc: j.partyacc, notes: `Against Job Card ${jobCardNo(j)}${j.serial ? ` (${j.serial})` : ""}`, products: [...toInvoiceProducts(j.estimate, products), ...toInvoiceProducts(j.spares, products)] } },
+        state: { fromService: { kind: "jobcard", id: j.id, partyacc: j.partyacc, isservice: true, stockdone: true, notes: `Against Job Card ${jobCardNo(j)}${j.serial ? ` (${j.serial})` : ""}`, products: [...est, ...extra] } },
       });
     }
     try {
