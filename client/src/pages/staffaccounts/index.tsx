@@ -57,6 +57,17 @@ type FormValues = {
   accessroleid: string;
 };
 
+// Staff types follow Business Modules: Salesman needs Sales Order or Sales Routes,
+// Delivery Boy needs the Delivery report or delivery-boy mode. A saved type always stays.
+const staffTypeOptions = (modules: string[] | null | undefined, deliveryMode: string | undefined, current: string) => {
+  const on = (id: string) => !Array.isArray(modules) || modules.map((m) => String(m).toLowerCase()).includes(id);
+  return [
+    { label: "Staff", value: "staff" },
+    ...(on("salesorder") || on("salesroutes") || current === "salesman" ? [{ label: "Salesman", value: "salesman" }] : []),
+    ...(on("reports.delivery") || deliveryMode === "deliveryboy" || current === "deliveryboy" ? [{ label: "Delivery Boy", value: "deliveryboy" }] : []),
+  ];
+};
+
 const StaffAccounts = () => {
   const actions = useAppSelector(state => selectModuleActions(state, "staffaccounts"));
   const navigate = useNavigate();
@@ -120,6 +131,8 @@ const StaffAccounts = () => {
 
   const isLoading = useAppSelector((state: any) => state.loader.isLoading);
   const { data: deptData } = useDepartmentsQuery(false);
+  const businessModules: string[] | null | undefined = useAppSelector((s: any) => s.auth.admin?.allowedmodules);
+  const deliveryMode = useAppSelector((s: any) => s.adminsettings.settings?.deliveryMode);
   const { data: roleData } = useAccessRolesQuery(false);
 
   const [formValues, setFormValues] = useState<FormValues>({
@@ -145,6 +158,7 @@ const StaffAccounts = () => {
   const [formErrors, setFormErrors] = useState<{ [key: string]: string }>({});
   const [isEditing, setIsEditing] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const editingRole = editingId ? String(staffList.find((r: any) => r.id === editingId)?.role || "").toLowerCase() : "";
 
   const handleFormChange = useCallback((name, value) => {
     setFormValues((prev) => ({
@@ -468,11 +482,7 @@ const StaffAccounts = () => {
               value={formValues.role}
               onChange={(e) => handleFormChange("role", e.target.value)}
               error={formErrors.role}
-              options={[
-                { label: "Staff", value: "staff" },
-                { label: "Salesman", value: "salesman" },
-                { label: "Delivery Boy", value: "deliveryboy" },
-              ]}
+              options={staffTypeOptions(businessModules, deliveryMode, editingRole)}
               searchable={false}
             />
             )}
