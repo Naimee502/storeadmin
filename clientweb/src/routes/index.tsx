@@ -24,6 +24,9 @@ import BookPage from "../pages/book";
 import MyBookingsPage from "../pages/mybookings";
 import SupplierPage from "../pages/supplier";
 import SupplierDocumentPage from "../pages/supplier/document";
+import { MyTicketPage, MyTicketsPage } from "../pages/myservice/tickets";
+import { MyRepairPage, MyRepairsPage } from "../pages/myservice/repairs";
+import { MyContractsPage, MyMembershipsPage } from "../pages/myservice/plans";
 
 // Payment pages exist only while the business has the Payments module on — a
 // bookmarked or typed URL lands back on My Account instead.
@@ -57,6 +60,12 @@ export default function AppRoutes() {
           <Route path="/account/announcements" element={<AnnouncementsPage />} />
           <Route path="/book" element={<BookPage />} />
           <Route path="/account/bookings" element={<MyBookingsPage />} />
+          <Route path="/account/tickets" element={<MyTicketsPage />} />
+          <Route path="/account/tickets/:id" element={<MyTicketPage />} />
+          <Route path="/account/repairs" element={<MyRepairsPage />} />
+          <Route path="/account/repairs/:id" element={<MyRepairPage />} />
+          <Route path="/account/amc" element={<MyContractsPage />} />
+          <Route path="/account/memberships" element={<MyMembershipsPage />} />
         </Route>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/about" element={<AboutPage />} />

@@ -2,6 +2,8 @@ import { useMemo, useState } from "react";
 import { usePaymentsEnabled, useAnnouncementsEnabled, useOrderOnlyMode } from "../../hooks/useModuleEnabled";
 import { GET_MY_ANNOUNCEMENTS } from "../../graphql/queries/announcements";
 import { GET_BOOKING_ON } from "../../graphql/queries/booking";
+import { serviceMenu, useMyService } from "../../hooks/useMyService";
+import { ServiceIcon } from "../myservice/shared";
 import { Navigate, useNavigate, useSearchParams, Link } from "react-router";
 import { useQuery } from "@apollo/client";
 import {
@@ -108,6 +110,7 @@ export default function AccountPage() {
   const { adminid: bookingAdminId } = useTenant();
   const { data: bookingData } = useQuery(GET_BOOKING_ON, { variables: { adminid: bookingAdminId }, skip: !bookingAdminId });
   const bookingOn = !!bookingData?.getAdminSettings?.bookingOn && !!bookingData?.getAdminSettings?.onlineBookingAllowed;
+  const myServiceMenu = serviceMenu(useMyService());
   const { data: annData } = useQuery(GET_MY_ANNOUNCEMENTS, {
     skip: !announcementsEnabled,
     fetchPolicy: "cache-and-network",
@@ -292,6 +295,13 @@ export default function AccountPage() {
                   <CalendarCheck className="h-4 w-4" /> My Bookings
                 </Link>
               )}
+              {myServiceMenu.map((m) => (
+                <Link key={m.to} to={m.to}
+                  className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-left text-sm font-medium text-slate-600 hover:bg-slate-50">
+                  <ServiceIcon to={m.to} /> {m.label}
+                  {m.badge > 0 && <span className="ml-auto rounded-full bg-brand-600 px-1.5 text-[10px] font-bold text-white">{m.badge}</span>}
+                </Link>
+              ))}
               <Link
                 to="/account/notifications"
                 className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-left text-sm font-medium text-slate-600 hover:bg-slate-50"

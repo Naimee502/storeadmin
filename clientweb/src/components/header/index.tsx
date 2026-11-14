@@ -26,6 +26,8 @@ import { siteConfig } from "../../config/site";
 import { useCart } from "../../contexts/cart";
 import { useTenant } from "../../contexts/tenant";
 import { useSupplier } from "../../hooks/useSupplier";
+import { serviceMenu, useMyService } from "../../hooks/useMyService";
+import { ServiceIcon } from "../../pages/myservice/shared";
 import { useAuth } from "../../contexts/auth";
 import { useCatalog } from "../../hooks/useCatalog";
 import { titleCaseIfShouting } from "../../utils/format";
@@ -65,6 +67,7 @@ export default function Header() {
   const { adminid: storeId } = useTenant();
   const { data: bookingData } = useQuery(GET_BOOKING_ON, { variables: { adminid: storeId }, skip: !storeId });
   const bookingOn = !!bookingData?.getAdminSettings?.bookingOn && !!bookingData?.getAdminSettings?.onlineBookingAllowed;
+  const myServiceMenu = serviceMenu(useMyService());
   const supplier = useSupplier();
   const supplierOnly = supplier.signedIn && !isLoggedIn;
   // Which category the shop is currently filtered by, so the nav can mark it.
@@ -247,6 +250,13 @@ export default function Header() {
                         <CalendarCheck className="h-4 w-4" /> My Bookings
                       </Link>
                     )}
+                    {myServiceMenu.map((m) => (
+                      <Link key={m.to} to={m.to} onClick={() => setAccountMenuOpen(false)}
+                        className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-ink-900 hover:bg-slate-50">
+                        <ServiceIcon to={m.to} /> {m.label}
+                        {m.badge > 0 && <span className="ml-auto rounded-full bg-brand-600 px-1.5 text-[10px] font-bold text-white">{m.badge}</span>}
+                      </Link>
+                    ))}
                     {announcementsEnabled && (
                       <Link
                         to="/account/announcements"

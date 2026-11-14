@@ -86,6 +86,12 @@ export default function NotificationBell() {
       }
       refetch();
     }
+    const page: Record<string, string> = { SupportTicket: "/account/tickets/", JobCard: "/account/repairs/", Contract: "/account/amc", Membership: "/account/memberships" };
+    if (!asSupplier && page[n.docmodel]) {
+      setOpen(false);
+      navigate(page[n.docmodel].endsWith("/") ? `${page[n.docmodel]}${n.docid || ""}` : page[n.docmodel]);
+      return;
+    }
     if (asSupplier) {
       setOpen(false);
       const kind = n.docmodel === "PurchaseOrder" ? "order" : n.docmodel === "PurchaseInvoice" ? "bill" : "";
