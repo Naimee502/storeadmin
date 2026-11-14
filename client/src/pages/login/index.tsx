@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
-import { useQuery } from "@apollo/client";
-import { GET_LOGIN_BUSINESS, GET_LOGIN_BUSINESS_BY_ID, GET_LOGIN_TABS } from "../../graphql/queries/admin";
+import { useMutation, useQuery } from "@apollo/client";
+import { FIND_LOGINS, GET_LOGIN_BUSINESS, GET_LOGIN_BUSINESS_BY_ID } from "../../graphql/queries/admin";
 import LoginLayout from "../../layouts/login";
 import FormField from "../../components/formfiled";
 import Button from "../../components/button";
@@ -30,7 +30,7 @@ const Login = () => {
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [loginType, setLoginType] = useState<"branch" | "admin" | "staff">("branch");
+  const [loginType, setLoginType] = useState<"branch" | "admin" | "staff">("admin");
 
   // A business login link (/login?b=code) shows that business's name and only its chosen tabs.
   // "#" in a code starts the URL fragment, so an unencoded link (?b=#ADM0001) arrives in the hash.
@@ -45,14 +45,10 @@ const Login = () => {
   useEffect(() => {
     if (fromLink && bizData?.getAdminByCode?.id) rememberBusiness(bizData.getAdminByCode.id);
   }, [fromLink, bizData]);
-  const { data: tabsData } = useQuery(GET_LOGIN_TABS, { variables: { adminid: business?.id }, skip: !business?.id });
-  const chosenTabs: string[] = tabsData?.getAdminSettings?.loginTabs || [];
-  const loginTabs = ([["branch", "Branch Login"], ["staff", "Staff Login"], ["admin", "Admin Login"]] as const)
-    .filter(([kind]) => !chosenTabs.length || chosenTabs.includes(kind));
-  useEffect(() => {
-    if (loginTabs.length && !loginTabs.some(([kind]) => kind === loginType)) setLoginType(loginTabs[0][0]);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [chosenTabs.join(",")]);
+  // No tabs: the email and password say whether this is the owner, a branch or a staff login.
+  const [findLogins] = useMutation(FIND_LOGINS);
+  const [choices, setChoices] = useState<{ kind: string; label: string }[]>([]);
+  const [hideTip, setHideTip] = useState(() => { try { return localStorage.getItem("loginTipSeen") === "1"; } catch { return false; } });
 
   const [emailError, setEmailError] = useState("");
   const [passwordError, setPasswordError] = useState("");
@@ -88,7 +84,7 @@ const Login = () => {
     doLogin(otpStep ? otp.trim() : undefined);
   };
 
-  const doLogin = async (otpValue?: string) => {
+  const doLogin = async (otpValue?: string, picked?: "branch" | "admin" | "staff") => {
     if (busy) return;
     setEmailError("");
     setPasswordError("");
@@ -105,7 +101,16 @@ const Login = () => {
 
     setBusy(true);
     try {
-      if (loginType === "staff") {
+      let kind = picked || (otpStep ? loginType : undefined);
+      if (!kind) {
+        const found = (await findLogins({ variables: { email: email.trim(), password } })).data?.findLogins || [];
+        if (found.length > 1) { setChoices(found); return; }
+        kind = found[0]?.kind as typeof loginType;
+        if (!kind) throw new Error("Incorrect email or password.");
+      }
+      setChoices([]);
+      setLoginType(kind);
+      if (kind === "staff") {
         const res = await loginStaff({ variables: { email, password, otp: otpValue } });
         const loginData = res.data?.loginStaff;
         const staff = loginData?.staff;
@@ -127,7 +132,7 @@ const Login = () => {
         login();
         navigate("/home");
         return;
-      } else if (loginType === "admin") {
+      } else if (kind === "admin") {
         const res = await loginAdmin({ variables: { email, password, otp: otpValue } });
         const loginData = res.data?.loginAdmin;
         const admin = loginData?.admin;
@@ -265,25 +270,29 @@ const Login = () => {
               {business?.companyName ? `Sign in to ${business.companyName}` : "Sign in to your account to continue"}
             </p>
             {!fromLink && savedId && business?.companyName && (
-              <button type="button" onClick={forgetBusiness} className="mt-1 text-[12px] font-medium text-indigo-600 hover:underline">Not {business.companyName}? Show all logins</button>
+              <button type="button" onClick={forgetBusiness} className="mt-1 text-[12px] font-medium text-indigo-600 hover:underline">Not {business.companyName}?</button>
             )}
           </div>
 
-          {/* Tabs: hidden when the business allows only one login type. */}
-          {loginTabs.length > 1 && <div className="mb-5 flex w-full justify-center gap-2 border-b border-slate-200 sm:gap-4">
-            {loginTabs.map(([kind, label]) => (
-              <button
-                key={kind}
-                type="button"
-                className={`-mb-px border-b-2 px-4 py-2 text-[14px] font-medium transition-colors ${
-                  loginType === kind ? "border-indigo-600 text-indigo-700" : "border-transparent text-slate-500 hover:text-slate-800"
-                }`}
-                onClick={() => { setLoginType(kind); resetOtpStep(); }}
-              >
-                {label}
-              </button>
-            ))}
-          </div>}
+          {!hideTip && (
+            <div className="mb-4 flex items-start justify-between gap-2 rounded-lg bg-indigo-50 px-3 py-2 text-[12px] text-indigo-800">
+              <span>Login is simpler now: just enter your email and password. No need to choose Admin, Branch or Staff.</span>
+              <button type="button" aria-label="Close" className="text-indigo-500 hover:text-indigo-800"
+                onClick={() => { setHideTip(true); try { localStorage.setItem("loginTipSeen", "1"); } catch { /* storage off */ } }}>×</button>
+            </div>
+          )}
+
+          {choices.length > 1 && (
+            <div className="mb-4 space-y-2 rounded-lg border border-slate-200 p-3">
+              <p className="text-[13px] font-medium text-slate-700">This email opens more than one account. Sign in as:</p>
+              {choices.map((c) => (
+                <button key={c.kind} type="button" disabled={busy} onClick={() => doLogin(undefined, c.kind as "branch" | "admin" | "staff")}
+                  className="h-8 w-full rounded-lg border border-indigo-200 px-3 text-left text-[13px] font-medium text-indigo-700 hover:bg-indigo-50 disabled:opacity-50">
+                  {c.label}
+                </button>
+              ))}
+            </div>
+          )}
 
           <form
             onSubmit={handleLogin}
@@ -299,6 +308,7 @@ const Login = () => {
               onChange={(e: any) => {
                 setEmail(e.target.value);
                 setEmailError("");
+                setChoices([]);
                 if (otpStep) resetOtpStep();
               }}
               error={emailError}
@@ -314,6 +324,7 @@ const Login = () => {
               onChange={(e: any) => {
                 setPassword(e.target.value);
                 setPasswordError("");
+                setChoices([]);
                 if (otpStep) resetOtpStep();
               }}
               error={passwordError}
@@ -361,7 +372,7 @@ const Login = () => {
                 ? "Please wait…"
                 : otpStep
                   ? "Verify OTP & Login"
-                  : loginType === "admin" ? "Admin Login" : loginType === "branch" ? "Branch Login" : "Staff Login"}
+                  : "Login"}
             </Button>
 
             {invalidCredentialError && (

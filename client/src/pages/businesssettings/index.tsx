@@ -426,16 +426,16 @@ const GeneralTab: React.FC<{ adminId?: string; dispatch: any; allowedModules?: s
           <Toggle label="Panel login email OTP" hint="Admin, Branch & Staff panel login asks for a 6-digit OTP sent to the login's email." checked={!!draft.loginEmailOtp} onChange={(v: boolean) => set("loginEmailOtp", v)} />
           <Toggle label="Party login email OTP" hint="Customer login on the App & Website asks for a 4-digit OTP sent to the party's email." checked={!!draft.partyLoginEmailOtp} onChange={(v: boolean) => set("partyLoginEmailOtp", v)} />
           <Toggle label="New signups need approval" hint="Self-registered customers stay Pending and cannot log in until approved from Party Accounts." checked={!!draft.requirePartyApproval} onChange={(v: boolean) => set("requirePartyApproval", v)} />
-          {(["admin", "branch", "staff"] as const).map((kind) => {
+          {(["branch", "staff"] as const).map((kind) => {
             const tabs: string[] = draft.loginTabs?.length ? draft.loginTabs : ["admin", "branch", "staff"];
             const on = tabs.includes(kind);
             return (
-              <Toggle key={kind} label={`Login link: ${kind[0].toUpperCase()}${kind.slice(1)} Login`}
-                hint="Tabs shown on this business's own login link. The common login page always shows every tab."
+              <Toggle key={kind} label={`${kind === "branch" ? "Branch" : "Staff"} login allowed`}
+                hint={`Off: this business's ${kind === "branch" ? "branches" : "staff"} cannot sign in to the billing panel. The owner can always sign in; the mobile app is not affected.`}
                 checked={on}
                 onChange={(v: boolean) => {
                   const next = v ? [...tabs, kind] : tabs.filter((t) => t !== kind);
-                  if (next.length) set("loginTabs", Array.from(new Set(next)));
+                  set("loginTabs", Array.from(new Set(["admin", ...next])));
                 }} />
             );
           })}

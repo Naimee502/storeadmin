@@ -62,6 +62,7 @@ import { supportTicketResolvers } from "./supportticket";
 import { bookingResolvers } from "./booking";
 import { supplierPortalResolvers } from "./supplierportal";
 import { customerPortalResolvers } from "./customerportal";
+import { panelLoginResolvers } from "./panellogin";
 import { withCustomerNotify } from "../../utils/customerportal";
 
 import { withOfflineActions, withOfflineWrites } from "../../utils/offlinesync";
@@ -162,6 +163,7 @@ const guarded = guardResolvers([
   bookingResolvers,
   supplierPortalResolvers,
   customerPortalResolvers,
+  panelLoginResolvers,
   aiResolvers,
   insightResolvers,
   withOfflineActions(

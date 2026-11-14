@@ -75,3 +75,12 @@ export const CHECK_PLATFORM_KEY = gql`
     }
   }
 `;
+
+export const FIND_LOGINS = gql`
+  mutation FindLogins($email: String!, $password: String!) {
+    findLogins(email: $email, password: $password) {
+      kind
+      label
+    }
+  }
+`;

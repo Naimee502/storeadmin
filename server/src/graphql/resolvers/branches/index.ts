@@ -1,6 +1,7 @@
 import { Branch } from "../../../models/branches";
 import { generateTokens, sendRefreshToken } from "../../../utils/auth";
 import { enforceLoginOtp } from "../../../utils/loginotp";
+import { assertPanelLoginAllowed } from "../../../utils/panellogin";
 import { verifyPassword, upgradePassword } from "../../../utils/password";
 import {
   activeFilters,
@@ -132,6 +133,7 @@ export const branchResolvers = {
         throw new Error("Invalid credentials");
       }
       await upgradePassword(Branch, branch._id, branch.password, password);
+      await assertPanelLoginAllowed((branch as any).admin, "branch");
 
       // Business Settings -> login email OTP (no-op when the switch is off).
       await enforceLoginOtp({

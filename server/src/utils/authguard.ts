@@ -11,7 +11,7 @@ import { effectiveFormPermissions, fieldOn } from "./formpermissions";
 
 // Callable without a login: sign-in, sign-up and storefront reads.
 const PUBLIC = new Set([
-  "loginAdmin", "loginBranch", "loginStaff", "loginStaffByMobile", "loginParty", "loginSupplier",
+  "loginAdmin", "loginBranch", "loginStaff", "loginStaffByMobile", "loginParty", "loginSupplier", "findLogins",
   "loginEmailOtp", "partyLoginEmailOtp", "sendOTP", "verifyOTP", "registerAccount",
   "confirmSubscription", "verifyToken",
   "getStorefrontByStoreSlug", "getAdminByCode", "getAdminById", "getAdminSettings",
@@ -47,7 +47,7 @@ const ANON_FIELDS: Record<string, string[]> = {
 
 // Sign-in fields with a failed-attempt limit per account and network address.
 const LOGIN = new Set([
-  "loginAdmin", "loginBranch", "loginStaff", "loginStaffByMobile", "loginParty", "verifyOTP", "loginSupplier",
+  "loginAdmin", "loginBranch", "loginStaff", "loginStaffByMobile", "loginParty", "verifyOTP", "loginSupplier", "findLogins",
 ]);
 
 // A supplier login reaches only its own portal.
