@@ -23,9 +23,12 @@ const PlatformKeyGate = ({ children }: { children: ReactNode }) => {
       await client.query({ query: CHECK_PLATFORM_KEY, fetchPolicy: "network-only" });
       setKey(value);
       setError("");
-    } catch {
+    } catch (e: any) {
       setPlatformKey("");
-      setError("This platform key is not correct.");
+      const forbidden = (e?.graphQLErrors || []).some((g: any) => g?.extensions?.code === "FORBIDDEN");
+      setError(forbidden ? "This platform key is not correct. Copy PLATFORM_KEY from server/.env."
+        : e?.networkError ? "Cannot reach the server. Check that it is running, then try again."
+        : e?.message || "Could not check the key.");
     } finally {
       setChecking(false);
     }
