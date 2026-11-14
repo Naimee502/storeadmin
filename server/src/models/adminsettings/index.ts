@@ -493,6 +493,12 @@ const adminSettingsSchema = new mongoose.Schema(
      * Only mobile self-punches are checked — back-office / manual entries are not.
      */
     attendanceSelfieRequired: { type: Boolean, default: false },
+    // Online booking from the website and app. Unset = off; hours apply when a service has none.
+    bookingOn: { type: Boolean },
+    bookingFrom: { type: String },
+    bookingTo: { type: String },
+    bookingStepMinutes: { type: Number },
+    bookingDaysAhead: { type: Number },
 
     /**
      * Salesman app: the salesman may give an extra discount on the whole order

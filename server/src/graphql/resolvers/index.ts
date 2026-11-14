@@ -59,6 +59,7 @@ import { Bom, WorkOrder, ProductionEntry } from "../../models/manufacturing";
 import { leadSourceResolvers } from "./leadsource";
 import { accessRoleResolvers } from "./accessroles";
 import { supportTicketResolvers } from "./supportticket";
+import { bookingResolvers } from "./booking";
 
 import { withOfflineActions, withOfflineWrites } from "../../utils/offlinesync";
 import { guardResolvers, hidePasswords, hideFromAnonymous } from "../../utils/authguard";
@@ -154,6 +155,7 @@ const guarded = guardResolvers([
   leadSourceResolvers,
   accessRoleResolvers,
   supportTicketResolvers,
+  bookingResolvers,
   aiResolvers,
   insightResolvers,
   withOfflineActions(

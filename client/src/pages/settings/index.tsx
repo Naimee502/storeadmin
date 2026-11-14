@@ -697,6 +697,22 @@ const WebsiteTab: React.FC<{ adminId?: string; dispatch: any }> = ({ adminId, di
         </div>
       </Section>
 
+      <Section title="Online Booking">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-x-3 gap-y-2">
+          <div className="flex flex-col gap-1">
+            <FormSwitch label="Online Booking" name="bookingOn" checked={!!draft.bookingOn} onChange={(v) => set("bookingOn", !!v)} />
+            <p className="text-[11px] leading-snug text-slate-400">Customers book a service slot from the App &amp; Website; it shows in Appointments.</p>
+          </div>
+          <FormField label="Opens At" name="bookingFrom" type="time" value={draft.bookingFrom || "10:00"} onChange={(e: any) => set("bookingFrom", e.target.value)} />
+          <FormField label="Closes At" name="bookingTo" type="time" value={draft.bookingTo || "19:00"} onChange={(e: any) => set("bookingTo", e.target.value)} />
+          <FormField label="Slot Every (Minutes)" name="bookingStepMinutes" type="number" value={draft.bookingStepMinutes ?? 30}
+            onChange={(e: any) => set("bookingStepMinutes", Math.max(5, Number(e.target.value) || 30))} />
+          <FormField label="Book Up To (Days Ahead)" name="bookingDaysAhead" type="number" value={draft.bookingDaysAhead ?? 30}
+            onChange={(e: any) => set("bookingDaysAhead", Math.max(1, Number(e.target.value) || 30))} />
+        </div>
+        <p className="text-[11px] text-slate-500">A service with its own available hours uses those instead. Staff set on a service take its bookings; otherwise any active staff.</p>
+      </Section>
+
       <Section title="Website Content">
         <div className="text-[11px] leading-snug text-slate-400">
           Shown directly on your website's About Us / Privacy Policy / Terms &amp; Conditions pages. Leave blank and the page will say content hasn't been added yet.

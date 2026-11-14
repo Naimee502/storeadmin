@@ -173,7 +173,7 @@ const load = (model: any, populate: any[], format: (d: any) => any) => async (id
   const d: any = await model.findById(id).populate(populate).lean();
   return d ? format(d) : null;
 };
-const loadAppointment = load(Appointment, appointmentPopulate, formatAppointment);
+export const loadAppointment = load(Appointment, appointmentPopulate, formatAppointment);
 const loadJobCard = load(JobCard, jobCardPopulate, formatJobCard);
 const loadContract = load(Contract, contractPopulate, formatContract);
 const loadPlan = load(MembershipPlan, planPopulate, formatPlan);
@@ -181,13 +181,13 @@ const loadMembership = load(Membership, membershipPopulate, formatMembership);
 
 // ---------- Rules ----------
 
-const minutesOf = (hhmm: string) => {
+export const minutesOf = (hhmm: string) => {
   const m = /^(\d{1,2}):(\d{2})$/.exec(String(hhmm || ""));
   return m ? Number(m[1]) * 60 + Number(m[2]) : NaN;
 };
 
 /** Buffer after, and how many bookings one staff member can take together (classes), from the services. */
-async function slotRules(services: any[] = []) {
+export async function slotRules(services: any[] = []) {
   const vs = (await serviceVariants(services)).filter(Boolean);
   const buffer = Math.max(0, ...vs.map((v: any) => Number(v.bufferminutes) || 0));
   const caps = vs.map((v: any) => Number(v.capacity) || 1);

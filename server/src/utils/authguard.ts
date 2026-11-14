@@ -16,14 +16,14 @@ const PUBLIC = new Set([
   "confirmSubscription", "verifyToken",
   "getStorefrontByStoreSlug", "getAdminByCode", "getAdminById", "getAdminSettings",
   "getBranches", "getProductServices", "getCategories", "getChargeRules", "getChannels",
-  "resolvePrice", "reverseGeocode", "isAnnouncementsEnabled",
+  "resolvePrice", "reverseGeocode", "isAnnouncementsEnabled", "getBookingSlots",
 ]);
 
 // Login-free reads that carry one business's data. Signed-in callers get their own business;
 // callers without a back-office login see only the fields the app and website ask for.
 const TENANT_PUBLIC = new Set([
   "getBranches", "getAdminSettings", "getAdminByCode", "getAdminById", "getCategories",
-  "getChargeRules", "getChannels", "resolvePrice",
+  "getChargeRules", "getChannels", "resolvePrice", "getBookingSlots",
 ]);
 const ANON_FIELDS: Record<string, string[]> = {
   Admin: ["id", "name", "companyName", "email", "mobile", "admincode", "businesstype", "allowedmodules"],
