@@ -9,6 +9,7 @@ import {
 import { showMessage } from "../../../redux/slices/message";
 import { useNavigate } from "react-router";
 import { useEffect } from "react";
+import { businessTypeLabel } from "../../../config/profiles";
 
 const DeletedAdmins = () => {
   const navigate = useNavigate();
@@ -51,7 +52,7 @@ const DeletedAdmins = () => {
     companyName: cap(admin.companyName),
     name: cap(admin.name),
     subscriptionType: cap(admin.subscriptionType),
-    businesstype: cap(admin.businesstype),
+    businesstype: businessTypeLabel(admin.businesstype),
   }));
 
   return (

@@ -31,7 +31,7 @@ import {
 } from "../../config/modules";
 import FormPermissionsTab from "./formpermissionstab";
 import { SETTINGS_TABS, SECTION_HOME, sectionId, searchSettings, type SettingsTab } from "../../config/settings";
-import { BUSINESS_PROFILES, profileModules, profileForType } from "../../config/profiles";
+import { BUSINESS_PROFILES, BUSINESS_TYPE_OPTIONS, businessTypeValue, profileModules, profileForType } from "../../config/profiles";
 import { LeadSourcesPanel } from "../leadsources";
 import { stateOptions } from "../../utils/constants";
 import { DEFAULT_LOST_REASONS, DEFAULT_SOURCES, DEFAULT_STAGES, type CrmStage } from "../../graphql/hooks/lead";
@@ -852,7 +852,9 @@ const ModulesTab: React.FC<{ adminId?: string; dispatch: any }> = ({
     if (!adminId) return;
     try {
       const cleaned = draft.filter((id) => !featureDisabledIds.has(id));
-      await updateAdmin({ variables: { id: adminId, input: { allowedmodules: cleaned } } });
+      // A changed Business Type is saved with the modules, so every screen shows the same type.
+      const typeChanged = profileId && profileId !== businessTypeValue(targetAdmin?.businesstype);
+      await updateAdmin({ variables: { id: adminId, input: { allowedmodules: cleaned, ...(typeChanged ? { businesstype: profileId } : {}) } } });
       if (adminId === loggedInAdmin?.id) {
         dispatch(setAllowedModules(cleaned));
       }
@@ -872,12 +874,12 @@ const ModulesTab: React.FC<{ adminId?: string; dispatch: any }> = ({
   return (
     <div className="space-y-3">
       <div className="rounded-lg border border-indigo-200 bg-indigo-50/40 p-3 space-y-2">
-        <div className="text-[13px] font-semibold text-slate-900">Business Profile</div>
+        <div className="text-[13px] font-semibold text-slate-900">Business Type</div>
         <div className="grid grid-cols-1 gap-2 md:grid-cols-3 md:items-end">
-          <FormField label="Profile" type="select" name="profile" value={profileId} searchable
-            options={BUSINESS_PROFILES.map((p) => ({ value: p.id, label: p.label }))}
-            onChange={(e: any) => setProfileId(e.target.value || "")} />
-          <div className="md:col-span-2 text-[12px] text-slate-600">{profile?.note || "Pick a profile to see which modules it turns on."}</div>
+          <FormField label="Business Type" type="select" name="profile" value={profileId} searchable
+            options={BUSINESS_TYPE_OPTIONS}
+            onChange={(e: any) => { setProfileId(e.target.value || ""); setDirty(true); }} />
+          <div className="md:col-span-2 text-[12px] text-slate-600">{profile?.note || "Pick a type to see which modules it turns on."}</div>
         </div>
         {profile && (
           willTurnOn.length ? (

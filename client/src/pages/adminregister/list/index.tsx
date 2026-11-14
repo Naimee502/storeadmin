@@ -12,6 +12,7 @@ import { showLoading, hideLoading } from "../../../redux/slices/loader";
 import { showMessage } from "../../../redux/slices/message";
 import { selectModuleActions } from "../../../redux/slices/permissions";
 import { clearPlatformKey } from "../../../graphql/platformkey";
+import { BUSINESS_TYPE_OPTIONS, businessTypeLabel, businessTypeValue } from "../../../config/profiles";
 
 const AdminList = () => {
   const dispatch = useAppDispatch();
@@ -85,7 +86,7 @@ const AdminList = () => {
       gstin: raw.gstin || "",
       noOfBranches: Number(raw.noOfBranches) || 1,
       subscriptionType: raw.subscriptionType || "monthly",
-      businesstype: raw.businesstype || "retail",
+      businesstype: businessTypeValue(raw.businesstype || "retail"),
       status: typeof raw.status === "boolean" ? raw.status : true,
     });
     setEditingId(raw.id);
@@ -167,7 +168,7 @@ const AdminList = () => {
     companyName: cap(admin.companyName),
     name: cap(admin.name),
     subscriptionType: cap(admin.subscriptionType),
-    businesstype: cap(admin.businesstype),
+    businesstype: businessTypeLabel(admin.businesstype),
   }));
 
   return (
@@ -307,14 +308,7 @@ const AdminList = () => {
                 onChange={(e: any) =>
                   handleFormChange("businesstype", e.target.value)
                 }
-                options={[
-                  { label: "Retail", value: "retail" },
-                  { label: "Wholesale", value: "wholesale" },
-                  { label: "Manufacturer", value: "manufacturer" },
-                  { label: "Service", value: "service" },
-                  { label: "Trader", value: "trader" },
-                  { label: "Other", value: "other" },
-                ]}
+                options={BUSINESS_TYPE_OPTIONS}
               />
             </div>
 

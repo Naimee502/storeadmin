@@ -6,7 +6,7 @@ import Button from "../../components/button";
 import registerImage from "../../assets/images/login.jpg";
 import { useCreateAdminMutation } from "../../graphql/hooks/admin";
 import { ADMIN_REGISTER_MODULES } from "../../config/modules";
-import { profileForType, profileModules } from "../../config/profiles";
+import { BUSINESS_TYPE_OPTIONS, profileForType, profileModules } from "../../config/profiles";
 
 const AdminRegister = () => {
   const navigate = useNavigate();
@@ -23,7 +23,7 @@ const AdminRegister = () => {
   const [subscription, setSubscription] = useState("monthly");
   const [businesstype, setBusinesstype] = useState("retail");
 
-  // The business type's profile decides the starting modules; other types start with everything.
+  // The business type decides the starting modules (Other starts with the core ones).
   const allModules = ADMIN_REGISTER_MODULES.map((m) => m.id);
   const startModules = (type: string) => {
     const p = profileForType(type);
@@ -232,7 +232,7 @@ const AdminRegister = () => {
 
               <div className="flex-1">
                 <FormField label="Business Type" name="businesstype" type="select" value={businesstype}
-                  options={["Retail", "Wholesale", "Manufacturer", "Service", "Trader", "Exporter", "Other"].map((l) => ({ value: l.toLowerCase(), label: l }))}
+                  options={BUSINESS_TYPE_OPTIONS}
                   onChange={(e: any) => setBusinesstype(e.target.value || "retail")} />
               </div>
             </div>
