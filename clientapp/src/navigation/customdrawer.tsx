@@ -104,6 +104,7 @@ const SUPPLIER_MENU: DrawerMenuItem[] = [
   { label: 'Payments',        icon: 'cash-multiple',          tabScreen: 'SupplierPayments' },
   { label: 'Profile',         icon: 'account-circle-outline', tabScreen: 'SupplierProfile' },
   { label: 'separator1', icon: '', section: true },
+  { label: 'Notifications',   icon: 'bell-outline',           screen: 'Notifications' },
   { label: 'Privacy Policy',     icon: 'shield-check-outline',  screen: 'PrivacyPolicy' },
   { label: 'Terms & Conditions', icon: 'file-document-outline', screen: 'TermsCondition' },
 ];

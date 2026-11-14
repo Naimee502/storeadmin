@@ -4,6 +4,7 @@ import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useQuery, useMutation } from '@apollo/client/react';
 import { useSelector } from 'react-redux';
+import { useNavigation } from '@react-navigation/native';
 import { COLORS, FONTS, useTheme } from '../../../config';
 import { BackHeader, DynamicFlashList } from '../../../components';
 import {
@@ -69,11 +70,16 @@ export default function Notifications() {
     refetch();
   };
 
-  // Tap only marks the notification read — no navigation for now.
+  // Tap marks the notification read; a supplier also opens the bill or order.
+  const navigation = useNavigation<any>();
   const handleTap = async (n: any) => {
     if (!n.read) {
       try { await markRead({ variables: { id: n.id } }); } catch { /* best-effort */ }
       refetch();
+    }
+    const kind = n.docmodel === 'PurchaseOrder' ? 'order' : n.docmodel === 'PurchaseInvoice' ? 'bill' : '';
+    if (user?.role === 'supplier' && kind && n.docid) {
+      navigation.navigate('Protected', { screen: 'SupplierApp', params: { screen: 'SupplierDocument', params: { kind, id: n.docid } } });
     }
   };
 

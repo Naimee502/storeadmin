@@ -13,7 +13,7 @@ import {
   // Staff
   StaffDashboard, StaffOrders, StaffAttendance, StaffProfile,
   StaffParties, StaffCreateParty, StaffCatalog, StaffCart,
-  SupplierHome, SupplierBills, SupplierOrders, SupplierPayments, SupplierProfile,
+  SupplierHome, SupplierBills, SupplierOrders, SupplierPayments, SupplierProfile, SupplierDocument,
 } from '../screens';
 
 export const Screens: any = {
@@ -90,6 +90,7 @@ export const Screens: any = {
   SupplierOrders,
   SupplierPayments,
   SupplierProfile,
+  SupplierDocument,
 };
 
 export const NavIcons = {
@@ -210,6 +211,7 @@ export const NavConfig: any = {
           ],
         },
       },
+      { name: 'SupplierDocument', options: { headerShown: false } },
     ],
   },
 

@@ -41,10 +41,10 @@ function Shell({ title, children }: { title: string; children: (p: any) => React
   );
 }
 
-function Row({ title, sub, amount, badge, color }: { title: string; sub: string; amount: string; badge?: string; color?: string }) {
+function Row({ title, sub, amount, badge, color, onPress }: { title: string; sub: string; amount: string; badge?: string; color?: string; onPress?: () => void }) {
   const { colors } = useTheme();
   return (
-    <View style={[styles.card, { backgroundColor: colors.cardGlass, borderColor: colors.border }]}>
+    <Pressable disabled={!onPress} onPress={onPress} style={[styles.card, { backgroundColor: colors.cardGlass, borderColor: colors.border }]}>
       <View style={styles.line}>
         <Text style={[styles.name, { color: colors.text }]} numberOfLines={1}>{title}</Text>
         <Text style={[styles.name, { color: colors.text }]}>{amount}</Text>
@@ -53,14 +53,15 @@ function Row({ title, sub, amount, badge, color }: { title: string; sub: string;
         <Text style={[styles.sub, { color: colors.subText, flex: 1 }]} numberOfLines={1}>{sub}</Text>
         {!!badge && <Text style={[styles.badge, { color: color || colors.subText, borderColor: color || colors.border }]}>{badge}</Text>}
       </View>
-    </View>
+    </Pressable>
   );
 }
 
 const billBadge = (b: any) => (b.outstanding <= 0 ? ['Paid', '#16a34a'] : b.outstanding < b.totalamount ? ['Part Paid', '#d97706'] : ['Unpaid', '#e11d48']);
-const billRow = (b: any) => {
+const billRow = (nav: any) => (b: any) => {
   const [badge, color] = billBadge(b);
-  return <Row key={b.id} title={b.billnumber || 'Bill'} sub={`${dateLabel(b.billdate)} · Unpaid ${rupees(b.outstanding)}`} amount={rupees(b.totalamount)} badge={badge} color={color} />;
+  return <Row key={b.id} title={b.billnumber || 'Bill'} sub={`${dateLabel(b.billdate)} · Unpaid ${rupees(b.outstanding)}`} amount={rupees(b.totalamount)} badge={badge} color={color}
+    onPress={() => nav.navigate('SupplierDocument', { kind: 'bill', id: b.id })} />;
 };
 const empty = (t: string, color: string) => <Text style={[styles.sub, { color, textAlign: 'center', marginTop: 20 }]}>{t}</Text>;
 
@@ -91,7 +92,7 @@ export function SupplierHome() {
               </Pressable>
             ))}
             <Text style={[styles.title, { color: colors.text }]}>Unpaid bills</Text>
-            {open.length ? open.slice(0, 5).map(billRow) : empty('All bills are paid.', colors.subText)}
+            {open.length ? open.slice(0, 5).map(billRow(navigation)) : empty('All bills are paid.', colors.subText)}
           </>
         );
       }}
@@ -101,16 +102,19 @@ export function SupplierHome() {
 
 export function SupplierBills() {
   const { colors } = useTheme();
-  return <Shell title="Bills">{(p) => (p.bills.length ? p.bills.map(billRow) : empty('No bills yet.', colors.subText))}</Shell>;
+  const navigation = useNavigation<any>();
+  return <Shell title="Bills">{(p) => (p.bills.length ? p.bills.map(billRow(navigation)) : empty('No bills yet.', colors.subText))}</Shell>;
 }
 
 export function SupplierOrders() {
   const { colors } = useTheme();
+  const navigation = useNavigation<any>();
   return (
     <Shell title="Purchase Orders">
       {(p) => (p.orders.length ? p.orders.map((o: any) => (
         <Row key={o.id} title={o.billnumber || 'Order'} sub={`${dateLabel(o.billdate)} · ${o.items} item${o.items === 1 ? '' : 's'}`}
-          amount={rupees(o.totalamount)} badge={cap(o.orderStatus)} color={ORDER_COLOR[o.orderStatus]} />
+          amount={rupees(o.totalamount)} badge={cap(o.orderStatus)} color={ORDER_COLOR[o.orderStatus]}
+          onPress={() => navigation.navigate('SupplierDocument', { kind: 'order', id: o.id })} />
       )) : empty('No purchase orders yet.', colors.subText))}
     </Shell>
   );
@@ -177,3 +181,5 @@ const styles = StyleSheet.create({
   logout: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, borderWidth: 1, borderRadius: 12, paddingVertical: 12 },
   logoutText: { color: '#e11d48', fontSize: 14, fontFamily: FONTS.semiBold },
 });
+
+export { default as SupplierDocument } from './document';
