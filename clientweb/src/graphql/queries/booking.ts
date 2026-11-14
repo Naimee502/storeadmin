@@ -17,12 +17,21 @@ export const GET_BOOKABLE_SERVICES = gql`
       name
       description
       imageurl
+      imageurls
+      categoryid { id categoryname }
       servicevariants {
         id
         name
         servicerate
         requiresappointment
         duration { amount unit }
+        pricingunit
+        taxinclusive
+        visitcharge
+        warrantydays
+        locationType
+        remarks
+        checklist
       }
     }
   }

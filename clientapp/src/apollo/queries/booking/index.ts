@@ -15,12 +15,23 @@ export const GET_BOOKABLE_SERVICES = gql`
     getProductServices(filter: { adminid: $adminid, isservice: true }) {
       id
       name
+      description
+      imageurl
+      imageurls
+      categoryid { id categoryname }
       servicevariants {
         id
         name
         servicerate
         requiresappointment
         duration { amount unit }
+        pricingunit
+        taxinclusive
+        visitcharge
+        warrantydays
+        locationType
+        remarks
+        checklist
       }
     }
   }

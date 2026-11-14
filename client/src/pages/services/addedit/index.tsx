@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router";
-import { Plus, Trash2 } from "lucide-react";
+import { ImagePlus, Plus, Trash2, X } from "lucide-react";
 import FormField from "../../../components/formfiled";
 import FormPage from "../../../components/formpage";
 import FormSwitch from "../../../components/formswitch";
@@ -14,6 +14,7 @@ import { useStaffListQuery } from "../../../graphql/hooks/staffaccounts";
 import { useProductServicesQuery } from "../../../graphql/hooks/products";
 import { PRICING_UNITS, useServiceByIdQuery, useServiceMasterMutations } from "../../../graphql/hooks/services";
 import { useAddNew } from "../../../hooks/useaddnew";
+import { useImageUpload } from "../../../graphql/hooks/uploads";
 import { OFFLINE_SAVED_MESSAGE, isOfflineSaved, savedOffline } from "../../../offline/billing";
 import { fieldOn, useFormMode } from "../../../hooks/useformmode";
 
@@ -97,6 +98,9 @@ const AddEditService = () => {
   const autoLedger = ledgers.find((l: any) => /^service\s*(sales|account|income)?$/i.test(String(l.ledgername || "").trim()))?.id || "";
   const [g, setG] = useState({ name: "", categoryid: "", serviceaccountid: "", description: "", status: true });
   const [variants, setVariants] = useState<Variant[]>([blank()]);
+  const [photos, setPhotos] = useState<string[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const { uploadImageMutation } = useImageUpload();
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [filled, setFilled] = useState(false);
@@ -107,7 +111,24 @@ const AddEditService = () => {
     setFilled(true);
     setG({ name: s.name || "", categoryid: s.categoryid?.id || "", serviceaccountid: s.serviceaccountid?.id || "", description: s.description || "", status: s.status !== false });
     setVariants((s.servicevariants || []).length ? s.servicevariants.map(fromSaved) : [blank()]);
+    setPhotos((s.imageurls || []).length ? s.imageurls : s.imageurl ? [s.imageurl] : []);
   }, [isEdit, own, filled]);
+
+  const addPhotos = async (files: FileList | null) => {
+    if (!files?.length) return;
+    setUploading(true);
+    try {
+      for (const file of Array.from(files)) {
+        const { data } = await uploadImageMutation({ variables: { file } });
+        const url = data?.uploadImage?.url;
+        if (url) setPhotos((p) => [...p, url]);
+      }
+    } catch (err: any) {
+      dispatch(showMessage({ message: err?.message || "Could not upload the photo.", type: "error" }));
+    } finally {
+      setUploading(false);
+    }
+  };
   useEffect(() => {
     if (!isEdit && autoLedger) setG((x) => (x.serviceaccountid ? x : { ...x, serviceaccountid: autoLedger }));
   }, [isEdit, autoLedger]);
@@ -129,6 +150,8 @@ const AddEditService = () => {
       categoryid: on("categoryid") && g.categoryid ? g.categoryid : undefined,
       serviceaccountid: on("serviceaccount") && g.serviceaccountid ? g.serviceaccountid : undefined,
       status: g.status,
+      imageurls: photos,
+      imageurl: photos[0] || "",
       servicevariants: variants.map((v) => ({
         name: v.name.trim() || g.name.trim(),
         servicecode: v.servicecode,
@@ -201,6 +224,22 @@ const AddEditService = () => {
                 <FormField label="Description" name="description" type="text" multiline placeholder="Enter description" value={g.description}
                   onChange={(e: any) => setG((x) => ({ ...x, description: e.target.value }))} />
               )}
+              <div className="space-y-2">
+                <div className="text-[13px] font-medium text-slate-700">Photos <span className="font-normal text-slate-500">(shown on the website and app booking page)</span></div>
+                <div className="flex flex-wrap gap-2">
+                  {photos.map((url, i) => (
+                    <div key={url} className="relative h-20 w-20 overflow-hidden rounded-lg border border-slate-200">
+                      <img src={url} alt="" className="h-full w-full object-cover" />
+                      <button type="button" title="Remove" onClick={() => setPhotos((p) => p.filter((_, j) => j !== i))}
+                        className="absolute right-1 top-1 rounded-full bg-white/90 p-0.5 text-slate-700 hover:text-rose-600"><X className="h-3.5 w-3.5" /></button>
+                    </div>
+                  ))}
+                  <label className={`flex h-20 w-20 cursor-pointer flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-slate-300 text-[12px] text-slate-500 hover:border-indigo-400 hover:text-indigo-600 ${uploading ? "pointer-events-none opacity-50" : ""}`}>
+                    <ImagePlus className="h-5 w-5" />{uploading ? "Uploading" : "Add"}
+                    <input type="file" accept="image/*" multiple className="hidden" onChange={(e) => { addPhotos(e.target.files); e.target.value = ""; }} />
+                  </label>
+                </div>
+              </div>
             </fieldset>
           </div>
           <div className="space-y-6">
