@@ -36,6 +36,7 @@ export const branchTypeDefs = gql`
     status: Boolean!
     admin: Admin  
     allowedmodules: [String]
+    isMain: Boolean
   }
 
   input BranchInput {

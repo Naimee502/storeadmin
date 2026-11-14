@@ -71,12 +71,14 @@ const HomeLayout: React.FC<{ children: React.ReactNode; hideNav?: boolean }> = (
     return () => window.removeEventListener("storage", onStorage);
   }, [selectedBranchId, dispatch]);
 
-  /** Drop a saved branch no longer in this admin's list; nothing is auto-selected. */
+  /** Drop a saved branch no longer in this admin's list; only the automatic Main branch is auto-selected. */
   useEffect(() => {
     if (type !== "admin" || !data?.getBranches) return;
     const ids = branchesList.map((b: any) => b.id);
     if (selectedBranchId && !ids.includes(selectedBranchId)) {
       dispatch(setBranchId(""));
+    } else if (!selectedBranchId && branchesList.length === 1 && branchesList[0].isMain) {
+      dispatch(setBranchId(branchesList[0].id));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [type, data, selectedBranchId]);
@@ -101,7 +103,7 @@ const HomeLayout: React.FC<{ children: React.ReactNode; hideNav?: boolean }> = (
           title={type === 'admin' ? admin?.name : type === 'branch' ? branch?.branchname : staff?.name}
           onMenuClick={toggleSidebar}
           onLogoutClick={handleLogout}
-          isAdmin={type === 'branch' || type === 'staff'}
+          isAdmin={type === 'branch' || type === 'staff' || (branchesList.length === 1 && !!branchesList[0].isMain)}
           branches={branchesList}
           selectedBranchId={selectedBranchId}
           onBranchChange={(id) => dispatch(setBranchId(id))}
