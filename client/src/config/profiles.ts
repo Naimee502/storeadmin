@@ -43,7 +43,7 @@ export const BUSINESS_PROFILES: BusinessProfile[] = [
       "reports.deliverychallan"],
   },
   {
-    id: "pharma", label: "Pharma / Food (batch and expiry)", group: "Industry", types: ["pharma"],
+    id: "pharma", label: "Pharma / Food", group: "Industry", types: ["pharma"],
     note: "Counter billing, orders and challans; batch and expiry on items.",
     modules: [...CORE, ...GST_DOCS, "posdashboard", "salesorder", "purchaseorder", "deliverychallan", "pricelists",
       "priceassignments", "chargerules", "productgroups", "reports.analytical", "reports.deliverychallan"],
@@ -70,7 +70,7 @@ export const BUSINESS_PROFILES: BusinessProfile[] = [
     modules: [...CORE, ...CRM, "services", "appointments", "jobcards", "contracts", "memberships", "reports.service", "supporttickets"],
   },
   {
-    id: "other", label: "Other (choose modules yourself)", group: "Other", types: ["other"],
+    id: "other", label: "Other", group: "Other", types: ["other"],
     note: "Starts with billing, stock, accounts and reports; tick any other module you need.",
     modules: [...CORE],
   },
