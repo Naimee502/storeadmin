@@ -461,7 +461,9 @@ const WebsiteTab: React.FC<{ adminId?: string; dispatch: any }> = ({ adminId, di
       justUploadedUrls.current = [];
       void deleteImages(orphans);
 
-      dispatch(showMessage({ message: e?.message || "Save failed.", type: "error" }));
+      // A rejected request carries the server's reason; show it instead of "status code 400".
+      const reason = e?.networkError?.result?.errors?.[0]?.message || e?.graphQLErrors?.[0]?.message || e?.message;
+      dispatch(showMessage({ message: reason || "Save failed.", type: "error" }));
     } finally {
       setSaving(false);
     }
