@@ -1,5 +1,8 @@
 import { gql } from "@apollo/client";
 
+/** Where the website keeps a supplier's login for one business. */
+export const supplierTokenKey = (adminid?: string | null) => `supplierToken:${adminid || ""}`;
+
 export const LOGIN_SUPPLIER = gql`
   mutation LoginSupplier($adminId: ID!, $mobile: String!, $otp: String) {
     loginSupplier(adminId: $adminId, mobile: $mobile, otp: $otp) {

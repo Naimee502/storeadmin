@@ -25,6 +25,7 @@ import { GET_BOOKING_ON } from "../../graphql/queries/booking";
 import { siteConfig } from "../../config/site";
 import { useCart } from "../../contexts/cart";
 import { useTenant } from "../../contexts/tenant";
+import { useSupplier } from "../../hooks/useSupplier";
 import { useAuth } from "../../contexts/auth";
 import { useCatalog } from "../../hooks/useCatalog";
 import { titleCaseIfShouting } from "../../utils/format";
@@ -64,6 +65,8 @@ export default function Header() {
   const { adminid: storeId } = useTenant();
   const { data: bookingData } = useQuery(GET_BOOKING_ON, { variables: { adminid: storeId }, skip: !storeId });
   const bookingOn = !!bookingData?.getAdminSettings?.bookingOn && !!bookingData?.getAdminSettings?.onlineBookingAllowed;
+  const supplier = useSupplier();
+  const supplierOnly = supplier.signedIn && !isLoggedIn;
   // Which category the shop is currently filtered by, so the nav can mark it.
   // Same ?category=<id> param ShopPage reads, so the strip and the grid can
   // never disagree about what's selected.
@@ -272,6 +275,38 @@ export default function Header() {
                   </div>
                 )}
               </div>
+            ) : supplierOnly ? (
+              <div className="relative" ref={accountMenuRef}>
+                <button
+                  onClick={() => setAccountMenuOpen((o) => !o)}
+                  className="flex items-center gap-2 rounded-md px-2 py-2 text-sm hover:bg-slate-100 md:px-3"
+                >
+                  <User className="h-5 w-5 text-ink-900" />
+                  <span className="hidden text-left leading-tight sm:block">
+                    <span className="block text-[11px] text-slate-500">Supplier</span>
+                    <span className="flex items-center gap-0.5 font-semibold text-ink-900">
+                      {supplier.name || "My Account"} <ChevronDown className="h-3.5 w-3.5" />
+                    </span>
+                  </span>
+                </button>
+                {accountMenuOpen && (
+                  <div className="absolute right-0 top-full z-50 mt-1.5 w-52 rounded-xl border border-slate-100 bg-white p-1.5 shadow-lg">
+                    {[["/supplier", "Dashboard"], ["/supplier?tab=bills", "Bills"], ["/supplier?tab=orders", "Purchase Orders"], ["/supplier?tab=payments", "Payments"]].map(([to, label]) => (
+                      <Link key={to} to={to} onClick={() => setAccountMenuOpen(false)}
+                        className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-ink-900 hover:bg-slate-50">
+                        {label === "Dashboard" ? <User className="h-4 w-4" /> : label === "Payments" ? <Wallet className="h-4 w-4" /> : <Package className="h-4 w-4" />} {label}
+                      </Link>
+                    ))}
+                    <div className="my-1 border-t border-slate-100" />
+                    <button
+                      onClick={() => { setAccountMenuOpen(false); supplier.signOut(); navigate("/login"); }}
+                      className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm font-medium text-rose-600 hover:bg-rose-50"
+                    >
+                      <LogOut className="h-4 w-4" /> Logout
+                    </button>
+                  </div>
+                )}
+              </div>
             ) : (
               <Link
                 to="/login"
@@ -291,14 +326,14 @@ export default function Header() {
               <NotificationBell />
             </div>
 
-            {bookingOn && (
+            {bookingOn && !supplierOnly && (
               <Link to="/book" className="flex items-center gap-2 rounded-lg border border-brand-600 px-3 py-2 text-sm font-semibold text-brand-700 hover:bg-brand-50">
                 <CalendarCheck className="h-5 w-5" />
                 <span className="hidden sm:inline">Book</span>
               </Link>
             )}
 
-            <Link to="/cart" className="relative flex items-center gap-2 rounded-lg bg-ink-900 px-3 py-2 text-white hover:bg-ink-800">
+            {!supplierOnly && <Link to="/cart" className="relative flex items-center gap-2 rounded-lg bg-ink-900 px-3 py-2 text-white hover:bg-ink-800">
               <span className="relative">
                 <ShoppingCart className="h-5 w-5" />
                 {count > 0 && (
@@ -308,7 +343,7 @@ export default function Header() {
                 )}
               </span>
               <span className="hidden text-sm font-semibold sm:block">Cart</span>
-            </Link>
+            </Link>}
           </div>
         </div>
 

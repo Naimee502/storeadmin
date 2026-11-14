@@ -302,7 +302,7 @@ const assertCustomerAccount = (account: any) => {
   // guard has to admit them. Checking `=== "customer"` locked a real customer
   // out of the app for a reason they could never have guessed.
   if (!isCustomerParty(account?.type)) {
-    throw new Error("This login is for customer accounts only.");
+    throw new ApolloError("This login is for customer accounts only.", "NOT_CUSTOMER");
   }
 };
 

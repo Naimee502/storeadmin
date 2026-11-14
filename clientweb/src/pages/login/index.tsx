@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from "react";
-import { Link, useSearchParams } from "react-router";
+import { Link, useNavigate, useSearchParams } from "react-router";
 import { useMutation } from "@apollo/client";
 import { Phone, ShieldCheck, ArrowLeft, CheckCircle2, AlertCircle, User, Mail, Hash } from "lucide-react";
 import { siteConfig } from "../../config/site";
 import { useTenant } from "../../contexts/tenant";
 import { useAuth } from "../../contexts/auth";
 import { SEND_OTP, VERIFY_OTP, REGISTER_ACCOUNT, LOGIN_PARTY } from "../../graphql/queries/accounts";
+import { LOGIN_SUPPLIER } from "../../graphql/queries/supplier";
+import { setSupplierSession } from "../../hooks/useSupplier";
 
 type Step = "mobile" | "register" | "addEmail" | "otp" | "success";
 
@@ -28,7 +30,8 @@ export default function LoginPage() {
   const [step, setStep] = useState<Step>("mobile");
   // Which OTP the OTP step is for: finishing a registration (verifyOTP) or the
   // optional login OTP (loginParty with otp). Both are 4 digits.
-  const [otpPurpose, setOtpPurpose] = useState<"register" | "login">("register");
+  const [otpPurpose, setOtpPurpose] = useState<"register" | "login" | "supplier">("register");
+  const navigate = useNavigate();
   // A registered party with no email on file (login OTP on): they add one
   // here, the OTP goes to it, and the server saves it once the OTP is right.
   const [loginEmail, setLoginEmail] = useState("");
@@ -48,6 +51,7 @@ export default function LoginPage() {
   const [info, setInfo] = useState<string | null>(null);
   const [verifyOtpMutation, { loading: verifying }] = useMutation(VERIFY_OTP);
   const [registerMutation, { loading: registering }] = useMutation(REGISTER_ACCOUNT);
+  const [supplierMutation, { loading: supplierBusy }] = useMutation(LOGIN_SUPPLIER);
 
   useEffect(() => {
     if (resendIn <= 0) return;
@@ -112,6 +116,25 @@ export default function LoginPage() {
     setTimeout(() => inputsRef.current[0]?.focus(), 50);
   };
 
+  // A supplier number: same page, email OTP, then the supplier portal.
+  const supplierLogin = async (code?: string) => {
+    try {
+      const { data } = await supplierMutation({ variables: { adminId: adminid, mobile, otp: code || undefined } });
+      const token = data?.loginSupplier?.accessToken;
+      if (!token) return;
+      setSupplierSession(adminid, token, data?.loginSupplier?.name || "");
+      navigate("/supplier");
+    } catch (err: any) {
+      if (codeOf(err) === "LOGIN_OTP_REQUIRED") {
+        showLoginOtpStep(err);
+        setOtpPurpose("supplier");
+        return;
+      }
+      setError(err?.message || "Couldn't sign in. Please try again.");
+      if (code) { setOtp(Array(4).fill("")); inputsRef.current[0]?.focus(); }
+    }
+  };
+
   // Resend in login mode: ask loginParty again without an otp.
   const resendLoginOtp = async () => {
     if (!adminid) return;
@@ -143,6 +166,10 @@ export default function LoginPage() {
       const msg: string = err?.message || "";
       if (codeOf(err) === "LOGIN_OTP_REQUIRED") {
         showLoginOtpStep(err);
+        return;
+      }
+      if (codeOf(err) === "NOT_CUSTOMER") {
+        await supplierLogin();
         return;
       }
       if (codeOf(err) === "LOGIN_OTP_NO_EMAIL") {
@@ -204,6 +231,10 @@ export default function LoginPage() {
     e.preventDefault();
     if (!adminid) return;
     setError(null);
+    if (otpPurpose === "supplier") {
+      await supplierLogin(otp.join(""));
+      return;
+    }
     if (otpPurpose === "login") {
       try {
         const { data } = await loginMutation({ variables: loginVars({ otp: otp.join("") }) });
@@ -325,10 +356,10 @@ export default function LoginPage() {
               </div>
               <button
                 type="submit"
-                disabled={mobile.length !== 10 || sending || !adminid}
+                disabled={mobile.length !== 10 || sending || supplierBusy || !adminid}
                 className="w-full rounded-lg bg-brand-700 py-2.5 text-sm font-semibold text-white hover:bg-brand-800 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {sending ? "Signing in…" : "Continue"}
+                {sending || supplierBusy ? "Signing in…" : "Continue"}
               </button>
               <p className="text-center text-xs text-slate-400">
                 New here? Just enter your number — we'll set your account up in a moment.
@@ -486,10 +517,10 @@ export default function LoginPage() {
               </div>
               <button
                 type="submit"
-                disabled={otp.some((d) => !d) || verifying || sending}
+                disabled={otp.some((d) => !d) || verifying || sending || supplierBusy}
                 className="w-full rounded-lg bg-brand-700 py-2.5 text-sm font-semibold text-white hover:bg-brand-800 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {verifying || sending ? "Verifying…" : "Verify & Continue"}
+                {verifying || sending || supplierBusy ? "Verifying…" : "Verify & Continue"}
               </button>
               <p className="text-center text-xs text-slate-500">
                 {resendIn > 0 ? (
@@ -497,7 +528,7 @@ export default function LoginPage() {
                 ) : (
                   <button
                     type="button"
-                    onClick={otpPurpose === "login" ? resendLoginOtp : requestOtp}
+                    onClick={otpPurpose === "supplier" ? () => supplierLogin() : otpPurpose === "login" ? resendLoginOtp : requestOtp}
                     className="font-semibold text-brand-700"
                   >
                     Resend OTP
