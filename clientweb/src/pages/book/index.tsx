@@ -61,7 +61,7 @@ export default function BookPage() {
     }
   };
 
-  const off = onData && !onData.getAdminSettings?.bookingOn;
+  const off = onData && !(onData.getAdminSettings?.bookingOn && onData.getAdminSettings?.onlineBookingAllowed);
 
   return (
     <div>

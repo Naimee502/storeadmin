@@ -493,7 +493,9 @@ const adminSettingsSchema = new mongoose.Schema(
      * Only mobile self-punches are checked — back-office / manual entries are not.
      */
     attendanceSelfieRequired: { type: Boolean, default: false },
-    // Online booking from the website and app. Unset = off; hours apply when a service has none.
+    // Online booking from the website and app. The platform allows it per business; the owner then
+    // turns it on and sets hours (used when a service has none). Unset = off.
+    onlineBookingAllowed: { type: Boolean },
     bookingOn: { type: Boolean },
     bookingFrom: { type: String },
     bookingTo: { type: String },

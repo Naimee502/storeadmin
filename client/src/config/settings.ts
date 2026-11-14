@@ -37,6 +37,7 @@ export const SETTINGS_INDEX: SettingsEntry[] = [
   S("App & website display", "App & Website Display", "app website display catalogue"),
   S("Salesman & staff rules", "Salesman & Staff", "salesman staff geo fence selfie punch attendance delivery boy"),
   S("Login & signup", "Login & Signup", "login otp signup register"),
+  S("Online booking", "Online Booking", "booking appointment slot website app"),
   S("GST profile (e-Invoice / e-Way Bill)", "GST Profile (e-Invoice / e-Way Bill)", "gstin einvoice ewaybill state igst"),
   S("CRM stages, sources, lost reasons", "CRM (Leads)", "crm lead stage source lost reason"),
   S("Website storefront & checkout", "Website Storefront", "website store slug domain checkout payment cod"),

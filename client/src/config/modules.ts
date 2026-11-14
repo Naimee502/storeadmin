@@ -175,8 +175,6 @@ const MODULE_LIST: ModuleDef[] = [
   // Service (salon, clinic, repair centre, AMC)
   { id: "services",     label: "Services",       section: "service", actions: CRUD_ACTIONS, inAdminRegister: true },
   { id: "appointments", label: "Appointments",   section: "service", actions: [...CRUD_ACTIONS, "convert"], inAdminRegister: true },
-  // Customers book service slots from the website and app (settings in Settings -> General).
-  { id: "onlinebooking", label: "Online Booking", section: "service", actions: ["edit"], inAdminRegister: true },
   // "convert" = make a Sales Invoice from a job card.
   { id: "jobcards",     label: "Job Cards",      section: "service", actions: [...CRUD_ACTIONS, "print", "convert"], inAdminRegister: true },
   { id: "supporttickets", label: "Support Tickets", section: "service", actions: CRUD_ACTIONS, inAdminRegister: true },

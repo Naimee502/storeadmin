@@ -62,12 +62,12 @@ export const BUSINESS_PROFILES: BusinessProfile[] = [
   {
     id: "clinic", label: "Clinic / Salon / Spa", group: "Services", types: ["clinic"],
     note: "Appointments, services and memberships.",
-    modules: [...CORE, "services", "appointments", "memberships", "leads", "followups", "reports.service", "reports.crm", "onlinebooking"],
+    modules: [...CORE, "services", "appointments", "memberships", "leads", "followups", "reports.service", "reports.crm"],
   },
   {
     id: "service", label: "Other Services", group: "Services", types: ["service"],
     note: "Services, appointments, job cards, AMC, memberships and support tickets.",
-    modules: [...CORE, ...CRM, "services", "appointments", "jobcards", "contracts", "memberships", "reports.service", "supporttickets", "onlinebooking"],
+    modules: [...CORE, ...CRM, "services", "appointments", "jobcards", "contracts", "memberships", "reports.service", "supporttickets"],
   },
   {
     id: "other", label: "Other", group: "Other", types: ["other"],
