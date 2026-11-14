@@ -85,6 +85,18 @@ async function transactionColumnClause(key: string, term: string): Promise<any |
   return null;
 }
 
+// Splits a document's model name into words: "SalesInvoice" -> "Sales Invoice".
+const docLabel = (m: string) => String(m || "document").replace(/([a-z])([A-Z])/g, "$1 $2");
+
+// A journal made by a bill, payment or note changes only through that document.
+const assertManualJournal = async (id: any) => {
+  const current: any = await Transaction.findById(id).select("status source").lean();
+  if (current?.source?.docid) {
+    throw new Error(`This entry was made by a ${docLabel(current.source.docmodel)}. Edit or delete that document instead.`);
+  }
+  return current;
+};
+
 export const transactionResolvers = {
   Query: {
     // Compute (without saving) the full accounting journal an invoice would
@@ -274,7 +286,7 @@ export const transactionResolvers = {
     },
 
     editTransaction: async (_: any, { id, input }: any, context: any) => {
-      const current: any = await Transaction.findById(id).select("status").lean();
+      const current: any = await assertManualJournal(id);
       if (current?.status === false) throw new Error("This entry is deleted. Restore it first to edit it.");
       const totalDebit = input.entries.reduce((sum: number, e: any) => sum + (e.debit || 0), 0);
       const totalCredit = input.entries.reduce((sum: number, e: any) => sum + (e.credit || 0), 0);
@@ -304,11 +316,13 @@ export const transactionResolvers = {
     },
 
     deleteTransaction: async (_: any, { id }: any) => {
+      await assertManualJournal(id);
       const result = await Transaction.findByIdAndUpdate(id, { status: false }, { new: true });
       return !!result;
     },
 
     resetTransaction: async (_: any, { id }: { id: string }) => {
+      await assertManualJournal(id);
       const result = await Transaction.findByIdAndUpdate(id, { status: true }, { new: true });
       return !!result;
     },

@@ -88,6 +88,14 @@ const Transaction = () => {
     };
   });
 
+  // Journals made by a bill, payment or note change only through that document.
+  const autoJournal = (row: any) => {
+    if (!row?.source?.docid) return false;
+    const name = String(row.source.docmodel || "document").replace(/([a-z])([A-Z])/g, "$1 $2");
+    dispatch(showMessage({ message: `This entry was made by a ${name}. Edit or delete that document instead.`, type: "error" }));
+    return true;
+  };
+
   return (
     <HomeLayout>
       <div className="w-full px-2 sm:px-6 pt-4 pb-6">
@@ -97,8 +105,9 @@ const Transaction = () => {
           columns={columns}
           data={tableData}
           serverPaging={serverPaging}
-          onEdit={(row) => navigate(`/transactions/addedit/${row.id}`)}
+          onEdit={(row) => !autoJournal(row) && navigate(`/transactions/addedit/${row.id}`)}
           onDelete={async (row: any) => {
+            if (autoJournal(row)) return;
             if (window.confirm(`Delete transaction ${row.transactioncode}?`)) {
               try {
                 await deleteTransactionMutation({ variables: { id: row.id } });
@@ -109,11 +118,11 @@ const Transaction = () => {
                   })
                 );
                 await refetch();
-              } catch (err) {
+              } catch (err: any) {
                 console.error("Delete error:", err);
                 dispatch(
                   showMessage({
-                    message: "Failed to delete transaction.",
+                    message: err?.message || "Failed to delete transaction.",
                     type: "error",
                   })
                 );
