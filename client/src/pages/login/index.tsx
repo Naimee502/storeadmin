@@ -29,8 +29,16 @@ const Login = () => {
   const [loginType, setLoginType] = useState<"branch" | "admin" | "staff">("branch");
 
   // A business login link (/login?b=code) shows that business's name and only its chosen tabs.
+  // "#" in a code starts the URL fragment, so an unencoded link (?b=#ADM0001) arrives in the hash.
+  // The last business opened by link is remembered, so plain /login keeps its tabs.
   const [params] = useSearchParams();
-  const code = params.get("b") || "";
+  const fromLink = params.get("b") || (params.has("b") && /^#ADM/i.test(window.location.hash) ? window.location.hash : "");
+  const [saved, setSaved] = useState(() => { try { return localStorage.getItem("loginBusinessCode") || ""; } catch { return ""; } });
+  const code = fromLink || saved;
+  const forgetBusiness = () => { try { localStorage.removeItem("loginBusinessCode"); } catch { /* storage off */ } setSaved(""); };
+  useEffect(() => {
+    if (fromLink) try { localStorage.setItem("loginBusinessCode", fromLink); } catch { /* storage off */ }
+  }, [fromLink]);
   const { data: bizData } = useQuery(GET_LOGIN_BUSINESS, { variables: { admincode: code }, skip: !code });
   const business = bizData?.getAdminByCode;
   const { data: tabsData } = useQuery(GET_LOGIN_TABS, { variables: { adminid: business?.id }, skip: !business?.id });
@@ -249,6 +257,9 @@ const Login = () => {
             <p className="mt-1 text-[13px] text-slate-500">
               {business?.companyName ? `Sign in to ${business.companyName}` : "Sign in to your account to continue"}
             </p>
+            {!fromLink && saved && business?.companyName && (
+              <button type="button" onClick={forgetBusiness} className="mt-1 text-[12px] font-medium text-indigo-600 hover:underline">Not {business.companyName}? Show all logins</button>
+            )}
           </div>
 
           {/* Tabs */}

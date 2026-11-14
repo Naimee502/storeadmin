@@ -442,7 +442,7 @@ const GeneralTab: React.FC<{ adminId?: string; dispatch: any; allowedModules?: s
         </Grid>
         {adminCode && (
           <div className="text-[12px] text-slate-600">
-            Login link: <span className="font-mono text-slate-900">{`${window.location.origin}${import.meta.env.PROD ? "/admin" : ""}/login?b=${adminCode}`}</span>
+            Login link: <span className="font-mono text-slate-900">{`${window.location.origin}${import.meta.env.PROD ? "/admin" : ""}/login?b=${encodeURIComponent(adminCode)}`}</span>
           </div>
         )}
       </Section>
