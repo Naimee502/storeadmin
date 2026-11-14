@@ -10,6 +10,9 @@ export const GET_PRODUCT_SERVICES = gql`
       isservice
       isserialised
       itemtype
+      cansell
+      canbuy
+      canmake
       alternateids
       fitsids
       documents { name url }
@@ -204,6 +207,9 @@ export const GET_PRODUCT_SERVICE_BY_ID = gql`
       isservice
       isserialised
       itemtype
+      cansell
+      canbuy
+      canmake
       alternateids
       fitsids
       documents { name url }

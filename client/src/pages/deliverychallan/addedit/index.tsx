@@ -18,6 +18,7 @@ import { BRANCH_REQUIRED } from "../../../utils/branch";
 import { OFFLINE_SAVED_MESSAGE, OfflineNumberNote, isOfflineSaved, savedOffline, useOfflineNumber, useOfflineStock } from "../../../offline/billing";
 import { CHALLAN_REASONS, challanNo } from "..";
 import { fieldOn, useFormMode } from "../../../hooks/useformmode";
+import { forUse } from "../../../config/itemtypes";
 
 const idOf = (v: any) => (v && typeof v === "object" ? v.id : v) || null;
 
@@ -76,7 +77,7 @@ const AddEditDeliveryChallan = () => {
   const accounts = accountData?.getAccounts || [];
   const accountOptions = accounts.map((a: any) => ({ value: a.id, label: partyLabel(a) }));
   const { data: productData } = useProductServicesQuery();
-  const productList = useOfflineStock(productData?.getProductServices ?? [], branchId);
+  const productList = useOfflineStock(forUse(productData?.getProductServices ?? [], "sell"), branchId);
 
   const fill = (doc: any) => {
     setParty(doc.partyacc ? { id: doc.partyacc.id, ...doc.partyacc } : null);

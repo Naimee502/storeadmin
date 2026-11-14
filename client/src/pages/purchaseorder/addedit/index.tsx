@@ -24,6 +24,7 @@ import { BRANCH_REQUIRED } from "../../../utils/branch";
 import { OFFLINE_SAVED_MESSAGE } from "../../../offline/billing";
 import { OfflineNumberNote, savedOffline as wasSavedOffline, useOfflineNumber, useOfflineStock } from "../../../offline/billing";
 import { fieldOn, useFormMode } from "../../../hooks/useformmode";
+import { forUse } from "../../../config/itemtypes";
 
 const AddEditPurchaseOrder = () => {
   const { id } = useParams<{ id?: string }>();
@@ -124,7 +125,7 @@ const AddEditPurchaseOrder = () => {
 
   const { data: producData } = useProductServicesQuery();
   // Offline mode adds unsynced stock moves; otherwise the list as fetched.
-  const purchaseProductData = useOfflineStock(producData?.getProductServices ?? [], branchId);
+  const purchaseProductData = useOfflineStock(forUse(producData?.getProductServices ?? [], "buy"), branchId);
   const { number: offlineNo, noDevice } = useOfflineNumber("purchaseorder", !isEdit);
 
   const purchaseorderFormPermissions = useAppSelector(state => state.permissions.permissions?.formPermissions?.purchaseorder || {});

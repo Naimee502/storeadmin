@@ -17,6 +17,7 @@ import { stateOptions } from "../../../utils/constants";
 import { gstSplit, todayYMD } from "../../../utils/helper";
 import { OFFLINE_SAVED_MESSAGE, OfflineNumberNote, isOfflineSaved, savedOffline, useOfflineNumber, useOfflineStock } from "../../../offline/billing";
 import { fieldOn, useFormMode } from "../../../hooks/useformmode";
+import { forUse } from "../../../config/itemtypes";
 
 type Line = InvoiceProduct & { description?: string; optional?: boolean };
 const idOf = (v: any) => (v && typeof v === "object" ? v.id : v) || null;
@@ -84,7 +85,7 @@ const AddEditQuotation = () => {
   const accountOptions = accounts.map((a: any) => ({ value: a.id, label: partyLabel(a) }));
   const leadOptions = (leadsData?.getLeads || []).map((l: any) => ({ value: l.id, label: [l.name, l.company, l.mobile, l.city].filter(Boolean).join(" - ") }));
   const { data: productData } = useProductServicesQuery();
-  const productList = useOfflineStock(productData?.getProductServices ?? [], branchId);
+  const productList = useOfflineStock(forUse(productData?.getProductServices ?? [], "sell"), branchId);
 
   const fillLead = (l: any) => {
     if (!l) return;

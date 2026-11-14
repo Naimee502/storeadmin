@@ -115,6 +115,9 @@ export interface IProductService extends Document {
   isserialised: boolean;
   // raw, semifinished, finished, consumable, spare, service, kit (unset = finished, nothing written).
   itemtype?: string;
+  cansell?: boolean;
+  canbuy?: boolean;
+  canmake?: boolean;
   // Business-defined specs (Business Settings → Custom Fields), e.g. kVA, voltage.
   customfields?: { key: string; value?: string }[];
   name: string;
@@ -153,6 +156,10 @@ const productServiceSchema = new Schema<IProductService>(
     isservice: { type: Boolean, default: false },
     isserialised: { type: Boolean, default: false },
     itemtype: { type: String },
+    // Where the item may be picked; unset = everywhere (items saved before these existed).
+    cansell: { type: Boolean },
+    canbuy: { type: Boolean },
+    canmake: { type: Boolean },
     customfields: { type: [{ _id: false, key: { type: String, required: true }, value: { type: String } }], default: undefined },
     name: { type: String, required: true },
     description: { type: String, default: "" },
