@@ -35,6 +35,7 @@ import { BUSINESS_PROFILES, BUSINESS_TYPE_OPTIONS, businessTypeValue, profileMod
 import { LeadSourcesPanel } from "../leadsources";
 import { stateOptions } from "../../utils/constants";
 import { DEFAULT_LOST_REASONS, DEFAULT_SOURCES, DEFAULT_STAGES, type CrmStage } from "../../graphql/hooks/lead";
+import { pickSettingsInput } from "../../graphql/queries/adminsettings";
 
 // Strip Apollo's __typename before sending query data back as mutation input.
 const deepStripTypename = (value: any): any =>
@@ -268,7 +269,7 @@ const GeneralTab: React.FC<{ adminId?: string; dispatch: any; allowedModules?: s
     if (!adminId) return;
     // aiApiKeySet is read-only: the key itself goes back as aiApiKey.
     const { id, adminid, __typename, smtpPassSet, smtpPass, smtpPortTouched, aiApiKeySet, ...rest } = draft;
-    const input = deepStripTypename(rest);
+    const input: any = deepStripTypename(pickSettingsInput(rest));
     // SMTP sanity: a mailbox needs its host; blank port = the provider default.
     if (input.smtpUser && !input.smtpHost) {
       dispatch(showMessage({ message: "Enter the SMTP Host for the mailbox, or clear the email to use the default Rudra mailbox.", type: "error" }));
