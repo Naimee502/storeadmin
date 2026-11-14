@@ -1,6 +1,7 @@
 // Tally-style retail POS: Staff/Branch/Admin can take orders or generate invoices.
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import LoyaltyRedeem from "../../components/loyaltyredeem";
 import HomeLayout from "../../layouts/home";
 import {
   Search,
@@ -616,7 +617,10 @@ export default function POSDashboard() {
     const lineNet = ((i.price ?? 0) - (i.discount ?? 0)) * (i.qty ?? 0);
     return s + (lineNet * (i.gst ?? 0)) / 100;
   }, 0);
-  const total = subtotal - totaldiscount + totalgst;
+  const beforePoints = subtotal - totaldiscount + totalgst;
+  const [loyaltyPoints, setLoyaltyPoints] = useState<number | "">("");
+  const [loyaltyDiscount, setLoyaltyDiscount] = useState(0);
+  const total = beforePoints - (Number(loyaltyPoints) ? loyaltyDiscount : 0);
   const totalItemQty = cart.reduce((s, i) => s + i.qty, 0);
 
   const getUnitId = (value: any): string | null => {
@@ -673,6 +677,7 @@ export default function POSDashboard() {
       totaldiscount: Number(totaldiscount.toFixed(2)),
       totalgst: Number(totalgst.toFixed(2)),
       totalamount: Number(total.toFixed(2)),
+      ...(Number(loyaltyPoints) ? { loyaltyredeempoints: Number(loyaltyPoints), loyaltydiscount: loyaltyDiscount } : {}),
       isservice: false,
       status: true,
       // Offline mode without network only: the device number shown above.
@@ -737,6 +742,8 @@ export default function POSDashboard() {
     } finally {
       setSaving(false);
       setCart([]);
+      setLoyaltyPoints("");
+      setLoyaltyDiscount(0);
       setSelectedParty(walkInAccount || null);
       setPaymentOpen(false);
       barcodeRef.current?.focus();
@@ -1367,6 +1374,18 @@ export default function POSDashboard() {
                 <span className="font-sans">Add: GST</span>
                 <span>₹ {fmt(totalgst)}</span>
               </div>
+              {!isWalkIn(selectedParty) && cart.length > 0 && (
+                <div className="mt-1 font-sans">
+                  <LoyaltyRedeem partyId={selectedParty?.id} billTotal={beforePoints} points={loyaltyPoints}
+                    onChange={(p, d) => { setLoyaltyPoints(p || ""); setLoyaltyDiscount(d); }} />
+                </div>
+              )}
+              {Number(loyaltyPoints) > 0 && (
+                <div className="flex justify-between text-slate-600">
+                  <span className="font-sans">Less: Points ({loyaltyPoints})</span>
+                  <span className="text-amber-700">− ₹ {fmt(loyaltyDiscount)}</span>
+                </div>
+              )}
               <div className="flex justify-between items-baseline mt-1.5 pt-1.5 border-t-2 border-double border-slate-800 text-slate-900">
                 <span className="font-sans text-sm font-bold uppercase tracking-wide">Total</span>
                 <span className="text-lg font-bold">₹ {fmt(total)}</span>

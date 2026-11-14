@@ -5,7 +5,7 @@ import FormField from "../../components/formfiled";
 import Button from "../../components/button";
 import registerImage from "../../assets/images/login.jpg";
 import { useCreateAdminMutation } from "../../graphql/hooks/admin";
-import { ADMIN_REGISTER_MODULES } from "../../config/modules";
+import { ADMIN_REGISTER_MODULES, isOptIn } from "../../config/modules";
 import { BUSINESS_TYPE_OPTIONS, profileForType, profileModules } from "../../config/profiles";
 
 const AdminRegister = () => {
@@ -24,7 +24,7 @@ const AdminRegister = () => {
   const [businesstype, setBusinesstype] = useState("retail");
 
   // The business type decides the starting modules (Other starts with the core ones).
-  const allModules = ADMIN_REGISTER_MODULES.map((m) => m.id);
+  const allModules = ADMIN_REGISTER_MODULES.map((m) => m.id).filter((id) => !isOptIn(id));
   const startModules = (type: string) => {
     const p = profileForType(type);
     return p ? profileModules(p) : allModules;

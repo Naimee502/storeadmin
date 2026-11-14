@@ -75,6 +75,8 @@ export const ADD_SALES_ORDER = gql`
     roundoff
     invoicediscount
     invoicediscounttype
+    loyaltyredeempoints
+    loyaltydiscount
     isservice
     createdby_id
     createdby_name
@@ -161,6 +163,8 @@ export const EDIT_SALES_ORDER = gql`
       roundoff
       invoicediscount
       invoicediscounttype
+      loyaltyredeempoints
+      loyaltydiscount
       isservice
       status
       createdAt

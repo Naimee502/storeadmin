@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useMemo } from "react";
+import LoyaltyRedeem from "../../../components/loyaltyredeem";
 import FormField from "../../../components/formfiled";
 import FormPage from "../../../components/formpage";
 import ProductSection from "../../../components/productsection";
@@ -84,6 +85,10 @@ const AddEditSalesOrder = () => {
   // Order-level discount (₹ / %), same maths as the invoice discount.
   const [invoiceDiscount, setInvoiceDiscount] = useState<number | "">("");
   const [invoiceDiscountType, setInvoiceDiscountType] = useState("amount");
+  const [loyaltyPoints, setLoyaltyPoints] = useState<number | "">("");
+  const [loyaltyDiscount, setLoyaltyDiscount] = useState(0);
+  const [loyaltyHeld, setLoyaltyHeld] = useState(0);
+  const [beforePoints, setBeforePoints] = useState(0);
   const [invoiceDiscountAmt, setInvoiceDiscountAmt] = useState(0);
 
   const [notes, setNotes] = useState("");
@@ -158,6 +163,9 @@ const AddEditSalesOrder = () => {
       setStatus(order.status ?? true);
       setInvoiceDiscount(order.invoicediscount || "");
       setInvoiceDiscountType(order.invoicediscounttype || "amount");
+      setLoyaltyPoints(order.loyaltyredeempoints || "");
+      setLoyaltyDiscount(Number(order.loyaltydiscount) || 0);
+      setLoyaltyHeld(Number(order.loyaltyredeempoints) || 0);
       setIsService(order.isservice ?? false);
 
       const mappedProducts = order.productservice.map((p: any) => ({
@@ -234,8 +242,9 @@ const AddEditSalesOrder = () => {
     setTotalDiscount(totalLineDiscount + computedInvDisc);
     setTaxAmount(totalGSTAmount);
     setInvoiceDiscountAmt(computedInvDisc);
-    setGrandTotal(grandTotalCalc - computedInvDisc);
-  }, [products, invoiceDiscount, invoiceDiscountType]);
+    setBeforePoints(grandTotalCalc - computedInvDisc);
+    setGrandTotal(grandTotalCalc - computedInvDisc - (Number(loyaltyPoints) ? loyaltyDiscount : 0));
+  }, [products, invoiceDiscount, invoiceDiscountType, loyaltyPoints, loyaltyDiscount]);
 
   const belowCostLines = useMemo(
     () => (isService ? new Map<number, string>() : getBelowCostLines(products, salesProductData)),
@@ -300,6 +309,7 @@ const AddEditSalesOrder = () => {
       totalamount: grandTotal,
       invoicediscount: invoiceDiscount ? Number(invoiceDiscount) : 0,
       invoicediscounttype: invoiceDiscountType,
+      ...(Number(loyaltyPoints) || loyaltyHeld ? { loyaltyredeempoints: Number(loyaltyPoints) || 0, loyaltydiscount: Number(loyaltyPoints) ? loyaltyDiscount : 0 } : {}),
       isservice: isService,
       productservice: products.map((p) => ({
         productserviceid: p.productserviceid,
@@ -450,6 +460,10 @@ const AddEditSalesOrder = () => {
                   <option value="amount">₹</option>
                   <option value="percent">%</option>
                 </select>
+              </div>
+              <div className="w-full sm:w-72">
+                <LoyaltyRedeem partyId={partyAccount?.id || partyAccount || null} billTotal={beforePoints} points={loyaltyPoints} heldPoints={loyaltyHeld}
+                  onChange={(p, d) => { setLoyaltyPoints(p || ""); setLoyaltyDiscount(d); }} />
               </div>
               <div className="flex h-8 items-center text-[13px] text-slate-600">
                 {invoiceDiscountAmt > 0 && <span className="text-green-700 mr-4">− ₹{invoiceDiscountAmt.toFixed(2)}</span>}

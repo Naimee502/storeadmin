@@ -25,6 +25,7 @@ import {
   MODULES,
   SECTION_LABELS,
   ADMIN_REGISTER_MODULES,
+  isOptIn,
   DEFAULT_ON_MODULE_IDS,
   ACTION_LABELS,
   type ModuleAction,
@@ -813,7 +814,7 @@ const ModulesTab: React.FC<{ adminId?: string; dispatch: any }> = ({
     if (Array.isArray(targetAdmin?.allowedmodules) && targetAdmin.allowedmodules.length > 0) {
       setDraft(targetAdmin.allowedmodules);
     } else {
-      setDraft(allCatalogIds);
+      setDraft(allCatalogIds.filter((id: string) => !isOptIn(id)));
     }
   }, [targetAdmin?.allowedmodules, allCatalogIds]);
 

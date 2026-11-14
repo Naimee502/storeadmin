@@ -45,6 +45,8 @@ interface Invoice {
   roundoff?: number;
   invoicediscount?: number;
   invoicediscounttype?: string;
+  loyaltyredeempoints?: number;
+  loyaltydiscount?: number;
   // Party balance, fetched on Print click when enabled in settings.
   partyPreviousBalance?: number;
   partyCurrentBalance?: number;
@@ -135,7 +137,8 @@ const PrintableInvoice = forwardRef<HTMLDivElement, PrintableInvoiceProps>(
     const otherChargesTotal = (invoice.othercharges || []).reduce((sum, c) => sum + (c.totalamount || 0), 0);
     const roundOff = invoice.roundoff || 0;
 
-    const grandTotal = (productsTotal - totalDiscount) + totalGST - computedInvDisc + otherChargesTotal + roundOff;
+    const loyaltyDisc = Number(invoice.loyaltydiscount) || 0;
+    const grandTotal = (productsTotal - totalDiscount) + totalGST - computedInvDisc + otherChargesTotal + roundOff - loyaltyDisc;
 
     const encrypt = !!settings?.encryptInvoicePrices;
     const mask = (val: number) => encrypt ? val / 10 : val;
@@ -529,6 +532,12 @@ const PrintableInvoice = forwardRef<HTMLDivElement, PrintableInvoiceProps>(
                 <div className="inv-totals-row">
                   <span className="lbl">Invoice Discount</span>
                   <span>{mask(computedInvDisc).toFixed(2)}</span>
+                </div>
+              )}
+              {loyaltyDisc > 0 && (
+                <div className="inv-totals-row">
+                  <span className="lbl">Loyalty Points ({invoice.loyaltyredeempoints || 0})</span>
+                  <span>-{mask(loyaltyDisc).toFixed(2)}</span>
                 </div>
               )}
               {roundOff !== 0 && (

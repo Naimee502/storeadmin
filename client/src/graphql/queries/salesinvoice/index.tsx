@@ -70,6 +70,9 @@ export const GET_SALES_INVOICES = gql`
       roundoff
       invoicediscount
       invoicediscounttype
+      loyaltyredeempoints
+      loyaltydiscount
+      loyaltyearned
       isservice
       createdby_id
       createdby_name
@@ -226,6 +229,9 @@ export const GET_DELETED_SALES_INVOICES = gql`
       roundoff
       invoicediscount
       invoicediscounttype
+      loyaltyredeempoints
+      loyaltydiscount
+      loyaltyearned
       isservice
       createdby_id
       createdby_name
@@ -329,6 +335,9 @@ export const GET_SALES_INVOICE_BY_ID = gql`
       roundoff
       invoicediscount
       invoicediscounttype
+      loyaltyredeempoints
+      loyaltydiscount
+      loyaltyearned
       isservice
       createdby_id
       createdby_name

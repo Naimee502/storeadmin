@@ -1,4 +1,5 @@
 import React, { useMemo } from 'react';
+import { isOptIn } from "../../config/modules";
 import {
   FaBars,
   FaBuilding,
@@ -56,6 +57,8 @@ const Header: React.FC<HeaderProps> = ({
 
   // Both dashboards live in this bar, so they share one allowed-module check.
   const allows = (moduleId: string) => {
+    const bizList = businessAllowed ?? branch?.admin?.allowedmodules ?? staff?.admin?.allowedmodules;
+    if (isOptIn(moduleId) && !(Array.isArray(bizList) && bizList.map((m: any) => String(m).toLowerCase()).includes(moduleId.toLowerCase()))) return false;
     // 1. Business Level (SaaS)
     if (businessAllowed && Array.isArray(businessAllowed)) {
       if (!businessAllowed.map((m: any) => m.toString().toLowerCase()).includes(moduleId.toLowerCase())) return false;

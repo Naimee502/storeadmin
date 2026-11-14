@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useMemo } from "react";
+import LoyaltyRedeem from "../../../components/loyaltyredeem";
 import FormField from "../../../components/formfiled";
 import FormPage from "../../../components/formpage";
 import ProductSection from "../../../components/productsection";
@@ -131,6 +132,11 @@ const AddEditSalesInvoice = () => {
   const [roundOff, setRoundOff] = useState<number | "">("");
   const [invoiceDiscount, setInvoiceDiscount] = useState<number | "">("");
   const [invoiceDiscountType, setInvoiceDiscountType] = useState("amount");
+  const [loyaltyPoints, setLoyaltyPoints] = useState<number | "">("");
+  const [loyaltyDiscount, setLoyaltyDiscount] = useState(0);
+  // Points this bill (or the order it comes from) already holds.
+  const [loyaltyHeld, setLoyaltyHeld] = useState(0);
+  const [billBeforePoints, setBillBeforePoints] = useState(0);
 
   const [notes, setNotes] = useState("");
   // Fetch invoice if editing
@@ -272,6 +278,9 @@ const AddEditSalesInvoice = () => {
       setRoundOff(invoice.roundoff || "");
       setInvoiceDiscount(invoice.invoicediscount || "");
       setInvoiceDiscountType(invoice.invoicediscounttype || "amount");
+      setLoyaltyPoints(invoice.loyaltyredeempoints || "");
+      setLoyaltyDiscount(Number(invoice.loyaltydiscount) || 0);
+      setLoyaltyHeld(Number(invoice.loyaltyredeempoints) || 0);
 
       // Products
       const mappedProducts = invoice.productservice.map((p: any) => {
@@ -344,6 +353,9 @@ const AddEditSalesInvoice = () => {
       setRoundOff(order.roundoff || "");
       setInvoiceDiscount(order.invoicediscount || "");
       setInvoiceDiscountType(order.invoicediscounttype || "amount");
+      setLoyaltyPoints(order.loyaltyredeempoints || "");
+      setLoyaltyDiscount(Number(order.loyaltydiscount) || 0);
+      setLoyaltyHeld(Number(order.loyaltyredeempoints) || 0);
 
       const mappedProducts: InvoiceProduct[] = (order.productservice || []).map((p: any) => ({
         productserviceid: p.productserviceid?.id || "",
@@ -450,13 +462,15 @@ const AddEditSalesInvoice = () => {
       otherChargesTotal += c.totalamount;
     });
 
-    const finalGrandTotal = grandTotalCalc - computedInvDisc + otherChargesTotal + (Number(roundOff) || 0);
+    const beforePoints = grandTotalCalc - computedInvDisc + otherChargesTotal + (Number(roundOff) || 0);
+    const finalGrandTotal = beforePoints - (Number(loyaltyPoints) ? loyaltyDiscount : 0);
+    setBillBeforePoints(beforePoints);
 
     setProductsTotal(productsTotalCalc);
     setTotalDiscount(totalLineDiscount + computedInvDisc);
     setTaxAmount(totalGSTAmount);
     setGrandTotal(finalGrandTotal);
-  }, [products, otherCharges, roundOff, invoiceDiscount, invoiceDiscountType]);
+  }, [products, otherCharges, roundOff, invoiceDiscount, invoiceDiscountType, loyaltyPoints, loyaltyDiscount]);
 
   const validate = () => {
     const newErrors: { [key: string]: string } = {};
@@ -570,6 +584,8 @@ const AddEditSalesInvoice = () => {
       roundoff: roundOff ? Number(roundOff) : 0,
       invoicediscount: invoiceDiscount ? Number(invoiceDiscount) : 0,
       invoicediscounttype: invoiceDiscountType,
+      // Sent only when points are used (or were), so older bills stay as they are.
+      ...(Number(loyaltyPoints) || loyaltyHeld ? { loyaltyredeempoints: Number(loyaltyPoints) || 0, loyaltydiscount: Number(loyaltyPoints) ? loyaltyDiscount : 0 } : {}),
       isservice: isService,
       // New service bills move stock for their goods lines; old bills keep their rule.
       // Job card spares already left stock, so its bill moves none.
@@ -647,6 +663,7 @@ const AddEditSalesInvoice = () => {
             roundoff: input.roundoff,
             invoicediscount: input.invoicediscount,
             invoicediscounttype: input.invoicediscounttype,
+            ...((input as any).loyaltyredeempoints !== undefined ? { loyaltyredeempoints: (input as any).loyaltyredeempoints, loyaltydiscount: (input as any).loyaltydiscount } : {}),
             adminid: adminId,
             branchid: branchId,
             productservice: input.productservice,
@@ -1009,6 +1026,9 @@ const AddEditSalesInvoice = () => {
                   <option value="percent">%</option>
                 </select>
               </div>}
+
+              <LoyaltyRedeem partyId={partyAccount?.id || partyAccount || null} billTotal={billBeforePoints} points={loyaltyPoints} heldPoints={loyaltyHeld}
+                onChange={(p, d) => { setLoyaltyPoints(p || ""); setLoyaltyDiscount(d); }} />
 
               {isFieldEnabled("roundoff") && <FormField
                 label="Round Off"

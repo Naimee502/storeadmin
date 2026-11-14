@@ -67,6 +67,8 @@ export const GET_SALES_ORDERS = gql`
       roundoff
       invoicediscount
       invoicediscounttype
+      loyaltyredeempoints
+      loyaltydiscount
       isservice
       createdby_id
       createdby_name
@@ -181,6 +183,8 @@ export const GET_SALES_ORDER_PRINT = gql`
       roundoff
       invoicediscount
       invoicediscounttype
+      loyaltyredeempoints
+      loyaltydiscount
       isservice
       createdby_id
       createdby_name
@@ -254,6 +258,8 @@ export const GET_DELETED_SALES_ORDERS = gql`
       roundoff
       invoicediscount
       invoicediscounttype
+      loyaltyredeempoints
+      loyaltydiscount
       isservice
       createdby_id
       createdby_name
@@ -327,6 +333,8 @@ export const GET_SALES_ORDER_BY_ID = gql`
       roundoff
       invoicediscount
       invoicediscounttype
+      loyaltyredeempoints
+      loyaltydiscount
       isservice
       createdby_id
       createdby_name

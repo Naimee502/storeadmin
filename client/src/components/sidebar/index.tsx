@@ -20,12 +20,11 @@ import {
   FaTruck,
   FaFunnelDollar,
   FaPhoneAlt,
-  FaShoppingBag,
-} from 'react-icons/fa';
+  FaShoppingBag, FaGift } from 'react-icons/fa';
 import { MdBrandingWatermark } from 'react-icons/md';
 import { Link, useLocation, useNavigate } from 'react-router';
 import { useAppSelector } from '../../redux/hooks';
-import { DEFAULT_ON_MODULE_IDS } from '../../config/modules';
+import { DEFAULT_ON_MODULE_IDS, isOptIn } from '../../config/modules';
 import { selectModuleActions } from '../../redux/slices/permissions';
 import { Building2, LifeBuoy, ShieldCheck, Truck } from 'lucide-react';
 
@@ -84,6 +83,9 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar, onHoverChange 
 
     // Default-on system modules skip the business gate (never offered in the checklist).
     if (DEFAULT_ON_MODULE_IDS.map((m) => m.toLowerCase()).includes(mid)) return true;
+
+    const bizList = businessAllowed ?? branch?.admin?.allowedmodules ?? staff?.admin?.allowedmodules;
+    if (isOptIn(mid) && !(Array.isArray(bizList) && includes(bizList))) return false;
 
     // 1. Business level, required for all roles
     if (businessAllowed && Array.isArray(businessAllowed)) {
@@ -184,6 +186,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar, onHoverChange 
     { to: '/salesinvoice', label: 'Sales Invoices', icon: <FaFileInvoiceDollar className="text-emerald-500 text-[15px] flex-shrink-0" />, moduleId: "salesinvoice", roles: ["admin", "branch", "staff"], section: "Branch" },
     { to: '/deliverychallan', label: 'Delivery Challans', icon: <FaTruck className="text-sky-500 text-[15px] flex-shrink-0" />, moduleId: "deliverychallan", roles: ["admin", "branch", "staff"], section: "Branch" },
     { to: '/salesreturn', label: 'Sales Returns', icon: <FaUndoAlt className="text-rose-500 text-[15px] flex-shrink-0" />, moduleId: "salesreturn", roles: ["admin", "branch", "staff"], section: "Branch" },
+    { to: '/loyalty', label: 'Loyalty Points', icon: <FaGift className="text-amber-500 text-[15px] flex-shrink-0" />, moduleId: "loyalty", roles: ["admin", "branch", "staff"], section: "Branch" },
     { to: '/purchaseorder', label: 'Purchase Orders', icon: <FaClipboardList className="text-teal-400 text-[15px] flex-shrink-0" />, moduleId: "purchaseorder", roles: ["admin", "branch", "staff"], section: "Branch" },
     { to: '/purchaseinvoice', label: 'Purchase Invoices', icon: <FaReceipt className="text-blue-500 text-[15px] flex-shrink-0" />, moduleId: "purchaseinvoice", roles: ["admin", "branch", "staff"], section: "Branch" },
     { to: '/purchasereturn', label: 'Purchase Returns', icon: <FaUndoAlt className="text-red-400 text-[15px] flex-shrink-0" />, moduleId: "purchasereturn", roles: ["admin", "branch", "staff"], section: "Branch" },

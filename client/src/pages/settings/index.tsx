@@ -30,6 +30,7 @@ import {
   SECTION_LABELS,
   ADMIN_REGISTER_MODULES,
   DEFAULT_ON_MODULE_IDS,
+  isOptIn,
   ACTION_LABELS,
   type ModuleAction,
 } from "../../config/modules";
@@ -132,7 +133,7 @@ const Settings = () => {
         list = adminLower ? bl.filter((id: string) => adminLower.includes(id.toLowerCase())) : bl;
       }
     }
-    if (list === undefined || list === null) return ADMIN_REGISTER_MODULES.map((m) => m.id);
+    if (list === undefined || list === null) return ADMIN_REGISTER_MODULES.map((m) => m.id).filter((id) => !isOptIn(id));
     // Always show default-on modules, even for tenants whose allowedmodules predate them.
     const extra = DEFAULT_ON_MODULE_IDS.filter(
       (id) => !list.map((x: string) => x.toLowerCase()).includes(id.toLowerCase())
@@ -341,6 +342,7 @@ const WebsiteTab: React.FC<{ adminId?: string; dispatch: any }> = ({ adminId, di
   const { data, refetch } = useAdminSettingsQuery(adminId);
   const { updateAdminSettings } = useAdminSettingsMutations();
   const { uploadImageMutation, deleteImages } = useImageUpload();
+  const loyaltyModuleOn = useAppSelector((st: any) => (st.auth?.admin?.allowedmodules || []).some((m: string) => String(m).toLowerCase() === "loyalty"));
   const settings = data?.getAdminSettings;
   const [draft, setDraft] = useState<any>(null);
   const [saving, setSaving] = useState(false);
@@ -717,6 +719,27 @@ const WebsiteTab: React.FC<{ adminId?: string; dispatch: any }> = ({ adminId, di
             onChange={(e: any) => set("bookingDaysAhead", Math.max(1, Number(e.target.value) || 30))} />
         </div>
         <p className="text-[11px] text-slate-500">A service with its own available hours uses those instead. Staff set on a service take its bookings; otherwise any active staff.</p>
+      </Section>)}
+
+      {/* Rules for the Loyalty Points module; blank boxes use the shown defaults. */}
+      {loyaltyModuleOn && (<Section title="Loyalty Points">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-x-3 gap-y-2">
+          <FormField label="Points Per ₹100" name="loyaltyEarnPer100" type="number" placeholder="1" value={draft.loyaltyEarnPer100 ?? ""}
+            onChange={(e: any) => set("loyaltyEarnPer100", e.target.value === "" ? null : Math.max(0, Number(e.target.value) || 0))} />
+          <FormField label="1 Point Worth (₹)" name="loyaltyPointValue" type="number" placeholder="1" value={draft.loyaltyPointValue ?? ""}
+            onChange={(e: any) => set("loyaltyPointValue", e.target.value === "" ? null : Math.max(0, Number(e.target.value) || 0))} />
+          <FormField label="Earn On Bills From (₹)" name="loyaltyMinBill" type="number" placeholder="0" value={draft.loyaltyMinBill ?? ""}
+            onChange={(e: any) => set("loyaltyMinBill", e.target.value === "" ? null : Math.max(0, Number(e.target.value) || 0))} />
+          <FormField label="Max Points Per Bill" name="loyaltyMaxEarn" type="number" placeholder="No limit" value={draft.loyaltyMaxEarn ?? ""}
+            onChange={(e: any) => set("loyaltyMaxEarn", e.target.value === "" ? null : Math.max(0, Number(e.target.value) || 0))} />
+          <FormField label="Points Expire After (Days)" name="loyaltyExpiryDays" type="number" placeholder="365" value={draft.loyaltyExpiryDays ?? ""}
+            onChange={(e: any) => set("loyaltyExpiryDays", e.target.value === "" ? null : Math.max(0, Number(e.target.value) || 0))} />
+          <FormField label="Min Points To Redeem" name="loyaltyMinRedeem" type="number" placeholder="0" value={draft.loyaltyMinRedeem ?? ""}
+            onChange={(e: any) => set("loyaltyMinRedeem", e.target.value === "" ? null : Math.max(0, Number(e.target.value) || 0))} />
+          <FormField label="Max % Of Bill Paid By Points" name="loyaltyMaxRedeemPercent" type="number" placeholder="100" value={draft.loyaltyMaxRedeemPercent ?? ""}
+            onChange={(e: any) => set("loyaltyMaxRedeemPercent", e.target.value === "" ? null : Math.max(0, Number(e.target.value) || 0))} />
+        </div>
+        <p className="text-[11px] text-slate-500">Points are earned on the bill total with GST and used as a discount on a later bill (POS, Sales Invoice, App &amp; Website). Expiry 0 = never.</p>
       </Section>)}
 
       <Section title="Website Content">

@@ -37,6 +37,8 @@ export interface PdfInvoice {
   roundoff?: number;
   invoicediscount?: number;
   invoicediscounttype?: string;
+  loyaltyredeempoints?: number;
+  loyaltydiscount?: number;
   partyPreviousBalance?: number;
   partyCurrentBalance?: number;
 }
@@ -114,8 +116,9 @@ export const buildInvoicePdfModel = (
   );
   const roundOff = invoice.roundoff || 0;
 
+  const loyaltyDisc = Number(invoice.loyaltydiscount) || 0;
   const grandTotal =
-    productsTotal - totalDiscount + totalGST - computedInvDisc + otherChargesTotal + roundOff;
+    productsTotal - totalDiscount + totalGST - computedInvDisc + otherChargesTotal + roundOff - loyaltyDisc;
 
   // "Encrypt prices" divides every money figure by ten on the printed copy.
   const encrypt = !!settings?.encryptInvoicePrices;
@@ -212,6 +215,9 @@ export const buildInvoicePdfModel = (
   }
   if (computedInvDisc > 0) {
     totals.push({ label: "Invoice Discount", value: money(computedInvDisc) });
+  }
+  if (loyaltyDisc > 0) {
+    totals.push({ label: `Loyalty Points (${invoice.loyaltyredeempoints || 0})`, value: `-${money(loyaltyDisc)}` });
   }
   if (roundOff !== 0) {
     totals.push({ label: "Round Off", value: money(roundOff) });

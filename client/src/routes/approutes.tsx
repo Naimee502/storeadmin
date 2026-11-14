@@ -138,6 +138,7 @@ import AddEditSupportTicket from "../pages/supporttickets/addedit";
 import Contracts from "../pages/contracts";
 import AddEditContract from "../pages/contracts/addedit";
 import Memberships from "../pages/memberships";
+import Loyalty from "../pages/loyalty";
 import AddEditMembership from "../pages/memberships/addedit";
 import ServiceReports from "../pages/reports/service";
 import CrmDashboard from "../pages/crmdashboard";
@@ -1122,6 +1123,7 @@ const AppRoutes = () => {
       <Route path="/contracts/addedit" element={<ProtectedRoutes><AddEditContract /></ProtectedRoutes>} />
       <Route path="/contracts/addedit/:id" element={<ProtectedRoutes><AddEditContract /></ProtectedRoutes>} />
       <Route path="/contracts/deletedentries" element={<ProtectedRoutes><ServiceDeletedEntries key="contracts" kind="contracts" /></ProtectedRoutes>} />
+      <Route path="/loyalty" element={<ProtectedRoutes><Loyalty /></ProtectedRoutes>} />
       <Route path="/memberships" element={<ProtectedRoutes><Memberships /></ProtectedRoutes>} />
       <Route path="/memberships/addedit" element={<ProtectedRoutes><AddEditMembership /></ProtectedRoutes>} />
       <Route path="/memberships/addedit/:id" element={<ProtectedRoutes><AddEditMembership /></ProtectedRoutes>} />

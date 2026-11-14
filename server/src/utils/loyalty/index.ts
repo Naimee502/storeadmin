@@ -4,7 +4,7 @@ import { Admin } from "../../models/admin";
 import { AdminSettings } from "../../models/adminsettings";
 import { LoyaltyEntry } from "../../models/loyalty";
 import { pushNotification } from "../../models/notifications";
-import { TenantError } from "../tenant";
+import { resolveTenant, TenantError } from "../tenant";
 
 const r2 = (n: number) => Math.round((Number(n) || 0) * 100) / 100;
 const oid = (v: any) => (v && typeof v === "object" ? v._id || v.id : v);
@@ -67,15 +67,21 @@ export const applyRedeem = async (input: any, docmodel: "SalesInvoice" | "SalesO
     input.loyaltydiscount = 0;
     return;
   }
+  // An order being closed into a bill hands its points to that bill, so nothing to check here.
+  if (docmodel === "SalesOrder" && input.isConverted) return;
   if (points < 0 || !Number.isInteger(points)) throw new TenantError("Enter whole loyalty points to redeem.", "BAD_USER_INPUT");
-  const adminid = oid(input.adminid);
+  const adminid = oid(input.adminid) || (context ? (await resolveTenant(context)).adminid : null);
   const partyid = oid(input.partyacc);
   if (!adminid || !partyid) throw new TenantError("Pick the party to redeem loyalty points.", "BAD_USER_INPUT");
   if (context?.user?.type === "party" && String(partyid) !== String(context.user.id)) throw new TenantError("You can use only your own points.");
   if (!(await loyaltyOn(adminid))) throw new TenantError("Loyalty points are not on for this business.", "BAD_USER_INPUT");
   const r = await loyaltyRules(adminid);
   // Points this same bill already holds count as available when it is edited.
-  const held = docid ? -(await sumFor(docmodel, docid, "redeem")) : 0;
+  let held = docid ? -(await sumFor(docmodel, docid, "redeem")) : 0;
+  // A bill made from an order takes over the points that order holds.
+  if (docmodel === "SalesInvoice" && input.sourceorderid && Types.ObjectId.isValid(String(input.sourceorderid))) {
+    held += -(await sumFor("SalesOrder", input.sourceorderid, "redeem"));
+  }
   const available = (await balanceOf(adminid, partyid)) + held;
   if (points > available) throw new TenantError(`Only ${available} loyalty points are available.`, "BAD_USER_INPUT");
   if (r.minRedeem > 0 && points < r.minRedeem) throw new TenantError(`At least ${r.minRedeem} points are needed to redeem.`, "BAD_USER_INPUT");
@@ -108,7 +114,10 @@ export const syncLoyalty = async (docmodel: "SalesInvoice" | "SalesOrder", docid
     const tracked = d.loyaltyearned !== undefined && d.loyaltyearned !== null;
     if (!tracked && !opts.created) return;
     let want = 0;
-    if (active && (await loyaltyOn(d.adminid))) {
+    const party: any = await mongoose.model("Account").findById(d.partyacc).select("name").lean();
+    // A shared walk-in / cash customer account does not collect points.
+    const walkIn = /walk[\s-]?in|cash\s*(customer|sale)/i.test(String(party?.name || ""));
+    if (active && !walkIn && (await loyaltyOn(d.adminid))) {
       const returned = await mongoose.model("SalesReturn").aggregate([
         { $match: { sourceInvoiceId: d._id, status: { $ne: false } } },
         { $group: { _id: null, t: { $sum: "$totalamount" } } },
@@ -158,8 +167,19 @@ export const withLoyalty = (map: any, docmodel: "SalesInvoice" | "SalesOrder" | 
     if (docmodel === "SalesInvoice" && args[1]?.input?.sourceorderid) await syncLoyalty("SalesOrder", args[1].input.sourceorderid);
   }, (args) => applyRedeem(args[1]?.input, docmodel, undefined, args[2]));
   wrap(edit, async (args) => syncLoyalty(docmodel, args[1]?.id), async (args) => {
-    // An edit that leaves loyalty out keeps what the document already has.
-    if (args[1]?.input && args[1].input.loyaltyredeempoints !== undefined) await applyRedeem(args[1].input, docmodel, args[1].id, args[2]);
+    const input = args[1]?.input;
+    if (!input) return;
+    if (input.loyaltyredeempoints === undefined) {
+      // A screen that does not know loyalty sends the total before points: keep the points and take them off again.
+      if (input.totalamount === undefined || !Types.ObjectId.isValid(String(args[1].id))) return;
+      const d: any = await mongoose.model(docmodel).findById(args[1].id).select("loyaltyredeempoints adminid partyacc").lean();
+      if (!(Number(d?.loyaltyredeempoints) > 0)) return;
+      input.loyaltyredeempoints = d.loyaltyredeempoints;
+      input.loyaltydiscount = 0;
+      input.adminid = input.adminid || d.adminid;
+      input.partyacc = input.partyacc || d.partyacc;
+    }
+    await applyRedeem(input, docmodel, args[1].id, args[2]);
   });
   const fields = docmodel === "SalesInvoice"
     ? ["deleteSalesInvoice", "resetSalesInvoice", "cancelSalesInvoice", "reopenSalesInvoice"]

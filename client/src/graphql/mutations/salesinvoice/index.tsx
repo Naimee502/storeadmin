@@ -75,6 +75,9 @@ export const ADD_SALES_INVOICE = gql`
     roundoff
     invoicediscount
     invoicediscounttype
+    loyaltyredeempoints
+    loyaltydiscount
+    loyaltyearned
     isservice
     createdby_id
     createdby_name
@@ -161,6 +164,9 @@ export const EDIT_SALES_INVOICE = gql`
       roundoff
       invoicediscount
       invoicediscounttype
+      loyaltyredeempoints
+      loyaltydiscount
+      loyaltyearned
       isservice
       status
       createdAt

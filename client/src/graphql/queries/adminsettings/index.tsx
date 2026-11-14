@@ -108,6 +108,13 @@ const SETTINGS_FIELDS = `
   bookingTo
   bookingStepMinutes
   bookingDaysAhead
+  loyaltyEarnPer100
+  loyaltyPointValue
+  loyaltyMinBill
+  loyaltyMaxEarn
+  loyaltyExpiryDays
+  loyaltyMinRedeem
+  loyaltyMaxRedeemPercent
   geoFenceEnabled
   geoFenceRadiusM
   salesmanLeaderboardEnabled
