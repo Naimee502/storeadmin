@@ -35,6 +35,8 @@ import {
 } from "../../config/modules";
 import { findSectionPerms, resolveAction } from "../../redux/slices/permissions";
 import FormPermissionsTab from "../businesssettings/formpermissionstab";
+import { useSearchParams } from "react-router";
+import { useAccessRolesQuery } from "../../graphql/hooks/accessroles";
 
 type TabKey =
   | "general"
@@ -63,11 +65,19 @@ const Settings = () => {
   const { data: branchesData } = useBranchesQuery();
   const { data: staffData } = useStaffQuery();
 
-  // Admin manages a Branch or Staff; a branch login manages its own staff.
-  const [targetKind, setTargetKind] = useState<"branch" | "staff">("branch");
+  // Admin manages a Branch, Staff or Access Role; a branch login manages its own staff.
+  // An Access Role page link opens straight on that role (/settings?role=id).
+  const [params] = useSearchParams();
+  const linkedRole = isAdmin ? params.get("role") || "" : "";
+  const [targetKind, setTargetKind] = useState<"branch" | "staff" | "role">(linkedRole ? "role" : "branch");
   const manageStaff = isBranch || (isAdmin && targetKind === "staff");
+  const manageRole = isAdmin && targetKind === "role";
+  const { data: rolesData } = useAccessRolesQuery(false);
 
   const targetOptions = useMemo(() => {
+    if (manageRole) {
+      return (rolesData?.getAccessRoles ?? []).map((r: any) => ({ value: r.id, label: r.name }));
+    }
     if (isAdmin && targetKind === "staff") {
       // Same rule as a branch login: only "staff" role (not salesman / delivery boy).
       return (staffData?.getStaffAccounts ?? [])
@@ -93,11 +103,15 @@ const Settings = () => {
         }));
     }
     return [];
-  }, [isAdmin, isBranch, targetKind, branchesData, staffData]);
+  }, [isAdmin, isBranch, targetKind, manageRole, branchesData, staffData, rolesData]);
 
-  const [selectedTargetId, setSelectedTargetId] = useState<string>("");
-  // Switching Branch ↔ Staff clears the pick (ids belong to different lists).
-  useEffect(() => { setSelectedTargetId(""); }, [targetKind]);
+  const [selectedTargetId, setSelectedTargetId] = useState<string>(linkedRole);
+  // Switching Branch / Staff / Role clears the pick (ids belong to different lists); not on first draw.
+  const firstKind = useRef(true);
+  useEffect(() => {
+    if (firstKind.current) { firstKind.current = false; return; }
+    setSelectedTargetId("");
+  }, [targetKind]);
 
   // Admin managing a staff member: that staff's branch is the parent level.
   const selectedStaffRec = useMemo(
@@ -157,9 +171,12 @@ const Settings = () => {
       tabs.push(["staff_modules", "Staff Modules"]);
       tabs.push(["access", "Staff Access"]);
       tabs.push(["formperms", "Staff Form Permissions"]);
+    } else if (manageRole) {
+      tabs.push(["access", "Role Access"]);
+      tabs.push(["formperms", "Role Form Permissions"]);
     }
     return tabs;
-  }, [isAdmin, targetKind, manageStaff]);
+  }, [isAdmin, targetKind, manageStaff, manageRole]);
 
   const [tab, setTab] = useState<TabKey>(visibleTabs[0]?.[0] ?? "access");
 
@@ -202,7 +219,7 @@ const Settings = () => {
         <div className="rounded-lg border border-slate-200 bg-white p-3">
           {isAdmin && (
             <div className="mb-2 inline-flex gap-1 rounded-md bg-slate-100 p-0.5">
-              {(["branch", "staff"] as const).map((k) => (
+              {(["branch", "staff", "role"] as const).map((k) => (
                 <button
                   key={k}
                   type="button"
@@ -211,13 +228,13 @@ const Settings = () => {
                     targetKind === k ? "bg-white text-indigo-700 shadow-sm ring-1 ring-slate-200" : "text-slate-600 hover:text-slate-900"
                   }`}
                 >
-                  {k === "branch" ? "Branch" : "Staff"}
+                  {k === "branch" ? "Branch" : k === "staff" ? "Staff" : "Access Role"}
                 </button>
               ))}
             </div>
           )}
           <FormField
-            label={isAdmin && targetKind === "branch" ? "Select Branch" : "Select Staff Member"}
+            label={manageRole ? "Select Access Role" : isAdmin && targetKind === "branch" ? "Select Branch" : "Select Staff Member"}
             type="select"
             name="selectedTargetId"
             value={selectedTargetId}
@@ -249,7 +266,7 @@ const Settings = () => {
         ) : !selectedTargetId ? (
           /* ── Child-management tabs (need target selection) ── */
           <div className="rounded-lg border border-slate-200 bg-white py-6 text-center text-[13px] text-slate-500">
-            Please select {isAdmin && targetKind === "branch" ? "a Branch" : "a Staff member"} above to manage settings.
+            Please select {manageRole ? "an Access Role" : isAdmin && targetKind === "branch" ? "a Branch" : "a Staff member"} above to manage settings.
           </div>
         ) : (
           <>
@@ -274,7 +291,7 @@ const Settings = () => {
             {tab === "formperms" && (
               <FormPermissionsTab
                 key={selectedTargetId}
-                scope={manageStaff ? "staff" : "branch"}
+                scope={manageRole ? "role" : manageStaff ? "staff" : "branch"}
                 scopeid={selectedTargetId}
                 dispatch={dispatch}
                 ceiling={formCeiling}
@@ -285,7 +302,7 @@ const Settings = () => {
               <AccessTab
                 adminId={adminId}
                 dispatch={dispatch}
-                scopeMode={manageStaff ? "staff" : "branch"}
+                scopeMode={manageRole ? "role" : manageStaff ? "staff" : "branch"}
                 selectedTargetId={selectedTargetId}
                 parentAllowed={targetEffectiveAllowed}
               />
@@ -1366,7 +1383,7 @@ const SubModulesTab: React.FC<{
 };
 
 const PermissionsTab: React.FC<{
-  scope: "admin" | "branch" | "staff";
+  scope: "admin" | "branch" | "staff" | "role";
   scopeid?: string;
   title: string;
   dispatch: any;
@@ -1539,7 +1556,7 @@ const PermissionsTab: React.FC<{
 const AccessTab: React.FC<{
   adminId?: string;
   dispatch: any;
-  scopeMode: "branch" | "staff";
+  scopeMode: "branch" | "staff" | "role";
   selectedTargetId: string;          // ← from global dropdown
   parentAllowed: string[];           // ← strict parent chain
 }> = ({ adminId, dispatch, scopeMode, selectedTargetId, parentAllowed }) => {

@@ -60,6 +60,8 @@ export const staffAccountTypeDefs = gql`
     status: Boolean!
     allowedmodules: [String]
     assignedChannels: [Channel]
+    departmentid: ID
+    accessroleid: ID
     fcmtoken: String
     createdAt: String
     updatedAt: String
@@ -83,6 +85,10 @@ export const staffAccountTypeDefs = gql`
     status: Boolean
     allowedmodules: [String]
     assignedChannels: [ID]
+    "Optional department (Settings -> Departments). Null clears it."
+    departmentid: ID
+    "Optional access role; its permissions sit between the branch and this staff member."
+    accessroleid: ID
   }
 
   input StaffFilterInput {

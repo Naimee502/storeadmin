@@ -57,6 +57,7 @@ import { insightResolvers } from "./insight";
 import { Appointment, JobCard, Contract, MembershipPlan, Membership } from "../../models/service";
 import { Bom, WorkOrder, ProductionEntry } from "../../models/manufacturing";
 import { leadSourceResolvers } from "./leadsource";
+import { accessRoleResolvers } from "./accessroles";
 
 import { withOfflineActions, withOfflineWrites } from "../../utils/offlinesync";
 import { guardResolvers, hidePasswords, hideFromAnonymous } from "../../utils/authguard";
@@ -150,6 +151,7 @@ const guarded = guardResolvers([
   ),
   withOfflineActions(quotationResolvers, Quotation, ["editQuotation", "deleteQuotation", "setQuotationStatus"]),
   leadSourceResolvers,
+  accessRoleResolvers,
   aiResolvers,
   insightResolvers,
   withOfflineActions(

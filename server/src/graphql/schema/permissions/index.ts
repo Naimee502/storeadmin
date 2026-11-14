@@ -12,6 +12,7 @@ export const permissionsTypeDefs = gql`
     admin
     branch
     staff
+    role
   }
 
   type PermissionDoc {

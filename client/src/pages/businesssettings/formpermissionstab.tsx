@@ -10,7 +10,7 @@ const MODES: FieldMode[] = ["add", "edit"];
 
 /** Form field permissions for one level; children are capped by the parent's (ceiling). */
 const FormPermissionsTab: React.FC<{
-  scope: "admin" | "branch" | "staff";
+  scope: "admin" | "branch" | "staff" | "role";
   scopeid?: string;
   dispatch: any;
   ceiling?: Record<string, Record<string, any>>;
@@ -139,8 +139,8 @@ const FormPermissionsTab: React.FC<{
       )}
       {scope !== "admin" && (
         <p className="text-[12px] text-slate-500">
-          Untick Add or Edit to hide a field from this {scope === "branch" ? "branch" : "staff member"} on new entries or when changing one (e.g. Sales rate on Products).
-          Greyed fields are already off for the {scope === "branch" ? "business" : "branch"} and can't be turned on here.
+          Untick Add or Edit to hide a field from this {scope === "branch" ? "branch" : scope === "role" ? "role" : "staff member"} on new entries or when changing one (e.g. Sales rate on Products).
+          Greyed fields are already off for the {scope === "staff" ? "branch" : "business"} and can't be turned on here.
         </p>
       )}
       {configs.length === 0 && (
