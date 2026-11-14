@@ -13,6 +13,7 @@ const time12 = (hhmm: string) => {
   const [h, m] = hhmm.split(":").map(Number);
   return `${((h + 11) % 12) + 1}:${String(m).padStart(2, "0")} ${h < 12 ? "AM" : "PM"}`;
 };
+const dayLabel = (ymd: string) => new Date(`${ymd}T12:00:00Z`).toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" });
 const rupees = (n: any) => `₹${Number(n || 0).toLocaleString("en-IN")}`;
 const mins = (n: number) => (n >= 60 ? `${Math.floor(n / 60)} hr${n % 60 ? ` ${n % 60} min` : ""}` : `${n} min`);
 const PER: Record<string, string> = { visit: "/ visit", hour: "/ hour", session: "/ session", unit: "/ unit", room: "/ room", sqft: "/ sq ft" };
@@ -39,6 +40,7 @@ export default function BookPage() {
   const [book, { loading: booking }] = useMutation(BOOK_APPOINTMENT);
   const stepOne = useRef<HTMLElement>(null);
   const stepTwo = useRef<HTMLElement>(null);
+  const days = useMemo(() => Array.from({ length: 14 }, (_, i) => new Date(Date.now() + 330 * 60000 + i * 86400000).toISOString().slice(0, 10)), []);
 
   // Services that have at least one bookable option.
   const services = useMemo(() => (svcData?.getProductServices || [])
@@ -99,7 +101,7 @@ export default function BookPage() {
   return (
     <div>
       <Breadcrumb items={[{ label: "Book Appointment" }]} />
-      <div className="mx-auto max-w-5xl space-y-6 px-4 py-6 sm:px-6">
+      <div className="mx-auto max-w-6xl space-y-6 px-4 py-6 sm:px-6">
         <div className="flex items-center justify-between">
           <h1 className="flex items-center gap-2 text-xl font-bold text-ink-900"><CalendarCheck className="h-5 w-5 text-brand-700" /> Book Appointment</h1>
           {isLoggedIn && <Link to="/account/bookings" className="text-sm font-semibold text-brand-700 hover:underline">My Bookings</Link>}
@@ -109,11 +111,12 @@ export default function BookPage() {
           <p className="rounded-lg border border-slate-200 bg-white p-4 text-sm text-slate-600">Online booking is not open right now. Please call us to book.</p>
         ) : done ? (
           <div className="space-y-3 rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
-            <p>Your booking for <b>{label}</b> on <b>{done.date}</b> at <b>{time12(done.time)}</b> is received. We will confirm it shortly.</p>
+            <p>Your booking for <b>{label}</b> on <b>{dayLabel(done.date)}</b> at <b>{time12(done.time)}</b> is received. We will confirm it shortly.</p>
             <Link to="/account/bookings" className="font-semibold text-brand-700">View my bookings</Link>
           </div>
         ) : (
-          <>
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
+          <div className="space-y-6">
             <section ref={stepOne} className="scroll-mt-24 space-y-3">
               <h2 className="text-sm font-semibold text-ink-900">1. Choose a service</h2>
               {cats.length > 1 && (
@@ -159,57 +162,78 @@ export default function BookPage() {
               ) : <p className="text-sm text-slate-500">No services are open for booking.</p>}
             </section>
 
-            {svc && opt && (
-              <section ref={stepTwo} className="scroll-mt-24 space-y-3">
-                <h2 className="text-sm font-semibold text-ink-900">2. Pick a day and time</h2>
-                <div className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm">
-                  <div>
-                    <div className="font-semibold text-ink-900">{label}</div>
-                    <div className="text-slate-600">{rupees(opt.servicerate)}{PER[opt.pricingunit] ? ` ${PER[opt.pricingunit]}` : ""} · {mins(minutes(opt.duration))}</div>
-                  </div>
-                  <div className="flex shrink-0 items-center gap-4">
-                    {svc.options.length > 1 && <button type="button" onClick={() => showDetail(svc)} className="text-sm font-semibold text-brand-700 hover:underline">Change Option</button>}
-                    <button type="button" onClick={changeService} className="text-sm font-semibold text-brand-700 hover:underline">Change Service</button>
-                  </div>
-                </div>
-                <input type="date" value={date} min={todayIst()} onChange={(e) => { setDate(e.target.value); setTime(""); }}
-                  className="h-10 rounded-lg border border-slate-300 px-3 text-sm" />
-                {slotLoading ? <p className="text-sm text-slate-500">Finding free times...</p>
-                  : slotError ? <p className="text-sm text-rose-600">{slotError.message}</p>
-                  : slots.length ? (
-                    <div className="flex flex-wrap gap-2">
-                      {slots.map((s) => (
-                        <button key={s.starttime} type="button" onClick={() => setTime(s.starttime)}
-                          className={`flex items-center gap-1 rounded-lg border px-3 py-2 text-sm ${time === s.starttime ? "border-brand-600 bg-brand-600 text-white" : "border-slate-200 bg-white text-ink-900 hover:border-slate-300"}`}>
-                          <Clock className="h-3.5 w-3.5" /> {time12(s.starttime)}
+            <section ref={stepTwo} className="scroll-mt-24 space-y-3">
+              <h2 className="text-sm font-semibold text-ink-900">2. Pick a day and time</h2>
+              {!svc || !opt ? <p className="text-sm text-slate-500">Select a service first.</p> : (
+                <>
+                  <div className="flex gap-2 overflow-x-auto pb-1">
+                    {days.map((d, i) => {
+                      const on = d === date;
+                      const dt = new Date(`${d}T12:00:00Z`);
+                      return (
+                        <button key={d} type="button" onClick={() => { setDate(d); setTime(""); }}
+                          className={`flex w-16 shrink-0 flex-col items-center rounded-lg border py-2 text-xs ${on ? "border-brand-600 bg-brand-600 text-white" : "border-slate-200 bg-white text-slate-600 hover:border-slate-300"}`}>
+                          <span>{i === 0 ? "Today" : i === 1 ? "Tmrw" : dt.toLocaleDateString("en-IN", { weekday: "short", timeZone: "UTC" })}</span>
+                          <span className={`text-lg font-bold ${on ? "text-white" : "text-ink-900"}`}>{dt.getUTCDate()}</span>
+                          <span>{dt.toLocaleDateString("en-IN", { month: "short", timeZone: "UTC" })}</span>
                         </button>
-                      ))}
-                    </div>
-                  ) : <p className="text-sm text-slate-500">No free time on this day. Try another day.</p>}
-              </section>
-            )}
-
-            {svc && opt && time && (
-              <section className="space-y-3">
-                <h2 className="text-sm font-semibold text-ink-900">3. Confirm</h2>
-                <div className="max-w-md space-y-1 rounded-lg border border-slate-200 bg-white p-3 text-sm">
-                  <div className="flex justify-between"><span className="text-slate-600">{label}</span><span>{rupees(opt.servicerate)}</span></div>
-                  {Number(opt.visitcharge) > 0 && <div className="flex justify-between"><span className="text-slate-600">Visit charge</span><span>{rupees(opt.visitcharge)}</span></div>}
-                  <div className="flex justify-between border-t border-slate-100 pt-1 font-semibold text-ink-900">
-                    <span>Total</span><span>{rupees((Number(opt.servicerate) || 0) + (Number(opt.visitcharge) || 0))}</span>
+                      );
+                    })}
                   </div>
-                  <p className="text-xs text-slate-500">{opt.taxinclusive ? "Includes taxes." : "Taxes extra as applicable."}{PER[opt.pricingunit] ? " Final amount depends on actual work." : ""} Pay after the service.</p>
-                </div>
-                <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} placeholder="Anything we should know? (optional)"
-                  className="w-full max-w-md rounded-lg border border-slate-300 p-3 text-sm" />
-                {error && <p className="text-sm text-rose-600">{error}</p>}
-                <button type="button" onClick={confirm} disabled={booking}
-                  className="rounded-lg bg-brand-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-50">
-                  {isLoggedIn ? (booking ? "Booking..." : `Book ${time12(time)} on ${date}`) : "Log in to book"}
-                </button>
-              </section>
-            )}
-          </>
+                  {slotLoading ? <p className="text-sm text-slate-500">Finding free times...</p>
+                    : slotError ? <p className="text-sm text-rose-600">{slotError.message}</p>
+                    : slots.length ? (
+                      <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+                        {slots.map((s) => (
+                          <button key={s.starttime} type="button" onClick={() => setTime(s.starttime)}
+                            className={`rounded-lg border px-3 py-2 text-sm font-medium ${time === s.starttime ? "border-brand-600 bg-brand-600 text-white" : "border-slate-200 bg-white text-ink-900 hover:border-slate-300"}`}>
+                            {time12(s.starttime)}
+                          </button>
+                        ))}
+                      </div>
+                    ) : <p className="text-sm text-slate-500">No free time on this day. Try another day.</p>}
+                  <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} placeholder="Anything we should know? (optional)"
+                    className="block w-full rounded-lg border border-slate-300 p-3 text-sm" />
+                </>
+              )}
+            </section>
+          </div>
+
+          <aside className="lg:sticky lg:top-24 lg:self-start">
+            <div className="space-y-3 rounded-xl border border-slate-200 bg-white p-4 text-sm shadow-sm">
+              <h2 className="text-base font-semibold text-ink-900">Booking Summary</h2>
+              {!svc || !opt ? <p className="text-slate-500">Select a service to see the price.</p> : (
+                <>
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <div className="font-semibold text-ink-900">{label}</div>
+                      <div className="text-slate-500">{mins(minutes(opt.duration))}{opt.locationType && WHERE[opt.locationType] ? ` · ${WHERE[opt.locationType]}` : ""}</div>
+                    </div>
+                    <div className="flex shrink-0 flex-col items-end gap-1">
+                      <button type="button" onClick={changeService} className="text-xs font-semibold text-brand-700 hover:underline">Change Service</button>
+                      {svc.options.length > 1 && <button type="button" onClick={() => showDetail(svc)} className="text-xs font-semibold text-brand-700 hover:underline">Change Option</button>}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 rounded-lg bg-slate-50 px-3 py-2 text-slate-700">
+                    <CalendarCheck className="h-4 w-4 text-brand-700" />
+                    {time ? <span>{dayLabel(date)}, {time12(time)}</span> : <span className="text-slate-500">Pick a time</span>}
+                  </div>
+                  <div className="space-y-1 border-t border-slate-100 pt-3">
+                    <div className="flex justify-between"><span className="text-slate-600">Service{PER[opt.pricingunit] ? ` (${PER[opt.pricingunit].slice(2)})` : ""}</span><span>{rupees(opt.servicerate)}</span></div>
+                    {Number(opt.visitcharge) > 0 && <div className="flex justify-between"><span className="text-slate-600">Visit charge</span><span>{rupees(opt.visitcharge)}</span></div>}
+                    <div className="flex justify-between pt-1 text-base font-bold text-ink-900"><span>Total</span><span>{rupees((Number(opt.servicerate) || 0) + (Number(opt.visitcharge) || 0))}</span></div>
+                    <p className="text-xs text-slate-500">{opt.taxinclusive ? "Includes taxes." : "Taxes extra as applicable."}{PER[opt.pricingunit] ? " Final amount depends on actual work." : ""} Pay after the service.</p>
+                  </div>
+                  {error && <p className="text-rose-600">{error}</p>}
+                  <button type="button" onClick={confirm} disabled={booking || !time}
+                    className="h-11 w-full rounded-lg bg-brand-600 font-semibold text-white hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50">
+                    {!time ? "Pick a time to book" : !isLoggedIn ? "Log in to book" : booking ? "Booking..." : "Confirm Booking"}
+                  </button>
+                </>
+              )}
+            </div>
+          </aside>
+        </div>
         )}
       </div>
 
