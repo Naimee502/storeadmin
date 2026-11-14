@@ -102,6 +102,11 @@ const SETTINGS_FIELDS = `
   showPartyLiveLocation
   loginEmailOtp
   loginTabs
+  bookingOn
+  bookingFrom
+  bookingTo
+  bookingStepMinutes
+  bookingDaysAhead
   geoFenceEnabled
   geoFenceRadiusM
   salesmanLeaderboardEnabled
