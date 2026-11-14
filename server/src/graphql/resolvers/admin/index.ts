@@ -94,7 +94,10 @@ export const adminResolvers = {
         delete input.subscriptionType; delete input.status; delete input.noOfBranches;
         const mine = (admin as any).allowedmodules;
         if (Array.isArray(input.allowedmodules) && Array.isArray(mine)) {
-          input.allowedmodules = input.allowedmodules.filter((m: string) => mine.includes(m));
+          const extra = input.allowedmodules.filter((m: string) => !mine.includes(m));
+          if (extra.length) {
+            throw new ApolloError("Only the platform owner can turn on new modules. Open Business Settings with the platform key.", "FORBIDDEN");
+          }
         }
       }
 
