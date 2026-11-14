@@ -31,6 +31,26 @@ const actorName = async (user: any): Promise<string> => {
 const pad2 = (n: number) => String(n).padStart(2, "0");
 const toDateStr = (d: Date) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
 
+// Leave days must be positive and fit inside the date range (half days allowed).
+const checkLeaveDays = (fromDate: any, toDate: any, totalDays: any) => {
+  const from = new Date(fromDate), to = new Date(toDate);
+  if (isNaN(from.getTime()) || isNaN(to.getTime())) throw new Error("Enter valid leave dates.");
+  if (to < from) throw new Error("Leave end date must be on or after the start date.");
+  const span = Math.round((to.getTime() - from.getTime()) / 86400000) + 1;
+  const days = Number(totalDays);
+  if (!(days > 0) || days > span) throw new Error(`Total days must be more than 0 and at most ${span}.`);
+};
+
+const balanceKey = (lr: any) => ({
+  adminid: lr.adminid, staffid: lr.staffid, leavetypeid: lr.leavetypeid?._id ?? lr.leavetypeid,
+  year: new Date(lr.fromDate).getFullYear(),
+});
+
+// The balance bucket a request holds its days in (none once a delete released them).
+const heldIn = (status: string) => (status === "pending" ? "pending" : status === "approved" ? "used" : "");
+
+const LEAVE_EDIT_BLOCKED = ["status", "adminid", "approvedById", "approvedByName", "approvedByType", "approvedAt", "rejectionReason"];
+
 const toStaffRef = (doc: any) => {
   if (!doc) return null;
   return {
@@ -508,6 +528,7 @@ export const attendanceResolvers = {
     },
     deleteLeaveType: async (_: any, { id }: { id: string }) => !!(await LeaveType.findByIdAndUpdate(id, { status: false })),
     addLeaveRequest: async (_: any, { input }: any, ctx: any) => {
+      checkLeaveDays(input.fromDate, input.toDate, input.totalDays);
       const year = new Date(input.fromDate).getFullYear();
 
       // ── Allowance validation ────────────────────────────────────
@@ -582,7 +603,18 @@ export const attendanceResolvers = {
       return formatLeaveRequest(populated);
     },
     editLeaveRequest: async (_: any, { id, input }: any) => {
-      const updated = await LeaveRequest.findByIdAndUpdate(id, input, { new: true }).populate("staffid").populate("leavetypeid").lean();
+      const before: any = await LeaveRequest.findById(id).lean();
+      if (!before) throw new Error("Leave request not found");
+      const change: any = { ...(input || {}) };
+      for (const k of LEAVE_EDIT_BLOCKED) delete change[k]; // status moves only through approve / reject / cancel
+      const next = { ...before, ...change };
+      if (["fromDate", "toDate", "totalDays"].some((k) => k in change)) checkLeaveDays(next.fromDate, next.toDate, next.totalDays);
+      const updated = await LeaveRequest.findByIdAndUpdate(id, change, { new: true }).populate("staffid").populate("leavetypeid").lean();
+      const bucket = before.balanceReleased ? "" : heldIn(before.status);
+      if (bucket) {
+        await LeaveBalance.findOneAndUpdate(balanceKey(before), { $inc: { [bucket]: -(before.totalDays || 0) } });
+        await LeaveBalance.findOneAndUpdate(balanceKey(next), { $inc: { [bucket]: next.totalDays || 0 } }, { upsert: true, setDefaultsOnInsert: true });
+      }
       return formatLeaveRequest(updated);
     },
     approveLeaveRequest: async (_: any, { id, approverid, approverName, approverType }: any) => {
@@ -691,28 +723,48 @@ export const attendanceResolvers = {
 
       return formatLeaveRequest(populated);
     },
-    cancelLeaveRequest: async (_: any, { id }: any) => {
+    cancelLeaveRequest: async (_: any, { id }: any, ctx: any) => {
       const lr: any = await LeaveRequest.findById(id);
       if (!lr) throw new Error("Leave request not found");
-      if (lr.status === "approved" || lr.status === "rejected") throw new Error("Cannot cancel a finalized request");
-      const wasPending = lr.status === "pending";
+      if (lr.status === "rejected") throw new Error("Cannot cancel a finalized request");
+      if (lr.status === "approved" && ctx?.user?.type !== "admin" && ctx?.user?.type !== "branch") {
+        throw new Error("Ask the business owner to cancel approved leave.");
+      }
+      const bucket = lr.balanceReleased ? "" : heldIn(lr.status);
+      const wasApproved = lr.status === "approved";
       lr.status = "cancelled";
       await lr.save();
-      if (wasPending) {
-        const year = new Date(lr.fromDate).getFullYear();
-        await LeaveBalance.findOneAndUpdate(
-          { adminid: lr.adminid, staffid: lr.staffid, leavetypeid: lr.leavetypeid, year },
-          { $inc: { pending: -lr.totalDays } }
+      if (bucket) await LeaveBalance.findOneAndUpdate(balanceKey(lr), { $inc: { [bucket]: -lr.totalDays } });
+      if (wasApproved) {
+        // Drop the "leave" days approval marked, unless the staff punched on them.
+        const dates: string[] = [];
+        for (let d = new Date(lr.fromDate); d <= new Date(lr.toDate); d.setDate(d.getDate() + 1)) dates.push(toDateStr(d));
+        await Attendance.updateMany(
+          { adminid: lr.adminid, staffid: lr.staffid, date: { $in: dates }, status: "leave", "punches.0": { $exists: false } },
+          { $set: { status_active: false } }
         );
       }
       const populated = await LeaveRequest.findById(lr._id).populate("staffid").populate("leavetypeid").lean();
       return formatLeaveRequest(populated);
     },
-    deleteLeaveRequest: async (_: any, { id }: { id: string }) => !!(await LeaveRequest.findByIdAndUpdate(id, { status_active: false })),
+    deleteLeaveRequest: async (_: any, { id }: { id: string }) => {
+      const lr: any = await LeaveRequest.findOneAndUpdate({ _id: id, status_active: { $ne: false } }, { status_active: false });
+      const bucket = lr ? heldIn(lr.status) : "";
+      if (bucket) {
+        await LeaveBalance.findOneAndUpdate(balanceKey(lr), { $inc: { [bucket]: -lr.totalDays } });
+        await LeaveRequest.updateOne({ _id: id }, { $set: { balanceReleased: true } });
+      }
+      return !!lr || !!(await LeaveRequest.exists({ _id: id }));
+    },
     resetAttendanceLog: async (_: any, { id }: { id: string }) => !!(await Attendance.findByIdAndUpdate(id, { status_active: true, cleared: false })),
     resetHoliday: async (_: any, { id }: { id: string }) => !!(await Holiday.findByIdAndUpdate(id, { status: true })),
     resetLeaveType: async (_: any, { id }: { id: string }) => !!(await LeaveType.findByIdAndUpdate(id, { status: true })),
-    resetLeaveRequest: async (_: any, { id }: { id: string }) => !!(await LeaveRequest.findByIdAndUpdate(id, { status_active: true })),
+    resetLeaveRequest: async (_: any, { id }: { id: string }) => {
+      const lr: any = await LeaveRequest.findOneAndUpdate({ _id: id, status_active: false }, { status_active: true, $unset: { balanceReleased: 1 } });
+      const bucket = lr?.balanceReleased ? heldIn(lr.status) : "";
+      if (bucket) await LeaveBalance.findOneAndUpdate(balanceKey(lr), { $inc: { [bucket]: lr.totalDays } }, { upsert: true, setDefaultsOnInsert: true });
+      return !!lr || !!(await LeaveRequest.exists({ _id: id }));
+    },
     resetLeaveBalance: async (_: any, { id }: { id: string }) => !!(await LeaveBalance.findByIdAndUpdate(id, { status_active: true })),
     deleteLeaveBalance: async (_: any, { id }: { id: string }) => !!(await LeaveBalance.findByIdAndUpdate(id, { status_active: false })),
     upsertLeaveBalance: async (_: any, { input }: any) => {

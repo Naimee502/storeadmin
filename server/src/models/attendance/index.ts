@@ -125,6 +125,7 @@ const leaveRequestSchema = new mongoose.Schema(
     rejectionReason: { type: String },
     appliedFromIp: { type: String },
     status_active: { type: Boolean, default: true },
+    balanceReleased: { type: Boolean }, // delete gave the days back; restore takes them again
   },
   { timestamps: true }
 );
