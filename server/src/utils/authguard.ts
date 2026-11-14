@@ -4,6 +4,7 @@ import { defaultFieldResolver, getNamedType, getNullableType, isInputObjectType,
 import { makeExecutableSchema } from "@graphql-tools/schema";
 import { resolveTenant, TenantError } from "./tenant";
 import { Branch } from "../models/branches";
+import { AdminSettings } from "../models/adminsettings";
 import { isActionAllowed } from "./permissiongate";
 import { effectiveFormPermissions, fieldOn } from "./formpermissions";
 
@@ -227,6 +228,30 @@ const ADMIN_ARG: Record<string, string> = {
 
 const denied = (msg = "You do not have access to this record.") => new TenantError(msg, "FORBIDDEN");
 
+// Saves that carry custom fields (Business Settings -> Custom Fields), by entity.
+const CUSTOM_ENTITY: Record<string, string> = {
+  addProductService: "product", updateProductService: "product", addLead: "lead", editLead: "lead",
+  addAppointment: "appointment", editAppointment: "appointment", addJobCard: "jobcard", editJobCard: "jobcard",
+  addContract: "contract", editContract: "contract",
+};
+
+// Same rules the forms apply, so an API call cannot save what the form would refuse.
+const checkCustomFields = async (entity: string, values: any[], adminid: any) => {
+  const st: any = await AdminSettings.findOne({ adminid }).select("customFieldDefs").lean();
+  const defs = (st?.customFieldDefs || []).filter((d: any) => d.entity === entity);
+  const bad = (msg: string) => new TenantError(msg, "BAD_USER_INPUT");
+  for (const d of defs) {
+    const v = String(values.find((x: any) => x?.key === d.key)?.value ?? "").trim();
+    if (!v) {
+      if (d.required) throw bad(`${d.label} is required.`);
+      continue;
+    }
+    if (d.type === "number" && !Number.isFinite(Number(v))) throw bad(`${d.label} must be a number.`);
+    if (d.type === "date" && isNaN(new Date(v).getTime())) throw bad(`${d.label} must be a date.`);
+    if (d.type === "select" && (d.options || []).length && !d.options.includes(v)) throw bad(`${d.label}: choose one of the listed options.`);
+  }
+};
+
 export const isPlatform = (context: any): boolean => {
   const want = String(process.env.PLATFORM_KEY || "");
   const got = String(context?.req?.headers?.["x-platform-key"] || "");
@@ -345,6 +370,9 @@ const check = async (field: string, args: any, context: any, info?: any) => {
     throw denied("Only the business owner can change business settings.");
   }
   if (field === "punch" && args?.input) await checkPunch(context, args.input);
+  if (CUSTOM_ENTITY[field] && Array.isArray(args?.input?.customfields)) {
+    await checkCustomFields(CUSTOM_ENTITY[field], args.input.customfields, await callerAdminId(context));
+  }
   if (field === "approveLeaveRequest" || field === "rejectLeaveRequest") {
     args.approverid = String(context.user.id); // the approver is whoever is signed in
     args.approverType = context.user.type;
