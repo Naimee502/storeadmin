@@ -37,6 +37,7 @@ import { findSectionPerms, resolveAction } from "../../redux/slices/permissions"
 import FormPermissionsTab from "../businesssettings/formpermissionstab";
 import { useSearchParams } from "react-router";
 import { useAccessRolesQuery } from "../../graphql/hooks/accessroles";
+import { pickSettingsInput } from "../../graphql/queries/adminsettings";
 
 type TabKey =
   | "general"
@@ -439,7 +440,7 @@ const WebsiteTab: React.FC<{ adminId?: string; dispatch: any }> = ({ adminId, di
 
       justUploadedUrls.current = uploaded;
 
-      const input = deepStripTypename({ ...rest, heroBannerSlides, promoBanners, brandLogo });
+      const input = deepStripTypename(pickSettingsInput({ ...rest, heroBannerSlides, promoBanners, brandLogo }));
       await updateAdminSettings({ variables: { adminid: adminId, input } });
 
       // Delete images the saved settings no longer reference.
@@ -462,7 +463,9 @@ const WebsiteTab: React.FC<{ adminId?: string; dispatch: any }> = ({ adminId, di
       void deleteImages(orphans);
 
       // A rejected request carries the server's reason; show it instead of "status code 400".
-      const reason = e?.networkError?.result?.errors?.[0]?.message || e?.graphQLErrors?.[0]?.message || e?.message;
+      const raw = e?.networkError?.result?.errors?.[0]?.message || e?.graphQLErrors?.[0]?.message || e?.message || "";
+      // "Variable $input got invalid value {...}; <reason>": keep only the reason.
+      const reason = raw.includes("got invalid value") && raw.includes("; ") ? raw.slice(raw.lastIndexOf("; ") + 2) : raw;
       dispatch(showMessage({ message: reason || "Save failed.", type: "error" }));
     } finally {
       setSaving(false);
