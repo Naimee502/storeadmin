@@ -11,7 +11,7 @@ import { effectiveFormPermissions, fieldOn } from "./formpermissions";
 
 // Callable without a login: sign-in, sign-up and storefront reads.
 const PUBLIC = new Set([
-  "loginAdmin", "loginBranch", "loginStaff", "loginStaffByMobile", "loginParty",
+  "loginAdmin", "loginBranch", "loginStaff", "loginStaffByMobile", "loginParty", "loginSupplier",
   "loginEmailOtp", "partyLoginEmailOtp", "sendOTP", "verifyOTP", "registerAccount",
   "confirmSubscription", "verifyToken",
   "getStorefrontByStoreSlug", "getAdminByCode", "getAdminById", "getAdminSettings",
@@ -47,8 +47,11 @@ const ANON_FIELDS: Record<string, string[]> = {
 
 // Sign-in fields with a failed-attempt limit per account and network address.
 const LOGIN = new Set([
-  "loginAdmin", "loginBranch", "loginStaff", "loginStaffByMobile", "loginParty", "verifyOTP",
+  "loginAdmin", "loginBranch", "loginStaff", "loginStaffByMobile", "loginParty", "verifyOTP", "loginSupplier",
 ]);
+
+// A supplier login reaches only its own portal.
+const SUPPLIER = new Set(["getSupplierPortal"]);
 const LOGIN_MAX_FAILS = 10;
 const LOGIN_WINDOW_MS = 15 * 60 * 1000;
 const loginFails = new Map<string, { n: number; at: number }>();
@@ -380,6 +383,10 @@ const check = async (field: string, args: any, context: any, info?: any) => {
   }
   if (platform) return; // the platform owner manages every business (Business Settings, admin register)
   if (!context?.user) throw new TenantError("Please sign in again.", "UNAUTHENTICATED");
+  if (context.user.type === "supplier") {
+    if (!SUPPLIER.has(field)) throw denied("This login can only open the supplier portal.");
+    return;
+  }
   const op = info?.parentType?.name;
   if ((op === "Query" || op === "Mutation") && field !== "getAdmins") {
     const admin = await callerAdminId(context);

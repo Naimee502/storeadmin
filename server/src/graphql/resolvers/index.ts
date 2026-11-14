@@ -60,6 +60,7 @@ import { leadSourceResolvers } from "./leadsource";
 import { accessRoleResolvers } from "./accessroles";
 import { supportTicketResolvers } from "./supportticket";
 import { bookingResolvers } from "./booking";
+import { supplierPortalResolvers } from "./supplierportal";
 
 import { withOfflineActions, withOfflineWrites } from "../../utils/offlinesync";
 import { guardResolvers, hidePasswords, hideFromAnonymous } from "../../utils/authguard";
@@ -156,6 +157,7 @@ const guarded = guardResolvers([
   accessRoleResolvers,
   supportTicketResolvers,
   bookingResolvers,
+  supplierPortalResolvers,
   aiResolvers,
   insightResolvers,
   withOfflineActions(

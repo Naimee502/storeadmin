@@ -38,7 +38,7 @@ export interface TenantScope {
   adminid: Types.ObjectId;
   /** Undefined when the caller did not scope to a branch. */
   branchid?: Types.ObjectId;
-  userType: "admin" | "branch" | "staff" | "party" | "anonymous";
+  userType: "admin" | "branch" | "staff" | "party" | "supplier" | "anonymous";
   userId?: Types.ObjectId;
   /** True when the user cannot choose a branch (branch + staff logins). */
   branchPinned: boolean;
@@ -161,7 +161,7 @@ export const resolveTenant = async (
     let adminid = toObjectId(requestedAdminId);
     let branchPinnedId: Types.ObjectId | undefined;
 
-    if (type === "party" && user?.id) {
+    if ((type === "party" || type === "supplier") && user?.id) {
       const owner = user.adminid
         ? { adminid: String(user.adminid), branchid: user.branchid ? String(user.branchid) : undefined }
         : await lookupOwner("party", String(user.id));

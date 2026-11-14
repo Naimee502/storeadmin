@@ -77,7 +77,8 @@ const authLink = setContext((_, { headers }) => {
   return {
     headers: {
       ...headers,
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      // A request that brings its own login (supplier portal) keeps it.
+      ...(token && !headers?.Authorization ? { Authorization: `Bearer ${token}` } : {}),
     },
   };
 });

@@ -55,6 +55,7 @@ import { leadSourceTypeDefs } from "./leadsource";
 import { accessRoleTypeDefs } from "./accessroles";
 import { supportTicketTypeDefs } from "./supportticket";
 import { bookingTypeDefs } from "./booking";
+import { supplierPortalTypeDefs } from "./supplierportal";
 
 export const typeDefs = [
   branchTypeDefs,
@@ -114,4 +115,5 @@ export const typeDefs = [
   accessRoleTypeDefs,
   supportTicketTypeDefs,
   bookingTypeDefs,
+  supplierPortalTypeDefs,
 ];

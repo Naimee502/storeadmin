@@ -24,6 +24,7 @@ export const ADD_ACCOUNT = gql`
       openingbalance
       openingbalancetype
       creditlimit
+      supplierlogin
       bankname
       bankaccountnumber
       ifsc
@@ -85,6 +86,7 @@ export const EDIT_ACCOUNT = gql`
       openingbalance
       openingbalancetype
       creditlimit
+      supplierlogin
       bankname
       bankaccountnumber
       ifsc

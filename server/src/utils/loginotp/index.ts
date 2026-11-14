@@ -29,7 +29,7 @@ const OTP_TTL_MS = 10 * 60 * 1000;   // OTP valid for 10 minutes
 const RESEND_GAP_MS = 60 * 1000;     // at most one mail a minute per user
 const MAX_ATTEMPTS = 5;              // wrong tries before the OTP is burnt
 
-type Kind = "admin" | "branch" | "staff" | "party";
+type Kind = "admin" | "branch" | "staff" | "party" | "supplier";
 
 // Each kind is switched on by its own Business Settings flag: the billing
 // panel logins share one, the customer (party) app + website login has its own.
@@ -38,6 +38,7 @@ const FLAG: Record<Kind, "loginEmailOtp" | "partyLoginEmailOtp"> = {
   branch: "loginEmailOtp",
   staff: "loginEmailOtp",
   party: "partyLoginEmailOtp",
+  supplier: "partyLoginEmailOtp",
 };
 
 const hash = (otp: string) => crypto.createHash("sha256").update(String(otp)).digest("hex");
@@ -55,6 +56,8 @@ export const enforceLoginOtp = async (opts: {
   adminId: any;
   businessName?: string | null;
   otp?: string | null;
+  /** Ask for the OTP even when the business setting is off (supplier portal). */
+  always?: boolean;
 }) => {
   const { kind, userId, email, adminId, businessName } = opts;
   const otp = String(opts.otp ?? "").trim();
@@ -63,11 +66,11 @@ export const enforceLoginOtp = async (opts: {
   if (!adminRef) return;
   const flag = FLAG[kind];
   const settings: any = await AdminSettings.findOne({ adminid: adminRef }).select(flag).lean();
-  if (!settings?.[flag]) return; // feature off for this business
+  if (!opts.always && !settings?.[flag]) return; // feature off for this business
 
   if (!email) {
     throw new ApolloError(
-      kind === "party"
+      kind === "party" || kind === "supplier"
         ? "No email address is saved on your account, so the login OTP cannot be sent. Please contact the store."
         : "This login has no email address, so the login OTP cannot be sent. Ask your admin to add one.",
       "LOGIN_OTP_NO_EMAIL"
@@ -92,7 +95,7 @@ export const enforceLoginOtp = async (opts: {
 
     // The customer app / website OTP boxes take 4 digits (same as the
     // registration OTP); the billing panel uses 6.
-    const code = kind === "party"
+    const code = kind === "party" || kind === "supplier"
       ? String(crypto.randomInt(1000, 10000))
       : String(crypto.randomInt(100000, 1000000));
     await LoginOtp.findOneAndUpdate(
@@ -105,7 +108,7 @@ export const enforceLoginOtp = async (opts: {
     // a few seconds, and the login screen shouldn't sit on "Please wait…" for
     // it. The OTP box appears at once; the mail follows in the background. If
     // it fails, it is logged and the user can tap Resend OTP.
-    sendLoginOtpEmail(email, code, businessName || "", kind === "party", adminRef)
+    sendLoginOtpEmail(email, code, businessName || "", kind === "party" || kind === "supplier", adminRef)
       .then((sent) => { if (!sent) console.log(`[LOGIN OTP] ${kind} ${email} | OTP: ${code}`); })
       .catch(() => console.log(`[LOGIN OTP] ${kind} ${email} | OTP: ${code}`));
 

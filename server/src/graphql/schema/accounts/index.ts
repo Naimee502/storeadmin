@@ -58,6 +58,8 @@ export const accountTypeDefs = gql`
     openingbalance: Float
     openingbalancetype: String
     creditlimit: Float
+    "Supplier can sign in to the website supplier portal."
+    supplierlogin: Boolean
     bankname: String
     bankaccountnumber: String
     ifsc: String
@@ -106,6 +108,8 @@ export const accountTypeDefs = gql`
     openingbalance: Float
     openingbalancetype: String
     creditlimit: Float
+    "Supplier can sign in to the website supplier portal."
+    supplierlogin: Boolean
     bankname: String
     bankaccountnumber: String
     ifsc: String

@@ -139,6 +139,7 @@ export const GET_ACCOUNTS = gql`
       openingbalance
       openingbalancetype
       creditlimit
+      supplierlogin
       bankname
       bankaccountnumber
       ifsc
@@ -206,6 +207,7 @@ export const GET_ACCOUNT_BY_ID = gql`
       openingbalance
       openingbalancetype
       creditlimit
+      supplierlogin
       bankname
       bankaccountnumber
       ifsc

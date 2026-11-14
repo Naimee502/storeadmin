@@ -75,6 +75,8 @@ const accountSchema = new mongoose.Schema(
 
     accountcode: { type: String },
     mobile: { type: String },
+    // Supplier portal login on the website; off unless the business turns it on.
+    supplierlogin: { type: Boolean },
     email: { type: String },
     gstnumber: { type: String },
     pan: { type: String },

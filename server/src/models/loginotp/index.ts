@@ -14,7 +14,7 @@ import mongoose, { Schema } from "mongoose";
  */
 const loginOtpSchema = new Schema(
   {
-    kind: { type: String, enum: ["admin", "branch", "staff", "party"], required: true },
+    kind: { type: String, enum: ["admin", "branch", "staff", "party", "supplier"], required: true },
     userId: { type: Schema.Types.ObjectId, required: true },
     otpHash: { type: String, required: true },
     otpExpiry: { type: Date, required: true },

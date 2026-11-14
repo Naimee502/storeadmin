@@ -232,6 +232,7 @@ const AddEditAccount = () => {
     billingcycle: "monthly",
     duedays: "",
     type: "customer",
+    supplierlogin: false,
     status: true,
     accountgroupid: "",
     assignaccountid: "",
@@ -305,6 +306,7 @@ const AddEditAccount = () => {
         billingcycle: a.billingcycle || "monthly",
         duedays: a.duedays || "",
         type: a.type || "customer",
+        supplierlogin: a.supplierlogin === true,
         status: a.status ?? true,
         accountgroupid: a.accountgroupid?.id || "",
         assignaccountid: a.assignaccountid?.id || "",
@@ -440,6 +442,8 @@ const AddEditAccount = () => {
       billingcycle: formValues.billingcycle,
       duedays: Number(formValues.duedays) || 0,
       type: formValues.type,
+      // Sent only for suppliers, so other parties keep the field unset.
+      ...(formValues.type === "vendor" || formValues.type === "both" ? { supplierlogin: !!formValues.supplierlogin } : {}),
       status: formValues.status,
       accountgroupid,
       assignaccountid: formValues.assignaccountid || null,
@@ -781,6 +785,12 @@ const AddEditAccount = () => {
               )}
               {isFieldEnabled("status") && (
               <FormSwitch label="Status" name="status" checked={formValues.status} onChange={(val) => handleChange("status", val)} />
+              )}
+              {(formValues.type === "vendor" || formValues.type === "both") && (
+                <div className="space-y-1">
+                  <FormSwitch label="Supplier Portal Login" name="supplierlogin" checked={!!formValues.supplierlogin} onChange={(val) => handleChange("supplierlogin", val)} />
+                  <p className="text-[12px] text-slate-500">Supplier opens your website's /supplier page and signs in with this mobile and an OTP sent to their email. They see their orders, bills, payments and balance.</p>
+                </div>
               )}
             </div>
           </fieldset>
