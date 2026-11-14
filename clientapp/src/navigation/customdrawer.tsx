@@ -35,6 +35,8 @@ const PARTY_MENU: DrawerMenuItem[] = [
   { label: 'My Parties',          icon: 'account-group-outline',  screen: 'SubParties' },
   // Only with "Track party stock" on.
   { label: 'My Stock',            icon: 'package-variant',        screen: 'PartyStock' },
+  // Only while online booking is allowed and on (see below).
+  { label: 'Book Appointment',    icon: 'calendar-check-outline', screen: 'Booking' },
   { label: STRINGS.party.profile, icon: 'account-circle-outline', tabScreen: 'PartyProfile' },
   { label: 'separator1', icon: '', section: true },
   { label: 'Announcements', icon: 'bullhorn-outline', screen: 'Announcements' },
@@ -139,13 +141,16 @@ export const CustomDrawerContent = (props: DrawerContentComponentProps) => {
   });
   const showSubParties = manageDownline && (((downData as any)?.getDownlinePartyBalances?.length ?? 0) > 0);
   // "Track party stock" AND "Show stock on App / Website".
+  const bookingOpen = isParty && (settingsData as any)?.getAdminSettings?.onlineBookingAllowed === true
+    && (settingsData as any)?.getAdminSettings?.bookingOn === true;
   const showPartyStock = manageDownline && (settingsData as any)?.getAdminSettings?.trackPartyStock === true
     && (settingsData as any)?.getAdminSettings?.displayStockOnWebsite !== false;
   const menu  = (ROLE_MENUS[role] ?? PARTY_MENU).filter(
     (m) => (paymentsEnabled || !PAYMENT_SCREENS.has(m.tabScreen ?? m.screen ?? '')) && moduleAllows(m.screen)
       && (leaderboardOn || m.screen !== 'SalesmanLeaderboard')
       && (showSubParties || m.screen !== 'SubParties')
-      && (showPartyStock || m.screen !== 'PartyStock'),
+      && (showPartyStock || m.screen !== 'PartyStock')
+      && (bookingOpen || m.screen !== 'Booking'),
   );
   const label = ROLE_LABELS[role] ?? 'User';
 

@@ -291,6 +291,13 @@ export default function Header() {
               <NotificationBell />
             </div>
 
+            {bookingOn && (
+              <Link to="/book" className="flex items-center gap-2 rounded-lg border border-brand-600 px-3 py-2 text-sm font-semibold text-brand-700 hover:bg-brand-50">
+                <CalendarCheck className="h-5 w-5" />
+                <span className="hidden sm:inline">Book</span>
+              </Link>
+            )}
+
             <Link to="/cart" className="relative flex items-center gap-2 rounded-lg bg-ink-900 px-3 py-2 text-white hover:bg-ink-800">
               <span className="relative">
                 <ShoppingCart className="h-5 w-5" />

@@ -496,6 +496,8 @@ export const GET_ADMIN_SETTINGS = gql`
   query GetAdminSettings($adminid: ID!) {
     getAdminSettings(adminid: $adminid) {
       id
+      onlineBookingAllowed
+      bookingOn
       deliveryMode
       partyManagesDownline
       printShowPartyBalance
