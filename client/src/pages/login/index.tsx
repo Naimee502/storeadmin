@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import { useQuery } from "@apollo/client";
-import { GET_LOGIN_BUSINESS, GET_LOGIN_TABS } from "../../graphql/queries/admin";
+import { GET_LOGIN_BUSINESS, GET_LOGIN_BUSINESS_BY_ID, GET_LOGIN_TABS } from "../../graphql/queries/admin";
 import LoginLayout from "../../layouts/login";
 import FormField from "../../components/formfiled";
 import Button from "../../components/button";
@@ -13,6 +13,10 @@ import { useBranchesQuery, useLoginBranchMutation } from "../../graphql/hooks/br
 import { useLoginAdminMutation } from "../../graphql/hooks/admin";
 import { useLoginStaffMutation } from "../../graphql/hooks/staffaccounts";
 import { useAuth } from "../../contexts/auth";
+
+
+/** Business shown on plain /login next time on this device. */
+const rememberBusiness = (id?: string) => { if (id) try { localStorage.setItem("loginBusinessId", id); } catch { /* storage off */ } };
 
 const Login = () => {
   const dispatch = useAppDispatch();
@@ -30,17 +34,17 @@ const Login = () => {
 
   // A business login link (/login?b=code) shows that business's name and only its chosen tabs.
   // "#" in a code starts the URL fragment, so an unencoded link (?b=#ADM0001) arrives in the hash.
-  // The last business opened by link is remembered, so plain /login keeps its tabs.
+  // The business last signed in (or opened by link) on this device is remembered for plain /login.
   const [params] = useSearchParams();
   const fromLink = params.get("b") || (params.has("b") && /^#ADM/i.test(window.location.hash) ? window.location.hash : "");
-  const [saved, setSaved] = useState(() => { try { return localStorage.getItem("loginBusinessCode") || ""; } catch { return ""; } });
-  const code = fromLink || saved;
-  const forgetBusiness = () => { try { localStorage.removeItem("loginBusinessCode"); } catch { /* storage off */ } setSaved(""); };
+  const [savedId, setSavedId] = useState(() => { try { return localStorage.getItem("loginBusinessId") || ""; } catch { return ""; } });
+  const forgetBusiness = () => { try { localStorage.removeItem("loginBusinessId"); } catch { /* storage off */ } setSavedId(""); };
+  const { data: bizData } = useQuery(GET_LOGIN_BUSINESS, { variables: { admincode: fromLink }, skip: !fromLink });
+  const { data: savedData } = useQuery(GET_LOGIN_BUSINESS_BY_ID, { variables: { id: savedId }, skip: !!fromLink || !savedId });
+  const business = fromLink ? bizData?.getAdminByCode : savedData?.getAdminById;
   useEffect(() => {
-    if (fromLink) try { localStorage.setItem("loginBusinessCode", fromLink); } catch { /* storage off */ }
-  }, [fromLink]);
-  const { data: bizData } = useQuery(GET_LOGIN_BUSINESS, { variables: { admincode: code }, skip: !code });
-  const business = bizData?.getAdminByCode;
+    if (fromLink && bizData?.getAdminByCode?.id) rememberBusiness(bizData.getAdminByCode.id);
+  }, [fromLink, bizData]);
   const { data: tabsData } = useQuery(GET_LOGIN_TABS, { variables: { adminid: business?.id }, skip: !business?.id });
   const chosenTabs: string[] = tabsData?.getAdminSettings?.loginTabs || [];
   const loginTabs = ([["branch", "Branch Login"], ["staff", "Staff Login"], ["admin", "Admin Login"]] as const)
@@ -117,6 +121,7 @@ const Login = () => {
         localStorage.setItem("accessToken", accessToken);
         localStorage.setItem("branchid", staff.branchid?.id || "");
         localStorage.setItem("adminid", admin.id || "");
+        rememberBusiness(admin.id);
         dispatch(setBranchId(staff.branchid?.id || ""));
         dispatch(saveAuthData({ type: "staff", staff: staff }));
         login();
@@ -132,6 +137,7 @@ const Login = () => {
 
         localStorage.setItem("accessToken", accessToken);
         localStorage.setItem("adminid", admin.id || "");
+        rememberBusiness(admin.id);
 
         if (!admin.subscribed) {
           if (admin.needsReview) {
@@ -200,6 +206,7 @@ const Login = () => {
         localStorage.setItem("accessToken", accessToken);
         localStorage.setItem("branchid", branch.id);
         localStorage.setItem("adminid", admin.id || "");
+        rememberBusiness(admin.id);
         dispatch(setBranchId(branch.id));
         dispatch(saveAuthData({ type: "branch", branch: branch }));
         login();
@@ -257,7 +264,7 @@ const Login = () => {
             <p className="mt-1 text-[13px] text-slate-500">
               {business?.companyName ? `Sign in to ${business.companyName}` : "Sign in to your account to continue"}
             </p>
-            {!fromLink && saved && business?.companyName && (
+            {!fromLink && savedId && business?.companyName && (
               <button type="button" onClick={forgetBusiness} className="mt-1 text-[12px] font-medium text-indigo-600 hover:underline">Not {business.companyName}? Show all logins</button>
             )}
           </div>

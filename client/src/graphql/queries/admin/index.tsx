@@ -49,6 +49,15 @@ export const GET_LOGIN_BUSINESS = gql`
   }
 `;
 
+export const GET_LOGIN_BUSINESS_BY_ID = gql`
+  query GetLoginBusinessById($id: ID!) {
+    getAdminById(id: $id) {
+      id
+      companyName
+    }
+  }
+`;
+
 export const GET_LOGIN_TABS = gql`
   query GetLoginTabs($adminid: ID!) {
     getAdminSettings(adminid: $adminid) {
