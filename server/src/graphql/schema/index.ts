@@ -56,6 +56,7 @@ import { accessRoleTypeDefs } from "./accessroles";
 import { supportTicketTypeDefs } from "./supportticket";
 import { bookingTypeDefs } from "./booking";
 import { supplierPortalTypeDefs } from "./supplierportal";
+import { customerPortalTypeDefs } from "./customerportal";
 
 export const typeDefs = [
   branchTypeDefs,
@@ -116,4 +117,5 @@ export const typeDefs = [
   supportTicketTypeDefs,
   bookingTypeDefs,
   supplierPortalTypeDefs,
+  customerPortalTypeDefs,
 ];

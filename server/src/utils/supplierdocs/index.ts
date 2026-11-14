@@ -97,7 +97,7 @@ export const editSupplierOrder = async (id: string, partyid: any, adminid: any, 
 export const printToken = (kind: string, id: string, partyid: any, adminid: any) =>
   jwt.sign({ kind, id: String(id), p: String(partyid), a: String(adminid) }, PRINT_SECRET(), { expiresIn: "15m" });
 
-const esc = (v: any) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c] as string));
+export const esc = (v: any) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c] as string));
 
 const ONES = ["", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve", "thirteen", "fourteen", "fifteen", "sixteen", "seventeen", "eighteen", "nineteen"];
 const TENS = ["", "", "twenty", "thirty", "forty", "fifty", "sixty", "seventy", "eighty", "ninety"];
@@ -117,7 +117,7 @@ const toWords = (num: number) => {
   if (n) parts.push(under1000(n));
   return `${num < 0 ? "minus " : ""}${parts.join(", ")}`;
 };
-const dmy = (s?: string | null) => {
+export const dmy = (s?: string | null) => {
   const m = String(s || "").match(/^(\d{4})-(\d{2})-(\d{2})/);
   return m ? `${m[3]}-${m[2]}-${m[1]}` : String(s || "-");
 };

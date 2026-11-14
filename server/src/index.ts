@@ -11,6 +11,7 @@ import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import jwt from 'jsonwebtoken';
 import { supplierPrintHtml } from './utils/supplierdocs';
+import { jobSheetHtml, startServiceReminderScheduler } from './utils/customerportal';
 import { generateTokens, sendRefreshToken } from './utils/auth';
 import { Admin } from './models/admin';
 import { startReminderScheduler } from './utils/reminderscheduler';
@@ -100,6 +101,14 @@ const startServer = async () => {
 
   // Lead integrations (IndiaMART, JustDial, Meta, WhatsApp, website forms) post here; the token names the business.
   app.use('/webhooks/leads', leadWebhookRouter);
+
+  // Customer job sheet print link (short-lived token).
+  app.get("/print/jobcard/:token", async (req, res) => {
+    const html = await jobSheetHtml(String(req.params.token || "")).catch(() => null);
+    res.setHeader("Cache-Control", "no-store");
+    if (!html) return res.status(404).send("This print link has expired. Open the repair again and tap Print.");
+    res.type("html").send(html);
+  });
 
   // Supplier print link: a short-lived signed token names the bill or order.
   app.get("/print/supplier/:token", async (req, res) => {
@@ -217,6 +226,7 @@ const startServer = async () => {
   startReminderScheduler();
   // Punch out anyone who forgot, at the business's cut-off (default 22:00 IST).
   startAutoPunchOutScheduler();
+  startServiceReminderScheduler();
   // IndiaMART / TradeIndia pulls every 15 minutes.
   startLeadPullScheduler();
 };
