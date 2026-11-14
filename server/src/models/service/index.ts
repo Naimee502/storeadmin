@@ -196,9 +196,57 @@ export async function moveAppointmentMaterials(appt: any, sign: 1 | -1) {
   await moveJobCardStock({ spares, branchid: appt.branchid, adminid: appt.adminid, _id: appt._id, billnumber: appt.billnumber, billdate: appt.billdate, doctype: "Appointment" }, sign);
 }
 
+const medicineSchema = new mongoose.Schema(
+  {
+    productserviceid: { type: ObjectId, ref: "ProductService" },
+    name: { type: String, required: true },
+    dose: { type: String },
+    // e.g. 1-0-1
+    frequency: { type: String },
+    // before, after, empty, bedtime
+    timing: { type: String },
+    days: { type: Number },
+    qty: { type: Number },
+    notes: { type: String },
+  },
+  { _id: false }
+);
+
+// Clinic: what the doctor wrote for a patient visit.
+const prescriptionSchema = new mongoose.Schema(
+  {
+    ...tenant,
+    ...customer,
+    appointmentid: { type: ObjectId, ref: "Appointment" },
+    // Doctor; empty when the owner is the doctor.
+    staffid: { type: ObjectId, ref: "StaffAccount" },
+    doctorname: { type: String },
+    doctorqualification: { type: String },
+    doctorregno: { type: String },
+    rxnumber: { type: String },
+    billdate: { type: String, required: true },
+    complaints: { type: String },
+    diagnosis: { type: String },
+    vitals: {
+      type: new mongoose.Schema({ bp: String, pulse: String, temperature: String, weight: String, spo2: String, sugar: String }, { _id: false }),
+      default: undefined,
+    },
+    medicines: { type: [medicineSchema], default: undefined },
+    tests: { type: String },
+    advice: { type: String },
+    nextvisit: { type: String },
+    invoiceid: { type: ObjectId, ref: "SalesInvoice" },
+  },
+  { timestamps: true }
+);
+oncePerRequest(prescriptionSchema);
+prescriptionSchema.index({ adminid: 1, partyacc: 1, billdate: -1 });
+prescriptionSchema.index({ nextvisit: 1 });
+
 jobCardSchema.plugin(billNumberGuard("JobCard"));
 export const Appointment = mongoose.model("Appointment", appointmentSchema);
 export const JobCard = mongoose.model("JobCard", jobCardSchema);
 export const Contract = mongoose.model("Contract", contractSchema);
 export const MembershipPlan = mongoose.model("MembershipPlan", membershipPlanSchema);
 export const Membership = mongoose.model("Membership", membershipSchema);
+export const Prescription = mongoose.model("Prescription", prescriptionSchema);

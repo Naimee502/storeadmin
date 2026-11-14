@@ -16,14 +16,14 @@ const PUBLIC = new Set([
   "confirmSubscription", "verifyToken",
   "getStorefrontByStoreSlug", "getAdminByCode", "getAdminById", "getAdminSettings",
   "getBranches", "getProductServices", "getCategories", "getChargeRules", "getChannels",
-  "resolvePrice", "reverseGeocode", "isAnnouncementsEnabled", "getBookingSlots",
+  "resolvePrice", "reverseGeocode", "isAnnouncementsEnabled", "getBookingSlots", "getClinicDoctors",
 ]);
 
 // Login-free reads that carry one business's data. Signed-in callers get their own business;
 // callers without a back-office login see only the fields the app and website ask for.
 const TENANT_PUBLIC = new Set([
   "getBranches", "getAdminSettings", "getAdminByCode", "getAdminById", "getCategories",
-  "getChargeRules", "getChannels", "resolvePrice", "getBookingSlots",
+  "getChargeRules", "getChannels", "resolvePrice", "getBookingSlots", "getClinicDoctors",
 ]);
 const ANON_FIELDS: Record<string, string[]> = {
   Admin: ["id", "name", "companyName", "email", "mobile", "admincode", "businesstype", "allowedmodules"],
@@ -162,6 +162,7 @@ own("JobCard", ["getJobCardById", "editJobCard", "setJobCardStatus", "deleteJobC
 own("Contract", ["getContractById", "editContract", "deleteContract", "resetContract"]);
 own("MembershipPlan", ["getMembershipPlanById", "editMembershipPlan", "deleteMembershipPlan", "resetMembershipPlan"]);
 own("Membership", ["getMembershipById", "editMembership", "deleteMembership", "resetMembership"]);
+own("Prescription", ["getPrescriptionById", "editPrescription", "deletePrescription", "resetPrescription"]);
 own("Opportunity", ["setOpportunityState", "convertOpportunityToLead", "aiDraftForOpportunity"]);
 own("Insight", ["setInsightState"]);
 own("LeadInbox", ["retryLeadInbox"]);

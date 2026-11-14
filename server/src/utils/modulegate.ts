@@ -39,15 +39,19 @@ const listOf = async (kind: "admin" | "branch" | "staff", id: any): Promise<stri
   return value;
 };
 
+// Off until the business ticks them, even when its module list is blank.
+const OPT_IN = new Set(["loyalty", "prescriptions"]);
 const includes = (list: string[] | null, moduleId: string) =>
   list === null || list.some((m) => String(m).toLowerCase() === moduleId.toLowerCase());
+const bizIncludes = (list: string[] | null, moduleId: string) =>
+  OPT_IN.has(moduleId.toLowerCase()) ? list !== null && includes(list, moduleId) : includes(list, moduleId);
 
 /** Is the module on for this business (and, when given, this branch / staff)? */
 export const isModuleOn = async (
   moduleId: string,
   scope: { adminid: any; branchid?: any; staffid?: any }
 ): Promise<boolean> => {
-  if (!includes(await listOf("admin", scope.adminid), moduleId)) return false;
+  if (!bizIncludes(await listOf("admin", scope.adminid), moduleId)) return false;
   if (scope.branchid && !includes(await listOf("branch", scope.branchid), moduleId)) return false;
   if (scope.staffid && !includes(await listOf("staff", scope.staffid), moduleId)) return false;
   return true;

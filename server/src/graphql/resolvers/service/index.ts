@@ -1,4 +1,5 @@
-import { Appointment, Contract, JobCard, Membership, MembershipPlan, moveAppointmentMaterials, moveJobCardStock, serviceVariants } from "../../../models/service";
+import mongoose from "mongoose";
+import { Appointment, Contract, JobCard, Membership, MembershipPlan, Prescription, moveAppointmentMaterials, moveJobCardStock, serviceVariants } from "../../../models/service";
 import { Account } from "../../../models/accounts";
 import { ProductService } from "../../../models/products";
 import { StaffAccount } from "../../../models/staffaccounts";
@@ -21,6 +22,7 @@ export const jobCardPopulate: any[] = [PARTY, { path: "technicianid", select: "n
 export const contractPopulate: any[] = [PARTY, { path: "items.productserviceid", select: "name" }];
 export const planPopulate: any[] = [{ path: "services", select: "name" }];
 export const membershipPopulate: any[] = [PARTY, { path: "planid", select: "name" }];
+export const prescriptionPopulate: any[] = [PARTY, { path: "staffid", select: "name" }, { path: "medicines.productserviceid", select: "name" }];
 
 const sid = (v: any) => (v ? String(v._id ?? v) : null);
 const ref = (d: any, key = "name") => (d ? { id: String(d._id ?? d), name: d[key] ?? null } : null);
@@ -43,6 +45,10 @@ export const formatContract = (d: any) => ({
 });
 export const formatPlan = (d: any) => ({ ...base(d), services: (d.services || []).map((s: any) => ref(s)) });
 export const formatMembership = (d: any) => ({ ...base(d), partyacc: party(d.partyacc), planid: ref(d.planid) });
+export const formatPrescription = (d: any) => ({
+  ...base(d), partyacc: party(d.partyacc), staffid: ref(d.staffid), appointmentid: sid(d.appointmentid), invoiceid: sid(d.invoiceid),
+  medicines: (d.medicines || []).map((m: any) => ({ ...m, productserviceid: ref(m.productserviceid) })),
+});
 
 /** Tenant + branch scope (the sync pull uses it without status). */
 export const buildServiceQuery = (scope: { adminid: any; branchid?: any }, filter: any = {}, dateField = "billdate") => {
@@ -60,7 +66,7 @@ export const buildServiceQuery = (scope: { adminid: any; branchid?: any }, filte
   return q;
 };
 
-const LABEL: Record<string, string> = { appointments: "Appointments", jobcards: "Job Cards", contracts: "AMC / Warranty", memberships: "Memberships" };
+const LABEL: Record<string, string> = { appointments: "Appointments", jobcards: "Job Cards", contracts: "AMC / Warranty", memberships: "Memberships", prescriptions: "Prescriptions" };
 
 async function gate(context: any, module: string, action: string) {
   const scope = await requireBackofficeTenant(context);
@@ -131,6 +137,11 @@ const COLUMNS: Record<string, Record<string, Clause>> = {
   memberships: {
     plan: async (t, adminid) => ({ planid: { $in: (await MembershipPlan.find({ adminid, name: containsRx(t) }).select("_id").limit(200).lean()).map((p: any) => p._id) } }),
     customer: partyClause(), startdate: dateClause("startdate"), enddate: dateClause("enddate"), amount: amountClause("amount") },
+  prescriptions: {
+    rxnumber: (t) => ({ rxnumber: containsRx(t.replace(/^RX-?/i, "")) }),
+    customer: partyClause(), billdate: dateClause("billdate"), doctor: textClause("doctorname"),
+    diagnosis: (t) => ({ $or: [{ diagnosis: containsRx(t) }, { complaints: containsRx(t) }] }), nextvisit: dateClause("nextvisit"),
+  },
 };
 
 async function pageOf(model: any, module: string, populate: any[], format: (d: any) => any, scope: any, args: any, dateField = "billdate") {
@@ -178,6 +189,38 @@ const loadJobCard = load(JobCard, jobCardPopulate, formatJobCard);
 const loadContract = load(Contract, contractPopulate, formatContract);
 const loadPlan = load(MembershipPlan, planPopulate, formatPlan);
 const loadMembership = load(Membership, membershipPopulate, formatMembership);
+const loadPrescription = load(Prescription, prescriptionPopulate, formatPrescription);
+
+/** Prescriptions a login may see: a doctor without the View permission sees only their own. */
+async function rxScope(context: any, args: any) {
+  const scope = await requireBackofficeTenant(context);
+  const where = { adminid: scope.adminid, branchid: scope.userType === "admin" ? undefined : scope.branchid, staffid: scope.userType === "staff" ? scope.userId : undefined };
+  await assertModuleOn("prescriptions", LABEL.prescriptions, where);
+  const a = { ...(args || {}), filter: { ...(args?.filter || {}) } };
+  if (scope.userType === "staff" && !(await isActionAllowed("prescriptions", "view", where))) a.filter.staffid = scope.userId;
+  return { scope, args: a };
+}
+
+/** The doctor's name, qualification and registration number printed on the prescription. */
+async function doctorOf(adminid: any, staffid: any) {
+  if (staffid) {
+    const s: any = await StaffAccount.findOne({ _id: staffid, admin: adminid }).select("name doctor").lean();
+    if (!s) throw new TenantError("Doctor not found.", "BAD_USER_INPUT");
+    return { doctorname: s.name, doctorqualification: s.doctor?.qualification || undefined, doctorregno: s.doctor?.regno || undefined };
+  }
+  const st: any = await AdminSettings.findOne({ adminid }).select("ownerDoctor legalName").lean();
+  const a: any = await mongoose.model("Admin").findById(adminid).select("name companyName").lean();
+  const o = st?.ownerDoctor || {};
+  return { doctorname: o.name || a?.name || a?.companyName || "Doctor", doctorqualification: o.qualification || undefined, doctorregno: o.regno || undefined };
+}
+
+function cleanRx(input: any) {
+  const { clientRequestId, ...rest } = input || {};
+  const medicines = (rest.medicines || []).map((m: any) => ({ ...m, name: String(m.name || "").trim() })).filter((m: any) => m.name);
+  if (rest.nextvisit === "") rest.nextvisit = null;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(rest.billdate || ""))) throw new TenantError("Pick the date.", "BAD_USER_INPUT");
+  return { ...rest, medicines };
+}
 
 // ---------- Rules ----------
 
@@ -290,6 +333,24 @@ export const serviceResolvers = {
     getMembershipPlanById: tenantOnly((s, a) => byIdOf(MembershipPlan, planPopulate, formatPlan, s, a.id)),
     getMemberships: tenantOnly((s, a) => listOf(Membership, membershipPopulate, formatMembership, s, a.filter, { startdate: -1 }, "startdate")),
     getMembershipsPage: tenantOnly((s, a) => pageOf(Membership, "memberships", membershipPopulate, formatMembership, s, a, "startdate")),
+    getPrescriptionsPage: async (_: any, args: any, context: any) => {
+      const r = await rxScope(context, args);
+      return pageOf(Prescription, "prescriptions", prescriptionPopulate, formatPrescription, r.scope, r.args);
+    },
+    getPrescriptions: async (_: any, args: any, context: any) => {
+      const r = await rxScope(context, args);
+      return listOf(Prescription, prescriptionPopulate, formatPrescription, r.scope, r.args.filter, { billdate: -1, _id: -1 });
+    },
+    getDeletedPrescriptions: async (_: any, args: any, context: any) => {
+      const r = await rxScope(context, args);
+      return deletedOf(Prescription, prescriptionPopulate, formatPrescription, r.scope, r.args.filter);
+    },
+    getPrescriptionById: async (_: any, { id }: any, context: any) => {
+      const r = await rxScope(context, {});
+      const d = await byIdOf(Prescription, prescriptionPopulate, formatPrescription, r.scope, id);
+      if (d && r.args.filter.staffid && String(d.staffid?.id || "") !== String(r.args.filter.staffid)) return null;
+      return d;
+    },
     getDeletedMemberships: tenantOnly((s, a) => deletedOf(Membership, membershipPopulate, formatMembership, s, a.filter)),
     getMembershipById: tenantOnly((s, a) => byIdOf(Membership, membershipPopulate, formatMembership, s, a.id)),
   },
@@ -467,6 +528,41 @@ export const serviceResolvers = {
     },
     deleteMembership: softDelete(Membership, "memberships"),
     resetMembership: restore(Membership, "memberships"),
+
+    addPrescription: addWith(Prescription, loadPrescription, async (input, context) => {
+      const scope = await gate(context, "prescriptions", "add");
+      const data: any = cleanRx(input);
+      // A doctor login writes as themselves.
+      if (scope.userType === "staff" && !data.staffid) data.staffid = scope.userId;
+      await checkCustomer(data, scope);
+      if (data.appointmentid) await assertOwnedIds(Appointment, [data.appointmentid], scope.adminid, "Appointment", "adminid");
+      const ids = data.medicines.map((m: any) => m.productserviceid).filter(Boolean);
+      if (ids.length) await assertOwnedIds(ProductService, ids, scope.adminid, "Medicine", "adminid");
+      const count = await Prescription.countDocuments({ adminid: scope.adminid });
+      const created: any = await Prescription.create({
+        ...data, ...(await doctorOf(scope.adminid, data.staffid)), rxnumber: String(count + 1),
+        adminid: scope.adminid, branchid: scope.branchid || data.branchid || undefined, createdby_name: userName(context),
+      });
+      return loadPrescription(created._id);
+    }),
+    editPrescription: async (_: any, { id, input }: any, context: any) => {
+      const { scope, d } = await own(Prescription, id, context, "prescriptions", "edit");
+      const { branchid, ...patch } = cleanRx(input);
+      if (scope.userType === "staff" && d.staffid && String(d.staffid) !== String(scope.userId) && !(await isActionAllowed("prescriptions", "view", { adminid: scope.adminid, staffid: scope.userId }))) {
+        throw new TenantError("You can change only your own prescriptions.");
+      }
+      if (scope.userType === "staff" && !patch.staffid) patch.staffid = d.staffid || scope.userId;
+      await checkCustomer(patch, scope);
+      const ids = patch.medicines.map((m: any) => m.productserviceid).filter(Boolean);
+      if (ids.length) await assertOwnedIds(ProductService, ids, scope.adminid, "Medicine", "adminid");
+      const doctor = String(patch.staffid || "") !== String(d.staffid || "") ? await doctorOf(scope.adminid, patch.staffid) : {};
+      const unset: any = {};
+      if (!patch.staffid) { delete patch.staffid; if (d.staffid) unset.staffid = ""; }
+      await Prescription.updateOne({ _id: d._id }, { $set: { ...patch, ...doctor }, ...(Object.keys(unset).length ? { $unset: unset } : {}) });
+      return loadPrescription(d._id);
+    },
+    deletePrescription: softDelete(Prescription, "prescriptions"),
+    resetPrescription: restore(Prescription, "prescriptions"),
   },
 
   Membership: {

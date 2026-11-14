@@ -53,6 +53,21 @@ const staffAccountSchema = new mongoose.Schema(
       default: null,
     },
 
+    // Clinic: set when this staff member is a doctor (no default, so other staff are untouched).
+    doctor: {
+      type: new mongoose.Schema({
+        specialization: { type: String },
+        qualification: { type: String },
+        regno: { type: String },
+        experience: { type: Number },
+        fee: { type: Number },
+        about: { type: String },
+        // false hides the doctor from online booking.
+        online: { type: Boolean },
+      }, { _id: false }),
+      default: undefined,
+    },
+
     // FCM device token for push notifications (set by the mobile app on login).
     fcmtoken: { type: String, default: null },
 

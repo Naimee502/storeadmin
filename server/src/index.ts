@@ -13,6 +13,7 @@ import jwt from 'jsonwebtoken';
 import { supplierPrintHtml } from './utils/supplierdocs';
 import { jobSheetHtml, startServiceReminderScheduler } from './utils/customerportal';
 import { startLoyaltyExpiryScheduler } from './utils/loyalty';
+import { rxPrintHtml, startRxReminderScheduler } from './utils/clinic';
 import { generateTokens, sendRefreshToken } from './utils/auth';
 import { Admin } from './models/admin';
 import { startReminderScheduler } from './utils/reminderscheduler';
@@ -108,6 +109,14 @@ const startServer = async () => {
     const html = await jobSheetHtml(String(req.params.token || "")).catch(() => null);
     res.setHeader("Cache-Control", "no-store");
     if (!html) return res.status(404).send("This print link has expired. Open the repair again and tap Print.");
+    res.type("html").send(html);
+  });
+
+  // Patient prescription print link (short-lived token).
+  app.get("/print/prescription/:token", async (req, res) => {
+    const html = await rxPrintHtml(String(req.params.token || "")).catch(() => null);
+    res.setHeader("Cache-Control", "no-store");
+    if (!html) return res.status(404).send("This print link has expired. Open the prescription again and tap Print.");
     res.type("html").send(html);
   });
 
@@ -229,6 +238,7 @@ const startServer = async () => {
   startAutoPunchOutScheduler();
   startServiceReminderScheduler();
   startLoyaltyExpiryScheduler();
+  startRxReminderScheduler();
   // IndiaMART / TradeIndia pulls every 15 minutes.
   startLeadPullScheduler();
 };

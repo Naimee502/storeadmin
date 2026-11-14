@@ -64,6 +64,8 @@ import { supportTicketResolvers } from "./supportticket";
 import { bookingResolvers } from "./booking";
 import { supplierPortalResolvers } from "./supplierportal";
 import { customerPortalResolvers } from "./customerportal";
+import { clinicResolvers } from "./clinic";
+import { withRxNotify } from "../../utils/clinic";
 import { panelLoginResolvers } from "./panellogin";
 import { withCustomerNotify } from "../../utils/customerportal";
 
@@ -166,6 +168,7 @@ const guarded = guardResolvers([
   bookingResolvers,
   supplierPortalResolvers,
   customerPortalResolvers,
+  clinicResolvers,
   panelLoginResolvers,
   aiResolvers,
   insightResolvers,
@@ -184,7 +187,7 @@ const guarded = guardResolvers([
     [Contract, ["editContract", "deleteContract"]],
     [MembershipPlan, ["editMembershipPlan", "deleteMembershipPlan"]],
     [Membership, ["editMembership", "deleteMembership"]],
-  ].reduce((r: any, [model, names]: any) => withOfflineActions(r, model, names), withCustomerNotify(serviceResolvers)),
+  ].reduce((r: any, [model, names]: any) => withOfflineActions(r, model, names), withRxNotify(withCustomerNotify(serviceResolvers))),
 ]);
 
 export const resolvers = [...guarded, hideFromAnonymous(typeDefs, guarded)];

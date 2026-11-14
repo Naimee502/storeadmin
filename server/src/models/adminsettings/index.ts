@@ -496,6 +496,21 @@ const adminSettingsSchema = new mongoose.Schema(
     // Online booking from the website and app. The platform allows it per business; the owner then
     // turns it on and sets hours (used when a service has none). Unset = off.
     onlineBookingAllowed: { type: Boolean },
+    // Clinic: the owner's own doctor profile (a doctor running the clinic alone).
+    ownerDoctor: {
+      type: new mongoose.Schema({
+        name: { type: String },
+        specialization: { type: String },
+        qualification: { type: String },
+        regno: { type: String },
+        experience: { type: Number },
+        fee: { type: Number },
+        about: { type: String },
+        photo: { type: String },
+        online: { type: Boolean },
+      }, { _id: false }),
+      default: undefined,
+    },
     // Loyalty rules (Loyalty module); blank uses the defaults in utils/loyalty.
     loyaltyEarnPer100: { type: Number },
     loyaltyPointValue: { type: Number },

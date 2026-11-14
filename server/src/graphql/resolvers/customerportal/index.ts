@@ -1,6 +1,6 @@
 import { Admin } from "../../../models/admin";
 import { Account } from "../../../models/accounts";
-import { Contract, JobCard, Membership } from "../../../models/service";
+import { Contract, JobCard, Membership, Prescription } from "../../../models/service";
 import { SupportTicket } from "../../../models/supportticket";
 import { pushNotification } from "../../../models/notifications";
 import { resolveTenant, TenantError } from "../../../utils/tenant";
@@ -38,6 +38,7 @@ export const customerPortalResolvers = {
         jobcards: on("jobcards") ? jobcards : 0, activeJobcards: on("jobcards") ? activeJobcards : 0,
         contracts: on("contracts") ? contracts : 0, memberships: on("memberships") ? memberships : 0,
         loyaltyPoints: list?.includes("loyalty") ? await balanceOf(m.adminid, m.partyid) : null,
+        prescriptions: list?.includes("prescriptions") ? await Prescription.countDocuments({ adminid: m.adminid, partyacc: m.partyid, status: true }) : null,
       };
     },
     getMyJobCards: async (_: any, __: any, context: any) => {

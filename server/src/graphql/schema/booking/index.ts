@@ -29,11 +29,13 @@ export const bookingTypeDefs = gql`
     date: String!
     starttime: String!
     notes: String
+    "Clinic: the doctor picked (staff id, or owner)."
+    doctorid: ID
   }
 
   extend type Query {
     "Free start times for a service on a day (website and app booking)."
-    getBookingSlots(adminid: ID!, serviceid: ID!, variantid: ID, date: String!): [BookingSlot!]!
+    getBookingSlots(adminid: ID!, serviceid: ID!, variantid: ID, date: String!, doctorid: ID): [BookingSlot!]!
     "The signed-in customer's bookings, newest first."
     getMyAppointments: [MyAppointment!]!
   }
