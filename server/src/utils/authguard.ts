@@ -43,6 +43,36 @@ const ANON_FIELDS: Record<string, string[]> = {
   ],
 };
 
+// Sign-in fields with a failed-attempt limit per account and network address.
+const LOGIN = new Set([
+  "loginAdmin", "loginBranch", "loginStaff", "loginStaffByMobile", "loginParty", "verifyOTP",
+]);
+const LOGIN_MAX_FAILS = 10;
+const LOGIN_WINDOW_MS = 15 * 60 * 1000;
+const loginFails = new Map<string, { n: number; at: number }>();
+
+const loginKey = (field: string, args: any, context: any) =>
+  [field, args?.adminId || "", String(args?.email || args?.mobile || "").toLowerCase(), context?.req?.ip || ""].join(":");
+
+const limitLogin = async (field: string, args: any, context: any, run: () => any) => {
+  const key = loginKey(field, args, context);
+  const hit = loginFails.get(key);
+  if (hit && Date.now() - hit.at > LOGIN_WINDOW_MS) loginFails.delete(key);
+  if ((loginFails.get(key)?.n || 0) >= LOGIN_MAX_FAILS) {
+    throw new TenantError("Too many failed sign-in attempts. Please wait 15 minutes and try again.", "TOO_MANY_ATTEMPTS");
+  }
+  try {
+    const result = await run();
+    loginFails.delete(key);
+    return result;
+  } catch (e) {
+    if (loginFails.size > 10000) loginFails.clear();
+    const prev = loginFails.get(key);
+    loginFails.set(key, { n: (prev?.n || 0) + 1, at: prev?.at || Date.now() });
+    throw e;
+  }
+};
+
 // Platform owner only (x-platform-key header).
 const PLATFORM = new Set([
   "getAdminByEmail", "getDeletedAdmins", "getPendingSubscriptions",
@@ -372,6 +402,7 @@ const wrapMap = (map: any) => {
           await check(field, args || {}, context, info);
           if (TENANT_PUBLIC.has(field) && !context?.user && !isPlatform(context) && !args?.adminid && !args?.adminId
             && isListType(getNullableType(info.returnType))) return []; // no business named: nothing to list
+          if (LOGIN.has(field)) return limitLogin(field, args, context, () => (fn as any)(parent, args, context, info));
           return (fn as any)(parent, args, context, info);
         }
       : fn;
