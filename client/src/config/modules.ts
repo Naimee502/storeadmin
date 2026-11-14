@@ -104,6 +104,8 @@ const MODULE_LIST: ModuleDef[] = [
   { id: "accountledgers", label: "Account Ledgers", section: "accounts", actions: CRUD_ACTIONS, inAdminRegister: true },
   // "view" = the View button on the list; off until ticked.
   { id: "staffaccounts",  label: "Staff Accounts",  section: "accounts", actions: ["view", ...CRUD_ACTIONS], inAdminRegister: true },
+  { id: "departments",    label: "Departments",     section: "hr", actions: CRUD_ACTIONS, inAdminRegister: true },
+  { id: "accessroles",    label: "Access Roles",    section: "hr", actions: CRUD_ACTIONS, inAdminRegister: true },
   { id: "accounts",       label: "Party Accounts",  section: "accounts", actions: ["view", ...CRUD_WITH_IMPORT_EXPORT_ACTIONS], inAdminRegister: true },
 
   // Sales pipeline
@@ -242,7 +244,7 @@ export const SECTION_LABELS: Record<ModuleSection, string> = {
 export const findModule = (id: string) => MODULES.find((m) => m.id === id);
 
 // Core modules visible by default, even for tenants saved before they existed.
-export const DEFAULT_ON_MODULE_IDS: string[] = ["branches"];
+export const DEFAULT_ON_MODULE_IDS: string[] = ["branches", "departments", "accessroles"];
 
 export const ADMIN_REGISTER_MODULES = MODULES.filter((m) => m.inAdminRegister);
 export const MODULES_BY_SECTION = (() => {

@@ -84,6 +84,8 @@ import DeletedAccountLedgers from "../pages/accountledgers/deletedentries";
 import AnalyticalReports from "../pages/reports/analytics";
 import StaffAccounts from "../pages/staffaccounts";
 import DeletedStaffAccounts from "../pages/staffaccounts/deletedentries";
+import Departments from "../pages/departments";
+import AccessRoles from "../pages/accessroles";
 import POSDashboard from "../pages/posdashboard";
 import AddEditExpenseNote from "../pages/expensenote/addedit";
 import DeletedExpenseNotes from "../pages/expensenote/deletedentries";
@@ -486,6 +488,10 @@ const AppRoutes = () => {
           </ProtectedRoutes>
         }
       />
+      <Route path="/departments" element={<ProtectedRoutes><Departments /></ProtectedRoutes>} />
+      <Route path="/departments/deletedentries" element={<ProtectedRoutes><Departments deleted /></ProtectedRoutes>} />
+      <Route path="/accessroles" element={<ProtectedRoutes><AccessRoles /></ProtectedRoutes>} />
+      <Route path="/accessroles/deletedentries" element={<ProtectedRoutes><AccessRoles deleted /></ProtectedRoutes>} />
       <Route
         path="/products"
         element={

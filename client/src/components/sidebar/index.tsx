@@ -27,6 +27,7 @@ import { Link, useLocation, useNavigate } from 'react-router';
 import { useAppSelector } from '../../redux/hooks';
 import { DEFAULT_ON_MODULE_IDS } from '../../config/modules';
 import { selectModuleActions } from '../../redux/slices/permissions';
+import { Building2, ShieldCheck } from 'lucide-react';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -173,6 +174,8 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar, onHoverChange 
     { to: '/accountgroups', label: 'Account Groups', icon: <FaUsers className="text-teal-400 text-[15px] flex-shrink-0" />, moduleId: "accountgroups", roles: ["admin", "branch", "staff"], section: "Accounts" },
     { to: '/accountledgers', label: 'Account Ledgers', icon: <FaMoneyBillWave className="text-green-400 text-[15px] flex-shrink-0" />, moduleId: "accountledgers", roles: ["admin", "branch", "staff"], section: "Accounts" },
     { to: '/staffaccounts', label: 'Staff Accounts', icon: <FaUserTie className="text-indigo-400 text-[15px] flex-shrink-0" />, moduleId: "staffaccounts", roles: ["admin", "branch", "staff"], section: "Accounts" },
+    { to: '/departments', label: 'Departments', icon: <Building2 size={15} className="text-indigo-400 flex-shrink-0" />, moduleId: "departments", roles: ["admin", "branch"], section: "Accounts" },
+    { to: '/accessroles', label: 'Access Roles', icon: <ShieldCheck size={15} className="text-indigo-400 flex-shrink-0" />, moduleId: "accessroles", roles: ["admin"], section: "Accounts" },
     { to: '/accounts', label: 'Party Accounts', icon: <FaUser className="text-pink-400 text-[15px] flex-shrink-0" />, moduleId: "accounts", roles: ["admin", "branch", "staff"], section: "Accounts" },
     { to: '/products', label: 'Products', icon: <FaBoxOpen className="text-amber-500 text-[15px] flex-shrink-0" />, moduleId: "products", roles: ["admin", "branch", "staff"], section: "Branch" },
     { to: '/salesorder', label: 'Sales Orders', icon: <FaClipboardList className="text-cyan-500 text-[15px] flex-shrink-0" />, moduleId: "salesorder", roles: ["admin", "branch", "staff"], section: "Branch" },

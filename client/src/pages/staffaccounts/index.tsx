@@ -29,6 +29,7 @@ import { useImageUpload } from "../../graphql/hooks/uploads";
 import { useAccountGroupsQuery } from "../../graphql/hooks/accountgroups";
 
 import { useChannelsQuery } from "../../graphql/hooks/channels";
+import { useAccessRolesQuery, useDepartmentsQuery } from "../../graphql/hooks/accessroles";
 import { selectModuleActions } from "../../redux/slices/permissions";
 import { useServerTable, useServerPaging } from "../../hooks/useservertable";
 import { fieldOn } from "../../hooks/useformmode";
@@ -52,6 +53,8 @@ type FormValues = {
   status: boolean;
   role: string;
   assignedChannels: string[];
+  departmentid: string;
+  accessroleid: string;
 };
 
 const StaffAccounts = () => {
@@ -116,6 +119,8 @@ const StaffAccounts = () => {
   const { uploadImageMutation } = useImageUpload();
 
   const isLoading = useAppSelector((state: any) => state.loader.isLoading);
+  const { data: deptData } = useDepartmentsQuery(false);
+  const { data: roleData } = useAccessRolesQuery(false);
 
   const [formValues, setFormValues] = useState<FormValues>({
     branchid: branchId || "",
@@ -133,6 +138,8 @@ const StaffAccounts = () => {
     status: true,
     role: "staff",
     assignedChannels: [],
+    departmentid: "",
+    accessroleid: "",
   });
 
   const [formErrors, setFormErrors] = useState<{ [key: string]: string }>({});
@@ -197,6 +204,8 @@ const StaffAccounts = () => {
       status: Boolean(row.status),
       role: row.role?.toLowerCase() || "staff", // <-- load existing role (lowercase to match select options)
       assignedChannels: row.assignedChannels?.map((c: any) => c.id) || [],
+      departmentid: row.departmentid || "",
+      accessroleid: row.accessroleid || "",
     });
 
     setIsEditing(true);
@@ -251,6 +260,8 @@ const StaffAccounts = () => {
       admin: adminId,
       role: formValues.role, // <-- include role in payload
       assignedChannels: formValues.role === 'salesman' ? formValues.assignedChannels : [],
+      departmentid: formValues.departmentid || null,
+      accessroleid: formValues.accessroleid || null,
     };
 
     // Password only included if user typed something
@@ -305,6 +316,8 @@ const StaffAccounts = () => {
       status: true,
       role: "staff",
       assignedChannels: [],
+      departmentid: "",
+      accessroleid: "",
     });
     setFormErrors({});
     setSelectedFile(null);
@@ -533,6 +546,28 @@ const StaffAccounts = () => {
               icon={<FaHome />}
               />
             )}
+
+            {/* Department and access role (Settings -> Departments / Access Roles) */}
+            <FormField
+              label="Department"
+              name="departmentid"
+              type="select"
+              value={formValues.departmentid}
+              onChange={(e) => handleFormChange("departmentid", e.target.value)}
+              options={(deptData?.getDepartments || []).map((d: any) => ({ label: d.name, value: d.id }))}
+              searchable
+              placeholder="No department"
+            />
+            <FormField
+              label="Access Role"
+              name="accessroleid"
+              type="select"
+              value={formValues.accessroleid}
+              onChange={(e) => handleFormChange("accessroleid", e.target.value)}
+              options={(roleData?.getAccessRoles || []).map((r: any) => ({ label: r.name, value: r.id }))}
+              searchable
+              placeholder="No role"
+            />
 
             {/* Assigned Channels (Only for Salesman) */}
             {isFieldEnabled("assignedChannels") && formValues.role === "salesman" && (

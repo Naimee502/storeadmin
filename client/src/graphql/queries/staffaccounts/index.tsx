@@ -89,6 +89,8 @@ export const GET_STAFF_PAGE = gql`
     getStaffAccountsPage(filter: $filter, page: $page, pageSize: $pageSize, search: $search, columnFilters: $columnFilters) {
       total
       items {
+        departmentid
+        accessroleid
         id
         staffcode
         name
