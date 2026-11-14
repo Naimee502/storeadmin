@@ -77,6 +77,11 @@ export default function Notifications() {
       try { await markRead({ variables: { id: n.id } }); } catch { /* best-effort */ }
       refetch();
     }
+    const partyScreen: Record<string, string> = { SupportTicket: 'MyTicket', JobCard: 'MyRepair', Contract: 'MyContracts', Membership: 'MyMemberships' };
+    if (user?.role === 'party' && partyScreen[n.docmodel]) {
+      navigation.navigate('Protected', { screen: 'PartyApp', params: { screen: partyScreen[n.docmodel], params: { id: n.docid } } });
+      return;
+    }
     const kind = n.docmodel === 'PurchaseOrder' ? 'order' : n.docmodel === 'PurchaseInvoice' ? 'bill' : '';
     if (user?.role === 'supplier' && kind && n.docid) {
       navigation.navigate('Protected', { screen: 'SupplierApp', params: { screen: 'SupplierDocument', params: { kind, id: n.docid } } });

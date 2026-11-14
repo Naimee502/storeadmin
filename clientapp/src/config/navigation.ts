@@ -4,7 +4,7 @@ import {
   SalesReturns, SalesReturnCreate,
   // Party
   PartyHome, Catalog, MyOrders, Ledger, LedgerDetail, Payments, PaymentDetail, PartyProfile,
-  ProductDetail, OrderDetail, OrderEdit, CartScreen, AddLedgerEntry, SubParties, PartyStock, SubPartyDetail, Booking, MyBookings,
+  ProductDetail, OrderDetail, OrderEdit, CartScreen, AddLedgerEntry, SubParties, PartyStock, SubPartyDetail, Booking, MyBookings, MyTickets, MyTicket, MyRepairs, MyRepair, MyContracts, MyMemberships,
   // Salesman
   SalesmanDashboard, SalesmanRoutes, SalesmanOrders, SalesmanAttendance, SalesmanProfile,
   RoutePartyVisit, SalesmanCatalog, SalesmanCart, CollectPayment, AddPartyToRoute, ManagePartyRoute, SalesmanCreateParty, SalesmanParties, SalesmanLeaderboard,
@@ -54,6 +54,12 @@ export const Screens: any = {
   SubPartyDetail,
   Booking,
   MyBookings,
+  MyTickets,
+  MyTicket,
+  MyRepairs,
+  MyRepair,
+  MyContracts,
+  MyMemberships,
   // Salesman
   SalesmanDashboard,
   SalesmanRoutes,
@@ -168,6 +174,12 @@ export const NavConfig: any = {
       { name: 'PartyStock',        options: { headerShown: false } },
       { name: 'Booking',           options: { headerShown: false } },
       { name: 'MyBookings',        options: { headerShown: false } },
+      { name: 'MyTickets',         options: { headerShown: false } },
+      { name: 'MyTicket',          options: { headerShown: false } },
+      { name: 'MyRepairs',         options: { headerShown: false } },
+      { name: 'MyRepair',          options: { headerShown: false } },
+      { name: 'MyContracts',       options: { headerShown: false } },
+      { name: 'MyMemberships',     options: { headerShown: false } },
       { name: 'SubPartyDetail',    options: { headerShown: false } },
       // My Parties → Add party / New order for a sub-party (shared with staff).
       { name: 'StaffCreateParty',  options: { headerShown: false } },

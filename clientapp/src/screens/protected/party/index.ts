@@ -20,3 +20,4 @@ export { default as PartyStock }  from './partystock';
 export { default as SubPartyDetail } from './subpartydetail';
 export { default as Booking } from './booking';
 export { default as MyBookings } from './mybookings';
+export { MyTickets, MyTicket, MyRepairs, MyRepair, MyContracts, MyMemberships } from './myservice';

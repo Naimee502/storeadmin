@@ -11,6 +11,7 @@ import { BatteryBadge } from '../components/batterybadge';
 import { useQuery } from '@apollo/client/react';
 import { GET_MY_ANNOUNCEMENTS } from '../apollo/queries/announcements';
 import { GET_ADMIN_SETTINGS, GET_DOWNLINE_PARTY_BALANCES } from '../apollo/queries/accounts';
+import { GET_MY_SERVICE_SUMMARY } from '../apollo/queries/myservice';
 import { useAuth } from './authcontext';
 import { COLORS, FONTS, STRINGS, useTheme } from '../config';
 import { useSelector, useDispatch } from 'react-redux';
@@ -37,6 +38,11 @@ const PARTY_MENU: DrawerMenuItem[] = [
   { label: 'My Stock',            icon: 'package-variant',        screen: 'PartyStock' },
   // Only while online booking is allowed and on (see below).
   { label: 'My Bookings',         icon: 'calendar-clock',         screen: 'MyBookings' },
+  // Service menus: only for a module the business uses or records the customer has.
+  { label: 'My Repairs',          icon: 'wrench-outline',         screen: 'MyRepairs' },
+  { label: 'AMC / Warranty',      icon: 'shield-check-outline',   screen: 'MyContracts' },
+  { label: 'My Membership',       icon: 'card-account-details-star-outline', screen: 'MyMemberships' },
+  { label: 'Support Tickets',     icon: 'lifebuoy',               screen: 'MyTickets' },
   { label: STRINGS.party.profile, icon: 'account-circle-outline', tabScreen: 'PartyProfile' },
   { label: 'separator1', icon: '', section: true },
   { label: 'Announcements', icon: 'bullhorn-outline', screen: 'Announcements' },
@@ -159,12 +165,18 @@ export const CustomDrawerContent = (props: DrawerContentComponentProps) => {
     && (settingsData as any)?.getAdminSettings?.bookingOn === true;
   const showPartyStock = manageDownline && (settingsData as any)?.getAdminSettings?.trackPartyStock === true
     && (settingsData as any)?.getAdminSettings?.displayStockOnWebsite !== false;
+  const { data: svcData } = useQuery(GET_MY_SERVICE_SUMMARY, { skip: !isParty, fetchPolicy: 'cache-and-network' });
+  const svc = (svcData as any)?.getMyServiceSummary;
+  const serviceOn: Record<string, boolean> = {
+    MyRepairs: (svc?.jobcards ?? 0) > 0, MyContracts: (svc?.contracts ?? 0) > 0, MyMemberships: (svc?.memberships ?? 0) > 0, MyTickets: !!svc?.tickets,
+  };
   const menu  = (ROLE_MENUS[role] ?? PARTY_MENU).filter(
     (m) => (paymentsEnabled || !PAYMENT_SCREENS.has(m.tabScreen ?? m.screen ?? '')) && moduleAllows(m.screen)
       && (leaderboardOn || m.screen !== 'SalesmanLeaderboard')
       && (showSubParties || m.screen !== 'SubParties')
       && (showPartyStock || m.screen !== 'PartyStock')
-      && (bookingOpen || (m.screen !== 'Booking' && m.screen !== 'MyBookings')),
+      && (bookingOpen || (m.screen !== 'Booking' && m.screen !== 'MyBookings'))
+      && (!(m.screen && m.screen in serviceOn) || serviceOn[m.screen]),
   );
   const label = ROLE_LABELS[role] ?? 'User';
 
