@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import mongoose, { Types } from "mongoose";
-import { getNamedType, getNullableType, isInputObjectType, isListType } from "graphql";
+import { defaultFieldResolver, getNamedType, getNullableType, isInputObjectType, isListType, isNonNullType } from "graphql";
+import { makeExecutableSchema } from "@graphql-tools/schema";
 import { resolveTenant, TenantError } from "./tenant";
 import { Branch } from "../models/branches";
 import { isActionAllowed } from "./permissiongate";
@@ -15,6 +16,32 @@ const PUBLIC = new Set([
   "getBranches", "getProductServices", "getCategories", "getChargeRules", "getChannels",
   "resolvePrice", "reverseGeocode", "isAnnouncementsEnabled",
 ]);
+
+// Login-free reads that carry one business's data. Signed-in callers get their own business;
+// callers without a back-office login see only the fields the app and website ask for.
+const TENANT_PUBLIC = new Set([
+  "getBranches", "getAdminSettings", "getAdminByCode", "getAdminById", "getCategories",
+  "getChargeRules", "getChannels", "resolvePrice",
+]);
+const ANON_FIELDS: Record<string, string[]> = {
+  Admin: ["id", "name", "companyName", "email", "mobile", "admincode", "businesstype", "allowedmodules"],
+  Branch: ["id", "branchname", "status"],
+  Category: ["id", "categoryname", "image", "status"],
+  Channel: ["id", "channelName", "handlesChannels", "isDefault", "status"],
+  ChargeRule: [
+    "id", "name", "active", "applyToCreatorTypes", "chargeType", "freeAboveValue", "gstpercent", "ledgerid",
+    "minOrderValue", "onlyWhenDeliveryBoy", "paymentTypes", "priority", "value",
+  ],
+  AdminSettings: [
+    "id", "allowProductImageDownload", "appCatalogBrowseMode", "appCategoryAutoScroll", "appProductAutoScroll",
+    "appProductImageRatio", "attendanceSelfieRequired", "brandLogo", "deliveryMode", "displayProductPriceOnWebsite",
+    "displayStockOnWebsite", "doubleDisplayPrice", "enablePaymentDiscountCommission", "geoFenceEnabled",
+    "geoFenceRadiusM", "heroBannerSlides", "partyManagesDownline", "printShowPartyBalance", "privacyPolicyUrl",
+    "promoBanners", "restrictQuantityByStock", "salesmanLeaderboardEnabled", "salesmanOrderDiscountEnabled",
+    "secureScreenApp", "showPartyLiveLocation", "showWhatsappChat", "supportEmail", "supportPhone",
+    "supportWhatsapp", "termsConditionsUrl", "themeBrandColor", "trackPartyStock",
+  ],
+};
 
 // Platform owner only (x-platform-key header).
 const PLATFORM = new Set([
@@ -255,7 +282,12 @@ const scopeArgs = (info: any, args: any, adminid: string): string[] => {
 
 /** Runs before every Query / Mutation field. */
 const check = async (field: string, args: any, context: any, info?: any) => {
-  if (PUBLIC.has(field)) return;
+  if (PUBLIC.has(field)) {
+    if (TENANT_PUBLIC.has(field) && context?.user && !isPlatform(context)) {
+      scopeArgs(info, args, String(await callerAdminId(context)));
+    }
+    return;
+  }
   const platform = isPlatform(context);
   if (PLATFORM.has(field)) {
     if (!platform) throw denied("This action is for the platform owner only.");
@@ -338,6 +370,8 @@ const wrapMap = (map: any) => {
     out[field] = typeof fn === "function"
       ? async (parent: any, args: any, context: any, info: any) => {
           await check(field, args || {}, context, info);
+          if (TENANT_PUBLIC.has(field) && !context?.user && !isPlatform(context) && !args?.adminid && !args?.adminId
+            && isListType(getNullableType(info.returnType))) return []; // no business named: nothing to list
           return (fn as any)(parent, args, context, info);
         }
       : fn;
@@ -355,6 +389,36 @@ export const guardResolvers = (list: any[]) =>
     if (r.Mutation) out.Mutation = wrapMap(r.Mutation);
     return out;
   });
+
+const rootFieldOf = (info: any): string | undefined => {
+  if (info?.operation?.operation !== "query") return undefined;
+  let path = info.path;
+  while (path?.prev) path = path.prev;
+  const sel = info.operation.selectionSet.selections.find(
+    (x: any) => x.kind === "Field" && (x.alias?.value ?? x.name.value) === path?.key
+  );
+  return sel?.name?.value;
+};
+
+const hiddenFor = (context: any, info: any) =>
+  !isPlatform(context) && (!context?.user || context.user.type === "party") && TENANT_PUBLIC.has(rootFieldOf(info) || "");
+
+/** Field resolvers that blank, for login-free callers, what the app and website never ask for. */
+export const hideFromAnonymous = (typeDefs: any, maps: any[]) => {
+  const schema = makeExecutableSchema({ typeDefs, resolverValidationOptions: { requireResolversToMatchSchema: "ignore" } });
+  const out: any = {};
+  for (const [type, allowed] of Object.entries(ANON_FIELDS)) {
+    const fields = (schema.getType(type) as any)?.getFields?.() || {};
+    for (const [name, def] of Object.entries<any>(fields)) {
+      if (allowed.includes(name) || isNonNullType(def.type)) continue;
+      const orig = maps.map((m) => m?.[type]?.[name]).filter(Boolean).pop();
+      const run = typeof orig === "function" ? orig : orig?.resolve || defaultFieldResolver;
+      (out[type] = out[type] || {})[name] = (parent: any, args: any, context: any, info: any) =>
+        hiddenFor(context, info) ? null : run(parent, args, context, info);
+    }
+  }
+  return out;
+};
 
 const blank = () => "";
 
