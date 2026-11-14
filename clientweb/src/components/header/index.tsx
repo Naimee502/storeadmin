@@ -17,9 +17,11 @@ import {
   LogOut,
   Bell,
   Megaphone,
+  CalendarCheck,
 } from "lucide-react";
 import { useQuery } from "@apollo/client";
 import { GET_MY_ANNOUNCEMENTS } from "../../graphql/queries/announcements";
+import { GET_BOOKING_ON } from "../../graphql/queries/booking";
 import { siteConfig } from "../../config/site";
 import { useCart } from "../../contexts/cart";
 import { useTenant } from "../../contexts/tenant";
@@ -59,6 +61,9 @@ export default function Header() {
     fetchPolicy: "cache-and-network",
   });
   const unreadAnnouncements = (annData?.getMyAnnouncements ?? []).filter((a: any) => !a.read).length;
+  const { adminid: storeId } = useTenant();
+  const { data: bookingData } = useQuery(GET_BOOKING_ON, { variables: { adminid: storeId }, skip: !storeId });
+  const bookingOn = !!bookingData?.getAdminSettings?.bookingOn;
   // Which category the shop is currently filtered by, so the nav can mark it.
   // Same ?category=<id> param ShopPage reads, so the strip and the grid can
   // never disagree about what's selected.
@@ -230,6 +235,15 @@ export default function Header() {
                     >
                       <Bell className="h-4 w-4" /> Notifications
                     </Link>
+                    {bookingOn && (
+                      <Link
+                        to="/book"
+                        onClick={() => setAccountMenuOpen(false)}
+                        className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-ink-900 hover:bg-slate-50"
+                      >
+                        <CalendarCheck className="h-4 w-4" /> Book Appointment
+                      </Link>
+                    )}
                     {announcementsEnabled && (
                       <Link
                         to="/account/announcements"
