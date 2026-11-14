@@ -27,7 +27,7 @@ import { Link, useLocation, useNavigate } from 'react-router';
 import { useAppSelector } from '../../redux/hooks';
 import { DEFAULT_ON_MODULE_IDS } from '../../config/modules';
 import { selectModuleActions } from '../../redux/slices/permissions';
-import { Building2, ShieldCheck } from 'lucide-react';
+import { Building2, LifeBuoy, ShieldCheck } from 'lucide-react';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -205,6 +205,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar, onHoverChange 
     { to: '/services', label: 'Services', icon: <FaLayerGroup className="text-amber-400 text-[15px] flex-shrink-0" />, moduleId: "services", roles: ["admin", "branch", "staff"], section: "Service" },
     { to: '/appointments', label: 'Appointments', icon: <FaCalendarCheck className="text-pink-400 text-[15px] flex-shrink-0" />, moduleId: "appointments", roles: ["admin", "branch", "staff"], section: "Service" },
     { to: '/jobcards', label: 'Job Cards', icon: <FaWrench className="text-sky-400 text-[15px] flex-shrink-0" />, moduleId: "jobcards", roles: ["admin", "branch", "staff"], section: "Service" },
+    { to: '/supporttickets', label: 'Support Tickets', icon: <LifeBuoy size={15} className="text-sky-400 flex-shrink-0" />, moduleId: "supporttickets", roles: ["admin", "branch", "staff"], section: "Service" },
     { to: '/contracts', label: 'AMC / Warranty', icon: <FaFileAlt className="text-teal-400 text-[15px] flex-shrink-0" />, moduleId: "contracts", roles: ["admin", "branch", "staff"], section: "Service" },
     { to: '/memberships', label: 'Memberships', icon: <FaUsers className="text-violet-400 text-[15px] flex-shrink-0" />, moduleId: "memberships", roles: ["admin", "branch", "staff"], section: "Service" },
     { to: '/channels', label: 'Channels', icon: <FaSitemap className="text-cyan-400 text-[15px] flex-shrink-0" />, moduleId: "channels", roles: ["admin", "branch", "staff"], section: "Distribution" },

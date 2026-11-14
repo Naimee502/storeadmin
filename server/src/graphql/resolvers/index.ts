@@ -58,6 +58,7 @@ import { Appointment, JobCard, Contract, MembershipPlan, Membership } from "../.
 import { Bom, WorkOrder, ProductionEntry } from "../../models/manufacturing";
 import { leadSourceResolvers } from "./leadsource";
 import { accessRoleResolvers } from "./accessroles";
+import { supportTicketResolvers } from "./supportticket";
 
 import { withOfflineActions, withOfflineWrites } from "../../utils/offlinesync";
 import { guardResolvers, hidePasswords, hideFromAnonymous } from "../../utils/authguard";
@@ -152,6 +153,7 @@ const guarded = guardResolvers([
   withOfflineActions(quotationResolvers, Quotation, ["editQuotation", "deleteQuotation", "setQuotationStatus"]),
   leadSourceResolvers,
   accessRoleResolvers,
+  supportTicketResolvers,
   aiResolvers,
   insightResolvers,
   withOfflineActions(

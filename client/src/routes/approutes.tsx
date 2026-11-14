@@ -132,6 +132,8 @@ import AddEditAppointment from "../pages/appointments/addedit";
 import ServiceDeletedEntries from "../pages/appointments/deletedentries";
 import JobCards from "../pages/jobcards";
 import AddEditJobCard from "../pages/jobcards/addedit";
+import SupportTickets from "../pages/supporttickets";
+import AddEditSupportTicket from "../pages/supporttickets/addedit";
 import Contracts from "../pages/contracts";
 import AddEditContract from "../pages/contracts/addedit";
 import Memberships from "../pages/memberships";
@@ -1108,6 +1110,10 @@ const AppRoutes = () => {
       <Route path="/appointments/deletedentries" element={<ProtectedRoutes><ServiceDeletedEntries key="appointments" kind="appointments" /></ProtectedRoutes>} />
       <Route path="/jobcards" element={<ProtectedRoutes><JobCards /></ProtectedRoutes>} />
       <Route path="/jobcards/addedit" element={<ProtectedRoutes><AddEditJobCard /></ProtectedRoutes>} />
+      <Route path="/supporttickets" element={<ProtectedRoutes><SupportTickets /></ProtectedRoutes>} />
+      <Route path="/supporttickets/deletedentries" element={<ProtectedRoutes><SupportTickets deleted /></ProtectedRoutes>} />
+      <Route path="/supporttickets/addedit" element={<ProtectedRoutes><AddEditSupportTicket /></ProtectedRoutes>} />
+      <Route path="/supporttickets/addedit/:id" element={<ProtectedRoutes><AddEditSupportTicket /></ProtectedRoutes>} />
       <Route path="/jobcards/addedit/:id" element={<ProtectedRoutes><AddEditJobCard /></ProtectedRoutes>} />
       <Route path="/jobcards/deletedentries" element={<ProtectedRoutes><ServiceDeletedEntries key="jobcards" kind="jobcards" /></ProtectedRoutes>} />
       <Route path="/contracts" element={<ProtectedRoutes><Contracts /></ProtectedRoutes>} />
