@@ -445,6 +445,7 @@ export const manufacturingResolvers = {
       ),
     editProductionEntry: async (_: any, { id, input }: any, context: any) => {
       const { scope, d: old } = await own(ProductionEntry, id, context, "production", "edit");
+      if (old.status === false) throw new Error("This entry is deleted. Restore it first to edit it."); // its stock is already reversed
       dropDeviceNumber("production", input);
       if (!(input.outputs || []).length) throw new Error("Add the item produced.");
       await assertOwnedIds(ProductService, lineIds(input.components, input.outputs, input.byproducts), scope.adminid, "Item", "adminid");

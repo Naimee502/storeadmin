@@ -717,6 +717,7 @@ export const paymentResolvers = {
       delete input.paymentcode;
       const existing = await Payment.findById(id);
       if (!existing) throw new Error("Payment not found");
+      if (existing.status === false) throw new Error("This entry is deleted. Restore it first to edit it.");
       const guardAt = await assertFresh(existing.updatedAt, expected, () => loadPayment(id));
 
       const { user } = context;
