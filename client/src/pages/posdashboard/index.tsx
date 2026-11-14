@@ -41,6 +41,7 @@ import { isCustomerParty } from "../../utils/partytype";
 import { BRANCH_REQUIRED } from "../../utils/branch";
 import { isOfflineSaved, OFFLINE_SAVED_MESSAGE } from "../../offline/billing";
 import { useOfflineNumber, useOfflineStock } from "../../offline/billing";
+import { forUse } from "../../config/itemtypes";
 
 // A walk-in (cash) customer account: no credit is left on it.
 const isWalkIn = (p: any) => !p || /walk[\s-]?in|cash\s*(customer|sale)/i.test(String(p.name || p.accountname || ""));
@@ -136,7 +137,7 @@ export default function POSDashboard() {
   useSizesQuery();
 
   const { data: psData, refetch: refetchProducts } = useProductServicesQuery();
-  const productServiceList = psData?.getProductServices ?? [];
+  const productServiceList = forUse(psData?.getProductServices ?? [], "sell");
 
   /* UI state */
   const [search, setSearch] = useState("");

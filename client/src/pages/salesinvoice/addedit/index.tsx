@@ -27,6 +27,7 @@ import { isOfflineSaved, OFFLINE_SAVED_MESSAGE } from "../../../offline/billing"
 import { OfflineNumberNote, savedOffline as wasSavedOffline, useOfflineNumber, useOfflineStock } from "../../../offline/billing";
 import { useServiceMutations } from "../../../graphql/hooks/service";
 import { fieldOn, useFormMode } from "../../../hooks/useformmode";
+import { forUse } from "../../../config/itemtypes";
 
 const AddEditSalesInvoice = () => {
   const { id } = useParams<{ id?: string }>();
@@ -186,7 +187,7 @@ const AddEditSalesInvoice = () => {
   // Product List
   const { data: producData, refetch } = useProductServicesQuery();
   // Offline mode adds unsynced stock moves; otherwise the list as fetched.
-  const salesProductData = useOfflineStock(producData?.getProductServices ?? [], branchId);
+  const salesProductData = useOfflineStock(forUse(producData?.getProductServices ?? [], "sell"), branchId);
   const { number: offlineNo, noDevice } = useOfflineNumber("salesinvoice", !isEdit);
 
   const { settings } = useAppSelector((state: any) => state.adminsettings);

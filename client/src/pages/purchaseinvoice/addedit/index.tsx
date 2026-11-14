@@ -23,6 +23,7 @@ import { BRANCH_REQUIRED } from "../../../utils/branch";
 import { isOfflineSaved, OFFLINE_SAVED_MESSAGE } from "../../../offline/billing";
 import { OfflineNumberNote, savedOffline as wasSavedOffline, useOfflineNumber, useOfflineStock } from "../../../offline/billing";
 import { fieldOn, useFormMode } from "../../../hooks/useformmode";
+import { forUse } from "../../../config/itemtypes";
 
 const AddEditPurchaseInvoice = () => {
   const { id } = useParams<{ id?: string }>();
@@ -149,7 +150,7 @@ const AddEditPurchaseInvoice = () => {
   // Product List
   const { data: productData, refetch } = useProductServicesQuery();
   // Offline mode adds unsynced stock moves; otherwise the list as fetched.
-  const purchaseProductData = useOfflineStock(productData?.getProductServices ?? [], branchId);
+  const purchaseProductData = useOfflineStock(forUse(productData?.getProductServices ?? [], "buy"), branchId);
   const { number: offlineNo, noDevice } = useOfflineNumber("purchaseinvoice", !isEdit);
 
   // Refresh the party list once on open.

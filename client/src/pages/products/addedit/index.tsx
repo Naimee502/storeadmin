@@ -32,7 +32,7 @@ import { normalizeToYMD } from "../../../utils/helper";
 import { fieldOn, useFormMode } from "../../../hooks/useformmode";
 import { useQuery } from "@apollo/client";
 import { GET_BOMS } from "../../../graphql/queries/manufacturing";
-import { MAKEABLE, NON_SELLING, typeAllows } from "../../../config/itemtypes";
+import { MAKEABLE, NON_SELLING, typeAllows, usesOfType } from "../../../config/itemtypes";
 
 const AddEditProductService = () => {
   const { id } = useParams<{ id?: string }>();
@@ -134,6 +134,9 @@ const AddEditProductService = () => {
   isservice: false,
   isserialised: false,
   itemtype: "",
+  cansell: null,
+  canbuy: null,
+  canmake: null,
   customfields: [],
   name: "",
   description: "",
@@ -286,6 +289,9 @@ const AddEditProductService = () => {
       isservice: p.isservice ?? false,
       isserialised: p.isserialised ?? false,
       itemtype: p.itemtype ?? "",
+      cansell: p.cansell ?? null,
+      canbuy: p.canbuy ?? null,
+      canmake: p.canmake ?? null,
       alternateids: (p.alternateids || []).map((x: any) => String(x?.id ?? x)),
       fitsids: (p.fitsids || []).map((x: any) => String(x?.id ?? x)),
       documents: (p.documents || []).map((d: any) => ({ name: d.name ?? "", url: d.url })),
@@ -625,6 +631,9 @@ const AddEditProductService = () => {
     if (isNaN(num)) return value;
     return Math.round(num * 10000) / 10000;
   };
+
+  // Sell / Buy / Make: the saved choice; a new item follows its type, an older item counts as everywhere.
+  const pickOf = (k: "cansell" | "canbuy" | "canmake") => formData[k] ?? (isEdit ? null : usesOfType(formData.itemtype)[k]);
 
   const handleSwitchChange = (name: string, checked: boolean) => {
     handleChange({
@@ -1006,6 +1015,8 @@ const AddEditProductService = () => {
       isserialised: !!formData.isserialised,
       // Unset stays unset (reads as finished goods); services have no item type.
       itemtype: formData.isservice ? undefined : formData.itemtype || undefined,
+      // An item saved before Sell / Buy / Make existed keeps them unset (everywhere) until ticked.
+      ...(formData.isservice ? {} : Object.fromEntries((["cansell", "canbuy", "canmake"] as const).map((k) => [k, pickOf(k)]))),
       alternateids: (formData.alternateids || []).filter(Boolean),
       fitsids: (formData.fitsids || []).filter(Boolean),
       documents: (formData.documents || []).filter((d: any) => d?.url).map((d: any) => ({ name: d.name || "", url: d.url })),
@@ -1329,6 +1340,12 @@ const AddEditProductService = () => {
                   />
                 </fieldset>
               )}
+              {!formData.isservice && (["cansell", "canbuy", "canmake"] as const).map((k) => (
+                <fieldset key={k} className="flex flex-col gap-2">
+                  <legend className="text-sm sm:text-base font-medium">{k === "cansell" ? "Can Sell" : k === "canbuy" ? "Can Buy" : "Can Make"}</legend>
+                  <FormSwitch label="" name={k} checked={pickOf(k) !== false} onChange={(checked) => handleSwitchChange(k, checked)} />
+                </fieldset>
+              ))}
               {isFieldEnabled("isserialised") && (
                 <fieldset className="flex flex-col gap-2">
                   <legend className="text-sm sm:text-base font-medium">Is Product Serialised</legend>

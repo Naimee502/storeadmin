@@ -21,6 +21,7 @@ import { isOfflineSaved, OFFLINE_SAVED_MESSAGE } from "../../../offline/billing"
 import { OfflineNumberNote, savedOffline as wasSavedOffline, useOfflineNumber, useOfflineStock } from "../../../offline/billing";
 import { getBelowCostLines } from "../../../utils/rates";
 import { fieldOn, useFormMode } from "../../../hooks/useformmode";
+import { forUse } from "../../../config/itemtypes";
 
 const AddEditSalesOrder = () => {
   const { id } = useParams<{ id?: string }>();
@@ -102,7 +103,7 @@ const AddEditSalesOrder = () => {
 
   const { data: producData } = useProductServicesQuery();
   // Offline mode adds unsynced stock moves; otherwise the list as fetched.
-  const salesProductData = useOfflineStock(producData?.getProductServices ?? [], branchId);
+  const salesProductData = useOfflineStock(forUse(producData?.getProductServices ?? [], "sell"), branchId);
   const { number: offlineNo, noDevice } = useOfflineNumber("salesorder", !isEdit);
 
   const salesorderFormPermissions = useAppSelector(state => state.permissions.permissions?.formPermissions?.salesorder || {});

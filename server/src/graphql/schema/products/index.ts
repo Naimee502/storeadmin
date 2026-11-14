@@ -174,6 +174,10 @@ export const productServiceTypeDefs = gql`
     isserialised: Boolean
     "raw, semifinished, finished, consumable, spare, service, kit"
     itemtype: String
+    "Where the item may be picked; null means everywhere."
+    cansell: Boolean
+    canbuy: Boolean
+    canmake: Boolean
     "Items a buyer can take instead, and the machines this spare fits."
     alternateids: [ID!]
     fitsids: [ID!]
@@ -253,6 +257,9 @@ export const productServiceTypeDefs = gql`
     isservice: Boolean
     isserialised: Boolean
     itemtype: String
+    cansell: Boolean
+    canbuy: Boolean
+    canmake: Boolean
     alternateids: [ID!]
     fitsids: [ID!]
     documents: [ProductDocumentInput!]
