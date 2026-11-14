@@ -5,6 +5,7 @@ import { makeExecutableSchema } from "@graphql-tools/schema";
 import { resolveTenant, TenantError } from "./tenant";
 import { Branch } from "../models/branches";
 import { AdminSettings } from "../models/adminsettings";
+import { Admin } from "../models/admin";
 import { isActionAllowed } from "./permissiongate";
 import { effectiveFormPermissions, fieldOn } from "./formpermissions";
 
@@ -295,6 +296,28 @@ const checkPermissionsScope = async (context: any, args: any, admin: Types.Objec
   if (!staff || String(staff.branchid) !== String(context.user.id)) throw denied("Only the business owner can change these permissions.");
 };
 
+// Salesman needs Sales Order or Sales Routes on; Delivery Boy needs the Delivery report or delivery-boy mode.
+// Only a new type is checked: an existing salesman or delivery boy keeps working.
+const checkStaffType = async (field: string, args: any, admin: any) => {
+  const role = String(args.input.role || "").toLowerCase();
+  if (role !== "salesman" && role !== "deliveryboy") return;
+  if (field === "editStaffAccount") {
+    const current: any = await mongoose.model("StaffAccount").findById(args.id).select("role").lean();
+    if (String(current?.role || "").toLowerCase() === role) return;
+  }
+  const a: any = await Admin.findById(admin).select("allowedmodules").lean();
+  const on = (id: string) => !Array.isArray(a?.allowedmodules) || a.allowedmodules.map((m: string) => String(m).toLowerCase()).includes(id);
+  if (role === "salesman" && !on("salesorder") && !on("salesroutes")) {
+    throw new TenantError("Turn on Sales Order or Sales Routes in Business Modules to add a salesman.", "BAD_USER_INPUT");
+  }
+  if (role === "deliveryboy" && !on("reports.delivery")) {
+    const st: any = await AdminSettings.findOne({ adminid: admin }).select("deliveryMode").lean();
+    if (st?.deliveryMode !== "deliveryboy") {
+      throw new TenantError("Turn on Delivery in Business Modules (or delivery-boy mode) to add a delivery boy.", "BAD_USER_INPUT");
+    }
+  }
+};
+
 // Staff punch for themselves; punching for a colleague needs the attendance add permission.
 const checkPunch = async (context: any, input: any) => {
   const me = context.user;
@@ -381,6 +404,7 @@ const check = async (field: string, args: any, context: any, info?: any) => {
       const owner = args.input[key] ? await ownerOf(model, args.input[key]) : String(admin);
       if (owner !== String(admin)) throw denied("That department or role is not part of this business.");
     }
+    await checkStaffType(field, args, admin);
   }
   if (CUSTOM_ENTITY[field] && Array.isArray(args?.input?.customfields)) {
     await checkCustomFields(CUSTOM_ENTITY[field], args.input.customfields, await callerAdminId(context));
