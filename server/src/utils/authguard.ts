@@ -1,5 +1,6 @@
 import crypto from "crypto";
 import mongoose, { Types } from "mongoose";
+import { getNamedType, getNullableType, isInputObjectType, isListType } from "graphql";
 import { resolveTenant, TenantError } from "./tenant";
 import { isActionAllowed } from "./permissiongate";
 import { effectiveFormPermissions, fieldOn } from "./formpermissions";
@@ -147,8 +148,30 @@ const checkPermissionsScope = async (context: any, args: any, admin: Types.Objec
   if (owner !== undefined && owner !== String(admin)) throw denied();
 };
 
+const TENANT_KEYS = ["adminid", "admin"];
+const isIdArg = (type: any) => ["ID", "String"].includes((getNamedType(type) as any)?.name);
+const idValue = (type: any, id: string) => (isListType(getNullableType(type)) ? [id] : id);
+
+// Reads use the login's business for every adminid / admin arg the schema declares, sent or not.
+const scopeReadArgs = (info: any, args: any, adminid: string) => {
+  const def = info?.parentType?.getFields?.()[info.fieldName];
+  for (const arg of def?.args || []) {
+    if (TENANT_KEYS.includes(arg.name) && isIdArg(arg.type)) {
+      args[arg.name] = idValue(arg.type, adminid);
+      continue;
+    }
+    const input = getNamedType(arg.type);
+    if (!isInputObjectType(input) || isListType(getNullableType(arg.type))) continue;
+    const fields = input.getFields();
+    const keys = TENANT_KEYS.filter((k) => fields[k] && isIdArg(fields[k].type));
+    if (!keys.length) continue;
+    const value = args[arg.name] && typeof args[arg.name] === "object" ? args[arg.name] : (args[arg.name] = {});
+    for (const k of keys) value[k] = idValue(fields[k].type, adminid);
+  }
+};
+
 /** Runs before every Query / Mutation field. */
-const check = async (field: string, args: any, context: any) => {
+const check = async (field: string, args: any, context: any, info?: any) => {
   if (PUBLIC.has(field)) return;
   const platform = isPlatform(context);
   if (PLATFORM.has(field)) {
@@ -157,6 +180,9 @@ const check = async (field: string, args: any, context: any) => {
   }
   if (platform) return; // the platform owner manages every business (Business Settings, admin register)
   if (!context?.user) throw new TenantError("Please sign in again.", "UNAUTHENTICATED");
+  if (info?.parentType?.name === "Query" && field !== "getAdmins") {
+    scopeReadArgs(info, args, String(await callerAdminId(context)));
+  }
 
   if (field === "getAdmins") {
     args.adminId = String(await callerAdminId(context)); // a business only sees itself
@@ -211,7 +237,7 @@ const wrapMap = (map: any) => {
   for (const [field, fn] of Object.entries(map)) {
     out[field] = typeof fn === "function"
       ? async (parent: any, args: any, context: any, info: any) => {
-          await check(field, args || {}, context);
+          await check(field, args || {}, context, info);
           return (fn as any)(parent, args, context, info);
         }
       : fn;
