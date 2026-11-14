@@ -63,7 +63,7 @@ const AdminSchema: Schema<IAdmin> = new mongoose.Schema(
     // Business Configuration
     businesstype: {
       type: String,
-      enum: ['retail', 'wholesale', 'manufacturer', 'service', 'trader', 'other'],
+      enum: ['retail', 'wholesale', 'manufacturer', 'service', 'trader', 'exporter', 'other'],
       default: 'retail',
     },
     allowedmodules: {
