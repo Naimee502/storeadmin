@@ -27,7 +27,7 @@ export const BUSINESS_PROFILES: BusinessProfile[] = [
     note: "Orders, challans, channels, price lists, routes and field staff.",
     modules: [...CORE, ...GST_DOCS, "salesorder", "purchaseorder", "deliverychallan", "channels", "salesroutes",
       "pricelists", "priceassignments", "chargerules", "productgroups", "models", "sizes", "announcements",
-      "reports.salesmen", "reports.salesmanfield", "reports.delivery", "reports.deliverychallan"],
+      "reports.salesmen", "reports.salesmanfield", "reports.delivery", "reports.deliverychallan", "deliveryboard"],
   },
   {
     id: "exporter", label: "Exporter", group: "Trading", types: ["exporter"],
@@ -62,12 +62,12 @@ export const BUSINESS_PROFILES: BusinessProfile[] = [
   {
     id: "clinic", label: "Clinic / Salon / Spa", group: "Services", types: ["clinic"],
     note: "Appointments, services and memberships.",
-    modules: [...CORE, "services", "appointments", "memberships", "leads", "followups", "reports.service", "reports.crm"],
+    modules: [...CORE, "services", "appointments", "memberships", "leads", "followups", "reports.service", "reports.crm", "onlinebooking"],
   },
   {
     id: "service", label: "Other Services", group: "Services", types: ["service"],
     note: "Services, appointments, job cards, AMC, memberships and support tickets.",
-    modules: [...CORE, ...CRM, "services", "appointments", "jobcards", "contracts", "memberships", "reports.service", "supporttickets"],
+    modules: [...CORE, ...CRM, "services", "appointments", "jobcards", "contracts", "memberships", "reports.service", "supporttickets", "onlinebooking"],
   },
   {
     id: "other", label: "Other", group: "Other", types: ["other"],
