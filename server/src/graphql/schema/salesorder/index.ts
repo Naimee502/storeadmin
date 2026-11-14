@@ -101,6 +101,9 @@ export const salesOrderTypeDefs = gql`
     roundoff: Float
     invoicediscount: Float
     invoicediscounttype: String
+    "Loyalty points the customer used on this bill, and their value taken off the total."
+    loyaltyredeempoints: Float
+    loyaltydiscount: Float
     isservice: Boolean!
     createdby_id: ID
     createdby_name: String
@@ -160,6 +163,9 @@ export const salesOrderTypeDefs = gql`
     roundoff: Float
     invoicediscount: Float
     invoicediscounttype: String
+    "Loyalty points the customer used on this bill, and their value taken off the total."
+    loyaltyredeempoints: Float
+    loyaltydiscount: Float
     isservice: Boolean
     createdby_id: ID
     createdby_name: String

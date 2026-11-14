@@ -103,6 +103,11 @@ export const salesInvoiceTypeDefs = gql`
     roundoff: Float
     invoicediscount: Float
     invoicediscounttype: String
+    "Loyalty points the customer used on this bill, and their value taken off the total."
+    loyaltyredeempoints: Float
+    loyaltydiscount: Float
+    "Loyalty points this bill earned."
+    loyaltyearned: Float
     received: Float
     isservice: Boolean!
     linestock: Boolean
@@ -182,6 +187,9 @@ export const salesInvoiceTypeDefs = gql`
     roundoff: Float
     invoicediscount: Float
     invoicediscounttype: String
+    "Loyalty points the customer used on this bill, and their value taken off the total."
+    loyaltyredeempoints: Float
+    loyaltydiscount: Float
     received: Float
     isservice: Boolean
     "Service bill: goods lines move stock (sent on new bills)."

@@ -1149,6 +1149,8 @@ export const salesInvoiceResolvers = {
         totalamount: order.totalamount,
         invoicediscount: order.invoicediscount,
         invoicediscounttype: order.invoicediscounttype,
+        loyaltyredeempoints: order.loyaltyredeempoints,
+        loyaltydiscount: order.loyaltydiscount,
         roundoff: order.roundoff,
         deliverydate: order.deliverydate,
         duedate: order.duedate,

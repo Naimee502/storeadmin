@@ -89,6 +89,10 @@ const salesInvoiceSchema = new mongoose.Schema(
     roundoff: { type: Number, default: 0 },
     invoicediscount: { type: Number, default: 0 },
     invoicediscounttype: { type: String, default: "amount" },
+    // Loyalty: points used on this bill and their value; points it earned (null before loyalty).
+    loyaltyredeempoints: { type: Number },
+    loyaltydiscount: { type: Number },
+    loyaltyearned: { type: Number },
 
     // Money collected AT THE COUNTER, on this bill, at the moment it was made.
     // 0 = pure credit, totalamount = fully paid, anything between = part paid
@@ -348,6 +352,18 @@ export async function buildSalesInvoiceJournal(newInv: any) {
           remarks: foldIntoSales ? "Invoice Discount (netted into Sales)" : "Invoice Discount",
         });
       }
+    }
+  }
+
+  // Loyalty points redeemed: a discount on the bill, on its own ledger.
+  if (Number(newInv.loyaltydiscount) > 0) {
+    let loyaltyLedger: any = await AccountLedger.findOne({ ledgername: "Loyalty Points Redeemed", admin: newInv.adminid });
+    if (!loyaltyLedger) {
+      const created = await getOrCreateAccount("Loyalty Points Redeemed", "indirect_expenses", newInv.adminid, newInv.branchid);
+      if (created) loyaltyLedger = { _id: created.ledgerid };
+    }
+    if (loyaltyLedger?._id) {
+      entries.push({ ledgerid: loyaltyLedger._id, debit: parseFloat(Number(newInv.loyaltydiscount).toFixed(2)), credit: 0, remarks: "Loyalty Points Redeemed" });
     }
   }
 
@@ -815,6 +831,18 @@ salesInvoiceSchema.statics.adjustStockAndTransactions = async function (oldInv: 
   }
 
   // ===================== CUSTOMER LEDGER ==========================
+  // Loyalty points redeemed: a discount on the bill, on its own ledger.
+  if (Number(newInv.loyaltydiscount) > 0) {
+    let loyaltyLedger: any = await AccountLedger.findOne({ ledgername: "Loyalty Points Redeemed", admin: newInv.adminid });
+    if (!loyaltyLedger) {
+      const created = await getOrCreateAccount("Loyalty Points Redeemed", "indirect_expenses", newInv.adminid, newInv.branchid);
+      if (created) loyaltyLedger = { _id: created.ledgerid };
+    }
+    if (loyaltyLedger?._id) {
+      entries.push({ ledgerid: loyaltyLedger._id, debit: parseFloat(Number(newInv.loyaltydiscount).toFixed(2)), credit: 0, remarks: "Loyalty Points Redeemed" });
+    }
+  }
+
   entries.push({
     ledgerid: customer.ledgerid,
     debit: parseFloat(newInv.totalamount.toFixed(2)),

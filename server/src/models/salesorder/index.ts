@@ -77,6 +77,9 @@ const salesOrderSchema = new mongoose.Schema(
     roundoff: { type: Number, default: 0 },
     invoicediscount: { type: Number, default: 0 },
     invoicediscounttype: { type: String, default: "amount" },
+    // Loyalty points the customer applied at checkout (no default: old orders untouched).
+    loyaltyredeempoints: { type: Number },
+    loyaltydiscount: { type: Number },
 
     isservice: { type: Boolean, default: false },
     isConverted: { type: Boolean, default: false },

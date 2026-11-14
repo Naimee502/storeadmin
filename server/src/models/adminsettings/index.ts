@@ -496,6 +496,14 @@ const adminSettingsSchema = new mongoose.Schema(
     // Online booking from the website and app. The platform allows it per business; the owner then
     // turns it on and sets hours (used when a service has none). Unset = off.
     onlineBookingAllowed: { type: Boolean },
+    // Loyalty rules (Loyalty module); blank uses the defaults in utils/loyalty.
+    loyaltyEarnPer100: { type: Number },
+    loyaltyPointValue: { type: Number },
+    loyaltyMinBill: { type: Number },
+    loyaltyMaxEarn: { type: Number },
+    loyaltyExpiryDays: { type: Number },
+    loyaltyMinRedeem: { type: Number },
+    loyaltyMaxRedeemPercent: { type: Number },
     bookingOn: { type: Boolean },
     bookingFrom: { type: String },
     bookingTo: { type: String },

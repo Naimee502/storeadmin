@@ -12,6 +12,7 @@ import cookieParser from 'cookie-parser';
 import jwt from 'jsonwebtoken';
 import { supplierPrintHtml } from './utils/supplierdocs';
 import { jobSheetHtml, startServiceReminderScheduler } from './utils/customerportal';
+import { startLoyaltyExpiryScheduler } from './utils/loyalty';
 import { generateTokens, sendRefreshToken } from './utils/auth';
 import { Admin } from './models/admin';
 import { startReminderScheduler } from './utils/reminderscheduler';
@@ -227,6 +228,7 @@ const startServer = async () => {
   // Punch out anyone who forgot, at the business's cut-off (default 22:00 IST).
   startAutoPunchOutScheduler();
   startServiceReminderScheduler();
+  startLoyaltyExpiryScheduler();
   // IndiaMART / TradeIndia pulls every 15 minutes.
   startLeadPullScheduler();
 };

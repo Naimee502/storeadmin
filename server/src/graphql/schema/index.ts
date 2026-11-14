@@ -58,6 +58,7 @@ import { bookingTypeDefs } from "./booking";
 import { supplierPortalTypeDefs } from "./supplierportal";
 import { customerPortalTypeDefs } from "./customerportal";
 import { panelLoginTypeDefs } from "./panellogin";
+import { loyaltyTypeDefs } from "./loyalty";
 
 export const typeDefs = [
   branchTypeDefs,
@@ -120,4 +121,5 @@ export const typeDefs = [
   supplierPortalTypeDefs,
   customerPortalTypeDefs,
   panelLoginTypeDefs,
+  loyaltyTypeDefs,
 ];

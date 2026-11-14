@@ -236,6 +236,13 @@ export const adminSettingsTypeDefs = gql`
     loginEmailOtp: Boolean
     loginTabs: [String]
     onlineBookingAllowed: Boolean
+    loyaltyEarnPer100: Float
+    loyaltyPointValue: Float
+    loyaltyMinBill: Float
+    loyaltyMaxEarn: Float
+    loyaltyExpiryDays: Int
+    loyaltyMinRedeem: Float
+    loyaltyMaxRedeemPercent: Float
     bookingOn: Boolean
     bookingFrom: String
     bookingTo: String
@@ -502,6 +509,13 @@ export const adminSettingsTypeDefs = gql`
     loginEmailOtp: Boolean
     loginTabs: [String]
     onlineBookingAllowed: Boolean
+    loyaltyEarnPer100: Float
+    loyaltyPointValue: Float
+    loyaltyMinBill: Float
+    loyaltyMaxEarn: Float
+    loyaltyExpiryDays: Int
+    loyaltyMinRedeem: Float
+    loyaltyMaxRedeemPercent: Float
     bookingOn: Boolean
     bookingFrom: String
     bookingTo: String

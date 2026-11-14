@@ -30,6 +30,8 @@ import { salesOrderResolvers } from "./salesorder";
 import { purchaseOrderResolvers } from "./purchaseorder";
 import { attendanceResolvers } from "./attendance";
 import { salesReturnResolvers } from "./salesreturn";
+import { loyaltyResolvers } from "./loyalty";
+import { withLoyalty } from "../../utils/loyalty";
 import { geocodeResolvers } from "./geocode";
 import { purchaseReturnResolvers } from "./purchasereturn";
 import { adminSettingsResolvers } from "./adminsettings";
@@ -114,7 +116,7 @@ const guarded = guardResolvers([
   withOfflineWrites(productServiceResolvers, { model: ProductService, typename: "ProductService", tenant: "adminid", add: "addProductService", edit: "updateProductService", del: "deleteProductService" }),
   withOfflineWrites(servicesResolvers, { model: ProductService, typename: "ProductService", tenant: "adminid", add: "addService", edit: "updateService", del: "deleteService" }),
   productImportResolvers,
-  withOfflineActions(salesInvoiceResolvers, SalesInvoice, ["markSalesInvoiceDispatched", "markSalesInvoiceDelivered", "assignInvoiceDeliveryBoy", "saveInvoiceGstDetails"]),
+  withOfflineActions(withLoyalty(salesInvoiceResolvers, "SalesInvoice"), SalesInvoice, ["markSalesInvoiceDispatched", "markSalesInvoiceDelivered", "assignInvoiceDeliveryBoy", "saveInvoiceGstDetails"]),
   withSupplierNotify(purchaseInvoiceResolvers),
   transferStockResolvers,
   adminResolvers,
@@ -130,13 +132,14 @@ const guarded = guardResolvers([
     withOfflineWrites(priceListResolvers, { model: PriceList, typename: "PriceList", tenant: "adminid", add: "createPriceList", edit: "updatePriceList", del: "deletePriceList" }),
     { model: PriceAssignment, typename: "PriceAssignment", tenant: "adminid", add: "createPriceAssignment", edit: "updatePriceAssignment", del: "deletePriceAssignment" }
   ),
-  withOfflineActions(salesOrderResolvers, SalesOrder, ["confirmSalesOrder", "markSalesOrderDispatched", "markSalesOrderDelivered", "assignOrderDeliveryBoy"]),
+  withOfflineActions(withLoyalty(salesOrderResolvers, "SalesOrder"), SalesOrder, ["confirmSalesOrder", "markSalesOrderDispatched", "markSalesOrderDelivered", "assignOrderDeliveryBoy"]),
   withSupplierNotify(withOfflineActions(purchaseOrderResolvers, PurchaseOrder, ["confirmPurchaseOrder", "markPurchaseOrderReceived"])),
   withOfflineWrites(
     withOfflineWrites(attendanceResolvers, { model: Holiday, typename: "Holiday", tenant: "adminid", add: "addHoliday", edit: "editHoliday", del: "deleteHoliday" }),
     { model: LeaveType, typename: "LeaveType", tenant: "adminid", add: "addLeaveType", edit: "editLeaveType", del: "deleteLeaveType" }
   ),
-  salesReturnResolvers,
+  withLoyalty(salesReturnResolvers, "SalesReturn"),
+  loyaltyResolvers,
   geocodeResolvers,
   purchaseReturnResolvers,
   adminSettingsResolvers,
