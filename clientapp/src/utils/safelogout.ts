@@ -1,5 +1,6 @@
 import { InteractionManager } from 'react-native';
 import { logout } from '../store/slices';
+import { apolloClient } from '../apollo/client';
 
 let inFlight = false;
 
@@ -25,6 +26,8 @@ export function safeLogout(dispatch: (a: any) => any, signOut: () => any | Promi
       } finally {
         setTimeout(() => {
           dispatch(logout());
+          // Unsynced offline work is kept apart; only cached reads go.
+          apolloClient.clearStore().catch(() => {});
           inFlight = false;
         }, 400);
       }
