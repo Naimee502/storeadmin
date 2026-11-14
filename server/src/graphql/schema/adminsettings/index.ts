@@ -234,6 +234,7 @@ export const adminSettingsTypeDefs = gql`
     appProductAutoScroll: Boolean
     # Billing-panel login (Admin/Branch/Staff) needs an email OTP. Off by default.
     loginEmailOtp: Boolean
+    loginTabs: [String]
     geoFenceEnabled: Boolean
     geoFenceRadiusM: Int
     # Staff app: selfie required to Punch In. Off by default.
@@ -493,6 +494,7 @@ export const adminSettingsTypeDefs = gql`
     appCategoryAutoScroll: Boolean
     appProductAutoScroll: Boolean
     loginEmailOtp: Boolean
+    loginTabs: [String]
     geoFenceEnabled: Boolean
     geoFenceRadiusM: Int
     # Staff app: selfie required to Punch In. Off by default.

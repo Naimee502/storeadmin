@@ -40,7 +40,7 @@ const ANON_FIELDS: Record<string, string[]> = {
     "geoFenceRadiusM", "heroBannerSlides", "partyManagesDownline", "printShowPartyBalance", "privacyPolicyUrl",
     "promoBanners", "restrictQuantityByStock", "salesmanLeaderboardEnabled", "salesmanOrderDiscountEnabled",
     "secureScreenApp", "showPartyLiveLocation", "showWhatsappChat", "supportEmail", "supportPhone",
-    "supportWhatsapp", "termsConditionsUrl", "themeBrandColor", "trackPartyStock",
+    "supportWhatsapp", "termsConditionsUrl", "themeBrandColor", "trackPartyStock", "loginTabs",
   ],
 };
 

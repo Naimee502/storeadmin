@@ -245,6 +245,8 @@ const GeneralTab: React.FC<{ adminId?: string; dispatch: any; allowedModules?: s
 }) => {
   const { admin: loggedInAdmin } = useAppSelector((s: any) => s.auth);
   const { data, refetch } = useAdminSettingsQuery(adminId);
+  const { data: adminsList } = useAdminsQuery();
+  const adminCode = adminsList?.getAdmins?.find((a: any) => a.id === adminId)?.admincode;
   const { updateAdminSettings, testBusinessSmtp, testingSmtp } = useAdminSettingsMutations();
   const settings = data?.getAdminSettings;
   const [draft, setDraft] = useState<any>(null);
@@ -423,7 +425,25 @@ const GeneralTab: React.FC<{ adminId?: string; dispatch: any; allowedModules?: s
           <Toggle label="Panel login email OTP" hint="Admin, Branch & Staff panel login asks for a 6-digit OTP sent to the login's email." checked={!!draft.loginEmailOtp} onChange={(v: boolean) => set("loginEmailOtp", v)} />
           <Toggle label="Party login email OTP" hint="Customer login on the App & Website asks for a 4-digit OTP sent to the party's email." checked={!!draft.partyLoginEmailOtp} onChange={(v: boolean) => set("partyLoginEmailOtp", v)} />
           <Toggle label="New signups need approval" hint="Self-registered customers stay Pending and cannot log in until approved from Party Accounts." checked={!!draft.requirePartyApproval} onChange={(v: boolean) => set("requirePartyApproval", v)} />
+          {(["admin", "branch", "staff"] as const).map((kind) => {
+            const tabs: string[] = draft.loginTabs?.length ? draft.loginTabs : ["admin", "branch", "staff"];
+            const on = tabs.includes(kind);
+            return (
+              <Toggle key={kind} label={`Login link: ${kind[0].toUpperCase()}${kind.slice(1)} Login`}
+                hint="Tabs shown on this business's own login link. The common login page always shows every tab."
+                checked={on}
+                onChange={(v: boolean) => {
+                  const next = v ? [...tabs, kind] : tabs.filter((t) => t !== kind);
+                  if (next.length) set("loginTabs", Array.from(new Set(next)));
+                }} />
+            );
+          })}
         </Grid>
+        {adminCode && (
+          <div className="text-[12px] text-slate-600">
+            Login link: <span className="font-mono text-slate-900">{`${window.location.origin}${import.meta.env.PROD ? "/admin" : ""}/login?b=${adminCode}`}</span>
+          </div>
+        )}
       </Section>
 
       <Section title="GST Profile (e-Invoice / e-Way Bill)">

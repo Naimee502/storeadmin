@@ -101,6 +101,7 @@ const SETTINGS_FIELDS = `
   appProductAutoScroll
   showPartyLiveLocation
   loginEmailOtp
+  loginTabs
   geoFenceEnabled
   geoFenceRadiusM
   salesmanLeaderboardEnabled
