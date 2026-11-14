@@ -57,3 +57,12 @@ export const GET_LOGIN_TABS = gql`
     }
   }
 `;
+
+// Platform-only read used to confirm a typed platform key.
+export const CHECK_PLATFORM_KEY = gql`
+  query CheckPlatformKey {
+    getPendingSubscriptions {
+      id
+    }
+  }
+`;
