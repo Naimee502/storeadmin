@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router";
+import { useNavigate, useSearchParams } from "react-router";
+import { useQuery } from "@apollo/client";
+import { GET_LOGIN_BUSINESS, GET_LOGIN_TABS } from "../../graphql/queries/admin";
 import LoginLayout from "../../layouts/login";
 import FormField from "../../components/formfiled";
 import Button from "../../components/button";
@@ -25,6 +27,20 @@ const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loginType, setLoginType] = useState<"branch" | "admin" | "staff">("branch");
+
+  // A business login link (/login?b=code) shows that business's name and only its chosen tabs.
+  const [params] = useSearchParams();
+  const code = params.get("b") || "";
+  const { data: bizData } = useQuery(GET_LOGIN_BUSINESS, { variables: { admincode: code }, skip: !code });
+  const business = bizData?.getAdminByCode;
+  const { data: tabsData } = useQuery(GET_LOGIN_TABS, { variables: { adminid: business?.id }, skip: !business?.id });
+  const chosenTabs: string[] = tabsData?.getAdminSettings?.loginTabs || [];
+  const loginTabs = ([["branch", "Branch Login"], ["staff", "Staff Login"], ["admin", "Admin Login"]] as const)
+    .filter(([kind]) => !chosenTabs.length || chosenTabs.includes(kind));
+  useEffect(() => {
+    if (loginTabs.length && !loginTabs.some(([kind]) => kind === loginType)) setLoginType(loginTabs[0][0]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chosenTabs.join(",")]);
 
   const [emailError, setEmailError] = useState("");
   const [passwordError, setPasswordError] = useState("");
@@ -230,12 +246,14 @@ const Login = () => {
           <div className="mx-auto w-full max-w-sm">
           <div className="mb-5 text-center">
             <h1 className="text-2xl font-bold tracking-tight text-slate-900">Login</h1>
-            <p className="mt-1 text-[13px] text-slate-500">Sign in to your account to continue</p>
+            <p className="mt-1 text-[13px] text-slate-500">
+              {business?.companyName ? `Sign in to ${business.companyName}` : "Sign in to your account to continue"}
+            </p>
           </div>
 
           {/* Tabs */}
           <div className="mb-5 flex w-full justify-center gap-2 border-b border-slate-200 sm:gap-4">
-            {([["branch", "Branch Login"], ["staff", "Staff Login"], ["admin", "Admin Login"]] as const).map(([kind, label]) => (
+            {loginTabs.map(([kind, label]) => (
               <button
                 key={kind}
                 type="button"

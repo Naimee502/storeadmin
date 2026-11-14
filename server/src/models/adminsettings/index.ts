@@ -474,6 +474,8 @@ const adminSettingsSchema = new mongoose.Schema(
      * alone logs in, as before. The mobile app logins are not affected.
      */
     loginEmailOtp: { type: Boolean, default: false },
+    // Tabs on this business's login link (/login?b=code): admin, branch, staff. Unset = all.
+    loginTabs: { type: [String], default: undefined },
 
     /**
      * Geo-fencing for salesmen. On: the salesman app only lists parties

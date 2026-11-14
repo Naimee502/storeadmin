@@ -38,3 +38,22 @@ export const GET_DELETED_ADMINS = gql`
     }
   }
 `;
+
+// Business named by a login link (/login?b=code): its name and the login tabs it shows.
+export const GET_LOGIN_BUSINESS = gql`
+  query GetLoginBusiness($admincode: String!) {
+    getAdminByCode(admincode: $admincode) {
+      id
+      companyName
+    }
+  }
+`;
+
+export const GET_LOGIN_TABS = gql`
+  query GetLoginTabs($adminid: ID!) {
+    getAdminSettings(adminid: $adminid) {
+      id
+      loginTabs
+    }
+  }
+`;
