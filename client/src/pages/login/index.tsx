@@ -262,8 +262,8 @@ const Login = () => {
             )}
           </div>
 
-          {/* Tabs */}
-          <div className="mb-5 flex w-full justify-center gap-2 border-b border-slate-200 sm:gap-4">
+          {/* Tabs: hidden when the business allows only one login type. */}
+          {loginTabs.length > 1 && <div className="mb-5 flex w-full justify-center gap-2 border-b border-slate-200 sm:gap-4">
             {loginTabs.map(([kind, label]) => (
               <button
                 key={kind}
@@ -276,7 +276,7 @@ const Login = () => {
                 {label}
               </button>
             ))}
-          </div>
+          </div>}
 
           <form
             onSubmit={handleLogin}
