@@ -2,7 +2,6 @@ import { StaffAccount } from "../../../models/staffaccounts";
 import { Account } from "../../../models/accounts";
 import { generateTokens, sendRefreshToken } from "../../../utils/auth";
 import { enforceLoginOtp } from "../../../utils/loginotp";
-import { assertPanelLoginAllowed } from "../../../utils/panellogin";
 import { verifyPassword, upgradePassword } from "../../../utils/password";
 import { AccountGroup } from "../../../models/accountgroups";
 import {
@@ -319,7 +318,6 @@ export const staffAccountResolvers = {
       if (!staff) throw new Error("Invalid credentials");
       await upgradePassword(StaffAccount, staff._id, staff.password, password);
       if (!staff.status) throw new Error("Your account is currently disabled.");
-      await assertPanelLoginAllowed((staff as any).admin, "staff");
 
       // Billing-panel login: Business Settings -> login email OTP (no-op when
       // off). The app's salesman login (loginStaffByMobile) is not affected.
