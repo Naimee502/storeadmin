@@ -60,7 +60,7 @@ export const supplierPortalResolvers = {
       const company: any = await Admin.findById(adminId).select("companyName").lean();
       await enforceLoginOtp({ kind: "supplier", userId: acc._id, email: acc.email, adminId, businessName: company?.companyName, otp, always: true });
       const { accessToken } = generateTokens({ id: String(acc._id), email: acc.email || acc.mobile, type: "supplier", adminid: acc.admin, branchid: acc.branchid });
-      return { accessToken, name: acc.name };
+      return { id: String(acc._id), accessToken, name: acc.name };
     },
   },
 };

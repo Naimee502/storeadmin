@@ -14,6 +14,7 @@ import { setCredentials } from '../../../store/slices';
 import { useUI } from '../../../utils';
 import { apolloClient } from '../../../apollo/client';
 import { SEND_OTP, VERIFY_OTP, LOGIN_PARTY } from '../../../apollo/mutations/accounts';
+import { LOGIN_SUPPLIER } from '../../../apollo/queries/supplier';
 import { gqlErrorCodes, gqlErrorExt } from '../../../utils/gqlerror';
 
 export default function OTPVerification({ navigation, route }: any) {
@@ -32,6 +33,7 @@ export default function OTPVerification({ navigation, route }: any) {
   // 'login': Business Settings -> "Party login needs an email OTP" -> the code
   // goes back to loginParty, and Resend asks loginParty again without one.
   const isLogin = route?.params?.purpose === 'login';
+  const isSupplier = route?.params?.purpose === 'supplier';
   // Email the customer just added on Login (no email on file) — sent again on
   // verify / resend so the server checks the OTP against it and saves it.
   const loginEmail: string = route?.params?.loginEmail ?? '';
@@ -73,6 +75,20 @@ export default function OTPVerification({ navigation, route }: any) {
 
     Keyboard.dismiss();
     showLoader(true);
+    if (isSupplier) {
+      try {
+        const { data } = await apolloClient.mutate({ mutation: LOGIN_SUPPLIER, variables: { adminId, mobile, otp } });
+        const s = (data as any).loginSupplier;
+        dispatch(setCredentials({ user: { id: s.id || mobile, name: s.name, mobile, role: 'supplier', adminId }, token: s.accessToken }));
+        await signIn();
+        showToast(sText.success, 'success');
+      } catch (err: any) {
+        showToast(err?.message || sText.failed, 'danger');
+      } finally {
+        showLoader(false);
+      }
+      return;
+    }
     try {
       const { data } = await apolloClient.mutate({
         mutation: isLogin ? LOGIN_PARTY : VERIFY_OTP,
@@ -131,11 +147,13 @@ export default function OTPVerification({ navigation, route }: any) {
   const handleResend = async () => {
     if (timer > 0) return;
     showLoader(true);
-    if (isLogin) {
+    if (isLogin || isSupplier) {
       try {
         // Throws LOGIN_OTP_REQUIRED after mailing a fresh OTP — that is the
         // success path here.
-        await apolloClient.mutate({ mutation: LOGIN_PARTY, variables: { adminId, mobile, ...loginExtra } });
+        await apolloClient.mutate(isSupplier
+          ? { mutation: LOGIN_SUPPLIER, variables: { adminId, mobile } }
+          : { mutation: LOGIN_PARTY, variables: { adminId, mobile, ...loginExtra } });
         // No error = the setting was switched off meanwhile; go back and log in.
         navigation.goBack();
       } catch (err: any) {

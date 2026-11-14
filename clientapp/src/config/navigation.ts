@@ -13,6 +13,7 @@ import {
   // Staff
   StaffDashboard, StaffOrders, StaffAttendance, StaffProfile,
   StaffParties, StaffCreateParty, StaffCatalog, StaffCart,
+  SupplierHome, SupplierBills, SupplierOrders, SupplierPayments, SupplierProfile,
 } from '../screens';
 
 export const Screens: any = {
@@ -84,6 +85,11 @@ export const Screens: any = {
   StaffCreateParty,
   StaffCatalog,
   StaffCart,
+  SupplierHome,
+  SupplierBills,
+  SupplierOrders,
+  SupplierPayments,
+  SupplierProfile,
 };
 
 export const NavIcons = {
@@ -175,6 +181,38 @@ export const NavConfig: any = {
   },
 
   // ── Salesman: stack → drawer → tabs ─────────────────────────────────
+  supplier: {
+    type: 'stack',
+    screens: [
+      {
+        name: 'SupplierDrawer',
+        options: { headerShown: false },
+        subNavigator: {
+          type: 'drawer',
+          showDrawer: true,
+          showBottomTabs: true,
+          screens: [
+            {
+              name: 'MainTabs',
+              label: 'Main',
+              options: { headerShown: false },
+              subNavigator: {
+                type: 'tabs',
+                screens: [
+                  { name: 'SupplierHome',     label: 'Home',     icon: getNavIcon('home'),     options: { headerShown: false } },
+                  { name: 'SupplierBills',    label: 'Bills',    icon: getNavIcon('ledger'),   options: { headerShown: false } },
+                  { name: 'SupplierOrders',   label: 'Orders',   icon: getNavIcon('orders'),   options: { headerShown: false } },
+                  { name: 'SupplierPayments', label: 'Payments', icon: getNavIcon('payments'), options: { headerShown: false } },
+                  { name: 'SupplierProfile',  label: 'Profile',  icon: getNavIcon('profile'),  options: { headerShown: false } },
+                ],
+              },
+            },
+          ],
+        },
+      },
+    ],
+  },
+
   salesman: {
     type: 'stack',
     screens: [

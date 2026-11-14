@@ -97,11 +97,23 @@ const STAFF_MENU: DrawerMenuItem[] = [
   { label: 'Terms & Conditions', icon: 'file-document-outline', screen: 'TermsCondition' },
 ];
 
+const SUPPLIER_MENU: DrawerMenuItem[] = [
+  { label: 'Home',            icon: 'home-outline',           tabScreen: 'SupplierHome' },
+  { label: 'Bills',           icon: 'file-document-outline',  tabScreen: 'SupplierBills' },
+  { label: 'Purchase Orders', icon: 'clipboard-list-outline', tabScreen: 'SupplierOrders' },
+  { label: 'Payments',        icon: 'cash-multiple',          tabScreen: 'SupplierPayments' },
+  { label: 'Profile',         icon: 'account-circle-outline', tabScreen: 'SupplierProfile' },
+  { label: 'separator1', icon: '', section: true },
+  { label: 'Privacy Policy',     icon: 'shield-check-outline',  screen: 'PrivacyPolicy' },
+  { label: 'Terms & Conditions', icon: 'file-document-outline', screen: 'TermsCondition' },
+];
+
 const ROLE_LABELS: Record<string, string> = {
   party:       STRINGS.party.customer,
   salesman:    'Salesman',
   deliveryboy: 'Delivery Boy',
   staff:       'Staff',
+  supplier:    'Supplier',
 };
 
 const ROLE_MENUS: Record<string, DrawerMenuItem[]> = {
@@ -109,6 +121,7 @@ const ROLE_MENUS: Record<string, DrawerMenuItem[]> = {
   salesman:    SALESMAN_MENU,
   deliveryboy: DELIVERY_MENU,
   staff:       STAFF_MENU,
+  supplier:    SUPPLIER_MENU,
 };
 
 export const CustomDrawerContent = (props: DrawerContentComponentProps) => {
@@ -155,7 +168,7 @@ export const CustomDrawerContent = (props: DrawerContentComponentProps) => {
   const label = ROLE_LABELS[role] ?? 'User';
 
   // Unread announcements → badge on the drawer entry (and the popup below).
-  const announcementsOn = moduleAllows('Announcements');
+  const announcementsOn = moduleAllows('Announcements') && role !== 'supplier';
   const { data: annData } = useQuery(GET_MY_ANNOUNCEMENTS, {
     skip: !announcementsOn || !user?.id,
     fetchPolicy: 'cache-and-network',

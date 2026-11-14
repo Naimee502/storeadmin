@@ -17,6 +17,7 @@ import { SEND_OTP, REGISTER_ACCOUNT, LOGIN_PARTY } from '../../../apollo/mutatio
 import { gqlErrorCodes, gqlErrorExt } from '../../../utils/gqlerror';
 import { LOGIN_STAFF } from '../../../apollo/mutations/staffaccounts';
 import { useBrandLogo } from '../../../apollo/hooks/adminsettings';
+import { LOGIN_SUPPLIER } from '../../../apollo/queries/supplier';
 import type { RootState } from '../../../store/rootreducer';
 
 export default function Login({ navigation }: any) {
@@ -158,6 +159,22 @@ export default function Login({ navigation }: any) {
           loginEmail: addEmail,
           accountCode: code,
         });
+        return;
+      }
+
+      // A supplier number: the same screen sends the supplier's email OTP.
+      if (codes.includes('NOT_CUSTOMER')) {
+        try {
+          await apolloClient.mutate({ mutation: LOGIN_SUPPLIER, variables: { adminId, mobile: mobile.trim() } });
+        } catch (se: any) {
+          const ext: any = gqlErrorExt(se, 'LOGIN_OTP_REQUIRED');
+          if (ext) {
+            showToast(se?.message || 'OTP sent to your email', 'success');
+            navigation.navigate('OTPVerification', { mobile: mobile.trim(), adminId, purpose: 'supplier', email: ext.maskedEmail ?? '', resendIn: Number(ext.resendIn) || 60 });
+          } else {
+            setErrors(e => ({ ...e, mobile: se?.message || msg }));
+          }
+        }
         return;
       }
 

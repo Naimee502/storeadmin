@@ -30,6 +30,7 @@ const PartyNav      = createNavigator(NavConfig.party);
 const SalesmanNav   = createNavigator(NavConfig.salesman);
 const DeliveryNav   = createNavigator(NavConfig.deliveryboy);
 const StaffNav      = createNavigator(NavConfig.staff);
+const SupplierNav   = createNavigator(NavConfig.supplier);
 
 /**
  * Protected — shown when isAuthenticated.
@@ -59,6 +60,9 @@ function ProtectedNavigator() {
       )}
       {user?.role === 'staff' && (
         <ProtectedStack.Screen name="StaffApp" component={StaffNav} />
+      )}
+      {user?.role === 'supplier' && (
+        <ProtectedStack.Screen name="SupplierApp" component={SupplierNav} />
       )}
       {/* Fallback — should not normally reach here */}
       {!user?.role && (

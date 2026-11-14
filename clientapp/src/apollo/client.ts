@@ -16,6 +16,7 @@ import { GET_OPEN_PUNCH } from './queries/attendance';
 import { GET_MY_EXPENSE_CLAIMS } from './queries/expenseclaims';
 import { GET_MY_SALES_RETURNS } from './queries/salesreturn';
 import { GET_MY_ANNOUNCEMENTS } from './queries/announcements';
+import { GET_SUPPLIER_PORTAL } from './queries/supplier';
 import { GET_SALESMAN_DASHBOARD } from './queries/salesmanreport';
 
 let _getToken: (() => string | null) | null = null;
@@ -144,6 +145,8 @@ const localDay = () => {
 // What each role's screens read, kept on the device so the app works offline like Vyapar (OFFLINE.md, "Apps").
 export function warmupFor(user: { id: string; role: string } | null, adminid: string | null) {
   if (!user?.id || !adminid) return [];
+  // A supplier login can read only its own portal.
+  if (user.role === 'supplier') return [{ query: GET_SUPPLIER_PORTAL }];
   const id = user.id;
   const common = [
     { query: GET_ADMIN_SETTINGS, variables: { adminid } },

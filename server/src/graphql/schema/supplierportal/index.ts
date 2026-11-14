@@ -2,6 +2,7 @@ import { gql } from "apollo-server-express";
 
 export const supplierPortalTypeDefs = gql`
   type SupplierLogin {
+    id: ID
     accessToken: String!
     name: String!
   }
