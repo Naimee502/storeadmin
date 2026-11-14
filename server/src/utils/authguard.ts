@@ -22,7 +22,7 @@ const PLATFORM = new Set([
   "createAdmin", "deleteAdmin", "resetAdmin", "approveSubscription", "rejectSubscription",
 ]);
 
-// Mutations acting on one record by `id`: the record must belong to the caller's business.
+// Fields acting on one record by `id`: the record must belong to the caller's business.
 const OWNED: Record<string, string> = {};
 const own = (model: string, names: string[]) => names.forEach((n) => (OWNED[n] = model));
 own("AccountGroup", ["editAccountGroup", "deleteAccountGroup", "resetAccountGroup"]);
@@ -54,6 +54,59 @@ own("StockAdjustment", ["updateStockAdjustment", "deleteStockAdjustment", "cance
 own("Transaction", ["editTransaction", "deleteTransaction", "resetTransaction"]);
 own("TransferStock", ["editTransferStock", "deleteTransferStock", "resetTransferStock"]);
 own("Visit", ["editVisit", "deleteVisit"]);
+own("SalesInvoice", ["getSalesInvoiceById", "cancelSalesInvoice", "reopenSalesInvoice", "markSalesInvoiceDispatched", "markSalesInvoiceDelivered", "assignInvoiceDeliveryBoy", "saveInvoiceGstDetails"]);
+own("SalesOrder", ["getSalesOrderById", "convertSalesOrderToInvoice", "cancelSalesOrder", "reopenSalesOrder", "confirmSalesOrder", "markSalesOrderDispatched", "markSalesOrderDelivered", "assignOrderDeliveryBoy"]);
+own("PurchaseInvoice", ["getPurchaseInvoiceById", "cancelPurchaseInvoice", "reopenPurchaseInvoice"]);
+own("PurchaseOrder", ["getPurchaseOrderById", "convertPurchaseOrderToInvoice", "confirmPurchaseOrder", "markPurchaseOrderReceived"]);
+own("SalesReturn", ["getSalesReturnById"]);
+own("PurchaseReturn", ["getPurchaseReturnById"]);
+own("ProductService", ["getProductServiceById", "updateProductService", "deleteProductService", "resetProductService", "getServiceById", "updateService", "deleteService", "resetService"]);
+own("Transaction", ["getTransactionById"]);
+own("Payment", ["getPaymentById"]);
+own("ExpenseNote", ["getExpenseNoteById"]);
+own("ExpenseClaim", ["getExpenseClaimById", "editExpenseClaim", "cancelExpenseClaim", "approveExpenseClaim", "rejectExpenseClaim", "deleteExpenseClaim", "resetExpenseClaim"]);
+own("Announcement", ["getAnnouncement", "getAnnouncementReaders", "editAnnouncement", "deleteAnnouncement", "resetAnnouncement", "markAnnouncementRead"]);
+own("Attendance", ["getAttendanceLogById", "editAttendanceLog", "deleteAttendanceLog", "resetAttendanceLog", "deletePunch"]);
+own("Holiday", ["getHolidayById", "editHoliday", "deleteHoliday", "resetHoliday"]);
+own("LeaveType", ["getLeaveTypeById", "editLeaveType", "deleteLeaveType", "resetLeaveType"]);
+own("LeaveRequest", ["getLeaveRequestById", "editLeaveRequest", "approveLeaveRequest", "rejectLeaveRequest", "cancelLeaveRequest", "deleteLeaveRequest", "resetLeaveRequest"]);
+own("LeaveBalance", ["deleteLeaveBalance", "resetLeaveBalance"]);
+own("Notification", ["markNotificationRead"]);
+own("DeliveryChallan", ["getDeliveryChallanById", "editDeliveryChallan", "deleteDeliveryChallan", "resetDeliveryChallan", "markDeliveryChallanDelivered", "markDeliveryChallanReturned", "saveChallanEWayBill"]);
+own("Lead", ["getLeadById", "editLead", "deleteLead", "resetLead", "setLeadStage", "convertLeadToParty", "aiDraftMessage"]);
+own("Followup", ["getFollowupById", "editFollowup", "deleteFollowup", "resetFollowup", "completeFollowup"]);
+own("Quotation", ["getQuotationById", "editQuotation", "deleteQuotation", "resetQuotation", "setQuotationStatus", "reviseQuotation"]);
+own("Bom", ["getBomById", "editBom", "deleteBom", "resetBom"]);
+own("WorkOrder", ["getWorkOrderById", "editWorkOrder", "setWorkOrderStatus", "deleteWorkOrder", "resetWorkOrder"]);
+own("ProductionEntry", ["getProductionEntryById", "editProductionEntry", "deleteProductionEntry", "resetProductionEntry"]);
+own("Appointment", ["getAppointmentById", "editAppointment", "setAppointmentStatus", "deleteAppointment", "resetAppointment"]);
+own("JobCard", ["getJobCardById", "editJobCard", "setJobCardStatus", "deleteJobCard", "resetJobCard"]);
+own("Contract", ["getContractById", "editContract", "deleteContract", "resetContract"]);
+own("MembershipPlan", ["getMembershipPlanById", "editMembershipPlan", "deleteMembershipPlan", "resetMembershipPlan"]);
+own("Membership", ["getMembershipById", "editMembership", "deleteMembership", "resetMembership"]);
+own("Opportunity", ["setOpportunityState", "convertOpportunityToLead", "aiDraftForOpportunity"]);
+own("Insight", ["setInsightState"]);
+own("LeadInbox", ["retryLeadInbox"]);
+own("Account", ["getAccountById", "approveAccount"]);
+own("Branch", ["getBranch"]);
+own("Category", ["getCategoryById"]);
+own("SubCategory", ["getSubCategoryById"]);
+own("Size", ["getSizeById"]);
+own("Brand", ["getBrandById"]);
+own("Model", ["getModelById"]);
+own("ProductGroup", ["getProductGroupById"]);
+own("AccountGroup", ["getAccountGroupById"]);
+own("AccountLedger", ["getAccountLedgerById"]);
+own("Unit", ["getUnitById"]);
+own("StaffAccount", ["getStaffAccountById"]);
+own("TransferStock", ["getTransferStockById"]);
+own("StockAdjustment", ["getStockAdjustmentById"]);
+own("SalesRoute", ["getSalesRouteById"]);
+own("Channel", ["getChannelById"]);
+own("PriceList", ["getPriceListById"]);
+own("ChargeRule", ["getChargeRuleById"]);
+// Fields whose record id arg is not named `id`.
+const ID_ARG: Record<string, string> = { deletePunch: "logid", aiDraftMessage: "leadid" };
 
 // Admin-panel mutations checked against the login's module permissions (the app's own calls are not listed).
 const ACTION: Record<string, [string, string]> = {};
@@ -149,7 +202,7 @@ const checkPermissionsScope = async (context: any, args: any, admin: Types.Objec
   if (owner !== undefined && owner !== String(admin)) throw denied();
 };
 
-const TENANT_KEYS = ["adminid", "admin"];
+const TENANT_KEYS = ["adminid", "adminId", "admin"];
 const isIdArg = (type: any) => ["ID", "String"].includes((getNamedType(type) as any)?.name);
 const idValue = (type: any, id: string) => (isListType(getNullableType(type)) ? [id] : id);
 
@@ -234,8 +287,9 @@ const check = async (field: string, args: any, context: any, info?: any) => {
     }
   }
 
-  if (OWNED[field] && args?.id != null) {
-    const owner = await ownerOf(OWNED[field], args.id);
+  const recordId = args?.[ID_ARG[field] || "id"];
+  if (OWNED[field] && recordId != null) {
+    const owner = await ownerOf(OWNED[field], recordId);
     if (owner !== undefined && owner !== String(await callerAdminId(context))) throw denied();
     return;
   }
