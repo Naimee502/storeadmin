@@ -133,6 +133,7 @@ import ServiceDeletedEntries from "../pages/appointments/deletedentries";
 import JobCards from "../pages/jobcards";
 import AddEditJobCard from "../pages/jobcards/addedit";
 import SupportTickets from "../pages/supporttickets";
+import DeliveryBoard from "../pages/deliveryboard";
 import AddEditSupportTicket from "../pages/supporttickets/addedit";
 import Contracts from "../pages/contracts";
 import AddEditContract from "../pages/contracts/addedit";
@@ -1111,6 +1112,7 @@ const AppRoutes = () => {
       <Route path="/jobcards" element={<ProtectedRoutes><JobCards /></ProtectedRoutes>} />
       <Route path="/jobcards/addedit" element={<ProtectedRoutes><AddEditJobCard /></ProtectedRoutes>} />
       <Route path="/supporttickets" element={<ProtectedRoutes><SupportTickets /></ProtectedRoutes>} />
+      <Route path="/deliveryboard" element={<ProtectedRoutes><DeliveryBoard /></ProtectedRoutes>} />
       <Route path="/supporttickets/deletedentries" element={<ProtectedRoutes><SupportTickets deleted /></ProtectedRoutes>} />
       <Route path="/supporttickets/addedit" element={<ProtectedRoutes><AddEditSupportTicket /></ProtectedRoutes>} />
       <Route path="/supporttickets/addedit/:id" element={<ProtectedRoutes><AddEditSupportTicket /></ProtectedRoutes>} />

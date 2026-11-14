@@ -27,7 +27,7 @@ import { Link, useLocation, useNavigate } from 'react-router';
 import { useAppSelector } from '../../redux/hooks';
 import { DEFAULT_ON_MODULE_IDS } from '../../config/modules';
 import { selectModuleActions } from '../../redux/slices/permissions';
-import { Building2, LifeBuoy, ShieldCheck } from 'lucide-react';
+import { Building2, LifeBuoy, ShieldCheck, Truck } from 'lucide-react';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -179,6 +179,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar, onHoverChange 
     { to: '/accounts', label: 'Party Accounts', icon: <FaUser className="text-pink-400 text-[15px] flex-shrink-0" />, moduleId: "accounts", roles: ["admin", "branch", "staff"], section: "Accounts" },
     { to: '/products', label: 'Products', icon: <FaBoxOpen className="text-amber-500 text-[15px] flex-shrink-0" />, moduleId: "products", roles: ["admin", "branch", "staff"], section: "Branch" },
     { to: '/salesorder', label: 'Sales Orders', icon: <FaClipboardList className="text-cyan-500 text-[15px] flex-shrink-0" />, moduleId: "salesorder", roles: ["admin", "branch", "staff"], section: "Branch" },
+    { to: '/deliveryboard', label: 'Delivery Board', icon: <Truck size={15} className="text-cyan-500 flex-shrink-0" />, moduleId: "salesorder", roles: ["admin", "branch", "staff"], section: "Branch" },
     { to: '/marketplaceorders', label: 'Marketplace Orders', icon: <FaShoppingBag className="text-orange-500 text-[15px] flex-shrink-0" />, moduleId: "marketplace", roles: ["admin", "branch", "staff"], section: "Branch" },
     { to: '/salesinvoice', label: 'Sales Invoices', icon: <FaFileInvoiceDollar className="text-emerald-500 text-[15px] flex-shrink-0" />, moduleId: "salesinvoice", roles: ["admin", "branch", "staff"], section: "Branch" },
     { to: '/deliverychallan', label: 'Delivery Challans', icon: <FaTruck className="text-sky-500 text-[15px] flex-shrink-0" />, moduleId: "deliverychallan", roles: ["admin", "branch", "staff"], section: "Branch" },
