@@ -12,51 +12,53 @@ import { JOB_STATUS, customerLabel, jobCardNo, useJobCardsPageQuery, useServiceM
 import { toInvoiceProducts } from "../../components/servicelines";
 import { formatDateDMY, todayYMD } from "../../utils/helper";
 import { useCompany } from "../deliverychallan";
+import { amountInWords, billBody, billHtml, companyOf, esc, f2, printHtml, printOptions } from "../../utils/billprint";
 
 const SERVER_FILTER_KEYS = ["billnumber", "partyacc", "billdate", "device", "problem", "technician", "jobStatus", "promisedate", "estimatetotal"];
-const esc = (v: any) => String(v ?? "").replace(/[&<>"]/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[ch] as string));
+
 const money = (n: any) => Number(n || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-/** Job sheet for the counter and the customer's copy. */
+/** Job sheet for the counter and the customer's copy, in the common bill layout. */
 export function printJobSheet(j: any, company: any, settings: any) {
   const s = settings || {};
-  const rows = (lines: any[]) =>
-    (lines || []).map((l: any, i: number) => `<tr><td>${i + 1}</td><td>${esc(l.productserviceid?.name || l.description || "")}${l.productserviceid?.name && l.description ? ` - ${esc(l.description)}` : ""}</td><td class="r">${esc(l.qty)}</td><td class="r">${money(l.rate)}</td><td class="r">${money(l.amount ?? Number(l.qty) * Number(l.rate))}</td></tr>`).join("");
-  const table = (title: string, lines: any[]) =>
-    lines?.length ? `<h4>${title}</h4><table class="items"><thead><tr><th>#</th><th>Item</th><th class="r">Qty</th><th class="r">Rate</th><th class="r">Amount</th></tr></thead><tbody>${rows(lines)}</tbody></table>` : "";
-  const html = `<!doctype html><html><head><title>${esc(jobCardNo(j))}</title><style>
-    body{font-family:Arial,sans-serif;font-size:12px;color:#111;margin:0}.page{padding:10mm}
-    .top{display:flex;justify-content:space-between;border-bottom:2px solid #4f46e5;padding-bottom:6px}.co{font-size:17px;font-weight:bold;color:#4f46e5}
-    .muted{color:#555}table{width:100%;border-collapse:collapse}.grid td{padding:4px;border:1px solid #ddd;vertical-align:top;width:25%}
-    .grid b{display:block;color:#555;font-size:10px;text-transform:uppercase}.items th{background:#eef2ff;text-align:left;padding:4px}.items td{border-bottom:1px solid #eee;padding:4px}
-    .r{text-align:right}h4{margin:12px 0 4px;color:#4f46e5}.sign{display:flex;justify-content:space-between;margin-top:40px}
-  </style></head><body><div class="page">
-    <div class="top"><div><div class="co">${esc(s.legalName || company?.companyName || company?.name || "")}</div><div class="muted">${esc(company?.mobile || "")}</div></div>
-      <div class="r"><b style="font-size:16px">JOB SHEET</b><br/>No. <b>${esc(jobCardNo(j))}</b><br/>Date ${esc(formatDateDMY(j.billdate))}</div></div>
-    <table class="grid" style="margin-top:8px"><tr>
-      <td><b>Customer</b>${esc(customerLabel(j))}</td><td><b>Device / Item</b>${esc(j.productserviceid?.name || j.devicename || "")}</td>
-      <td><b>Serial / IMEI</b>${esc(j.serial || "")}</td><td><b>Promised</b>${esc(j.promisedate ? formatDateDMY(j.promisedate) : "")}</td></tr>
-      <tr><td colspan="2"><b>Problem Reported</b>${esc(j.problem || "")}</td><td colspan="2"><b>Accessories Received</b>${esc(j.accessories || "")}</td></tr>
-      <tr><td><b>Technician</b>${esc(j.technicianid?.name || "")}</td><td><b>Status</b>${esc(JOB_STATUS[j.jobStatus] || "")}</td>
-      <td><b>Estimate Approved</b>${j.approved ? `Yes${j.approvedAt ? ` (${esc(formatDateDMY(j.approvedAt))})` : ""}` : "No"}</td><td><b>Warranty on Repair</b>${j.warrantydays ? `${esc(j.warrantydays)} days` : ""}</td></tr></table>
-    ${table("Estimate", j.estimate)}${j.estimate?.length ? `<p class="r"><b>Estimate Total ₹ ${money(j.estimatetotal)}</b></p>` : ""}
-    ${table("Spares Used", j.spares)}
-    ${j.notes ? `<h4>Notes</h4>${esc(j.notes)}` : ""}
-    <div class="sign"><div>Customer Signature</div><div>For ${esc(s.legalName || company?.companyName || "")}</div></div>
-  </div></body></html>`;
-  const frame = document.createElement("iframe");
-  frame.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0";
-  document.body.appendChild(frame);
-  const doc = frame.contentWindow?.document;
-  if (!doc) return;
-  doc.open();
-  doc.write(html);
-  doc.close();
-  setTimeout(() => {
-    frame.contentWindow?.focus();
-    frame.contentWindow?.print();
-    setTimeout(() => frame.remove(), 1000);
-  }, 400);
+  const opts = printOptions(s);
+  const seller = companyOf(company, s);
+  if (s.legalName) seller.name = s.legalName;
+  const lines = j.estimate || [];
+  const amountOf = (l: any) => Number(l.amount ?? Number(l.qty) * Number(l.rate)) || 0;
+  const itemName = (l: any) => `${esc(l.productserviceid?.name || l.description || "")}${l.productserviceid?.name && l.description ? ` - ${esc(l.description)}` : ""}`;
+  const spares = (j.spares || []).length
+    ? `<div class="inv-sub">Spares Used</div><table class="inv-table"><tbody>${j.spares.map((l: any, i: number) => `<tr><td class="ac" style="width:6%">${i + 1}</td><td class="al">${itemName(l)}</td><td class="ac" style="width:10%">${esc(l.qty)}</td><td class="ar" style="width:14%">${f2(l.rate)}</td><td class="ar" style="width:16%">${f2(amountOf(l))}</td></tr>`).join("")}</tbody></table>`
+    : "";
+  const total = Number(j.estimatetotal ?? lines.reduce((t: number, l: any) => t + amountOf(l), 0)) || 0;
+  const body = billBody({
+    title: "JOB SHEET",
+    memo: `Status: ${JOB_STATUS[j.jobStatus] || "Received"}`,
+    company: seller, showHeader: opts.showHeader,
+    cells: [
+      ["M/S.", esc(customerLabel(j))],
+      ["Job No.", esc(jobCardNo(j))],
+      ["Date", esc(formatDateDMY(j.billdate))],
+      ["Device / Item", esc(j.productserviceid?.name || j.devicename || "---")],
+      ["Serial / IMEI", esc(j.serial || "---")],
+      ["Promised Date", esc(j.promisedate ? formatDateDMY(j.promisedate) : "---")],
+      ["Technician", esc(j.technicianid?.name || "---")],
+      ["Estimate Approved", j.approved ? `Yes${j.approvedAt ? ` (${esc(formatDateDMY(j.approvedAt))})` : ""}` : "No"],
+      ["Warranty on Repair", esc(j.warrantydays ? `${j.warrantydays} days` : "---")],
+      ["Problem Reported", esc(j.problem || "---")],
+      ["Accessories Received", esc(j.accessories || "---")],
+      ["Delivered On", esc(j.deliveredAt ? formatDateDMY(j.deliveredAt) : "---")],
+    ],
+    columns: [{ label: "Sr", align: "c", width: "6%" }, { label: "Estimate - Item / Work", align: "l" }, { label: "Qty", align: "c", width: "10%" }, { label: "Rate", align: "r", width: "14%" }, { label: "Amount", align: "r", width: "16%" }],
+    rows: lines.map((l: any, i: number) => [String(i + 1), itemName(l), esc(l.qty), f2(l.rate), f2(amountOf(l))]),
+    afterItems: spares,
+    grand: lines.length ? ["Estimate Total", f2(total)] : undefined,
+    words: lines.length ? amountInWords(total) : "",
+    extra: j.notes ? `<strong>Notes:</strong> ${esc(j.notes)}` : "",
+    signLeft: "Customer Signature",
+    signCompany: opts.signCompany ? seller.name : null,
+  });
+  printHtml(billHtml(jobCardNo(j), [body]));
 }
 
 const JobCards = () => {

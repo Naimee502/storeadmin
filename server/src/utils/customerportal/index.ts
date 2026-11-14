@@ -8,7 +8,8 @@ import { Appointment, Contract, JobCard, Membership } from "../../models/service
 import { pushNotification } from "../../models/notifications";
 import { TenantError } from "../tenant";
 import { istDate } from "../ist";
-import { dmy, esc } from "../supplierdocs";
+import { dmy } from "../supplierdocs";
+import { amountInWords, billBody, billHtml, companyOf, esc, f2, printOptions } from "../billprint";
 
 export const JOB_LABEL: Record<string, string> = {
   received: "Received", diagnosing: "Diagnosing", waitingapproval: "Waiting Approval", inprogress: "In Progress", ready: "Ready", delivered: "Delivered", cancelled: "Cancelled",
@@ -78,41 +79,42 @@ const PRINT_SECRET = () => `${process.env.JWT_ACCESS_SECRET}:job-print`;
 export const jobPrintToken = (id: any, partyid: any, adminid: any) =>
   jwt.sign({ id: String(id), p: String(partyid), a: String(adminid) }, PRINT_SECRET(), { expiresIn: "15m" });
 
-/** Job sheet in the billing system's layout, for a print link; null when the link is bad or expired. */
+/** Job sheet in the common bill layout, for a print link; null when the link is bad or expired. */
 export const jobSheetHtml = async (token: string): Promise<string | null> => {
   let t: any;
   try { t = jwt.verify(token, PRINT_SECRET()); } catch { return null; }
   const j: any = await myJob(t.id, t.p, t.a).catch(() => null);
   if (!j) return null;
   const [admin, st, party]: any[] = await Promise.all([
-    Admin.findById(t.a).select("companyName mobile").lean(),
-    AdminSettings.findOne({ adminid: t.a }).select("legalName").lean(),
+    Admin.findById(t.a).select("companyName address mobile").lean(),
+    AdminSettings.findOne({ adminid: t.a }).lean(),
     Account.findById(t.p).select("name mobile city").lean(),
   ]);
-  const company = st?.legalName || admin?.companyName || "";
-  const money = (n: any) => (Number(n) || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  const rows = (j.estimate || []).map((l: any, i: number) => `<tr><td>${i + 1}</td><td>${esc(l.productserviceid?.name || l.description || "")}${l.productserviceid?.name && l.description ? ` - ${esc(l.description)}` : ""}</td><td class="r">${esc(l.qty)}</td><td class="r">${money(l.rate)}</td><td class="r">${money(l.amount ?? Number(l.qty) * Number(l.rate))}</td></tr>`).join("");
+  const opts = printOptions(st);
+  const seller = companyOf(admin, st);
+  if (st?.legalName) seller.name = st.legalName;
+  const lines = j.estimate || [];
+  const amountOf = (l: any) => Number(l.amount ?? Number(l.qty) * Number(l.rate)) || 0;
+  const total = Number(j.estimatetotal ?? lines.reduce((a: number, l: any) => a + amountOf(l), 0)) || 0;
   const customer = [party?.name, party?.mobile, party?.city].map((x) => String(x || "").trim()).filter(Boolean).join(" - ");
-  return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(jobNo(j))}</title><style>
-    body{font-family:Arial,sans-serif;font-size:12px;color:#111;margin:0}.page{padding:10mm;max-width:900px;margin:auto}
-    .top{display:flex;justify-content:space-between;border-bottom:2px solid #4f46e5;padding-bottom:6px}.co{font-size:17px;font-weight:bold;color:#4f46e5}
-    .muted{color:#555}table{width:100%;border-collapse:collapse}.grid td{padding:4px;border:1px solid #ddd;vertical-align:top;width:25%}
-    .grid b{display:block;color:#555;font-size:10px;text-transform:uppercase}.items th{background:#eef2ff;text-align:left;padding:4px}.items td{border-bottom:1px solid #eee;padding:4px}
-    .r{text-align:right}h4{margin:12px 0 4px;color:#4f46e5}.sign{display:flex;justify-content:space-between;margin-top:40px}
-    .bar{text-align:right;padding:12px 16px}.bar button{background:#4f46e5;color:#fff;border:0;border-radius:8px;padding:8px 16px;font-size:14px;cursor:pointer}@media print{.bar{display:none}}
-  </style></head><body><div class="bar"><button onclick="window.print()">Print / Save PDF</button></div><div class="page">
-    <div class="top"><div><div class="co">${esc(company)}</div><div class="muted">${esc(admin?.mobile || "")}</div></div>
-      <div class="r"><b style="font-size:16px">JOB SHEET</b><br/>No. <b>${esc(jobNo(j))}</b><br/>Date ${esc(dmy(j.billdate))}</div></div>
-    <table class="grid" style="margin-top:8px"><tr>
-      <td><b>Customer</b>${esc(customer)}</td><td><b>Device / Item</b>${esc(j.productserviceid?.name || j.devicename || "")}</td>
-      <td><b>Serial / IMEI</b>${esc(j.serial || "")}</td><td><b>Promised</b>${esc(j.promisedate ? dmy(j.promisedate) : "")}</td></tr>
-      <tr><td colspan="2"><b>Problem Reported</b>${esc(j.problem || "")}</td><td colspan="2"><b>Accessories Received</b>${esc(j.accessories || "")}</td></tr>
-      <tr><td><b>Technician</b>${esc(j.technicianid?.name || "")}</td><td><b>Status</b>${esc(JOB_LABEL[j.jobStatus] || "")}</td>
-      <td><b>Estimate Approved</b>${j.approved ? `Yes${j.approvedAt ? ` (${esc(dmy(String(j.approvedAt).slice(0, 10)))})` : ""}` : "No"}</td><td><b>Warranty on Repair</b>${j.warrantydays ? `${esc(j.warrantydays)} days` : ""}</td></tr></table>
-    ${rows ? `<h4>Estimate</h4><table class="items"><thead><tr><th>#</th><th>Item</th><th class="r">Qty</th><th class="r">Rate</th><th class="r">Amount</th></tr></thead><tbody>${rows}</tbody></table><p class="r"><b>Estimate Total ₹ ${money(j.estimatetotal)}</b></p>` : ""}
-    ${j.notes ? `<h4>Notes</h4>${esc(j.notes)}` : ""}
-    <div class="sign"><div>Customer Signature</div><div>For ${esc(company)}</div></div>
-  </div></body></html>`;
+  const body = billBody({
+    title: "JOB SHEET", memo: `Status: ${JOB_LABEL[j.jobStatus] || "Received"}`,
+    company: seller, showHeader: opts.showHeader,
+    cells: [
+      ["M/S.", esc(customer || "---")], ["Job No.", esc(jobNo(j))], ["Date", esc(dmy(j.billdate))],
+      ["Device / Item", esc(j.productserviceid?.name || j.devicename || "---")], ["Serial / IMEI", esc(j.serial || "---")], ["Promised Date", esc(j.promisedate ? dmy(j.promisedate) : "---")],
+      ["Technician", esc(j.technicianid?.name || "---")], ["Estimate Approved", j.approved ? `Yes${j.approvedAt ? ` (${esc(dmy(String(j.approvedAt).slice(0, 10)))})` : ""}` : "No"], ["Warranty on Repair", esc(j.warrantydays ? `${j.warrantydays} days` : "---")],
+      ["Problem Reported", esc(j.problem || "---")], ["Accessories Received", esc(j.accessories || "---")], ["Delivered On", esc(j.deliveredAt ? dmy(new Date(new Date(j.deliveredAt).getTime() + 330 * 60000).toISOString().slice(0, 10)) : "---")],
+    ],
+    columns: [{ label: "Sr", align: "c", width: "6%" }, { label: "Estimate - Item / Work", align: "l" }, { label: "Qty", align: "c", width: "10%" }, { label: "Rate", align: "r", width: "14%" }, { label: "Amount", align: "r", width: "16%" }],
+    rows: lines.map((l: any, i: number) => [String(i + 1), `${esc(l.productserviceid?.name || l.description || "")}${l.productserviceid?.name && l.description ? ` - ${esc(l.description)}` : ""}`, esc(l.qty), f2(l.rate), f2(amountOf(l))]),
+    grand: lines.length ? ["Estimate Total", f2(total)] : undefined,
+    words: lines.length ? amountInWords(total) : "",
+    extra: j.notes ? `<strong>Notes:</strong> ${esc(j.notes)}` : "",
+    signLeft: "Customer Signature",
+    signCompany: opts.signCompany ? seller.name : null,
+  });
+  return billHtml(jobNo(j), [body]);
 };
 
 const tell = (adminid: any, partyid: any, title: string, message: string, docmodel: string, docid: any, ntype = "service") =>

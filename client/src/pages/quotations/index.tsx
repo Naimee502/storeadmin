@@ -14,10 +14,10 @@ import { QUOTATION_STATUS, quotationNo, useQuotationMutations, useQuotationsPage
 import { formatDateDMY, gstSplit } from "../../utils/helper";
 import { partyLabel } from "../../utils/partylabel";
 import { useCompany } from "../deliverychallan";
+import { type Column, amountInWords, billBody, billHtml, companyOf, esc, f2, printHtml, printOptions } from "../../utils/billprint";
 
 const SERVER_FILTER_KEYS = ["billnumber", "partyacc", "billdate", "subject", "validtill", "quotationStatus", "totalamount"];
 
-const esc = (v: any) => String(v ?? "").replace(/[&<>"]/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[ch] as string));
 const money = (n: any) => Number(n || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const nl = (t?: string) => esc(t || "").replace(/\n/g, "<br/>");
 
@@ -33,26 +33,29 @@ export const customerOf = (q: any) => {
   };
 };
 
-/** Quotation as printed; layout and blocks come from Business Settings → Quotation Format. */
+/** Quotation as printed: the common bill layout; blocks come from Business Settings → Quotation Format. */
 export function printQuotation(q: any, company: any, settings: any, products: any[] = [], categories: any[] = []) {
   const s = settings || {};
   const on = (k: string, dflt: boolean) => (s[k] === undefined || s[k] === null ? dflt : !!s[k]);
   const showImg = on("quoteShowImages", false), showHsn = on("quoteShowHsn", true), showDisc = on("quoteShowDiscount", true);
   const showGst = on("quoteShowGst", true), showSplit = on("quoteShowTaxSplit", true), showSign = on("quoteShowSignature", true);
-  const accent = /^#[0-9a-f]{3,8}$/i.test(s.quoteAccent || "") ? s.quoteAccent : "#4f46e5";
+  const accent = /^#[0-9a-f]{3,8}$/i.test(s.quoteAccent || "") ? s.quoteAccent : undefined;
+  const opts = printOptions(s);
   const c = customerOf(q);
-  const seller = {
-    name: s.legalName || company?.companyName || company?.name || "",
-    address: [s.gstAddress || company?.address, s.gstCity, s.gstPincode].filter(Boolean).join(", "),
-    mobile: company?.mobile || "",
-    gstin: s.gstin || company?.gstin || "",
-  };
+  const seller = companyOf(company, s);
+  if (s.legalName) seller.name = s.legalName;
   const productOf = (id?: string) => products.find((p: any) => p.id === id);
   const variantOf = (l: any) => productOf(l.productserviceid?.id)?.productvariants?.find((v: any) => v.id === l.variantid?.id);
   const lines = q.productservice || [];
   const main = lines.filter((l: any) => !l.optional);
   const optional = lines.filter((l: any) => l.optional);
-  const head = `<tr><th>#</th>${showImg ? "<th></th>" : ""}<th>Description</th>${showHsn ? "<th>HSN/SAC</th>" : ""}<th class="r">Qty</th><th>Unit</th><th class="r">Rate</th>${showDisc ? '<th class="r">Disc.</th>' : ""}${showGst ? '<th class="r">GST%</th>' : ""}<th class="r">Amount</th></tr>`;
+  const columns: Column[] = [
+    { label: "Sr", align: "c", width: "5%" }, ...(showImg ? [{ label: "", align: "c" as const, width: "7%" }] : []),
+    { label: "Product Name", align: "l" }, ...(showHsn ? [{ label: "HSN", align: "c" as const, width: "9%" }] : []),
+    { label: "Qty", align: "c", width: "8%" }, { label: "Rate", align: "r", width: "11%" },
+    ...(showDisc ? [{ label: "Disc", align: "r" as const, width: "9%" }] : []), ...(showGst ? [{ label: "GST%", align: "c" as const, width: "7%" }] : []),
+    { label: "Amount", align: "r", width: "13%" },
+  ];
   const printDefs = (s.customFieldDefs || []).filter((d: any) => d.entity === "product" && d.print);
   // Business-wide fields sit on the product; a category's spec fields sit on the variant.
   const specsOf = (prod: any, variant?: any) => {
@@ -69,53 +72,49 @@ export function printQuotation(q: any, company: any, settings: any, products: an
     const v = variantOf(l);
     const specs = specsOf(prod, v);
     const img = prod?.imageurl || prod?.imageurls?.[0] || "";
-    return `<tr><td>${i + 1}</td>${showImg ? `<td>${img ? `<img src="${esc(img)}" style="width:42px;height:42px;object-fit:cover"/>` : ""}</td>` : ""}
-      <td><b>${esc(l.productserviceid?.name || "")}${l.variantid?.name ? ` - ${esc(l.variantid.name)}` : ""}</b>${specs ? `<div class="desc">${specs}</div>` : ""}${l.description ? `<div class="desc">${nl(l.description)}</div>` : ""}</td>
-      ${showHsn ? `<td>${esc(v?.hsncode || "")}</td>` : ""}<td class="r">${esc(l.qty)}</td><td>${esc(l.unitqty && l.unitqty !== 1 ? `${l.unitqty} ` : "")}${esc(l.salesunitid?.unitname || "")}</td>
-      <td class="r">${money(l.rate)}</td>${showDisc ? `<td class="r">${l.discount ? money(l.discount) : ""}</td>` : ""}${showGst ? `<td class="r">${esc(l.gst || 0)}</td>` : ""}<td class="r">${money(l.amount)}</td></tr>`;
+    const unit = `${l.unitqty && l.unitqty !== 1 ? `${l.unitqty} ` : ""}${l.salesunitid?.unitname || ""}`;
+    return [
+      String(i + 1),
+      ...(showImg ? [img ? `<img src="${esc(img)}" style="width:42px;height:42px;object-fit:cover"/>` : ""] : []),
+      `${esc(l.productserviceid?.name || "")}${l.variantid?.name ? ` - ${esc(l.variantid.name)}` : ""}${unit ? ` (${esc(unit)})` : ""}${specs ? `<div class="desc">${specs}</div>` : ""}${l.description ? `<div class="desc">${nl(l.description)}</div>` : ""}`,
+      ...(showHsn ? [esc(v?.hsncode || "-")] : []),
+      esc(l.qty), f2(l.rate), ...(showDisc ? [f2(l.discount)] : []), ...(showGst ? [esc(l.gst || 0)] : []), f2(l.amount),
+    ];
   };
   const split = gstSplit(s.companyState, c.state, Number(q.totalgst || 0));
-  const totals = [
-    ["Sub Total", money(q.subtotal)],
-    ...(showDisc && Number(q.totaldiscount) ? [["Discount", money(q.totaldiscount)]] : []),
-    ...(showGst ? (showSplit ? (split.inter ? [["IGST", money(split.igst)]] : [["CGST", money(split.cgst)], ["SGST", money(split.sgst)]]) : [["GST", money(q.totalgst)]]) : []),
-    ["Grand Total", money(q.totalamount)],
+  const totals: [string, string][] = [
+    ["Sub Total", f2(q.subtotal)],
+    ...(showDisc ? [["Total Discount", f2(q.totaldiscount)] as [string, string]] : []),
+    ...(showGst ? (showSplit ? (split.inter ? [["IGST", f2(split.igst)]] : [["CGST", f2(split.cgst)], ["SGST", f2(split.sgst)]]) : []) as [string, string][] : []),
+    ...(showGst ? [["Total GST", f2(q.totalgst)] as [string, string]] : []),
   ];
-  const html = `<!doctype html><html><head><title>${esc(quotationNo(q))}</title><style>
-    body{font-family:Arial,sans-serif;font-size:12px;color:#111;margin:0}.page{padding:12mm}
-    .top{display:flex;justify-content:space-between;border-bottom:3px solid ${accent};padding-bottom:8px}
-    .co{font-size:18px;font-weight:bold;color:${accent}}.muted{color:#555}.title{font-size:20px;font-weight:bold;letter-spacing:1px;text-align:right}
-    table{width:100%;border-collapse:collapse}.meta{margin:10px 0}.meta td{vertical-align:top;padding:4px 0;width:50%}
-    .items{margin-top:8px}.items th{background:${accent};color:#fff;text-align:left;padding:5px;font-size:11px}.items td{border-bottom:1px solid #ddd;padding:5px;vertical-align:top}
-    .r{text-align:right}.desc{color:#444;font-size:11px;margin-top:2px}.tot{width:45%;margin-left:auto;margin-top:6px}.tot td{padding:3px 5px}
-    .tot tr:last-child td{border-top:2px solid ${accent};font-weight:bold;font-size:13px}.box{margin-top:12px}.box h4{margin:0 0 4px;color:${accent}}
-    .sign{margin-top:36px;text-align:right}.foot{margin-top:18px;border-top:1px solid #ddd;padding-top:6px;color:#666;font-size:10px;text-align:center}
-  </style></head><body><div class="page">
-    <div class="top"><div><div class="co">${esc(seller.name)}</div><div class="muted">${esc(seller.address)}${seller.mobile ? `<br/>${esc(seller.mobile)}` : ""}${seller.gstin ? `<br/>GSTIN ${esc(seller.gstin)}` : ""}</div></div>
-      <div><div class="title">${esc(s.quoteTitle || "QUOTATION")}</div><div class="r muted">No. <b>${esc(quotationNo(q))}</b><br/>Date ${esc(formatDateDMY(q.billdate))}${q.validtill ? `<br/>Valid till ${esc(formatDateDMY(q.validtill))}` : ""}</div></div></div>
-    <table class="meta"><tr><td><b>To</b><br/>${esc(c.name)}${c.address ? `<br/>${esc(c.address)}` : ""}${c.mobile ? `<br/>${esc(c.mobile)}` : ""}${c.gstin ? `<br/>GSTIN ${esc(c.gstin)}` : ""}${q.contactperson ? `<br/>Kind Attn: ${esc(q.contactperson)}` : ""}</td>
-      <td>${q.subject ? `<b>Subject:</b> ${esc(q.subject)}` : ""}</td></tr></table>
-    ${q.intro || s.quoteIntro ? `<p>${nl(q.intro || s.quoteIntro)}</p>` : ""}
-    <table class="items"><thead>${head}</thead><tbody>${main.map(row).join("")}</tbody></table>
-    <table class="tot">${totals.map(([k, v]) => `<tr><td>${k}</td><td class="r">₹ ${v}</td></tr>`).join("")}</table>
-    ${optional.length ? `<div class="box"><h4>Optional Items (not in the total)</h4><table class="items"><thead>${head}</thead><tbody>${optional.map(row).join("")}</tbody></table></div>` : ""}
-    ${q.terms ? `<div class="box"><h4>Terms &amp; Conditions</h4>${nl(q.terms)}</div>` : ""}
-    ${showSign ? `<div class="sign">For ${esc(seller.name)}<br/><br/><br/>Authorised Signatory</div>` : ""}
-    ${s.quoteFooter ? `<div class="foot">${nl(s.quoteFooter)}</div>` : ""}
-  </div></body></html>`;
-  const frame = document.createElement("iframe");
-  frame.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0";
-  document.body.appendChild(frame);
-  const doc = frame.contentWindow?.document;
-  if (!doc) return;
-  doc.open();
-  doc.write(html);
-  doc.close();
-  setTimeout(() => {
-    frame.contentWindow?.focus();
-    frame.contentWindow?.print();
-    setTimeout(() => frame.remove(), 1000);
-  }, 400);
+  const optionalHtml = optional.length
+    ? `<div class="inv-sub">Optional Items (not in the total)</div><table class="inv-table"><tbody>${optional.map((l: any, i: number) => `<tr>${row(l, i).map((cell, k) => `<td class="${columns[k]?.align === "r" ? "ar" : columns[k]?.align === "c" ? "ac" : "al"}">${cell}</td>`).join("")}</tr>`).join("")}</tbody></table>`
+    : "";
+  const intro = q.intro || s.quoteIntro;
+  const body = billBody({
+    title: s.quoteTitle || "QUOTATION",
+    memo: q.subject ? `Subject: ${q.subject}` : "",
+    company: seller, accent, showHeader: opts.showHeader,
+    cells: [
+      ["M/S.", esc(c.name || "---")],
+      ["Quotation No.", esc(quotationNo(q))],
+      ["Date", esc(formatDateDMY(q.billdate))],
+      ["Address", esc(c.address || "---")],
+      ["Mobile", esc(c.mobile || "---")],
+      ["Valid Till", esc(q.validtill ? formatDateDMY(q.validtill) : "---")],
+      ["GSTIN No.", esc(c.gstin || "---")],
+      ["Kind Attn.", esc(q.contactperson || "---")],
+      ["Place of Supply", esc(c.state ? c.state.replace(/_/g, " ").replace(/\b\w/g, (m: string) => m.toUpperCase()) : "---")],
+    ],
+    columns, rows: main.map(row), afterItems: optionalHtml,
+    totals, grand: ["Grand Total", f2(q.totalamount)], words: amountInWords(q.totalamount),
+    extra: intro ? nl(intro) : "",
+    terms: q.terms ? String(q.terms).split("\n").map((l: string) => esc(l.trim())).filter(Boolean) : [],
+    signCompany: showSign ? seller.name : null, signLabel: showSign ? "Authorised Signatory" : " ",
+    footer: s.quoteFooter ? nl(s.quoteFooter) : "",
+  });
+  printHtml(billHtml(quotationNo(q), [body]));
 }
 
 /** WhatsApp text for the customer (opens their chat). */

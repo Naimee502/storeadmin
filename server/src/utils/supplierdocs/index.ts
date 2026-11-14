@@ -107,7 +107,7 @@ const under1000 = (n: number) => {
   return [h ? `${ONES[h]} hundred` : "", rest].filter(Boolean).join(" ");
 };
 /** Same wording as the billing system's print (number-to-words). */
-const toWords = (num: number) => {
+export const toWords = (num: number) => {
   let n = Math.round(Math.abs(num));
   if (!n) return "zero";
   const parts: string[] = [];

@@ -13,6 +13,7 @@ import { formatDateDMY } from "../../utils/helper";
 import { partyLabel } from "../../utils/partylabel";
 import { useOfflineList } from "../../offline/listing";
 import GstPanel from "../../components/gstpanel";
+import { type Column, amountInWords, billBody, billHtml, companyOf, esc, f2, printHtml, printOptions } from "../../utils/billprint";
 
 export const CHALLAN_REASONS = [
   { value: "sale", label: "Sale" },
@@ -27,55 +28,45 @@ export const challanNo = (c: any) => `DC-${c?.billnumber || c?.offlineNumber || 
 
 const SERVER_FILTER_KEYS = ["billnumber", "partyacc", "billdate", "reason", "challanStatus", "vehiclenumber", "totalamount"];
 
-const esc = (v: any) => String(v ?? "").replace(/[&<>"]/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[ch] as string));
-const money = (n: any) => Number(n || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 // Rule 55: three copies (consignee, transporter, consigner); rates are optional on a challan.
-export function printChallan(c: any, company: any, opts: { copies: number; showRate: boolean }) {
-  const labels = ["ORIGINAL FOR CONSIGNEE", "DUPLICATE FOR TRANSPORTER", "TRIPLICATE FOR CONSIGNER"].slice(0, opts.copies);
+export function printChallan(c: any, company: any, opts: { copies: number; showRate: boolean }, settings?: any) {
+  const labels = ["Original for Consignee", "Duplicate for Transporter", "Triplicate for Consigner"].slice(0, opts.copies);
+  const po = printOptions(settings);
   const lines = c.productservice || [];
   const totalQty = lines.reduce((s: number, l: any) => s + Number(l.qty || 0), 0);
   const p = c.partyacc || {};
-  const head = (copy: string) => `
-    <div class="copy">${copy}</div>
-    <div class="co">${esc(company?.companyName || company?.name || "")}</div>
-    <div class="sub">${esc(company?.address || "")}${company?.mobile ? ` · ${esc(company.mobile)}` : ""}${company?.gstnumber ? ` · GSTIN ${esc(company.gstnumber)}` : ""}</div>
-    <div class="title">DELIVERY CHALLAN</div>
-    <table class="meta"><tr>
-      <td><b>Consignee</b><br/>${esc(p.name || p.accountname || "")}<br/>${esc([p.address, p.city, p.state].filter(Boolean).join(", "))}${p.mobile ? `<br/>${esc(p.mobile)}` : ""}${p.gstnumber ? `<br/>GSTIN ${esc(p.gstnumber)}` : ""}</td>
-      <td><b>Challan No.</b> ${esc(challanNo(c))}<br/><b>Date</b> ${esc(formatDateDMY(c.billdate))}<br/><b>Reason</b> ${esc(reasonLabel(c.reason))}${c.sourceOrderNumber ? `<br/><b>Order</b> SO-${esc(c.sourceOrderNumber)}` : ""}${c.sourceInvoiceNumber ? `<br/><b>Invoice</b> ${esc(c.sourceInvoiceNumber)}` : ""}</td>
-    </tr></table>`;
-  const body = `
-    <table class="items"><thead><tr><th>#</th><th>Item</th><th>Qty</th><th>Unit</th>${opts.showRate ? "<th>Rate</th><th>Amount</th>" : ""}</tr></thead><tbody>
-    ${lines.map((l: any, i: number) => `<tr><td>${i + 1}</td><td>${esc(l.productserviceid?.name || "")}${l.variantid?.name ? ` - ${esc(l.variantid.name)}` : ""}</td><td class="r">${esc(l.qty)}</td><td>${esc(l.salesunitid?.unitname || "")}</td>${opts.showRate ? `<td class="r">${money(l.rate)}</td><td class="r">${money(l.amount)}</td>` : ""}</tr>`).join("")}
-    </tbody><tfoot><tr><td></td><td class="r"><b>Total</b></td><td class="r"><b>${esc(totalQty)}</b></td><td></td>${opts.showRate ? `<td></td><td class="r"><b>${money(c.totalamount)}</b></td>` : ""}</tr></tfoot></table>
-    <table class="meta"><tr>
-      <td><b>Transport</b> ${esc(c.transportname || "—")}<br/><b>Vehicle No.</b> ${esc(c.vehiclenumber || "—")}<br/><b>E-Way Bill No.</b> ${esc(c.ewaybillno || "—")}${c.distance ? `<br/><b>Distance</b> ${esc(c.distance)} km` : ""}</td>
-      <td>${c.notes ? `<b>Notes</b> ${esc(c.notes)}` : ""}</td>
-    </tr></table>
-    <div class="sign"><div>Receiver's Signature</div><div>For ${esc(company?.companyName || company?.name || "")}<br/><br/>Authorised Signatory</div></div>`;
-  const html = `<!doctype html><html><head><title>${esc(challanNo(c))}</title><style>
-    body{font-family:Arial,sans-serif;font-size:12px;color:#111;margin:0}
-    .page{padding:14mm;page-break-after:always}.page:last-child{page-break-after:auto}
-    .copy{text-align:right;font-size:10px;font-weight:bold}.co{font-size:18px;font-weight:bold;text-align:center}
-    .sub{text-align:center;color:#444;margin-bottom:6px}.title{text-align:center;font-weight:bold;font-size:14px;border:1px solid #111;padding:4px;margin:6px 0}
-    table{width:100%;border-collapse:collapse;margin-bottom:6px}.meta td{border:1px solid #999;padding:6px;vertical-align:top;width:50%}
-    .items th,.items td{border:1px solid #999;padding:4px}.items th{background:#f1f5f9;text-align:left}.r{text-align:right}
-    .sign{display:flex;justify-content:space-between;margin-top:28px}
-  </style></head><body>${labels.map((l) => `<div class="page">${head(l)}${body}</div>`).join("")}</body></html>`;
-  const frame = document.createElement("iframe");
-  frame.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0";
-  document.body.appendChild(frame);
-  const doc = frame.contentWindow?.document;
-  if (!doc) return;
-  doc.open();
-  doc.write(html);
-  doc.close();
-  setTimeout(() => {
-    frame.contentWindow?.focus();
-    frame.contentWindow?.print();
-    setTimeout(() => frame.remove(), 1000);
-  }, 200);
+  const seller = companyOf(company, settings);
+  const cells: [string, string][] = [
+    ["Consignee", esc(p.name || p.accountname || "---")],
+    ["Challan No.", esc(challanNo(c))],
+    ["Date", esc(formatDateDMY(c.billdate))],
+    ["Address", esc([p.address, p.city, p.state].filter(Boolean).join(", ") || "---")],
+    ["Mobile", esc(p.mobile || "---")],
+    ["GSTIN No.", esc(p.gstnumber || "---")],
+    ["Transport / Vehicle No", `${esc(c.transportname || "---")} / ${esc(c.vehiclenumber || "---")}`],
+    ["E-Way Bill / Distance", `${esc(c.ewaybillno || "---")} / ${c.distance ? `${esc(c.distance)} km` : "---"}`],
+    ["Order / Invoice", esc([c.sourceOrderNumber && `SO-${c.sourceOrderNumber}`, c.sourceInvoiceNumber].filter(Boolean).join(" / ") || "---")],
+  ];
+  const columns: Column[] = [
+    { label: "Sr", align: "c", width: "6%" }, { label: "Product Name", align: "l" }, { label: "Qty", align: "c", width: "9%" }, { label: "Unit", align: "c", width: "10%" },
+    ...(opts.showRate ? [{ label: "Rate", align: "r" as const, width: "12%" }, { label: "Amount", align: "r" as const, width: "14%" }] : []),
+  ];
+  const rows = lines.map((l: any, i: number) => [
+    String(i + 1), `${esc(l.productserviceid?.name || "")}${l.variantid?.name ? ` - ${esc(l.variantid.name)}` : ""}`, esc(l.qty), esc(l.salesunitid?.unitname || ""),
+    ...(opts.showRate ? [f2(l.rate), f2(l.amount)] : []),
+  ]);
+  const pages = labels.map((copy) => billBody({
+    title: "DELIVERY CHALLAN", copy, memo: `Reason: ${reasonLabel(c.reason)}`,
+    company: seller, showHeader: po.showHeader, cells, columns, rows,
+    totals: [["Total Qty", esc(totalQty)]],
+    grand: opts.showRate ? ["Total Amount", f2(c.totalamount)] : undefined,
+    words: opts.showRate ? amountInWords(c.totalamount) : "",
+    extra: c.notes ? `<strong>Notes:</strong> ${esc(c.notes)}` : "",
+    signLeft: "Receiver's Signature",
+    signCompany: po.signCompany ? seller.name : null,
+  }));
+  printHtml(billHtml(challanNo(c), pages), 200);
 }
 
 /** Company shown on the challan header, whoever is logged in. */
@@ -88,6 +79,7 @@ const DeliveryChallans = () => {
   const actions = useAppSelector((s) => selectModuleActions(s, "deliverychallan"));
   const invoiceOn = useAppSelector((s) => selectIsModuleBusinessEnabled(s, "salesinvoice"));
   const company = useCompany();
+  const settings = useAppSelector((s: any) => s.adminsettings.settings);
   const table = useServerTable("deliverychallan", SERVER_FILTER_KEYS);
   const { items, total, loading, refetch } = useDeliveryChallansPageQuery(table.variables);
   const serverPaging = useServerPaging(table, total, loading);
@@ -231,7 +223,7 @@ const DeliveryChallans = () => {
               <button
                 type="button"
                 className="h-8 rounded-md bg-indigo-600 px-3 font-semibold text-white hover:bg-indigo-700"
-                onClick={() => { printChallan(printing, company, { copies, showRate }); setPrinting(null); }}
+                onClick={() => { printChallan(printing, company, { copies, showRate }, settings); setPrinting(null); }}
               >
                 Print
               </button>
