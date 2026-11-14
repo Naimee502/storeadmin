@@ -18,3 +18,4 @@ export { default as AddLedgerEntry } from './addledger';
 export { default as SubParties }  from './subparties';
 export { default as PartyStock }  from './partystock';
 export { default as SubPartyDetail } from './subpartydetail';
+export { default as Booking } from './booking';
