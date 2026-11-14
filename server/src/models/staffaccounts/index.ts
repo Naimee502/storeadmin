@@ -28,6 +28,10 @@ const staffAccountSchema = new mongoose.Schema(
       required: true
     },
 
+    // Optional: department and access role (its permissions sit between branch and staff).
+    departmentid: { type: mongoose.Schema.Types.ObjectId, ref: "Department" },
+    accessroleid: { type: mongoose.Schema.Types.ObjectId, ref: "AccessRole" },
+
     assignedChannels: [
       { type: mongoose.Schema.Types.ObjectId, ref: "Channel" }
     ],

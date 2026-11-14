@@ -163,6 +163,8 @@ own("SalesRoute", ["getSalesRouteById"]);
 own("Channel", ["getChannelById"]);
 own("PriceList", ["getPriceListById"]);
 own("ChargeRule", ["getChargeRuleById"]);
+own("Department", ["editDepartment", "deleteDepartment", "resetDepartment"]);
+own("AccessRole", ["editAccessRole", "deleteAccessRole", "resetAccessRole"]);
 // Fields whose record id arg is not named `id`.
 const ID_ARG: Record<string, string> = { deletePunch: "logid", aiDraftMessage: "leadid" };
 
@@ -207,6 +209,8 @@ crud("priceassignments", "createPriceAssignment", "updatePriceAssignment", "dele
 crud("chargerules", "addChargeRule", "editChargeRule", "deleteChargeRule", "resetChargeRule");
 crud("expensenote", "addExpenseNote", "editExpenseNote", "deleteExpenseNote", "resetExpenseNote");
 act("attendance", { approveLeaveRequest: "edit", rejectLeaveRequest: "edit" });
+crud("departments", "addDepartment", "editDepartment", "deleteDepartment", "resetDepartment");
+crud("accessroles", "addAccessRole", "editAccessRole", "deleteAccessRole", "resetAccessRole");
 
 // Edit mutations of forms with field settings: a field switched off for Edit keeps its saved value.
 const FORM_EDIT: Record<string, string> = {
@@ -279,7 +283,7 @@ const checkPermissionsScope = async (context: any, args: any, admin: Types.Objec
     if (write && context.user?.type !== "admin") throw denied("Only the business owner can change business-wide permissions.");
     return;
   }
-  const model = scope === "branch" ? "Branch" : scope === "staff" ? "StaffAccount" : "";
+  const model = scope === "branch" ? "Branch" : scope === "staff" ? "StaffAccount" : scope === "role" ? "AccessRole" : "";
   if (!model) return;
   const owner = await ownerOf(model, scopeid);
   if (owner !== undefined && owner !== String(admin)) throw denied();
@@ -370,6 +374,14 @@ const check = async (field: string, args: any, context: any, info?: any) => {
     throw denied("Only the business owner can change business settings.");
   }
   if (field === "punch" && args?.input) await checkPunch(context, args.input);
+  if ((field === "addStaffAccount" || field === "editStaffAccount") && args?.input) {
+    // Department and access role must be this business's own.
+    const admin = String(await callerAdminId(context));
+    for (const [key, model] of [["departmentid", "Department"], ["accessroleid", "AccessRole"]]) {
+      const owner = args.input[key] ? await ownerOf(model, args.input[key]) : String(admin);
+      if (owner !== String(admin)) throw denied("That department or role is not part of this business.");
+    }
+  }
   if (CUSTOM_ENTITY[field] && Array.isArray(args?.input?.customfields)) {
     await checkCustomFields(CUSTOM_ENTITY[field], args.input.customfields, await callerAdminId(context));
   }

@@ -12,6 +12,7 @@ import { Admin } from "../../../models/admin";
 import { Branch } from "../../../models/branches";
 import { StaffAccount } from "../../../models/staffaccounts";
 import { mergeFormPermissions } from "../../../utils/formpermissions";
+import { AccessRole, PermissionAudit } from "../../../models/accessroles";
 
 // Minimal JSON scalar — we just pass through whatever the client sends
 // as long as it parses. No validation here; module/action keys are open.
@@ -59,12 +60,29 @@ const getDoc = async (scope: string, scopeid: string) => {
   if (scope === "admin") return Admin.findById(scopeid);
   if (scope === "branch") return Branch.findById(scopeid);
   if (scope === "staff") return StaffAccount.findById(scopeid);
+  if (scope === "role") return AccessRole.findById(scopeid);
   throw new Error(`Unknown permission scope: ${scope}`);
 };
 
 // Field name on the doc where permissions live.
 const fieldFor = (scope: string) =>
   scope === "admin" ? "defaultPermissions" : "permissions";
+
+// Keeps a short trail of who changed which modules' permissions.
+const logPermissionChange = async (scope: string, scopeid: any, prev: any, next: any, doc: any, context: any) => {
+  try {
+    const keys = new Set([...Object.keys(prev || {}), ...Object.keys(next || {})]);
+    const modules = [...keys].filter((k) => JSON.stringify(prev?.[k] ?? null) !== JSON.stringify(next?.[k] ?? null));
+    if (!modules.length) return;
+    const adminid = scope === "admin" ? doc._id : doc.admin || doc.adminid;
+    const user = context?.user || {};
+    await PermissionAudit.create({
+      adminid, scope, scopeid, modules,
+      byid: user.id, bytype: user.type || (context?.req?.headers?.["x-platform-key"] ? "platform" : undefined),
+      byname: user.name || user.email,
+    });
+  } catch { /* the trail never blocks a save */ }
+};
 
 export const permissionsResolvers = {
   JSON: JSONScalar,
@@ -105,22 +123,39 @@ export const permissionsResolvers = {
         return { scope, scopeid, permissions: merged };
       }
 
+      if (scope === "role") {
+        const role: any = await AccessRole.findById(scopeid).lean();
+        if (!role) throw new Error("Access role not found");
+        const admin: any = await Admin.findById(role.adminid).lean();
+        const merged = mergePermissions(admin?.defaultPermissions || {}, role.permissions || {});
+        merged.formPermissions = mergeFormPermissions(admin?.defaultPermissions?.formPermissions, role.permissions?.formPermissions);
+        return { scope, scopeid, permissions: merged };
+      }
+
       if (scope === "staff") {
         const staff: any = await StaffAccount.findById(scopeid).lean();
         if (!staff) throw new Error("Staff not found");
         const branch: any = staff.branchid
           ? await Branch.findById(staff.branchid).lean()
           : null;
+        // Access role sits between the branch and the staff member's own overrides.
+        const role: any = staff.accessroleid
+          ? await AccessRole.findOne({ _id: staff.accessroleid, status: true }).lean()
+          : null;
         const admin: any = await Admin.findById(staff.admin).lean();
         const adminDefaults = admin?.defaultPermissions || {};
         const branchOverride = branch?.permissions || {};
+        const roleOverride = role?.permissions || {};
         const staffOverride = staff?.permissions || {};
         const merged = mergePermissions(
-          mergePermissions(adminDefaults, branchOverride),
+          mergePermissions(mergePermissions(adminDefaults, branchOverride), roleOverride),
           staffOverride
         );
         merged.formPermissions = mergeFormPermissions(
-          mergeFormPermissions(adminDefaults.formPermissions, branchOverride.formPermissions),
+          mergeFormPermissions(
+            mergeFormPermissions(adminDefaults.formPermissions, branchOverride.formPermissions),
+            roleOverride.formPermissions
+          ),
           staffOverride.formPermissions
         );
         return { scope, scopeid, permissions: merged };
@@ -131,8 +166,9 @@ export const permissionsResolvers = {
   },
 
   Mutation: {
-    setPermissions: async (_: any, { scope, scopeid, permissions }: any) => {
+    setPermissions: async (_: any, { scope, scopeid, permissions }: any, context: any) => {
       const field = fieldFor(scope);
+      const before: any = await getDoc(scope, scopeid).then((d: any) => d?.toObject?.() ?? d);
       let updated: any = null;
       if (scope === "admin") {
         updated = await Admin.findByIdAndUpdate(
@@ -152,10 +188,17 @@ export const permissionsResolvers = {
           { $set: { [field]: permissions || {} } },
           { new: true }
         ).lean();
+      } else if (scope === "role") {
+        updated = await AccessRole.findByIdAndUpdate(
+          scopeid,
+          { $set: { [field]: permissions || {} } },
+          { new: true }
+        ).lean();
       } else {
         throw new Error(`Unknown scope: ${scope}`);
       }
       if (!updated) throw new Error(`${scope} not found`);
+      await logPermissionChange(scope, scopeid, before?.[field] || {}, updated[field] || {}, updated, context);
       return {
         scope,
         scopeid,

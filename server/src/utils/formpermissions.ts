@@ -1,6 +1,7 @@
 import { Admin } from "../models/admin";
 import { Branch } from "../models/branches";
 import { StaffAccount } from "../models/staffaccounts";
+import { AccessRole } from "../models/accessroles";
 
 /**
  * Form-field permissions ("which fields a form shows"), per level:
@@ -67,9 +68,11 @@ export const effectiveFormPermissions = async (opts: {
     const b: any = await Branch.findById(opts.userId).select("permissions").lean();
     perms = mergeFormPermissions(perms, b?.permissions?.formPermissions);
   } else if (opts.userType === "staff" && opts.userId) {
-    const s: any = await StaffAccount.findById(opts.userId).select("permissions branchid").lean();
+    const s: any = await StaffAccount.findById(opts.userId).select("permissions branchid accessroleid").lean();
     const b: any = s?.branchid ? await Branch.findById(s.branchid).select("permissions").lean() : null;
+    const r: any = s?.accessroleid ? await AccessRole.findOne({ _id: s.accessroleid, status: true }).select("permissions").lean() : null;
     perms = mergeFormPermissions(perms, b?.permissions?.formPermissions);
+    perms = mergeFormPermissions(perms, r?.permissions?.formPermissions);
     perms = mergeFormPermissions(perms, s?.permissions?.formPermissions);
   }
   return perms;

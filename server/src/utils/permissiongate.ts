@@ -1,6 +1,7 @@
 import { Admin } from "../models/admin";
 import { Branch } from "../models/branches";
 import { StaffAccount } from "../models/staffaccounts";
+import { AccessRole } from "../models/accessroles";
 
 /**
  * Server-side twin of the admin panel's resolveAction() (redux/slices/permissions).
@@ -20,10 +21,14 @@ export const isActionAllowed = async (
   const [admin, branch, staff]: any[] = await Promise.all([
     Admin.findById(scope.adminid).select("defaultPermissions").lean(),
     scope.branchid ? Branch.findById(scope.branchid).select("permissions").lean() : null,
-    scope.staffid ? StaffAccount.findById(scope.staffid).select("permissions").lean() : null,
+    scope.staffid ? StaffAccount.findById(scope.staffid).select("permissions accessroleid").lean() : null,
   ]);
+  // A staff member's access role sits between the branch and their own overrides.
+  const role: any = staff?.accessroleid
+    ? await AccessRole.findOne({ _id: staff.accessroleid, status: true }).select("permissions").lean()
+    : null;
 
-  const layers = [admin?.defaultPermissions, branch?.permissions, staff?.permissions].filter(Boolean);
+  const layers = [admin?.defaultPermissions, branch?.permissions, role?.permissions, staff?.permissions].filter(Boolean);
   const anythingSaved = layers.some((l: any) => Object.keys(l || {}).some((k) => k !== "formPermissions"));
   if (!anythingSaved) return true;
 
