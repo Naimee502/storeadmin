@@ -36,7 +36,6 @@ const PARTY_MENU: DrawerMenuItem[] = [
   // Only with "Track party stock" on.
   { label: 'My Stock',            icon: 'package-variant',        screen: 'PartyStock' },
   // Only while online booking is allowed and on (see below).
-  { label: 'Book Appointment',    icon: 'calendar-check-outline', screen: 'Booking' },
   { label: 'My Bookings',         icon: 'calendar-clock',         screen: 'MyBookings' },
   { label: STRINGS.party.profile, icon: 'account-circle-outline', tabScreen: 'PartyProfile' },
   { label: 'separator1', icon: '', section: true },

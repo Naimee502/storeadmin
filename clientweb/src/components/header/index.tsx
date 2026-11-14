@@ -237,15 +237,6 @@ export default function Header() {
                     </Link>
                     {bookingOn && (
                       <Link
-                        to="/book"
-                        onClick={() => setAccountMenuOpen(false)}
-                        className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-ink-900 hover:bg-slate-50"
-                      >
-                        <CalendarCheck className="h-4 w-4" /> Book Appointment
-                      </Link>
-                    )}
-                    {bookingOn && (
-                      <Link
                         to="/account/bookings"
                         onClick={() => setAccountMenuOpen(false)}
                         className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-ink-900 hover:bg-slate-50"

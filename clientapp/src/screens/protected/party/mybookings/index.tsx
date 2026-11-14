@@ -73,7 +73,7 @@ export default function MyBookingsScreen() {
       <ScrollView contentContainerStyle={styles.body}>
         <Pressable onPress={() => navigation.navigate('Booking')} style={[styles.book, { backgroundColor: colors.brand }]}>
           <Icon name="calendar-plus" size={16} color="#fff" />
-          <Text style={styles.bookText}>Book Appointment</Text>
+          <Text style={styles.bookText}>New Booking</Text>
         </Pressable>
         {loading && !all.length ? <ActivityIndicator color={colors.brand} /> : !all.length ? (
           <Text style={[styles.sub, { color: colors.subText }]}>You have no bookings yet.</Text>

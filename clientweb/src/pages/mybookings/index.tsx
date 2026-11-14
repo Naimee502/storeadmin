@@ -1,6 +1,6 @@
 import { Link, Navigate } from "react-router";
 import { useMutation, useQuery } from "@apollo/client";
-import { CalendarCheck, Clock, User } from "lucide-react";
+import { CalendarCheck, CalendarPlus, Clock, User } from "lucide-react";
 import Breadcrumb from "../../components/breadcrumb";
 import { useAuth } from "../../contexts/auth";
 import { CANCEL_MY_APPOINTMENT, GET_MY_APPOINTMENTS } from "../../graphql/queries/booking";
@@ -71,7 +71,9 @@ export default function MyBookingsPage() {
       <div className="mx-auto max-w-3xl space-y-5 px-4 py-6 sm:px-6">
         <div className="flex items-center justify-between">
           <h1 className="text-xl font-bold text-ink-900">My Bookings</h1>
-          <Link to="/book" className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700">Book Again</Link>
+          <Link to="/book" className="flex items-center gap-1.5 rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700">
+            <CalendarPlus className="h-4 w-4" /> New Booking
+          </Link>
         </div>
         {loading && !all.length ? <p className="text-sm text-slate-500">Loading...</p> : !all.length ? (
           <p className="rounded-lg border border-slate-200 bg-white p-4 text-sm text-slate-600">You have no bookings yet.</p>

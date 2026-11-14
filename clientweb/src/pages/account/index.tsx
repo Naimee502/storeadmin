@@ -1,9 +1,11 @@
 import { useMemo, useState } from "react";
 import { usePaymentsEnabled, useAnnouncementsEnabled, useOrderOnlyMode } from "../../hooks/useModuleEnabled";
 import { GET_MY_ANNOUNCEMENTS } from "../../graphql/queries/announcements";
+import { GET_BOOKING_ON } from "../../graphql/queries/booking";
 import { Navigate, useNavigate, useSearchParams, Link } from "react-router";
 import { useQuery } from "@apollo/client";
 import {
+  CalendarCheck,
   Package,
   User,
   MapPin,
@@ -103,6 +105,9 @@ export default function AccountPage() {
   const filters = orderOnly ? FILTERS.filter((f) => f.key !== "dispatched" && f.key !== "delivered") : FILTERS;
   // Announcements module (opt-in) → its own entry in the account menu.
   const announcementsEnabled = useAnnouncementsEnabled();
+  const { adminid: bookingAdminId } = useTenant();
+  const { data: bookingData } = useQuery(GET_BOOKING_ON, { variables: { adminid: bookingAdminId }, skip: !bookingAdminId });
+  const bookingOn = !!bookingData?.getAdminSettings?.bookingOn && !!bookingData?.getAdminSettings?.onlineBookingAllowed;
   const { data: annData } = useQuery(GET_MY_ANNOUNCEMENTS, {
     skip: !announcementsEnabled,
     fetchPolicy: "cache-and-network",
@@ -279,6 +284,14 @@ export default function AccountPage() {
                   <Icon className="h-4 w-4" /> {label}
                 </button>
               ))}
+              {bookingOn && (
+                <Link
+                  to="/account/bookings"
+                  className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-left text-sm font-medium text-slate-600 hover:bg-slate-50"
+                >
+                  <CalendarCheck className="h-4 w-4" /> My Bookings
+                </Link>
+              )}
               <Link
                 to="/account/notifications"
                 className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-left text-sm font-medium text-slate-600 hover:bg-slate-50"
