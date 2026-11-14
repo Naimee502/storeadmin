@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useApolloClient } from '@apollo/client';
 import Sidebar from '../../components/sidebar';
 import Header from '../../components/header';
 import { FormDensityContext } from '../../components/formpage/density';
@@ -19,6 +20,7 @@ const HomeLayout: React.FC<{ children: React.ReactNode; hideNav?: boolean }> = (
   // Hover widens the menu over the page without reflowing it.
   const [, setSidebarHovered] = useState(false);
   const { logout } = useAuth();
+  const apollo = useApolloClient();
 
   const { type, admin, branch, staff } = useAppSelector((state: any) => state.auth);
   const [loadPermissions, { data: permData }] = useEffectivePermissionsLazy({
@@ -89,6 +91,7 @@ const HomeLayout: React.FC<{ children: React.ReactNode; hideNav?: boolean }> = (
     dispatch({ type: 'LOGOUT' });
     persistor.purge();
     logout();
+    void apollo.clearStore().catch(() => {}); // the next login must not see this user's cached rows
   };
 
   return (
