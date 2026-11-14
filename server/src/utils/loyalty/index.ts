@@ -63,8 +63,11 @@ export const applyRedeem = async (input: any, docmodel: "SalesInvoice" | "SalesO
   const clientDiscount = Number(input.loyaltydiscount) || 0;
   if (!points) {
     if (clientDiscount) input.totalamount = r2(Number(input.totalamount || 0) + clientDiscount);
-    input.loyaltyredeempoints = 0;
-    input.loyaltydiscount = 0;
+    // Left out stays left out, so bills without points look as they always did.
+    if (input.loyaltyredeempoints !== undefined || input.loyaltydiscount !== undefined) {
+      input.loyaltyredeempoints = 0;
+      input.loyaltydiscount = 0;
+    }
     return;
   }
   // An order being closed into a bill hands its points to that bill, so nothing to check here.
