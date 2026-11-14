@@ -289,6 +289,20 @@ const audienceLabel = (a: any = {}) => {
   return parts.join(", ") || "-";
 };
 
+// Only web links may open; blocks javascript:, data: and other schemes.
+const webLink = (v: any) => {
+  const link = String(v || "").trim();
+  if (!link) return "";
+  const full = /^[a-z][a-z0-9+.-]*:/i.test(link) ? link : `https://${link}`;
+  return /^https?:\/\//i.test(full) ? full : "";
+};
+
+const cleanLink = (v: any) => {
+  const link = webLink(v);
+  if (String(v || "").trim() && !link) throw new TenantError("Link must start with http:// or https://.", "BAD_USER_INPUT");
+  return link.slice(0, 500);
+};
+
 const format = (ann: any, extra: { readcount?: number; read?: boolean } = {}) => {
   const a = ann.audience || {};
   return {
@@ -298,7 +312,7 @@ const format = (ann: any, extra: { readcount?: number; read?: boolean } = {}) =>
     title: ann.title,
     message: ann.message || "",
     imageurl: ann.imageurl || "",
-    link: ann.link || "",
+    link: webLink(ann.link),
     priority: ann.priority || "normal",
     startAt: iso(ann.startAt),
     expireAt: iso(ann.expireAt),
@@ -377,7 +391,7 @@ const cleanFields = (input: any) => {
     title: title.slice(0, 150),
     message: String(input.message || "").slice(0, 4000),
     imageurl: String(input.imageurl || ""),
-    link: String(input.link || "").slice(0, 500),
+    link: cleanLink(input.link),
     priority: input.priority === "important" ? "important" : "normal",
     startAt,
     expireAt,
