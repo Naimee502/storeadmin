@@ -6,6 +6,7 @@ import { AdminSettings } from "../../../models/adminsettings";
 import { pushNotification } from "../../../models/notifications";
 import { resolveTenant, TenantError } from "../../../utils/tenant";
 import { istDate } from "../../../utils/ist";
+import { isModuleOn } from "../../../utils/modulegate";
 import { loadAppointment, minutesOf, slotRules } from "../service";
 
 const bad = (msg: string) => new TenantError(msg, "BAD_USER_INPUT");
@@ -15,7 +16,7 @@ const hhmm = (m: number) => `${String(Math.floor(m / 60)).padStart(2, "0")}:${St
 // The service variant being booked, the day's windows and who can do it.
 const plan = async (adminid: any, serviceid: any, variantid: any, date: string) => {
   const st: any = await AdminSettings.findOne({ adminid }).select("onlineBookingAllowed bookingOn bookingFrom bookingTo bookingStepMinutes bookingDaysAhead").lean();
-  if (!st?.onlineBookingAllowed || !st?.bookingOn) throw bad("Online booking is not open for this business.");
+  if (!st?.onlineBookingAllowed || !st?.bookingOn || !(await isModuleOn("appointments", { adminid }))) throw bad("Online booking is not open for this business.");
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw bad("Pick a date.");
   const today = istDate();
   const last = istDate(new Date(Date.now() + (Number(st.bookingDaysAhead) || 30) * 86400000));

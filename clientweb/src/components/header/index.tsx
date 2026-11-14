@@ -32,7 +32,7 @@ import { useAuth } from "../../contexts/auth";
 import { useCatalog } from "../../hooks/useCatalog";
 import { titleCaseIfShouting } from "../../utils/format";
 import NotificationBell from "../notificationbell";
-import { usePaymentsEnabled, useAnnouncementsEnabled } from "../../hooks/useModuleEnabled";
+import { usePaymentsEnabled, useAnnouncementsEnabled, useModuleEnabled } from "../../hooks/useModuleEnabled";
 import { offline } from "../../graphql/client";
 
 // Online / Offline / Syncing status with the pending count, like the admin header.
@@ -66,7 +66,8 @@ export default function Header() {
   const unreadAnnouncements = (annData?.getMyAnnouncements ?? []).filter((a: any) => !a.read).length;
   const { adminid: storeId } = useTenant();
   const { data: bookingData } = useQuery(GET_BOOKING_ON, { variables: { adminid: storeId }, skip: !storeId });
-  const bookingOn = !!bookingData?.getAdminSettings?.bookingOn && !!bookingData?.getAdminSettings?.onlineBookingAllowed;
+  const appointmentsOn = useModuleEnabled("appointments");
+  const bookingOn = appointmentsOn && !!bookingData?.getAdminSettings?.bookingOn && !!bookingData?.getAdminSettings?.onlineBookingAllowed;
   const myServiceMenu = serviceMenu(useMyService());
   const supplier = useSupplier();
   const supplierOnly = supplier.signedIn && !isLoggedIn;

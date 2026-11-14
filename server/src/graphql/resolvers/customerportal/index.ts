@@ -28,9 +28,15 @@ export const customerPortalResolvers = {
         Contract.countDocuments(mineQ(m)),
         Membership.countDocuments(mineQ(m)),
       ]);
-      // Tickets show when the business has picked the module, or the customer already has one.
-      const picked = (admin?.allowedmodules || []).some((x: string) => String(x).toLowerCase() === "supporttickets");
-      return { tickets: picked || tickets > 0, openTickets, jobcards, activeJobcards, contracts, memberships };
+      // A menu needs its module on; older businesses with no module list have every module on.
+      const list: string[] | null = Array.isArray(admin?.allowedmodules) && admin.allowedmodules.length ? admin.allowedmodules.map((x: string) => String(x).toLowerCase()) : null;
+      const on = (id: string) => list === null || list.includes(id);
+      const picked = !!list?.includes("supporttickets");
+      return {
+        tickets: on("supporttickets") && (picked || tickets > 0), openTickets,
+        jobcards: on("jobcards") ? jobcards : 0, activeJobcards: on("jobcards") ? activeJobcards : 0,
+        contracts: on("contracts") ? contracts : 0, memberships: on("memberships") ? memberships : 0,
+      };
     },
     getMyJobCards: async (_: any, __: any, context: any) => {
       const m = await me(context);

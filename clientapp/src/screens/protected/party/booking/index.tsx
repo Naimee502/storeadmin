@@ -8,6 +8,7 @@ import { useSelector } from 'react-redux';
 import { FONTS, useTheme } from '../../../../config';
 import { BackHeader } from '../../../../components';
 import { BOOK_APPOINTMENT, GET_BOOKABLE_SERVICES, GET_BOOKING_ON, GET_BOOKING_SLOTS } from '../../../../apollo/queries/booking';
+import { useModuleEnabled } from '../../../../apollo/hooks/admin';
 import type { RootState } from '../../../../store/rootreducer';
 
 const istDay = (offset: number) => new Date(Date.now() + 330 * 60000 + offset * 86400000).toISOString().slice(0, 10);
@@ -32,6 +33,7 @@ const facts = (v: any) => [
 export default function BookingScreen() {
   const { colors, isDark } = useTheme();
   const navigation = useNavigation<any>();
+  const appointmentsOn = useModuleEnabled('appointments');
   const adminid = useSelector((s: RootState) => (s as any).tenant?.adminId ?? '');
   const { data: onData } = useQuery(GET_BOOKING_ON, { variables: { adminid }, skip: !adminid });
   const { data: svcData, loading: svcLoading } = useQuery(GET_BOOKABLE_SERVICES, { variables: { adminid }, skip: !adminid });
@@ -64,7 +66,7 @@ export default function BookingScreen() {
   });
   const slots = ((slotData as any)?.getBookingSlots ?? []) as any[];
   const st = (onData as any)?.getAdminSettings;
-  const open = !!(st?.onlineBookingAllowed && st?.bookingOn);
+  const open = !!(st?.onlineBookingAllowed && st?.bookingOn) && appointmentsOn;
 
   const confirm = async () => {
     if (!chosen || !time) return;

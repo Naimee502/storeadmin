@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { usePaymentsEnabled, useAnnouncementsEnabled, useOrderOnlyMode } from "../../hooks/useModuleEnabled";
+import { usePaymentsEnabled, useAnnouncementsEnabled, useOrderOnlyMode, useModuleEnabled } from "../../hooks/useModuleEnabled";
 import { GET_MY_ANNOUNCEMENTS } from "../../graphql/queries/announcements";
 import { GET_BOOKING_ON } from "../../graphql/queries/booking";
 import { serviceMenu, useMyService } from "../../hooks/useMyService";
@@ -109,7 +109,8 @@ export default function AccountPage() {
   const announcementsEnabled = useAnnouncementsEnabled();
   const { adminid: bookingAdminId } = useTenant();
   const { data: bookingData } = useQuery(GET_BOOKING_ON, { variables: { adminid: bookingAdminId }, skip: !bookingAdminId });
-  const bookingOn = !!bookingData?.getAdminSettings?.bookingOn && !!bookingData?.getAdminSettings?.onlineBookingAllowed;
+  const appointmentsOn = useModuleEnabled("appointments");
+  const bookingOn = appointmentsOn && !!bookingData?.getAdminSettings?.bookingOn && !!bookingData?.getAdminSettings?.onlineBookingAllowed;
   const myServiceMenu = serviceMenu(useMyService());
   const { data: annData } = useQuery(GET_MY_ANNOUNCEMENTS, {
     skip: !announcementsEnabled,

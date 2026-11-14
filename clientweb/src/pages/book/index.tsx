@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router";
 import { useMutation, useQuery } from "@apollo/client";
 import { CalendarCheck, Check, Clock, MapPin, ShieldCheck, Sparkles, Truck, X } from "lucide-react";
 import Breadcrumb from "../../components/breadcrumb";
+import { useModuleEnabled } from "../../hooks/useModuleEnabled";
 import { useAuth } from "../../contexts/auth";
 import { useTenant } from "../../contexts/tenant";
 import { BOOK_APPOINTMENT, GET_BOOKABLE_SERVICES, GET_BOOKING_ON, GET_BOOKING_SLOTS } from "../../graphql/queries/booking";
@@ -26,6 +27,7 @@ export default function BookPage() {
   const { isLoggedIn } = useAuth();
   const navigate = useNavigate();
   const { data: onData } = useQuery(GET_BOOKING_ON, { variables: { adminid }, skip: !adminid });
+  const appointmentsOn = useModuleEnabled("appointments");
   const { data: svcData, loading: svcLoading } = useQuery(GET_BOOKABLE_SERVICES, { variables: { adminid }, skip: !adminid });
   const [cat, setCat] = useState("");
   const [open, setOpen] = useState<any>(null);
@@ -88,7 +90,7 @@ export default function BookPage() {
     }
   };
 
-  const off = onData && !(onData.getAdminSettings?.bookingOn && onData.getAdminSettings?.onlineBookingAllowed);
+  const off = (onData && !(onData.getAdminSettings?.bookingOn && onData.getAdminSettings?.onlineBookingAllowed)) || !appointmentsOn;
   const fromRate = (s: any) => Math.min(...s.options.map((v: any) => Number(v.servicerate) || 0));
   const facts = (v: any) => [
     v.locationType && WHERE[v.locationType] && { icon: MapPin, text: WHERE[v.locationType] },

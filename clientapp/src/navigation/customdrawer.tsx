@@ -17,7 +17,7 @@ import { COLORS, FONTS, STRINGS, useTheme } from '../config';
 import { useSelector, useDispatch } from 'react-redux';
 import { safeLogout } from '../utils/safelogout';
 import type { RootState } from '../store/rootreducer';
-import { usePaymentsEnabled, PAYMENT_SCREENS, useModuleScreenGate } from '../apollo/hooks/admin';
+import { usePaymentsEnabled, PAYMENT_SCREENS, useModuleScreenGate, useModuleEnabled } from '../apollo/hooks/admin';
 
 interface DrawerMenuItem {
   label: string;
@@ -161,7 +161,8 @@ export const CustomDrawerContent = (props: DrawerContentComponentProps) => {
   });
   const showSubParties = manageDownline && (((downData as any)?.getDownlinePartyBalances?.length ?? 0) > 0);
   // "Track party stock" AND "Show stock on App / Website".
-  const bookingOpen = isParty && (settingsData as any)?.getAdminSettings?.onlineBookingAllowed === true
+  const appointmentsOn = useModuleEnabled('appointments');
+  const bookingOpen = isParty && appointmentsOn && (settingsData as any)?.getAdminSettings?.onlineBookingAllowed === true
     && (settingsData as any)?.getAdminSettings?.bookingOn === true;
   const showPartyStock = manageDownline && (settingsData as any)?.getAdminSettings?.trackPartyStock === true
     && (settingsData as any)?.getAdminSettings?.displayStockOnWebsite !== false;
