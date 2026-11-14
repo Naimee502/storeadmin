@@ -6,6 +6,7 @@ import { Lead, Followup } from "../../models/lead";
 import { Notification, pushNotification } from "../../models/notifications";
 import { decryptSecret } from "../secret";
 import { nextLeadNumber, stagesOf } from "../../graphql/resolvers/lead";
+import { istDayStart } from "../ist";
 
 // Lead integrations: portals and channels post (or we pull) enquiries; each one becomes a lead,
 // de-duplicated and assigned, with a first call booked. Every payload is kept in LeadInbox.
@@ -267,7 +268,7 @@ async function warnQuietSources() {
     try {
       const recent = await LeadInbox.exists({ adminid: cfg.adminid, source: cfg.source, createdAt: { $gte: since }, "payload.test": { $ne: true } });
       if (recent) continue;
-      const day = new Date(); day.setHours(0, 0, 0, 0);
+      const day = istDayStart();
       const told = await Notification.exists({ adminid: cfg.adminid, ntype: "leadsource", title: { $regex: `^No leads from ${cfg.source}` }, createdAt: { $gte: day } });
       if (told) continue;
       await pushNotification({

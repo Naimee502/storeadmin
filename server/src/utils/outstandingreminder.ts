@@ -7,6 +7,7 @@ import { Transaction } from "../models/transactions";
 import { pushNotification } from "../models/notifications";
 import { getPartyOutstandingBills, getPartyTotalDue } from "./allocation";
 import { partyTypeQuery } from "./partytype";
+import { istDayStart } from "./ist";
 
 // ---------------------------------------------------------------------------
 // Shared outstanding-reminder logic.
@@ -51,8 +52,7 @@ export const getPartyOutstanding = async (accountId: any): Promise<PartyOutstand
   // A party can owe money with no open bill at all — an unpaid opening balance.
   if (!bills.length && totaldue <= 0) return empty;
 
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  const today = istDayStart();
 
   let overdueDays = 0;
   let earliestDue: Date | null = null;
@@ -61,7 +61,7 @@ export const getPartyOutstanding = async (accountId: any): Promise<PartyOutstand
     if (!bill.duedate) continue;
     const ref = new Date(bill.duedate);
     if (isNaN(ref.getTime())) continue;
-    ref.setHours(0, 0, 0, 0);
+    ref.setTime(istDayStart(ref).getTime());
     if (!earliestDue || ref < earliestDue) earliestDue = ref;
     const days = Math.floor((today.getTime() - ref.getTime()) / 86400000);
     if (days > overdueDays) overdueDays = days;

@@ -3,6 +3,7 @@ import { StockMove } from "../../../models/stockmove";
 import { ProductService } from "../../../models/products";
 import { requireBackofficeTenant } from "../../../utils/tenant";
 import { isoOf } from "../../../utils/offlinesync";
+import { istDayEnd, istDayStart } from "../../../utils/ist";
 
 const oid = (v: any) => (v && Types.ObjectId.isValid(String(v)) ? new Types.ObjectId(String(v)) : undefined);
 
@@ -16,8 +17,8 @@ export const stockMoveResolvers = {
       if (oid(args.variantid)) q.variantid = oid(args.variantid);
       if (args.doctype) q.doctype = String(args.doctype);
       const range: any = {};
-      if (args.from) range.$gte = new Date(args.from);
-      if (args.to) { const t = new Date(args.to); t.setHours(23, 59, 59, 999); range.$lte = t; }
+      if (args.from) range.$gte = istDayStart(new Date(args.from));
+      if (args.to) range.$lte = istDayEnd(new Date(args.to));
       if (Object.keys(range).length) q.createdAt = range;
       const limit = Math.min(Math.max(Number(args.limit) || 50, 1), 500);
       const offset = Math.max(Number(args.offset) || 0, 0);

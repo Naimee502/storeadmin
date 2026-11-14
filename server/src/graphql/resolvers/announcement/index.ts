@@ -11,6 +11,7 @@ import { assertModuleOn } from "../../../utils/modulegate";
 import { isActionAllowed, isAnyActionAllowed } from "../../../utils/permissiongate";
 import { sendPushToToken } from "../../../utils/fcm";
 import { notCleared } from "../../../utils/listquery";
+import { istDayEnd, parseIst } from "../../../utils/ist";
 
 /* ------------------------------------------------------------------ */
 /* Caller                                                              */
@@ -374,9 +375,10 @@ const loadManaged = async (c: Caller, id: string, extra: any = {}) => {
   return ann;
 };
 
-const parseDate = (v: any, fallback: Date | null) => {
+const parseDate = (v: any, fallback: Date | null, endOfDay = false) => {
   if (!v) return fallback;
-  const d = new Date(v);
+  // "Show until" a date runs to the end of that IST day.
+  const d = endOfDay && /^\d{4}-\d{2}-\d{2}$/.test(String(v).trim()) ? istDayEnd(parseIst(v)) : parseIst(v);
   if (isNaN(d.getTime())) throw new TenantError("Enter a valid date.", "BAD_USER_INPUT");
   return d;
 };
@@ -385,7 +387,7 @@ const cleanFields = (input: any) => {
   const title = String(input.title || "").trim();
   if (!title) throw new TenantError("Title is required.", "BAD_USER_INPUT");
   const startAt = parseDate(input.startAt, new Date()) as Date;
-  const expireAt = parseDate(input.expireAt, null);
+  const expireAt = parseDate(input.expireAt, null, true);
   if (expireAt && expireAt <= startAt) throw new TenantError("Expiry must be after the start date.", "BAD_USER_INPUT");
   return {
     title: title.slice(0, 150),

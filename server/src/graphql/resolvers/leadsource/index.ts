@@ -10,6 +10,7 @@ import { PUBLIC_BASE_URL } from "../../../config/serverconfig";
 import {
   LEAD_SOURCES, fromForm, fromIndiaMart, fromJustDial, fromMetaLead, fromTradeIndia, ingestLead, newToken, pullSource,
 } from "../../../utils/leadintake";
+import { istDayStart } from "../../../utils/ist";
 
 const where = (scope: any) => ({
   adminid: scope.adminid,
@@ -50,8 +51,7 @@ async function configOf(adminid: any, source: string) {
 }
 
 async function shape(cfg: any) {
-  const start = new Date();
-  start.setHours(0, 0, 0, 0);
+  const start = istDayStart();
   const leadsToday = await LeadInbox.countDocuments({ adminid: cfg.adminid, source: cfg.source, result: "created", createdAt: { $gte: start } });
   // Real leads only: test leads carry payload.test.
   const last: any = await LeadInbox.findOne({ adminid: cfg.adminid, source: cfg.source, result: { $in: ["created", "duplicate"] }, "payload.test": { $ne: true } })
