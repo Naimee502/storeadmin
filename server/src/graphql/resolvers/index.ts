@@ -59,7 +59,8 @@ import { Bom, WorkOrder, ProductionEntry } from "../../models/manufacturing";
 import { leadSourceResolvers } from "./leadsource";
 
 import { withOfflineActions, withOfflineWrites } from "../../utils/offlinesync";
-import { guardResolvers, hidePasswords } from "../../utils/authguard";
+import { guardResolvers, hidePasswords, hideFromAnonymous } from "../../utils/authguard";
+import { typeDefs } from "../schema";
 import { stockMoveResolvers } from "./stockmove";
 import { SalesOrder } from "../../models/salesorder";
 import { SalesInvoice } from "../../models/salesinvoice";
@@ -86,7 +87,7 @@ import { PriceAssignment } from "../../models/priceassignments";
 import { SalesRoute } from "../../models/salesroutes";
 import { Holiday, LeaveType } from "../../models/attendance";
 
-export const resolvers = guardResolvers([
+const guarded = guardResolvers([
   hidePasswords,
   stockMoveResolvers,
   branchResolvers,
@@ -168,3 +169,5 @@ export const resolvers = guardResolvers([
     [Membership, ["editMembership", "deleteMembership"]],
   ].reduce((r: any, [model, names]: any) => withOfflineActions(r, model, names), serviceResolvers),
 ]);
+
+export const resolvers = [...guarded, hideFromAnonymous(typeDefs, guarded)];
