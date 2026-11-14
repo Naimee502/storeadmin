@@ -162,7 +162,7 @@ export default function Header() {
           </Link>
 
           {/* Search */}
-          <form
+          {!supplierOnly && <form
             onSubmit={(e) => {
               e.preventDefault();
               navigate(`/shop?q=${encodeURIComponent(searchQuery.trim())}`);
@@ -188,7 +188,7 @@ export default function Header() {
             <button type="submit" className="flex items-center justify-center bg-brand-700 px-4 text-white hover:bg-brand-800">
               <Search className="h-4.5 w-4.5" />
             </button>
-          </form>
+          </form>}
 
           <div className="ml-auto flex items-center gap-1 sm:gap-3">
             {isLoggedIn ? (
@@ -348,7 +348,7 @@ export default function Header() {
         </div>
 
         {/* Mobile search */}
-        <form
+        {!supplierOnly && <form
           onSubmit={(e) => {
             e.preventDefault();
             navigate(`/shop?q=${encodeURIComponent(searchQuery.trim())}`);
@@ -367,11 +367,11 @@ export default function Header() {
               <Search className="h-4.5 w-4.5" />
             </button>
           </div>
-        </form>
+        </form>}
       </div>
 
       {/* Category nav */}
-      <nav className="hidden border-b border-slate-100 bg-white lg:block">
+      {!supplierOnly && <nav className="hidden border-b border-slate-100 bg-white lg:block">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           {/* The strip scrolls itself. Without this the flex row just grows
               past the viewport and takes the whole page's horizontal scroll
@@ -403,10 +403,10 @@ export default function Header() {
           })}
           </div>
         </div>
-      </nav>
+      </nav>}
 
       {/* Mobile menu */}
-      {mobileOpen && (
+      {mobileOpen && !supplierOnly && (
         <div className="border-b border-slate-100 bg-white lg:hidden">
           <div className="max-h-[70vh] overflow-y-auto px-4 py-3">
             {visibleCategories.map((cat) => (

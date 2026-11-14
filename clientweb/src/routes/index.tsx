@@ -1,4 +1,6 @@
-import { Navigate, Route, Routes } from "react-router";
+import { Navigate, Outlet, Route, Routes } from "react-router";
+import { useAuth } from "../contexts/auth";
+import { useSupplier } from "../hooks/useSupplier";
 import type { ReactNode } from "react";
 import { usePaymentsEnabled } from "../hooks/useModuleEnabled";
 import MainLayout from "../layouts/main";
@@ -29,28 +31,37 @@ function PaymentsOnly({ children }: { children: ReactNode }) {
   return usePaymentsEnabled() ? <>{children}</> : <Navigate to="/account" replace />;
 }
 
+// A signed-in supplier uses only the supplier portal; shop pages send them there.
+function ShopOnly() {
+  const { isLoggedIn } = useAuth();
+  const supplier = useSupplier();
+  return supplier.signedIn && !isLoggedIn ? <Navigate to="/supplier" replace /> : <Outlet />;
+}
+
 export default function AppRoutes() {
   return (
     <Routes>
       <Route element={<MainLayout />}>
-        <Route path="/" element={<HomePage />} />
-        <Route path="/shop" element={<ShopPage />} />
-        <Route path="/product/:id" element={<ProductDetailPage />} />
-        <Route path="/cart" element={<CartPage />} />
-        <Route path="/checkout" element={<CheckoutPage />} />
+        <Route element={<ShopOnly />}>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/shop" element={<ShopPage />} />
+          <Route path="/product/:id" element={<ProductDetailPage />} />
+          <Route path="/cart" element={<CartPage />} />
+          <Route path="/checkout" element={<CheckoutPage />} />
+          <Route path="/account" element={<AccountPage />} />
+          <Route path="/account/orders/:id" element={<OrderDetailPage />} />
+          <Route path="/account/orders/:id/edit" element={<OrderEditPage />} />
+          <Route path="/account/parties/:id/payments" element={<PaymentsOnly><PartyPaymentsPage /></PaymentsOnly>} />
+          <Route path="/account/parties/:id/collect" element={<PaymentsOnly><CollectPaymentPage /></PaymentsOnly>} />
+          <Route path="/account/notifications" element={<NotificationsPage />} />
+          <Route path="/account/announcements" element={<AnnouncementsPage />} />
+          <Route path="/book" element={<BookPage />} />
+          <Route path="/account/bookings" element={<MyBookingsPage />} />
+        </Route>
         <Route path="/login" element={<LoginPage />} />
-        <Route path="/account" element={<AccountPage />} />
-        <Route path="/account/orders/:id" element={<OrderDetailPage />} />
-        <Route path="/account/orders/:id/edit" element={<OrderEditPage />} />
-        <Route path="/account/parties/:id/payments" element={<PaymentsOnly><PartyPaymentsPage /></PaymentsOnly>} />
-        <Route path="/account/parties/:id/collect" element={<PaymentsOnly><CollectPaymentPage /></PaymentsOnly>} />
-        <Route path="/account/notifications" element={<NotificationsPage />} />
-        <Route path="/account/announcements" element={<AnnouncementsPage />} />
         <Route path="/about" element={<AboutPage />} />
         <Route path="/privacy" element={<PrivacyPage />} />
         <Route path="/terms" element={<TermsPage />} />
-        <Route path="/book" element={<BookPage />} />
-        <Route path="/account/bookings" element={<MyBookingsPage />} />
         <Route path="/supplier" element={<SupplierPage />} />
         <Route path="/supplier/:kind/:id" element={<SupplierDocumentPage />} />
       </Route>

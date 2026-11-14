@@ -1,5 +1,5 @@
 import { NavLink } from "react-router";
-import { Home, LayoutGrid, ShoppingCart, User } from "lucide-react";
+import { FileText, Home, LayoutGrid, Package, ShoppingCart, User, Wallet } from "lucide-react";
 import { useCart } from "../../contexts/cart";
 import { useSupplier } from "../../hooks/useSupplier";
 
@@ -10,11 +10,18 @@ const items = [
   { label: "Account", icon: User, to: "/account" },
 ];
 
+const supplierItems = [
+  { label: "Home", icon: Home, to: "/supplier" },
+  { label: "Bills", icon: FileText, to: "/supplier?tab=bills" },
+  { label: "Orders", icon: Package, to: "/supplier?tab=orders" },
+  { label: "Payments", icon: Wallet, to: "/supplier?tab=payments" },
+];
+
 export default function MobileBottomNav() {
   const { count } = useCart();
   const supplier = useSupplier();
-  // A signed-in supplier has no cart; Account opens the supplier portal.
-  const shown = supplier.signedIn ? items.filter((i) => i.label !== "Cart").map((i) => (i.label === "Account" ? { ...i, to: "/supplier" } : i)) : items;
+  // A signed-in supplier gets the supplier portal tabs instead of the shop.
+  const shown = supplier.signedIn ? supplierItems : items;
   return (
     <nav className="fixed inset-x-0 bottom-0 z-40 flex border-t border-slate-200 bg-white/95 backdrop-blur lg:hidden">
       {shown.map(({ label, icon: Icon, to }) => (
