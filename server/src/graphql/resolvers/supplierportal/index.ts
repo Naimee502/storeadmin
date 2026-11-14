@@ -8,6 +8,7 @@ import { enforceLoginOtp } from "../../../utils/loginotp";
 import { getPartyBillPositions, getPartyRunningBalance } from "../../../utils/allocation";
 import { isVendorParty } from "../../../utils/partytype";
 import { TenantError } from "../../../utils/tenant";
+import { docShape, editSupplierOrder, loadSupplierDoc, printToken } from "../../../utils/supplierdocs";
 
 const NOT_ALLOWED = "Supplier login is not turned on for this number. Please ask the business.";
 
@@ -18,12 +19,21 @@ const portalAccount = async (adminId: any, filter: any) => {
   return acc;
 };
 
+/** The signed-in supplier's account; supplier login switched off ends the session. */
+const me = async (context: any) => {
+  const user = context?.user;
+  if (user?.type !== "supplier" || !user.id || !user.adminid) throw new TenantError("Please sign in again.", "UNAUTHENTICATED");
+  return portalAccount(user.adminid, { _id: user.id });
+};
+
 export const supplierPortalResolvers = {
   Query: {
+    getSupplierDocument: async (_: any, { kind, id }: any, context: any) => {
+      const acc = await me(context);
+      return docShape(kind, await loadSupplierDoc(kind, id, acc._id, acc.admin));
+    },
     getSupplierPortal: async (_: any, __: any, context: any) => {
-      const user = context?.user;
-      if (user?.type !== "supplier" || !user.id || !user.adminid) throw new TenantError("Please sign in again.", "UNAUTHENTICATED");
-      const acc = await portalAccount(user.adminid, { _id: user.id });
+      const acc = await me(context);
       const adminid = acc.admin;
       const [company, orders, bills, payments, balance]: any[] = await Promise.all([
         Admin.findById(adminid).select("companyName").lean(),
@@ -55,6 +65,15 @@ export const supplierPortalResolvers = {
     },
   },
   Mutation: {
+    updateSupplierOrder: async (_: any, { id, lines, note }: any, context: any) => {
+      const acc = await me(context);
+      return editSupplierOrder(id, acc._id, acc.admin, lines || [], note);
+    },
+    supplierPrintLink: async (_: any, { kind, id }: any, context: any) => {
+      const acc = await me(context);
+      await loadSupplierDoc(kind, id, acc._id, acc.admin);
+      return `/print/supplier/${printToken(kind, id, acc._id, acc.admin)}`;
+    },
     loginSupplier: async (_: any, { adminId, mobile, otp }: any) => {
       const acc = await portalAccount(adminId, { mobile: String(mobile || "").trim() });
       const company: any = await Admin.findById(adminId).select("companyName").lean();

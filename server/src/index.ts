@@ -10,6 +10,7 @@ import { graphqlUploadExpress } from 'graphql-upload';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import jwt from 'jsonwebtoken';
+import { supplierPrintHtml } from './utils/supplierdocs';
 import { generateTokens, sendRefreshToken } from './utils/auth';
 import { Admin } from './models/admin';
 import { startReminderScheduler } from './utils/reminderscheduler';
@@ -99,6 +100,14 @@ const startServer = async () => {
 
   // Lead integrations (IndiaMART, JustDial, Meta, WhatsApp, website forms) post here; the token names the business.
   app.use('/webhooks/leads', leadWebhookRouter);
+
+  // Supplier print link: a short-lived signed token names the bill or order.
+  app.get("/print/supplier/:token", async (req, res) => {
+    const html = await supplierPrintHtml(String(req.params.token || "")).catch(() => null);
+    res.setHeader("Cache-Control", "no-store");
+    if (!html) return res.status(404).send("This print link has expired. Open the bill again and tap Print.");
+    res.type("html").send(html);
+  });
 
   app.post("/refresh_token", async (req, res) => {
     const token = req.cookies.refreshToken;

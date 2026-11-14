@@ -51,7 +51,23 @@ const LOGIN = new Set([
 ]);
 
 // A supplier login reaches only its own portal.
-const SUPPLIER = new Set(["getSupplierPortal"]);
+const SUPPLIER = new Set([
+  "getSupplierPortal", "getSupplierDocument", "updateSupplierOrder", "supplierPrintLink",
+  "getNotifications", "markNotificationRead", "markAllNotificationsRead", "saveDeviceToken",
+]);
+
+// Supplier reads and marks only its own notifications and saves its own device.
+const scopeSupplier = async (field: string, args: any, user: any) => {
+  if (field === "getNotifications" || field === "markAllNotificationsRead") {
+    args.filter = { ...(args.filter || {}), adminid: String(user.adminid), targettype: "party", targetid: String(user.id) };
+  }
+  if (field === "saveDeviceToken") args.id = String(user.id);
+  if (field === "markNotificationRead") {
+    const own = Types.ObjectId.isValid(String(args.id))
+      && (await mongoose.model("Notification").exists({ _id: args.id, targettype: "party", targetid: user.id }));
+    if (!own) throw denied();
+  }
+};
 const LOGIN_MAX_FAILS = 10;
 const LOGIN_WINDOW_MS = 15 * 60 * 1000;
 const loginFails = new Map<string, { n: number; at: number }>();
@@ -385,6 +401,7 @@ const check = async (field: string, args: any, context: any, info?: any) => {
   if (!context?.user) throw new TenantError("Please sign in again.", "UNAUTHENTICATED");
   if (context.user.type === "supplier") {
     if (!SUPPLIER.has(field)) throw denied("This login can only open the supplier portal.");
+    await scopeSupplier(field, args, context.user);
     return;
   }
   const op = info?.parentType?.name;

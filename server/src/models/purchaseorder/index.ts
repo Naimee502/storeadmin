@@ -12,6 +12,9 @@ const purchaseOrderSchema = new mongoose.Schema(
     clientRequestId: { type: String }, // offline sync de-duplication
     offlineNumber: { type: String }, // provisional device number the document was made offline with
     notes: { type: String },
+    // Supplier's remark and time when they edited a pending order from the supplier portal.
+    suppliernote: { type: String },
+    supplierEditedAt: { type: Date },
 
     ordertype: { type: String, default: "retail" },
     subtotal: { type: Number, required: true },

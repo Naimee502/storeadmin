@@ -64,6 +64,7 @@ import { supplierPortalResolvers } from "./supplierportal";
 
 import { withOfflineActions, withOfflineWrites } from "../../utils/offlinesync";
 import { guardResolvers, hidePasswords, hideFromAnonymous } from "../../utils/authguard";
+import { withSupplierNotify } from "../../utils/supplierdocs";
 import { typeDefs } from "../schema";
 import { stockMoveResolvers } from "./stockmove";
 import { SalesOrder } from "../../models/salesorder";
@@ -111,11 +112,11 @@ const guarded = guardResolvers([
   withOfflineWrites(servicesResolvers, { model: ProductService, typename: "ProductService", tenant: "adminid", add: "addService", edit: "updateService", del: "deleteService" }),
   productImportResolvers,
   withOfflineActions(salesInvoiceResolvers, SalesInvoice, ["markSalesInvoiceDispatched", "markSalesInvoiceDelivered", "assignInvoiceDeliveryBoy", "saveInvoiceGstDetails"]),
-  purchaseInvoiceResolvers,
+  withSupplierNotify(purchaseInvoiceResolvers),
   transferStockResolvers,
   adminResolvers,
   withOfflineWrites(transactionResolvers, { model: Transaction, typename: "Transaction", tenant: "adminid", add: "addTransaction", edit: "editTransaction", del: "deleteTransaction" }),
-  paymentResolvers,
+  withSupplierNotify(paymentResolvers),
   withOfflineWrites(expenseNoteResolvers, { model: ExpenseNote, typename: "ExpenseNote", tenant: "adminid", add: "addExpenseNote", edit: "editExpenseNote", del: "deleteExpenseNote" }),
   withOfflineWrites(expenseClaimResolvers, { model: ExpenseClaim, typename: "ExpenseClaim", tenant: "adminid", add: "addExpenseClaim", edit: "editExpenseClaim", del: "deleteExpenseClaim" }),
   announcementResolvers,
@@ -127,7 +128,7 @@ const guarded = guardResolvers([
     { model: PriceAssignment, typename: "PriceAssignment", tenant: "adminid", add: "createPriceAssignment", edit: "updatePriceAssignment", del: "deletePriceAssignment" }
   ),
   withOfflineActions(salesOrderResolvers, SalesOrder, ["confirmSalesOrder", "markSalesOrderDispatched", "markSalesOrderDelivered", "assignOrderDeliveryBoy"]),
-  withOfflineActions(purchaseOrderResolvers, PurchaseOrder, ["confirmPurchaseOrder", "markPurchaseOrderReceived"]),
+  withSupplierNotify(withOfflineActions(purchaseOrderResolvers, PurchaseOrder, ["confirmPurchaseOrder", "markPurchaseOrderReceived"])),
   withOfflineWrites(
     withOfflineWrites(attendanceResolvers, { model: Holiday, typename: "Holiday", tenant: "adminid", add: "addHoliday", edit: "editHoliday", del: "deleteHoliday" }),
     { model: LeaveType, typename: "LeaveType", tenant: "adminid", add: "addLeaveType", edit: "editLeaveType", del: "deleteLeaveType" }

@@ -1,4 +1,5 @@
 import { Navigate, useNavigate, useSearchParams } from "react-router";
+import type { NavigateFunction } from "react-router";
 import { useQuery } from "@apollo/client";
 import { FileText, LayoutDashboard, LogOut, Package, Wallet } from "lucide-react";
 import Breadcrumb from "../../components/breadcrumb";
@@ -76,20 +77,21 @@ export default function SupplierPage() {
           </div>
           {loading && !p ? <p className="text-sm text-slate-500">Loading...</p>
             : error || !p ? <p className="text-sm text-rose-600">{error?.message || "Could not load your account."}</p>
-            : <Content tab={tab} p={p} go={(t) => setParams({ tab: t })} />}
+            : <Content tab={tab} p={p} go={(t) => setParams({ tab: t })} nav={navigate} />}
         </section>
       </div>
     </div>
   );
 }
 
-function Content({ tab, p, go }: { tab: Tab; p: any; go: (t: Tab) => void }) {
+function Content({ tab, p, go, nav }: { tab: Tab; p: any; go: (t: Tab) => void; nav: NavigateFunction }) {
+  const rowCls = "cursor-pointer hover:bg-slate-50";
   const open = p.bills.filter((b: any) => b.outstanding > 0);
   const cell = "px-3 py-2";
   const empty = (t: string) => <tr><td colSpan={5} className="px-3 py-6 text-center text-slate-500">{t}</td></tr>;
   const billRows = (rows: any[]) => rows.length ? rows.map((b: any) => (
-    <tr key={b.id}>
-      <td className={`${cell} font-medium`}>{b.billnumber || "-"}</td><td className={cell}>{dateLabel(b.billdate)}</td>
+    <tr key={b.id} className={rowCls} onClick={() => nav(`/supplier/bill/${b.id}`)}>
+      <td className={`${cell} font-medium text-brand-700`}>{b.billnumber || "-"}</td><td className={cell}>{dateLabel(b.billdate)}</td>
       <td className={`${cell} text-right`}>{rupees(b.totalamount)}</td><td className={`${cell} text-right`}>{rupees(b.outstanding)}</td>
       <td className={cell}><span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${b.outstanding > 0 ? "bg-amber-50 text-amber-700" : "bg-emerald-50 text-emerald-700"}`}>{b.outstanding <= 0 ? "Paid" : b.outstanding < b.totalamount ? "Part Paid" : "Unpaid"}</span></td>
     </tr>
@@ -127,8 +129,8 @@ function Content({ tab, p, go }: { tab: Tab; p: any; go: (t: Tab) => void }) {
       <thead className="bg-slate-50 text-xs text-slate-500"><tr><th className={cell}>Order No.</th><th className={cell}>Date</th><th className={`${cell} text-right`}>Items</th><th className={`${cell} text-right`}>Amount</th><th className={cell}>Status</th></tr></thead>
       <tbody className="divide-y divide-slate-100">
         {p.orders.length ? p.orders.map((o: any) => (
-          <tr key={o.id}>
-            <td className={`${cell} font-medium`}>{o.billnumber || "-"}</td><td className={cell}>{dateLabel(o.billdate)}</td>
+          <tr key={o.id} className={rowCls} onClick={() => nav(`/supplier/order/${o.id}`)}>
+            <td className={`${cell} font-medium text-brand-700`}>{o.billnumber || "-"}</td><td className={cell}>{dateLabel(o.billdate)}</td>
             <td className={`${cell} text-right`}>{o.items}</td><td className={`${cell} text-right`}>{rupees(o.totalamount)}</td>
             <td className={cell}><span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${ORDER[o.orderStatus] || ORDER.pending}`}>{cap(o.orderStatus)}</span></td>
           </tr>

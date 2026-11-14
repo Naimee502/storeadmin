@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useMutation } from "@apollo/client";
-import { Link } from "react-router";
+import { Link, useNavigate } from "react-router";
+import { useSupplier } from "../../hooks/useSupplier";
 import { Bell, Package, FileText, Wallet, CalendarCheck, UserPlus, MapPin, BellRing, X } from "lucide-react";
 import { useAuth } from "../../contexts/auth";
 import { useTenant } from "../../contexts/tenant";
@@ -39,22 +40,28 @@ function timeAgo(iso?: string | null): string {
 export default function NotificationBell() {
   const { isLoggedIn, account } = useAuth();
   const { adminid } = useTenant();
+  const navigate = useNavigate();
+  // A signed-in supplier sees its own notifications with its own login.
+  const supplier = useSupplier();
+  const asSupplier = !isLoggedIn && supplier.signedIn;
+  const context = asSupplier ? { headers: { Authorization: `Bearer ${supplier.token}` } } : undefined;
   const [open, setOpen] = useState(false);
   const panelRef = useRef<HTMLDivElement | null>(null);
 
   const filter = useMemo(
-    () => ({ adminid, targettype: "party", targetid: account?.id, limit: 50 }),
-    [adminid, account?.id]
+    () => ({ adminid, targettype: "party", targetid: asSupplier ? "supplier" : account?.id, limit: 50 }),
+    [adminid, account?.id, asSupplier]
   );
 
   const { data, refetch } = useQuery(GET_NOTIFICATIONS, {
     variables: { filter },
-    skip: !isLoggedIn || !adminid || !account?.id,
+    skip: !adminid || !(asSupplier || (isLoggedIn && account?.id)),
     pollInterval: 30000,
     fetchPolicy: "cache-and-network",
+    context,
   });
-  const [markRead] = useMutation(MARK_NOTIFICATION_READ);
-  const [markAllRead] = useMutation(MARK_ALL_NOTIFICATIONS_READ);
+  const [markRead] = useMutation(MARK_NOTIFICATION_READ, { context });
+  const [markAllRead] = useMutation(MARK_ALL_NOTIFICATIONS_READ, { context });
 
   const notifications: any[] = data?.getNotifications ?? [];
   const unreadCount = notifications.filter((n) => !n.read).length;
@@ -68,7 +75,7 @@ export default function NotificationBell() {
     return () => document.removeEventListener("mousedown", onClick);
   }, [open]);
 
-  if (!isLoggedIn) return null;
+  if (!isLoggedIn && !asSupplier) return null;
 
   const handleTap = async (n: any) => {
     if (!n.read) {
@@ -78,6 +85,11 @@ export default function NotificationBell() {
         // best-effort
       }
       refetch();
+    }
+    if (asSupplier) {
+      setOpen(false);
+      const kind = n.docmodel === "PurchaseOrder" ? "order" : n.docmodel === "PurchaseInvoice" ? "bill" : "";
+      navigate(kind && n.docid ? `/supplier/${kind}/${n.docid}` : n.docmodel === "Payment" ? "/supplier?tab=payments" : "/supplier");
     }
   };
 
@@ -154,13 +166,13 @@ export default function NotificationBell() {
             </div>
           )}
 
-          <Link
+          {!asSupplier && <Link
             to="/account/notifications"
             onClick={() => setOpen(false)}
             className="block border-t border-slate-100 py-2.5 text-center text-xs font-semibold text-brand-700 hover:bg-slate-50"
           >
             View all notifications
-          </Link>
+          </Link>}
         </div>
       )}
     </div>
