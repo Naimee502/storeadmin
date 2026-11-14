@@ -170,6 +170,8 @@ export const GET_SALES_ORDER_BY_ID = gql`
       billnumber
       billdate
       totalamount
+      loyaltyredeempoints
+      loyaltydiscount
       subtotal
       totaldiscount
       totalgst

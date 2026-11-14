@@ -6,6 +6,7 @@ import { pushNotification } from "../../../models/notifications";
 import { resolveTenant, TenantError } from "../../../utils/tenant";
 import { contractShape, jobPrintToken, jobShape, JOB_POPULATE, membershipShape, myJob } from "../../../utils/customerportal";
 import { supportTicketResolvers } from "../supportticket";
+import { balanceOf } from "../../../utils/loyalty";
 
 /** Signed-in customer and their business. */
 const me = async (context: any) => {
@@ -36,6 +37,7 @@ export const customerPortalResolvers = {
         tickets: on("supporttickets") && (picked || tickets > 0), openTickets,
         jobcards: on("jobcards") ? jobcards : 0, activeJobcards: on("jobcards") ? activeJobcards : 0,
         contracts: on("contracts") ? contracts : 0, memberships: on("memberships") ? memberships : 0,
+        loyaltyPoints: list?.includes("loyalty") ? await balanceOf(m.adminid, m.partyid) : null,
       };
     },
     getMyJobCards: async (_: any, __: any, context: any) => {

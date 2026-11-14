@@ -2,7 +2,7 @@ import { gql } from "@apollo/client";
 
 export const GET_MY_SERVICE_SUMMARY = gql`
   query GetMyServiceSummary {
-    getMyServiceSummary { tickets openTickets jobcards activeJobcards contracts memberships }
+    getMyServiceSummary { tickets openTickets jobcards activeJobcards contracts memberships loyaltyPoints }
   }
 `;
 

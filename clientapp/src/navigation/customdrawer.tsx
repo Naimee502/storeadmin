@@ -43,6 +43,7 @@ const PARTY_MENU: DrawerMenuItem[] = [
   { label: 'AMC / Warranty',      icon: 'shield-check-outline',   screen: 'MyContracts' },
   { label: 'My Membership',       icon: 'card-account-details-star-outline', screen: 'MyMemberships' },
   { label: 'Support Tickets',     icon: 'lifebuoy',               screen: 'MyTickets' },
+  { label: 'My Points',           icon: 'gift-outline',           screen: 'MyPoints' },
   { label: STRINGS.party.profile, icon: 'account-circle-outline', tabScreen: 'PartyProfile' },
   { label: 'separator1', icon: '', section: true },
   { label: 'Announcements', icon: 'bullhorn-outline', screen: 'Announcements' },
@@ -170,6 +171,7 @@ export const CustomDrawerContent = (props: DrawerContentComponentProps) => {
   const svc = (svcData as any)?.getMyServiceSummary;
   const serviceOn: Record<string, boolean> = {
     MyRepairs: (svc?.jobcards ?? 0) > 0, MyContracts: (svc?.contracts ?? 0) > 0, MyMemberships: (svc?.memberships ?? 0) > 0, MyTickets: !!svc?.tickets,
+    MyPoints: svc?.loyaltyPoints !== null && svc?.loyaltyPoints !== undefined,
   };
   const menu  = (ROLE_MENUS[role] ?? PARTY_MENU).filter(
     (m) => (paymentsEnabled || !PAYMENT_SCREENS.has(m.tabScreen ?? m.screen ?? '')) && moduleAllows(m.screen)

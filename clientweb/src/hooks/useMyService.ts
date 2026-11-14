@@ -11,6 +11,7 @@ export const useMyService = () => {
     tickets: !!s?.tickets, openTickets: s?.openTickets || 0,
     repairs: (s?.jobcards || 0) > 0, activeRepairs: s?.activeJobcards || 0,
     amc: (s?.contracts || 0) > 0, memberships: (s?.memberships || 0) > 0,
+    loyalty: s?.loyaltyPoints !== null && s?.loyaltyPoints !== undefined, loyaltyPoints: s?.loyaltyPoints || 0,
   };
 };
 
@@ -20,4 +21,5 @@ export const serviceMenu = (m: ReturnType<typeof useMyService>) => [
   m.amc && { to: "/account/amc", label: "AMC / Warranty", badge: 0 },
   m.memberships && { to: "/account/memberships", label: "My Membership", badge: 0 },
   m.tickets && { to: "/account/tickets", label: "Support Tickets", badge: m.openTickets },
+  m.loyalty && { to: "/account/points", label: "My Points", badge: 0 },
 ].filter(Boolean) as { to: string; label: string; badge: number }[];

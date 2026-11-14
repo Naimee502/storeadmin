@@ -341,6 +341,12 @@ export default function OrderDetailPage() {
                     <span>{formatPrice(charge.totalamount)}</span>
                   </div>
                 ))}
+                {Number(order.loyaltydiscount) > 0 && (
+                  <div className="flex justify-between text-slate-600">
+                    <span>Points ({order.loyaltyredeempoints})</span>
+                    <span className="text-brand-600">−{formatPrice(order.loyaltydiscount)}</span>
+                  </div>
+                )}
               </div>
               <div className="mt-3 flex justify-between border-t border-slate-100 pt-3 text-base font-bold text-ink-900">
                 <span>Total Payable</span>

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import {
-  View, Text, StyleSheet, Pressable, StatusBar, Alert, Modal, ScrollView,
+  View, Text, StyleSheet, Pressable, StatusBar, Alert, Modal, ScrollView, TouchableOpacity,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Animated, { FadeInUp } from 'react-native-reanimated';
@@ -13,6 +13,7 @@ import { formatINR } from '../../../../utils';
 import { AppHeader, AppImage, DynamicFlashList, AddressForm } from '../../../../components';
 import { ADD_SALES_ORDER } from '../../../../apollo/mutations/accounts';
 import { GET_SALES_ORDERS, GET_ACCOUNT } from '../../../../apollo/queries/accounts';
+import { GET_MY_LOYALTY, GET_MY_SERVICE_SUMMARY } from '../../../../apollo/queries/myservice';
 import { updateQty, removeFromCart, clearCart } from '../../../../store/slices';
 import { useChargePreview } from '../../../../apollo/hooks/chargerules';
 import { useShowProductPrice, useRestrictQtyByStock } from '../../../../apollo/hooks/adminsettings';
@@ -49,7 +50,21 @@ export default function CartScreen() {
   const subtotal = cartItems.reduce((s, i) => s + i.qty * i.rate, 0);
   const totaldiscount = cartItems.reduce((s, i) => s + i.qty * (i.discount ?? 0), 0);
   const totalgst = cartItems.reduce((s, i) => s + (i.rate - (i.discount ?? 0)) * i.qty * (i.gst ?? 0) / 100, 0);
-  const total = subtotal - totaldiscount + totalgst;
+  const beforePoints = subtotal - totaldiscount + totalgst;
+  // Loyalty points as a discount, when the business uses them.
+  const { data: svcData } = useQuery(GET_MY_SERVICE_SUMMARY, { skip: user?.role !== 'party', fetchPolicy: 'cache-and-network' });
+  const loyaltyOn = (svcData as any)?.getMyServiceSummary?.loyaltyPoints != null;
+  const { data: loyaltyData } = useQuery(GET_MY_LOYALTY, { skip: !loyaltyOn, fetchPolicy: 'cache-and-network' });
+  const loyalty = (loyaltyData as any)?.getMyLoyalty;
+  const [usePoints, setUsePoints] = useState(false);
+  const pointValue = loyalty?.rules?.pointValue || 1;
+  const maxPoints = loyalty?.rules?.enabled
+    ? Math.max(0, Math.min(Math.floor(loyalty.balance || 0), Math.floor(((beforePoints * (loyalty.rules.maxRedeemPercent ?? 100)) / 100) / pointValue)))
+    : 0;
+  const canRedeem = maxPoints > 0 && maxPoints >= (loyalty?.rules?.minRedeem || 0);
+  const redeemPoints = usePoints && canRedeem ? maxPoints : 0;
+  const pointsDiscount = Math.round(redeemPoints * pointValue * 100) / 100;
+  const total = beforePoints - pointsDiscount;
 
   // Preview of the admin's auto-charges (delivery/handling/COD, etc.) —
   // display only. The order is still submitted with `total` (unchanged);
@@ -82,6 +97,7 @@ export default function CartScreen() {
             isservice: false,
             subtotal, totaldiscount, totalgst,
             totalamount: total,
+            ...(redeemPoints ? { loyaltyredeempoints: redeemPoints, loyaltydiscount: pointsDiscount } : {}),
             createdby_id: user?.id,
             createdby_name: user?.name,
             createdby_type: user?.role || 'party',
@@ -100,10 +116,11 @@ export default function CartScreen() {
         },
       });
       dispatch(clearCart());
+      setUsePoints(false);
 
       // Refetch orders to show new order immediately
       await apolloClient.refetchQueries({
-        include: [GET_SALES_ORDERS],
+        include: redeemPoints ? [GET_SALES_ORDERS, GET_MY_LOYALTY, GET_MY_SERVICE_SUMMARY] : [GET_SALES_ORDERS],
       });
 
       Alert.alert('Order Placed!', 'Your order has been placed successfully.', [
@@ -232,6 +249,27 @@ export default function CartScreen() {
               <Text style={[styles.summaryValue, { color: colors.text }]}>{formatINR(c.totalamount)}</Text>
             </View>
           ))}
+          {loyalty?.rules?.enabled && (loyalty.balance || 0) > 0 && (
+            <TouchableOpacity activeOpacity={0.8} disabled={!canRedeem} onPress={() => setUsePoints(!usePoints)}
+              style={[styles.summaryRow, { borderWidth: 1, borderColor: colors.border, borderRadius: 10, padding: 10, opacity: canRedeem ? 1 : 0.6 }]}>
+              <Icon name={usePoints && canRedeem ? 'checkbox-marked' : 'checkbox-blank-outline'} size={20} color={colors.brand} />
+              <View style={{ flex: 1, marginLeft: 8 }}>
+                <Text style={[styles.summaryValue, { color: colors.text }]}>
+                  {canRedeem ? `Use ${maxPoints} points, save ${formatINR(maxPoints * pointValue)}` : `You have ${loyalty.balance} points`}
+                </Text>
+                <Text style={[styles.summaryLabel, { color: colors.subText, fontSize: 11 }]}>
+                  {canRedeem ? `Balance ${loyalty.balance} points` : `At least ${loyalty.rules.minRedeem} points are needed to use them.`}
+                </Text>
+              </View>
+              <Icon name="gift-outline" size={18} color={colors.brand} />
+            </TouchableOpacity>
+          )}
+          {pointsDiscount > 0 && (
+            <View style={styles.summaryRow}>
+              <Text style={[styles.summaryLabel, { color: colors.subText }]}>Points ({redeemPoints})</Text>
+              <Text style={[styles.summaryValue, { color: '#16a34a' }]}>-{formatINR(pointsDiscount)}</Text>
+            </View>
+          )}
           <View style={[styles.summaryRow, styles.totalRow]}>
             <Text style={[styles.totalLabel, { color: colors.text }]}>Total Payable</Text>
             <Text style={[styles.totalValue, { color: colors.brand }]}>{formatINR(grandTotal)}</Text>

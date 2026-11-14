@@ -27,6 +27,7 @@ import SupplierDocumentPage from "../pages/supplier/document";
 import { MyTicketPage, MyTicketsPage } from "../pages/myservice/tickets";
 import { MyRepairPage, MyRepairsPage } from "../pages/myservice/repairs";
 import { MyContractsPage, MyMembershipsPage } from "../pages/myservice/plans";
+import { MyPointsPage } from "../pages/myservice/points";
 
 // Payment pages exist only while the business has the Payments module on — a
 // bookmarked or typed URL lands back on My Account instead.
@@ -66,6 +67,7 @@ export default function AppRoutes() {
           <Route path="/account/repairs/:id" element={<MyRepairPage />} />
           <Route path="/account/amc" element={<MyContractsPage />} />
           <Route path="/account/memberships" element={<MyMembershipsPage />} />
+          <Route path="/account/points" element={<MyPointsPage />} />
         </Route>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/about" element={<AboutPage />} />

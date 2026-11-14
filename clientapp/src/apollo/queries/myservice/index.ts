@@ -2,7 +2,7 @@ import { gql } from "@apollo/client";
 
 export const GET_MY_SERVICE_SUMMARY = gql`
   query GetMyServiceSummary {
-    getMyServiceSummary { tickets openTickets jobcards activeJobcards contracts memberships }
+    getMyServiceSummary { tickets openTickets jobcards activeJobcards contracts memberships loyaltyPoints }
   }
 `;
 
@@ -40,6 +40,16 @@ export const GET_MY_MEMBERSHIPS = gql`
     getMyMemberships {
       id plan startdate enddate daysleft state sessions sessionsused sessionsleft amount services notes
       visits { id billdate starttime service apptStatus }
+    }
+  }
+`;
+
+export const GET_MY_LOYALTY = gql`
+  query GetMyLoyalty {
+    getMyLoyalty {
+      rules { enabled earnPer100 pointValue minBill maxEarn expiryDays minRedeem maxRedeemPercent }
+      balance value earned redeemed
+      history { id kind points docno note createdAt }
     }
   }
 `;

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { useMutation, useQuery } from "@apollo/client";
-import { CheckCircle2, Wallet, Landmark, Smartphone, Building2, Package, Truck, LogIn, MapPin, Pencil } from "lucide-react";
+import { CheckCircle2, Wallet, Landmark, Smartphone, Building2, Package, Truck, LogIn, MapPin, Pencil, Gift } from "lucide-react";
 import Breadcrumb from "../../components/breadcrumb";
 import AddressForm from "../../components/addressform";
 import { useCart } from "../../contexts/cart";
@@ -11,6 +11,8 @@ import { useBusinessSettings } from "../../contexts/businesssettings";
 import { useChargePreview } from "../../hooks/useChargePreview";
 import { useDownline } from "../../hooks/useDownline";
 import { ADD_SALES_ORDER, GET_SALES_ORDERS, GET_ACCOUNT } from "../../graphql/queries/accounts";
+import { GET_MY_LOYALTY } from "../../graphql/queries/loyalty";
+import { useMyService } from "../../hooks/useMyService";
 import { formatPrice } from "../../utils/format";
 import { stateOptions } from "../../utils/states";
 
@@ -82,7 +84,20 @@ export default function CheckoutPage() {
   // fake flat delivery fee. Display-only preview; the server computes and
   // applies these itself when the order is created.
   const charges = useChargePreview(subtotal, "party", payment === "cod" ? "cash" : payment);
-  const total = subtotal - totaldiscount + totalgst + charges.total;
+  // Loyalty points: only the customer's own order, only when the business uses them.
+  const myService = useMyService();
+  const { data: loyaltyData } = useQuery(GET_MY_LOYALTY, { skip: !isLoggedIn || !!orderFor || !myService.loyalty, fetchPolicy: "cache-and-network" });
+  const loyalty = loyaltyData?.getMyLoyalty;
+  const [usePoints, setUsePoints] = useState(false);
+  const beforePoints = subtotal - totaldiscount + totalgst;
+  const pointValue = loyalty?.rules?.pointValue || 1;
+  const maxPoints = loyalty?.rules?.enabled
+    ? Math.max(0, Math.min(Math.floor(loyalty.balance || 0), Math.floor(((beforePoints * (loyalty.rules.maxRedeemPercent ?? 100)) / 100) / pointValue)))
+    : 0;
+  const canRedeem = maxPoints > 0 && maxPoints >= (loyalty?.rules?.minRedeem || 0);
+  const redeemPoints = usePoints && canRedeem && !orderFor ? maxPoints : 0;
+  const pointsDiscount = Math.round(redeemPoints * pointValue * 100) / 100;
+  const total = beforePoints - pointsDiscount + charges.total;
 
   const handlePlaceOrder = async () => {
     if (!isLoggedIn || !account) {
@@ -123,6 +138,7 @@ export default function CheckoutPage() {
             totaldiscount,
             totalgst,
             totalamount: total - charges.total, // the server adds the charge rules itself
+            ...(redeemPoints ? { loyaltyredeempoints: redeemPoints, loyaltydiscount: pointsDiscount } : {}),
             createdby_id: account.id,
             createdby_name: account.name,
             createdby_type: "party",
@@ -141,6 +157,7 @@ export default function CheckoutPage() {
         },
         refetchQueries: [
           { query: GET_SALES_ORDERS, variables: { adminid, partyacc: account.id, includeDownline: manageDownline } },
+          ...(redeemPoints ? ["GetMyLoyalty", "GetMyServiceSummary"] : []),
         ],
       });
       setPlacedOrder({ billnumber: data?.addSalesOrder?.billnumber, forName: orderFor?.name });
@@ -392,6 +409,26 @@ export default function CheckoutPage() {
                       </div>
                     ))}
                   </div>
+                  {loyalty?.rules?.enabled && !orderFor && (loyalty.balance || 0) > 0 && (
+                    <label className={`mt-3 flex items-start gap-2.5 rounded-lg border p-3 text-sm ${canRedeem ? "cursor-pointer border-brand-200 bg-brand-50" : "border-slate-200 bg-slate-50 text-slate-500"}`}>
+                      <input type="checkbox" className="mt-0.5" checked={usePoints && canRedeem} disabled={!canRedeem} onChange={(e) => setUsePoints(e.target.checked)} />
+                      <Gift className="mt-0.5 h-4 w-4 shrink-0 text-brand-700" />
+                      <span>
+                        <span className="font-semibold text-ink-900">
+                          {canRedeem ? `Use ${maxPoints} points, save ${formatPrice(maxPoints * pointValue)}` : `You have ${loyalty.balance} points`}
+                        </span>
+                        <span className="block text-xs text-slate-500">
+                          {canRedeem ? `Balance ${loyalty.balance} points` : `At least ${loyalty.rules.minRedeem} points are needed to use them.`}
+                        </span>
+                      </span>
+                    </label>
+                  )}
+                  {pointsDiscount > 0 && (
+                    <div className="mt-2 flex justify-between text-sm text-slate-600">
+                      <span>Points ({redeemPoints})</span>
+                      <span className="text-brand-600">−{formatPrice(pointsDiscount)}</span>
+                    </div>
+                  )}
                   <div className="mt-3 flex justify-between border-t border-slate-100 pt-3 text-base font-bold text-ink-900">
                     <span>Total</span>
                     <span>{formatPrice(total)}</span>
