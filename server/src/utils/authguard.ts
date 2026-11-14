@@ -148,6 +148,7 @@ crud("pricelists", "createPriceList", "updatePriceList", "deletePriceList", "res
 crud("priceassignments", "createPriceAssignment", "updatePriceAssignment", "deletePriceAssignment", "resetPriceAssignment");
 crud("chargerules", "addChargeRule", "editChargeRule", "deleteChargeRule", "resetChargeRule");
 crud("expensenote", "addExpenseNote", "editExpenseNote", "deleteExpenseNote", "resetExpenseNote");
+act("attendance", { approveLeaveRequest: "edit", rejectLeaveRequest: "edit" });
 
 // Edit mutations of forms with field settings: a field switched off for Edit keeps its saved value.
 const FORM_EDIT: Record<string, string> = {
@@ -200,6 +201,25 @@ const checkPermissionsScope = async (context: any, args: any, admin: Types.Objec
   if (!model) return;
   const owner = await ownerOf(model, scopeid);
   if (owner !== undefined && owner !== String(admin)) throw denied();
+  if (!write || context.user?.type === "admin") return;
+  // A branch login may set its own staff's permissions; nobody else below the owner may.
+  const staff: any = scope === "staff" && context.user?.type === "branch" && Types.ObjectId.isValid(String(scopeid))
+    ? await mongoose.model("StaffAccount").findById(scopeid).select("branchid").lean()
+    : null;
+  if (!staff || String(staff.branchid) !== String(context.user.id)) throw denied("Only the business owner can change these permissions.");
+};
+
+// Staff punch for themselves; punching for a colleague needs the attendance add permission.
+const checkPunch = async (context: any, input: any) => {
+  const me = context.user;
+  if (me.type === "party") throw denied();
+  if (me.type === "staff" && String(input.staffid || "") !== String(me.id)) {
+    const scope = await resolveTenant(context, { backofficeOnly: true });
+    const where = { adminid: scope.adminid, branchid: scope.branchid, staffid: scope.userId };
+    if (!(await isActionAllowed("attendance", "add", where))) throw denied("You can punch only for yourself.");
+  }
+  const owner = await ownerOf("StaffAccount", input.staffid);
+  if (owner !== undefined && owner !== String(await callerAdminId(context))) throw denied();
 };
 
 const TENANT_KEYS = ["adminid", "adminId", "admin"];
@@ -258,6 +278,14 @@ const check = async (field: string, args: any, context: any, info?: any) => {
   if (field === "getAdmins") {
     args.adminId = String(await callerAdminId(context)); // a business only sees itself
     return;
+  }
+  if ((field === "updateAdminSettings" || field === "testBusinessSmtp") && context.user.type !== "admin") {
+    throw denied("Only the business owner can change business settings.");
+  }
+  if (field === "punch" && args?.input) await checkPunch(context, args.input);
+  if (field === "approveLeaveRequest" || field === "rejectLeaveRequest") {
+    args.approverid = String(context.user.id); // the approver is whoever is signed in
+    args.approverType = context.user.type;
   }
   if (field === "updateAdminById") {
     if (context.user.type !== "admin" || String(args?.id) !== String(context.user.id)) throw denied();

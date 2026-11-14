@@ -246,7 +246,8 @@ async function agentTools(scope: any): Promise<AiTool[]> {
         const q: any = { ...(await leadBase()), stage: { $nin: closed } };
         if (a?.stage) q.stage = a.stage;
         if (a?.source) q.source = new RegExp(String(a.source), "i");
-        if (a?.overdue) q.$or = [{ nextfollowupAt: null }, { nextfollowupAt: { $lt: new Date() } }];
+        // $and keeps any own-records $or from leadBase().
+        if (a?.overdue) q.$and = [...(q.$and || []), { $or: [{ nextfollowupAt: null }, { nextfollowupAt: { $lt: new Date() } }] }];
         const rows: any[] = await Lead.find(q).sort({ expectedvalue: -1, createdAt: -1 })
           .limit(Math.min(Number(a?.limit) || 10, 25))
           .select("name company mobile city stage source expectedvalue requirement nextfollowupAt").lean();
