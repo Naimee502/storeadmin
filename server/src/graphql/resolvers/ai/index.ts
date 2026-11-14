@@ -24,6 +24,7 @@ import { ProductionEntry, WorkOrder } from "../../../models/manufacturing";
 import { Appointment, JobCard } from "../../../models/service";
 import { StockMove } from "../../../models/stockmove";
 import { leadQuery, followupQuery, stagesOf, nextLeadNumber, formatLead, LEAD_POPULATE } from "../lead";
+import { istDayEnd } from "../../../utils/ist";
 
 const DAY = 86400000;
 const oid = (v: any) => (v instanceof Types.ObjectId ? v : new Types.ObjectId(String(v)));
@@ -615,7 +616,7 @@ async function briefingFor(scope: any, language: string, user: any, focus = "") 
     try { await findInsights(scope.adminid); } catch { /* use what is there */ }
   }
   const items: any[] = [];
-  const endOfDay = new Date(); endOfDay.setHours(23, 59, 59, 999);
+  const endOfDay = istDayEnd();
   try {
     const due = await Followup.countDocuments({ ...(await followupQuery(scope)), status: true, doneAt: null, dueAt: { $lte: endOfDay } });
     if (due) items.push({ kind: "followups", title: `${due} follow-up${due === 1 ? "" : "s"} due today`, detail: "Open Follow Ups to call them.", value: due });

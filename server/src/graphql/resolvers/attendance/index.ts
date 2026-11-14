@@ -8,6 +8,7 @@ import { pushNotification } from "../../../models/notifications";
 import { Admin } from "../../../models/admin";
 import { recomputeAttendanceTotals } from "../../../utils/attendancetotals";
 import { notCleared } from "../../../utils/listquery";
+import { istDate } from "../../../utils/ist";
 
 // Display name for the acting user. Branch/admin tokens only carry an email,
 // so look the proper name up from the DB; staff tokens get their staff name.
@@ -28,8 +29,7 @@ const actorName = async (user: any): Promise<string> => {
   return user.name || user.email || "admin";
 };
 
-const pad2 = (n: number) => String(n).padStart(2, "0");
-const toDateStr = (d: Date) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+const toDateStr = istDate; // attendance dates are IST days on any server clock
 
 // Leave days must be positive and fit inside the date range (half days allowed).
 const checkLeaveDays = (fromDate: any, toDate: any, totalDays: any) => {
