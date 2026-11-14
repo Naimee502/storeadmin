@@ -134,11 +134,15 @@ export const adminResolvers = {
 
       admin.subscriptionType = subscriptionType;
       admin.transactionId = transactionId;
-      admin.subscribed = false;
-      admin.subscribedAt = null;
-      admin.subscriptionEnd = null;
       admin.needsReview = true;
       admin.rejected = false;
+      // A renewal on an active plan waits for approval; it never switches the plan off.
+      const active = admin.subscribed && (!admin.subscriptionEnd || new Date(admin.subscriptionEnd) > new Date());
+      if (!active) {
+        admin.subscribed = false;
+        admin.subscribedAt = null;
+        admin.subscriptionEnd = null;
+      }
 
       await admin.save();
       return admin;
