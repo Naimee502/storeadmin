@@ -38,10 +38,18 @@ export const GET_BOOKABLE_SERVICES = gql`
 `;
 
 export const GET_BOOKING_SLOTS = gql`
-  query GetBookingSlots($adminid: ID!, $serviceid: ID!, $variantid: ID, $date: String!) {
-    getBookingSlots(adminid: $adminid, serviceid: $serviceid, variantid: $variantid, date: $date) {
+  query GetBookingSlots($adminid: ID!, $serviceid: ID!, $variantid: ID, $date: String!, $doctorid: ID) {
+    getBookingSlots(adminid: $adminid, serviceid: $serviceid, variantid: $variantid, date: $date, doctorid: $doctorid) {
       starttime
       available
+    }
+  }
+`;
+
+export const GET_CLINIC_DOCTORS = gql`
+  query GetClinicDoctors($adminid: ID!, $serviceid: ID) {
+    getClinicDoctors(adminid: $adminid, serviceid: $serviceid) {
+      id name photo specialization qualification experience fee about
     }
   }
 `;

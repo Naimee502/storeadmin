@@ -2,7 +2,7 @@ import { gql } from "@apollo/client";
 
 export const GET_MY_SERVICE_SUMMARY = gql`
   query GetMyServiceSummary {
-    getMyServiceSummary { tickets openTickets jobcards activeJobcards contracts memberships loyaltyPoints }
+    getMyServiceSummary { tickets openTickets jobcards activeJobcards contracts memberships loyaltyPoints prescriptions }
   }
 `;
 
@@ -53,3 +53,9 @@ export const GET_MY_LOYALTY = gql`
     }
   }
 `;
+
+const RX = `id rxnumber billdate doctorname doctorqualification complaints diagnosis vitals { bp pulse temperature weight spo2 sugar }
+  medicines { name dose frequency timing days notes } tests advice nextvisit`;
+export const GET_MY_PRESCRIPTIONS = gql`query GetMyPrescriptions { getMyPrescriptions { ${RX} } }`;
+export const GET_MY_PRESCRIPTION = gql`query GetMyPrescription($id: ID!) { getMyPrescription(id: $id) { ${RX} } }`;
+export const MY_PRESCRIPTION_PRINT_LINK = gql`mutation MyPrescriptionPrintLink($id: ID!) { myPrescriptionPrintLink(id: $id) }`;

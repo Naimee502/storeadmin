@@ -12,11 +12,13 @@ export const useMyService = () => {
     repairs: (s?.jobcards || 0) > 0, activeRepairs: s?.activeJobcards || 0,
     amc: (s?.contracts || 0) > 0, memberships: (s?.memberships || 0) > 0,
     loyalty: s?.loyaltyPoints !== null && s?.loyaltyPoints !== undefined, loyaltyPoints: s?.loyaltyPoints || 0,
+    prescriptions: s?.prescriptions !== null && s?.prescriptions !== undefined,
   };
 };
 
 /** Menu entries for the customer's service area (path, label). */
 export const serviceMenu = (m: ReturnType<typeof useMyService>) => [
+  m.prescriptions && { to: "/account/prescriptions", label: "My Prescriptions", badge: 0 },
   m.repairs && { to: "/account/repairs", label: "My Repairs", badge: m.activeRepairs },
   m.amc && { to: "/account/amc", label: "AMC / Warranty", badge: 0 },
   m.memberships && { to: "/account/memberships", label: "My Membership", badge: 0 },

@@ -39,6 +39,7 @@ const PARTY_MENU: DrawerMenuItem[] = [
   // Only while online booking is allowed and on (see below).
   { label: 'My Bookings',         icon: 'calendar-clock',         screen: 'MyBookings' },
   // Service menus: only for a module the business uses or records the customer has.
+  { label: 'My Prescriptions',    icon: 'stethoscope',            screen: 'MyPrescriptions' },
   { label: 'My Repairs',          icon: 'wrench-outline',         screen: 'MyRepairs' },
   { label: 'AMC / Warranty',      icon: 'shield-check-outline',   screen: 'MyContracts' },
   { label: 'My Membership',       icon: 'card-account-details-star-outline', screen: 'MyMemberships' },
@@ -172,6 +173,7 @@ export const CustomDrawerContent = (props: DrawerContentComponentProps) => {
   const serviceOn: Record<string, boolean> = {
     MyRepairs: (svc?.jobcards ?? 0) > 0, MyContracts: (svc?.contracts ?? 0) > 0, MyMemberships: (svc?.memberships ?? 0) > 0, MyTickets: !!svc?.tickets,
     MyPoints: svc?.loyaltyPoints !== null && svc?.loyaltyPoints !== undefined,
+    MyPrescriptions: svc?.prescriptions !== null && svc?.prescriptions !== undefined,
   };
   const menu  = (ROLE_MENUS[role] ?? PARTY_MENU).filter(
     (m) => (paymentsEnabled || !PAYMENT_SCREENS.has(m.tabScreen ?? m.screen ?? '')) && moduleAllows(m.screen)

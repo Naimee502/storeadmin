@@ -7,7 +7,7 @@ import { useNavigation } from '@react-navigation/native';
 import { useSelector } from 'react-redux';
 import { FONTS, useTheme } from '../../../../config';
 import { BackHeader } from '../../../../components';
-import { BOOK_APPOINTMENT, GET_BOOKABLE_SERVICES, GET_BOOKING_ON, GET_BOOKING_SLOTS } from '../../../../apollo/queries/booking';
+import { BOOK_APPOINTMENT, GET_BOOKABLE_SERVICES, GET_BOOKING_ON, GET_BOOKING_SLOTS, GET_CLINIC_DOCTORS } from '../../../../apollo/queries/booking';
 import { useModuleEnabled } from '../../../../apollo/hooks/admin';
 import type { RootState } from '../../../../store/rootreducer';
 
@@ -59,9 +59,18 @@ export default function BookingScreen() {
   const showDetail = (s: any) => { setDetail(s); setDetailVar(chosen?.serviceid === s.id ? chosen.variantid : s.options[0].id); };
   const dv = detail?.options.find((v: any) => v.id === detailVar) || detail?.options[0];
 
+  // Clinic: the patient picks the doctor; one doctor is picked for them.
+  const [doctorid, setDoctorid] = useState('');
+  const { data: docData } = useQuery(GET_CLINIC_DOCTORS, { variables: { adminid, serviceid: chosen?.serviceid }, skip: !adminid || !chosen });
+  const doctors = ((docData as any)?.getClinicDoctors ?? []) as any[];
+  const doctor = doctors.length === 1 ? doctors[0] : doctors.find((d) => d.id === doctorid);
+  const needDoctor = doctors.length > 0 && !doctor;
+  const rate = doctor && doctor.fee != null ? Number(doctor.fee) : Number(chosen?.rate) || 0;
+  const drName = (d: any) => (/^dr\.?\s/i.test(d?.name || '') ? d.name : `Dr. ${d?.name || ''}`);
+
   const { data: slotData, loading: slotLoading, error: slotError } = useQuery(GET_BOOKING_SLOTS, {
-    variables: { adminid, serviceid: chosen?.serviceid, variantid: chosen?.variantid, date },
-    skip: !adminid || !chosen,
+    variables: { adminid, serviceid: chosen?.serviceid, variantid: chosen?.variantid, date, doctorid: doctor?.id },
+    skip: !adminid || !chosen || needDoctor,
     fetchPolicy: 'network-only',
   });
   const slots = ((slotData as any)?.getBookingSlots ?? []) as any[];
@@ -72,7 +81,7 @@ export default function BookingScreen() {
     if (!chosen || !time) return;
     setError('');
     try {
-      await book({ variables: { input: { serviceid: chosen.serviceid, variantid: chosen.variantid, date, starttime: time, notes: notes.trim() || undefined } } });
+      await book({ variables: { input: { serviceid: chosen.serviceid, variantid: chosen.variantid, date, starttime: time, notes: notes.trim() || undefined, ...(doctor ? { doctorid: doctor.id } : {}) } } });
       setDone(true);
     } catch (e: any) {
       setError(e?.message || 'Could not book. Please try another time.');
@@ -122,7 +131,29 @@ export default function BookingScreen() {
               );
             }) : <Text style={[styles.note, { color: colors.subText }]}>No services are open for booking.</Text>}
 
-            {chosen && (
+            {chosen && doctors.length > 0 && (
+              <>
+                <Text style={[styles.title, { color: colors.text }]}>{doctors.length > 1 ? 'Choose a doctor' : 'Your doctor'}</Text>
+                {doctors.map((d) => {
+                  const on = doctor?.id === d.id;
+                  return (
+                    <Pressable key={d.id} onPress={() => { setDoctorid(d.id); setTime(''); }}
+                      style={[styles.svc, { backgroundColor: colors.cardGlass, borderColor: on ? colors.brand : colors.border }]}>
+                      {d.photo ? <Image source={{ uri: d.photo }} style={[styles.svcImg, { borderRadius: 30, width: 56, height: 56 }]} />
+                        : <View style={[styles.svcImg, styles.svcEmpty, { backgroundColor: colors.raisedSurface, borderRadius: 30, width: 56, height: 56 }]}><Icon name="stethoscope" size={24} color={colors.brand} /></View>}
+                      <View style={styles.svcText}>
+                        <Text style={[styles.svcName, { color: colors.text }]}>{drName(d)}</Text>
+                        {!!(d.specialization || d.qualification) && <Text style={[styles.sub, { color: colors.subText }]}>{[d.specialization, d.qualification].filter(Boolean).join(' · ')}</Text>}
+                        <Text style={[styles.note, { color: colors.text }]}>{[d.experience ? `${d.experience} yrs experience` : '', d.fee != null ? `Fee ${rupees(d.fee)}` : ''].filter(Boolean).join(' · ')}</Text>
+                        {!!d.about && <Text numberOfLines={2} style={[styles.sub, { color: colors.subText }]}>{d.about}</Text>}
+                      </View>
+                    </Pressable>
+                  );
+                })}
+              </>
+            )}
+
+            {chosen && !needDoctor && (
               <>
                 <Text style={[styles.title, { color: colors.text }]}>2. Pick a day</Text>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.row}>
@@ -152,9 +183,10 @@ export default function BookingScreen() {
                 <TextInput value={notes} onChangeText={setNotes} placeholder="Anything we should know? (optional)" placeholderTextColor={colors.subText}
                   multiline style={[styles.input, { color: colors.text, borderColor: colors.border, backgroundColor: colors.raisedSurface }]} />
                 <View style={[styles.card, { backgroundColor: colors.cardGlass, borderColor: colors.border, alignItems: 'stretch' }]}>
-                  <View style={styles.line}><Text style={[styles.note, { color: colors.subText, flex: 1 }]}>{chosen.name}</Text><Text style={[styles.note, { color: colors.text }]}>{rupees(chosen.rate)}</Text></View>
+                  {doctor && <Text style={[styles.note, { color: colors.text }]}>With {drName(doctor)}{doctor.specialization ? ` · ${doctor.specialization}` : ''}</Text>}
+                  <View style={styles.line}><Text style={[styles.note, { color: colors.subText, flex: 1 }]}>{doctor && doctor.fee != null ? 'Consultation fee' : chosen.name}</Text><Text style={[styles.note, { color: colors.text }]}>{rupees(rate)}</Text></View>
                   {Number(chosen.v.visitcharge) > 0 && <View style={styles.line}><Text style={[styles.note, { color: colors.subText }]}>Visit charge</Text><Text style={[styles.note, { color: colors.text }]}>{rupees(chosen.v.visitcharge)}</Text></View>}
-                  <View style={styles.line}><Text style={[styles.title, { color: colors.text }]}>Total</Text><Text style={[styles.title, { color: colors.text }]}>{rupees((Number(chosen.rate) || 0) + (Number(chosen.v.visitcharge) || 0))}</Text></View>
+                  <View style={styles.line}><Text style={[styles.title, { color: colors.text }]}>Total</Text><Text style={[styles.title, { color: colors.text }]}>{rupees(rate + (Number(chosen.v.visitcharge) || 0))}</Text></View>
                   <Text style={[styles.sub, { color: colors.subText }]}>{chosen.v.taxinclusive ? 'Includes taxes.' : 'Taxes extra as applicable.'} Pay after the service.</Text>
                 </View>
                 {!!error && <Text style={styles.error}>{error}</Text>}

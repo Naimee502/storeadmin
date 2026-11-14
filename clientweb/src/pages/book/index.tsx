@@ -6,7 +6,7 @@ import Breadcrumb from "../../components/breadcrumb";
 import { useModuleEnabled } from "../../hooks/useModuleEnabled";
 import { useAuth } from "../../contexts/auth";
 import { useTenant } from "../../contexts/tenant";
-import { BOOK_APPOINTMENT, GET_BOOKABLE_SERVICES, GET_BOOKING_ON, GET_BOOKING_SLOTS } from "../../graphql/queries/booking";
+import { BOOK_APPOINTMENT, GET_BOOKABLE_SERVICES, GET_BOOKING_ON, GET_BOOKING_SLOTS, GET_CLINIC_DOCTORS } from "../../graphql/queries/booking";
 
 const todayIst = () => new Date(Date.now() + 330 * 60000).toISOString().slice(0, 10);
 const minutes = (d?: { amount?: number; unit?: string }) => Math.round((Number(d?.amount) || 0.5) * (d?.unit === "minutes" ? 1 : 60));
@@ -59,9 +59,21 @@ export default function BookPage() {
   const opt = svc?.options.find((v: any) => v.id === pick?.variantid);
   const label = svc ? (svc.options.length > 1 ? `${svc.name} - ${opt?.name}` : svc.name) : "";
 
+  // Clinic: patients pick the doctor; one doctor is picked for them.
+  const [doctorid, setDoctorid] = useState("");
+  const { data: docData } = useQuery(GET_CLINIC_DOCTORS, { variables: { adminid, serviceid: pick?.serviceid }, skip: !adminid || !pick });
+  const doctors: any[] = docData?.getClinicDoctors || [];
+  const doctor = doctors.find((d) => d.id === doctorid);
+  useEffect(() => {
+    if (doctors.length === 1) setDoctorid(doctors[0].id);
+    else if (doctorid && !doctors.some((d) => d.id === doctorid)) setDoctorid("");
+  }, [docData]);
+  const needDoctor = doctors.length > 0 && !doctor;
+  const rate = doctor && doctor.fee != null ? Number(doctor.fee) : Number(opt?.servicerate) || 0;
+
   const { data: slotData, loading: slotLoading, error: slotError } = useQuery(GET_BOOKING_SLOTS, {
-    variables: { adminid, serviceid: pick?.serviceid, variantid: pick?.variantid, date },
-    skip: !adminid || !pick || !date,
+    variables: { adminid, serviceid: pick?.serviceid, variantid: pick?.variantid, date, doctorid: doctor?.id },
+    skip: !adminid || !pick || !date || needDoctor,
     fetchPolicy: "network-only",
   });
   const slots: any[] = slotData?.getBookingSlots || [];
@@ -83,7 +95,7 @@ export default function BookPage() {
     if (!isLoggedIn) return navigate("/login?redirect=/book");
     setError("");
     try {
-      await book({ variables: { input: { serviceid: pick.serviceid, variantid: pick.variantid, date, starttime: time, notes: notes.trim() || undefined } } });
+      await book({ variables: { input: { serviceid: pick.serviceid, variantid: pick.variantid, date, starttime: time, notes: notes.trim() || undefined, ...(doctor ? { doctorid: doctor.id } : {}) } } });
       setDone({ date, time });
     } catch (e: any) {
       setError(e?.message || "Could not book. Please try another time.");
@@ -168,6 +180,27 @@ export default function BookPage() {
               <h2 className="text-sm font-semibold text-ink-900">2. Pick a day and time</h2>
               {!svc || !opt ? <p className="text-sm text-slate-500">Select a service first.</p> : (
                 <>
+                  {doctors.length > 0 && (
+                    <div className="space-y-2">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{doctors.length > 1 ? "Choose a doctor" : "Your doctor"}</p>
+                      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                        {doctors.map((d) => (
+                          <button key={d.id} type="button" onClick={() => { setDoctorid(d.id); setTime(""); }}
+                            className={`flex items-start gap-3 rounded-lg border p-3 text-left text-sm ${doctorid === d.id ? "border-brand-600 bg-brand-50" : "border-slate-200 bg-white hover:border-slate-300"}`}>
+                            {d.photo ? <img src={d.photo} alt={d.name} className="h-12 w-12 shrink-0 rounded-full object-cover" />
+                              : <span className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-brand-100 font-bold text-brand-700">{String(d.name || "D").slice(0, 1)}</span>}
+                            <span className="min-w-0 flex-1">
+                              <span className="block font-semibold text-ink-900">{/^dr\.?\s/i.test(d.name) ? d.name : `Dr. ${d.name}`}</span>
+                              <span className="block text-xs text-slate-500">{[d.specialization, d.qualification].filter(Boolean).join(" · ")}</span>
+                              <span className="block text-xs text-slate-500">{[d.experience ? `${d.experience} yrs experience` : "", d.fee != null ? `Fee ${rupees(d.fee)}` : ""].filter(Boolean).join(" · ")}</span>
+                              {d.about && <span className="mt-1 block text-xs text-slate-600">{d.about}</span>}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {needDoctor ? <p className="text-sm text-slate-500">Pick a doctor to see free times.</p> : (<>
                   <div className="flex gap-2 overflow-x-auto pb-1">
                     {days.map((d, i) => {
                       const on = d === date;
@@ -194,6 +227,7 @@ export default function BookPage() {
                         ))}
                       </div>
                     ) : <p className="text-sm text-slate-500">No free time on this day. Try another day.</p>}
+                  </>)}
                   <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} placeholder="Anything we should know? (optional)"
                     className="block w-full rounded-lg border border-slate-300 p-3 text-sm" />
                 </>
@@ -216,14 +250,15 @@ export default function BookPage() {
                       {svc.options.length > 1 && <button type="button" onClick={() => showDetail(svc)} className="text-xs font-semibold text-brand-700 hover:underline">Change Option</button>}
                     </div>
                   </div>
+                  {doctor && <div className="text-slate-700">With <b>{/^dr\.?\s/i.test(doctor.name) ? doctor.name : `Dr. ${doctor.name}`}</b>{doctor.specialization ? ` · ${doctor.specialization}` : ""}</div>}
                   <div className="flex items-center gap-2 rounded-lg bg-slate-50 px-3 py-2 text-slate-700">
                     <CalendarCheck className="h-4 w-4 text-brand-700" />
                     {time ? <span>{dayLabel(date)}, {time12(time)}</span> : <span className="text-slate-500">Pick a time</span>}
                   </div>
                   <div className="space-y-1 border-t border-slate-100 pt-3">
-                    <div className="flex justify-between"><span className="text-slate-600">Service{PER[opt.pricingunit] ? ` (${PER[opt.pricingunit].slice(2)})` : ""}</span><span>{rupees(opt.servicerate)}</span></div>
+                    <div className="flex justify-between"><span className="text-slate-600">{doctor && doctor.fee != null ? "Consultation fee" : `Service${PER[opt.pricingunit] ? ` (${PER[opt.pricingunit].slice(2)})` : ""}`}</span><span>{rupees(rate)}</span></div>
                     {Number(opt.visitcharge) > 0 && <div className="flex justify-between"><span className="text-slate-600">Visit charge</span><span>{rupees(opt.visitcharge)}</span></div>}
-                    <div className="flex justify-between pt-1 text-base font-bold text-ink-900"><span>Total</span><span>{rupees((Number(opt.servicerate) || 0) + (Number(opt.visitcharge) || 0))}</span></div>
+                    <div className="flex justify-between pt-1 text-base font-bold text-ink-900"><span>Total</span><span>{rupees(rate + (Number(opt.visitcharge) || 0))}</span></div>
                     <p className="text-xs text-slate-500">{opt.taxinclusive ? "Includes taxes." : "Taxes extra as applicable."}{PER[opt.pricingunit] ? " Final amount depends on actual work." : ""} Pay after the service.</p>
                   </div>
                   {error && <p className="text-rose-600">{error}</p>}
