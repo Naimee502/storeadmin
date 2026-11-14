@@ -67,7 +67,8 @@ export const priceListResolvers = {
       if (assignments.length === 0) return null;
       
       for (const assignment of assignments) {
-        const priceList = await PriceList.findById(assignment.pricelistid);
+        // A deleted price list, or one of another business, no longer prices.
+        const priceList = await PriceList.findOne({ _id: assignment.pricelistid, adminid: assignment.adminid, status: { $ne: false } });
         if (priceList) {
           const item = priceList.items.find(
             (i: any) => 

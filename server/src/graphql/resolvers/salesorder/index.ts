@@ -361,6 +361,7 @@ const orderPartyBalance = (parent: any): Promise<{ previous: number; current: nu
 // automatically, with no client-side logic.
 const computeAutoCharges = async (input: any, creatorType: string) => {
   const result = { lines: [] as any[], total: 0 };
+  if (input.ordersource === "marketplace") return result; // the marketplace file already carries its charges
   try {
     const rules = await ChargeRule.find({ adminid: input.adminid, status: true, active: true })
       .sort({ priority: 1, createdAt: 1 })
@@ -1123,7 +1124,7 @@ export const salesOrderResolvers = {
             input.totaldiscount = +(Number(input.totaldiscount || 0) + amt).toFixed(2);
           }
           if (existing) {
-            const auto = await computeAutoCharges(input, existing.createdby_type || "party");
+            const auto = await computeAutoCharges({ ...input, ordersource: input.ordersource ?? existing.ordersource }, existing.createdby_type || "party");
             const manualCharges = (existing.othercharges || []).filter(
               (c: any) => c?.remarks !== "Auto-applied charge"
             );

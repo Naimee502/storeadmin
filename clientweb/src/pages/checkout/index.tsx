@@ -122,7 +122,7 @@ export default function CheckoutPage() {
             subtotal,
             totaldiscount,
             totalgst,
-            totalamount: total,
+            totalamount: total - charges.total, // the server adds the charge rules itself
             createdby_id: account.id,
             createdby_name: account.name,
             createdby_type: "party",
