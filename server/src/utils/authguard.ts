@@ -2,6 +2,7 @@ import crypto from "crypto";
 import mongoose, { Types } from "mongoose";
 import { getNamedType, getNullableType, isInputObjectType, isListType } from "graphql";
 import { resolveTenant, TenantError } from "./tenant";
+import { Branch } from "../models/branches";
 import { isActionAllowed } from "./permissiongate";
 import { effectiveFormPermissions, fieldOn } from "./formpermissions";
 
@@ -152,8 +153,10 @@ const TENANT_KEYS = ["adminid", "admin"];
 const isIdArg = (type: any) => ["ID", "String"].includes((getNamedType(type) as any)?.name);
 const idValue = (type: any, id: string) => (isListType(getNullableType(type)) ? [id] : id);
 
-// Reads use the login's business for every adminid / admin arg the schema declares, sent or not.
-const scopeReadArgs = (info: any, args: any, adminid: string) => {
+// Every adminid / admin arg the schema declares is set to the login's business, sent or not.
+// Returns the branchids sent in the inputs so a write can confirm they are this business's.
+const scopeArgs = (info: any, args: any, adminid: string): string[] => {
+  const branchids: string[] = [];
   const def = info?.parentType?.getFields?.()[info.fieldName];
   for (const arg of def?.args || []) {
     if (TENANT_KEYS.includes(arg.name) && isIdArg(arg.type)) {
@@ -161,13 +164,20 @@ const scopeReadArgs = (info: any, args: any, adminid: string) => {
       continue;
     }
     const input = getNamedType(arg.type);
-    if (!isInputObjectType(input) || isListType(getNullableType(arg.type))) continue;
+    if (!isInputObjectType(input)) continue;
     const fields = input.getFields();
     const keys = TENANT_KEYS.filter((k) => fields[k] && isIdArg(fields[k].type));
     if (!keys.length) continue;
-    const value = args[arg.name] && typeof args[arg.name] === "object" ? args[arg.name] : (args[arg.name] = {});
-    for (const k of keys) value[k] = idValue(fields[k].type, adminid);
+    const many = isListType(getNullableType(arg.type));
+    if (!many && !(args[arg.name] && typeof args[arg.name] === "object")) args[arg.name] = {};
+    const values = many ? (Array.isArray(args[arg.name]) ? args[arg.name] : []) : [args[arg.name]];
+    for (const value of values) {
+      if (!value || typeof value !== "object") continue;
+      for (const k of keys) value[k] = idValue(fields[k].type, adminid);
+      if (fields.branchid && value.branchid) branchids.push(String(value.branchid));
+    }
   }
+  return branchids;
 };
 
 /** Runs before every Query / Mutation field. */
@@ -180,8 +190,16 @@ const check = async (field: string, args: any, context: any, info?: any) => {
   }
   if (platform) return; // the platform owner manages every business (Business Settings, admin register)
   if (!context?.user) throw new TenantError("Please sign in again.", "UNAUTHENTICATED");
-  if (info?.parentType?.name === "Query" && field !== "getAdmins") {
-    scopeReadArgs(info, args, String(await callerAdminId(context)));
+  const op = info?.parentType?.name;
+  if ((op === "Query" || op === "Mutation") && field !== "getAdmins") {
+    const admin = await callerAdminId(context);
+    const branchids = scopeArgs(info, args, String(admin));
+    if (op === "Mutation") {
+      const ids = Array.from(new Set(branchids)).filter((id) => Types.ObjectId.isValid(id));
+      if (ids.length && (await Branch.countDocuments({ _id: { $in: ids }, admin })) !== ids.length) {
+        throw denied("You do not have access to that branch.");
+      }
+    }
   }
 
   if (field === "getAdmins") {
