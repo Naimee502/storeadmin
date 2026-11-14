@@ -126,7 +126,7 @@ export const branchResolvers = {
 
     loginBranch: async (_: any, { email, password, otp }: any, { res }: any) => {
       const branch = await Branch.findOne({ email }).populate("admin");
-      if (!branch) throw new Error("Branch not found");
+      if (!branch || (branch as any).isMain) throw new Error("Branch not found");
 
       if (!verifyPassword(branch.password, password)) {
         throw new Error("Invalid credentials");

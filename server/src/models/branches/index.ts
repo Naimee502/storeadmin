@@ -2,7 +2,8 @@ import mongoose from 'mongoose';
 import { ProductBranchStock } from '../productbranchstock';
 import { ProductService } from '../products';
 import { convertToBaseUnit } from '../../utils/unitconversation';
-import { hashPasswordPlugin } from '../../utils/password';
+import crypto from 'crypto';
+import { hashPassword, hashPasswordPlugin } from '../../utils/password';
 
 const branchSchema = new mongoose.Schema({
   branchcode: { type: String },
@@ -38,6 +39,9 @@ const branchSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.Mixed,
     default: {},
   },
+
+  // Made automatically for a business with no branch; it cannot sign in.
+  isMain: { type: Boolean },
 }, { timestamps: true });
 
 branchSchema.index({ admin: 1, branchcode: 1 }, { unique: true });
@@ -132,3 +136,18 @@ branchSchema.post("save", async function (doc) {
 branchSchema.plugin(hashPasswordPlugin);
 
 export const Branch = mongoose.model('Branch', branchSchema);
+
+/** A business with no branch gets a hidden "Main" one, so billing works without setting branches up. */
+export const ensureMainBranch = async (admin: any) => {
+  const Branch = mongoose.model('Branch');
+  if (await Branch.exists({ admin: admin._id })) return;
+  const id = String(admin._id);
+  try {
+    await Branch.create({
+      admin: admin._id, branchname: "Main", isMain: true, status: true,
+      email: `main.${id}@branch.invalid`, mobile: `main-${id}`,
+      password: hashPassword(crypto.randomBytes(24).toString("hex")),
+      logo: "", imageurl: "", location: "", address: admin.address || "", city: "", pincode: "", phone: "",
+    });
+  } catch { /* a parallel login made it first */ }
+};

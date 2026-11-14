@@ -6,6 +6,7 @@ export const GET_BRANCHES = gql`
       id
       branchcode
       branchname
+      isMain
       mobile
       password
       logo

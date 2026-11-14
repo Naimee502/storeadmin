@@ -6,6 +6,7 @@ import { ApolloError } from "apollo-server-express";
 import { enforceLoginOtp } from "../../../utils/loginotp";
 import { verifyPassword, upgradePassword } from "../../../utils/password";
 import { isPlatform } from "../../../utils/authguard";
+import { ensureMainBranch } from "../../../models/branches";
 
 export const adminResolvers = {
   Query: {
@@ -225,6 +226,8 @@ export const adminResolvers = {
         kind: "admin", userId: admin._id, email: admin.email,
         adminId: admin._id, businessName: admin.companyName, otp,
       });
+
+      await ensureMainBranch(admin);
 
       const { accessToken, refreshToken } = generateTokens({
         id: admin.id,
