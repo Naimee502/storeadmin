@@ -274,6 +274,8 @@ export const transactionResolvers = {
     },
 
     editTransaction: async (_: any, { id, input }: any, context: any) => {
+      const current: any = await Transaction.findById(id).select("status").lean();
+      if (current?.status === false) throw new Error("This entry is deleted. Restore it first to edit it.");
       const totalDebit = input.entries.reduce((sum: number, e: any) => sum + (e.debit || 0), 0);
       const totalCredit = input.entries.reduce((sum: number, e: any) => sum + (e.credit || 0), 0);
 

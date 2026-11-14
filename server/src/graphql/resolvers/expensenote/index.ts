@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import { ExpenseNote } from "../../../models/expensenote";
+import { Transaction } from "../../../models/transactions";
 import { AccountLedger } from "../../../models/accountledgers";
 import { AccountGroup } from "../../../models/accountgroups";
 import { AdminSettings } from "../../../models/adminsettings";
@@ -325,6 +326,7 @@ export const expenseNoteResolvers = {
     editExpenseNote: async (_: any, { id, input }: any, context: any) => {
       const oldExp = await ExpenseNote.findById(id);
       if (!oldExp) throw new Error("Expense note not found");
+      if (oldExp.status === false) throw new Error("This entry is deleted. Restore it first to edit it."); // an edit would repost its journal
 
       // ✅ Extract user context for createJournalAndPayment
       const { user } = context;
@@ -348,11 +350,14 @@ export const expenseNoteResolvers = {
 
     deleteExpenseNote: async (_: any, { id }: any) => {
       const result = await ExpenseNote.findByIdAndUpdate(id, { status: false });
+      // Its journal goes and comes back with it, so ledgers match the notes list.
+      if (result) await Transaction.updateMany({ "source.docmodel": "ExpenseNote", "source.docid": result._id }, { status: false });
       return !!result;
     },
 
     resetExpenseNote: async (_: any, { id }: any) => {
       const result = await ExpenseNote.findByIdAndUpdate(id, { status: true });
+      if (result) await Transaction.updateMany({ "source.docmodel": "ExpenseNote", "source.docid": result._id }, { status: true });
       return !!result;
     },
   },
