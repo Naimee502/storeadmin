@@ -110,6 +110,8 @@ const MODULE_LIST: ModuleDef[] = [
 
   // Sales pipeline
   { id: "salesorder",     label: "Sales Orders",    section: "sales", actions: ORDER_ACTIONS, inAdminRegister: true },
+  // Confirm, send out and mark delivered from one screen ("edit" allows all three).
+  { id: "deliveryboard",  label: "Delivery Board",  section: "sales", actions: ["edit"], inAdminRegister: true },
   { id: "salesinvoice",   label: "Sales Invoices",  section: "sales", actions: FULL_TXN_ACTIONS, inAdminRegister: true },
   { id: "salesreturn",    label: "Sales Returns",   section: "sales", actions: RETURN_TXN_ACTIONS, inAdminRegister: true },
   // Goods sent with a challan (Rule 55); "convert" makes the invoice from it.
@@ -173,6 +175,8 @@ const MODULE_LIST: ModuleDef[] = [
   // Service (salon, clinic, repair centre, AMC)
   { id: "services",     label: "Services",       section: "service", actions: CRUD_ACTIONS, inAdminRegister: true },
   { id: "appointments", label: "Appointments",   section: "service", actions: [...CRUD_ACTIONS, "convert"], inAdminRegister: true },
+  // Customers book service slots from the website and app (settings in Settings -> General).
+  { id: "onlinebooking", label: "Online Booking", section: "service", actions: ["edit"], inAdminRegister: true },
   // "convert" = make a Sales Invoice from a job card.
   { id: "jobcards",     label: "Job Cards",      section: "service", actions: [...CRUD_ACTIONS, "print", "convert"], inAdminRegister: true },
   { id: "supporttickets", label: "Support Tickets", section: "service", actions: CRUD_ACTIONS, inAdminRegister: true },

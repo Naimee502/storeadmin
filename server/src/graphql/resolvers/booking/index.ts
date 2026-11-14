@@ -3,6 +3,7 @@ import { ProductService } from "../../../models/products";
 import { StaffAccount } from "../../../models/staffaccounts";
 import { Account } from "../../../models/accounts";
 import { AdminSettings } from "../../../models/adminsettings";
+import { Admin } from "../../../models/admin";
 import { pushNotification } from "../../../models/notifications";
 import { resolveTenant, TenantError } from "../../../utils/tenant";
 import { istDate } from "../../../utils/ist";
@@ -15,7 +16,9 @@ const hhmm = (m: number) => `${String(Math.floor(m / 60)).padStart(2, "0")}:${St
 // The service variant being booked, the day's windows and who can do it.
 const plan = async (adminid: any, serviceid: any, variantid: any, date: string) => {
   const st: any = await AdminSettings.findOne({ adminid }).select("bookingOn bookingFrom bookingTo bookingStepMinutes bookingDaysAhead").lean();
-  if (!st?.bookingOn) throw bad("Online booking is not open for this business.");
+  const a: any = await Admin.findById(adminid).select("allowedmodules").lean();
+  const moduleOn = !Array.isArray(a?.allowedmodules) || a.allowedmodules.includes("onlinebooking");
+  if (!st?.bookingOn || !moduleOn) throw bad("Online booking is not open for this business.");
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw bad("Pick a date.");
   const today = istDate();
   const last = istDate(new Date(Date.now() + (Number(st.bookingDaysAhead) || 30) * 86400000));

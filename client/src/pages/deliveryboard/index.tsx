@@ -18,7 +18,7 @@ const money = (n: any) => Number(n || 0).toLocaleString("en-IN", { minimumFracti
 const DeliveryBoard = () => {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
-  const actions = useAppSelector((s) => selectModuleActions(s, "salesorder"));
+  const actions = useAppSelector((s) => selectModuleActions(s, "deliveryboard"));
   const challanOn = useAppSelector((s) => selectIsModuleBusinessEnabled(s, "deliverychallan") && selectModuleActions(s, "deliverychallan").showAdd);
   const pending = useSalesOrdersListQuery({ deliveryStatus: "pending", includeConverted: true });
   const outNow = useSalesOrdersListQuery({ deliveryStatus: "dispatched", includeConverted: true });
