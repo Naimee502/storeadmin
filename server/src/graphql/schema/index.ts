@@ -53,6 +53,7 @@ import { aiTypeDefs } from "./ai";
 import { insightTypeDefs } from "./insight";
 import { leadSourceTypeDefs } from "./leadsource";
 import { accessRoleTypeDefs } from "./accessroles";
+import { supportTicketTypeDefs } from "./supportticket";
 
 export const typeDefs = [
   branchTypeDefs,
@@ -110,4 +111,5 @@ export const typeDefs = [
   leadSourceTypeDefs,
   stockMoveTypeDefs,
   accessRoleTypeDefs,
+  supportTicketTypeDefs,
 ];

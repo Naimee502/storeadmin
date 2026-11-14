@@ -175,6 +175,7 @@ const MODULE_LIST: ModuleDef[] = [
   { id: "appointments", label: "Appointments",   section: "service", actions: [...CRUD_ACTIONS, "convert"], inAdminRegister: true },
   // "convert" = make a Sales Invoice from a job card.
   { id: "jobcards",     label: "Job Cards",      section: "service", actions: [...CRUD_ACTIONS, "print", "convert"], inAdminRegister: true },
+  { id: "supporttickets", label: "Support Tickets", section: "service", actions: CRUD_ACTIONS, inAdminRegister: true },
   { id: "contracts",    label: "AMC / Warranty", section: "service", actions: CRUD_ACTIONS, inAdminRegister: true },
   { id: "memberships",  label: "Memberships",    section: "service", actions: CRUD_ACTIONS, inAdminRegister: true },
 

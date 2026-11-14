@@ -37,7 +37,7 @@ export const BUSINESS_PROFILES: BusinessProfile[] = [
   {
     id: "service", label: "Service (Repair / Clinic / Salon)", types: ["service"],
     note: "Services, appointments, job cards, AMC and memberships.",
-    modules: [...CORE, ...CRM, "services", "appointments", "jobcards", "contracts", "memberships", "reports.service"],
+    modules: [...CORE, ...CRM, "services", "appointments", "jobcards", "contracts", "memberships", "reports.service", "supporttickets"],
   },
   {
     id: "exporter", label: "Exporter", types: ["exporter"],
@@ -60,7 +60,7 @@ export const BUSINESS_PROFILES: BusinessProfile[] = [
   {
     id: "repair", label: "Repair / Service Centre", types: [],
     note: "Job cards, AMC contracts, spare parts billing and CRM.",
-    modules: [...CORE, ...CRM, "services", "jobcards", "contracts", "reports.service"],
+    modules: [...CORE, ...CRM, "services", "jobcards", "contracts", "reports.service", "supporttickets"],
   },
   {
     id: "clinic", label: "Clinic / Salon", types: [],

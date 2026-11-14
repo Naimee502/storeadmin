@@ -166,6 +166,7 @@ own("PriceList", ["getPriceListById"]);
 own("ChargeRule", ["getChargeRuleById"]);
 own("Department", ["editDepartment", "deleteDepartment", "resetDepartment"]);
 own("AccessRole", ["editAccessRole", "deleteAccessRole", "resetAccessRole"]);
+own("SupportTicket", ["getSupportTicketById", "editSupportTicket", "setSupportTicketStatus", "addSupportTicketComment", "deleteSupportTicket", "resetSupportTicket"]);
 // Fields whose record id arg is not named `id`.
 const ID_ARG: Record<string, string> = { deletePunch: "logid", aiDraftMessage: "leadid" };
 
@@ -212,6 +213,8 @@ crud("expensenote", "addExpenseNote", "editExpenseNote", "deleteExpenseNote", "r
 act("attendance", { approveLeaveRequest: "edit", rejectLeaveRequest: "edit" });
 crud("departments", "addDepartment", "editDepartment", "deleteDepartment", "resetDepartment");
 crud("accessroles", "addAccessRole", "editAccessRole", "deleteAccessRole", "resetAccessRole");
+// Parties raise and comment on their own tickets, so add, status and comment are checked in the resolver.
+act("supporttickets", { editSupportTicket: "edit", deleteSupportTicket: "delete", resetSupportTicket: "reset" });
 
 // Edit mutations of forms with field settings: a field switched off for Edit keeps its saved value.
 const FORM_EDIT: Record<string, string> = {
