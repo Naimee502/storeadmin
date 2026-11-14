@@ -20,6 +20,8 @@ const reportTabsObj = [
     { id: "Ledger Statement", label: "Ledger Statement", icon: <FaBookOpen className="text-[12px] text-blue-600" /> },
     { id: "Profit & Loss", label: "Profit & Loss", icon: <FaChartPie className="text-[12px] text-emerald-600" /> },
     { id: "Balance Sheet", label: "Balance Sheet", icon: <FaBalanceScale className="text-[12px] text-purple-600" /> },
+    { id: "Profit & Loss (Corrected)", label: "Profit & Loss (Corrected)", icon: <FaChartPie className="text-[12px] text-emerald-600" /> },
+    { id: "Balance Sheet (Corrected)", label: "Balance Sheet (Corrected)", icon: <FaBalanceScale className="text-[12px] text-purple-600" /> },
     { id: "Cash Flow Statement", label: "Cash Flow Statement", icon: <FaWater className="text-[12px] text-cyan-600" /> },
     { id: "Transactions Summary", label: "Transactions Summary", icon: <FaListUl className="text-[12px] text-amber-600" /> },
     { id: "Payments / Receipts", label: "Payments / Receipts", icon: <FaHandHoldingUsd className="text-[12px] text-rose-600" /> },
@@ -43,7 +45,7 @@ const AccountingFinanceReports: React.FC = () => {
     const branchid = type === "admin" ? selectedBranchId : type === "branch" ? branch?.id : type === "staff" ? authStaff?.branchid?.id : undefined;
 
     // Which tabs read transactions, payments and expense notes.
-    const needTransactions = ["Ledger", "Profit & Loss", "Balance Sheet", "Transactions Summary"].includes(activeTab);
+    const needTransactions = ["Ledger", "Profit & Loss", "Balance Sheet", "Profit & Loss (Corrected)", "Balance Sheet (Corrected)", "Transactions Summary"].includes(activeTab);
     const needPayments = ["Ledger", "Ledger Statement", "Cash Flow Statement", "Payments / Receipts"].includes(activeTab);
     const needExpenses = ["Ledger", "Expense Notes"].includes(activeTab);
     const needStaff = activeTab === "Expense Notes";
@@ -418,6 +420,82 @@ const AccountingFinanceReports: React.FC = () => {
         ];
     }, [transactions, ledgers, accountsGroup, appliedFilters]);
 
+    // Corrected P&L and Balance Sheet: by each ledger's group category, so GST input/output
+    // (asset/liability groups) stay out of profit and credit balances keep their sign.
+    const groupedBalances = (fromTs?: number, toTs?: number, withOpening = false) => {
+        const cat: Record<string, string> = {};
+        accountsGroup.forEach((g: any) => { if (g.id) cat[g.id] = String(g.category || "").toLowerCase(); });
+        const rows: Record<string, { cat: string; group: string; bal: number }> = {};
+        const rowOf = (l: any) => {
+            const g = l.accountgroupid;
+            const key = g?.id || "none";
+            if (!rows[key]) rows[key] = { cat: cat[g?.id] || "", group: g?.accountgroupname || "Ungrouped", bal: 0 };
+            return rows[key];
+        };
+        const ledgerMap: Record<string, any> = {};
+        ledgers.forEach((l: any) => {
+            ledgerMap[l.id] = l;
+            if (withOpening) {
+                const o = Number(l.openingbalance || 0);
+                rowOf(l).bal += l.openingbalancetype === "credit" ? -o : o;
+            }
+        });
+        transactions.forEach((tx: any) => {
+            const date = Number(tx.transactiondate);
+            if ((fromTs && date < fromTs) || (toTs && date > toTs)) return;
+            tx.entries?.forEach((e: any) => {
+                const l = ledgerMap[e.ledgerid?.id];
+                if (l) rowOf(l).bal += (e.debit || 0) - (e.credit || 0); // debit positive
+            });
+        });
+        return Object.values(rows);
+    };
+    const money = (n: number) => (Math.abs(n) < 0.005 ? 0 : n).toFixed(2);
+
+    const profitLossCorrectedData = useMemo(() => {
+        const { fromTimestamp, toTimestamp } = getFilterTimestamps();
+        const rows = groupedBalances(fromTimestamp, toTimestamp);
+        const income = rows.filter((r) => r.cat === "income").map((r) => ({ ...r, amt: -r.bal }));
+        const expense = rows.filter((r) => r.cat === "expenses").map((r) => ({ ...r, amt: r.bal }));
+        const ti = income.reduce((a, r) => a + r.amt, 0);
+        const te = expense.reduce((a, r) => a + r.amt, 0);
+        return [
+            { account: "--- INCOME ---", amount: "" },
+            ...income.map((r) => ({ account: r.group, amount: money(r.amt) })),
+            { account: "Total Income", amount: money(ti) },
+            { account: "--- EXPENSES ---", amount: "" },
+            ...expense.map((r) => ({ account: r.group, amount: money(r.amt) })),
+            { account: "Total Expenses", amount: money(te) },
+            { account: ti - te >= 0 ? "Net Profit" : "Net Loss", amount: money(Math.abs(ti - te)) },
+            { account: "Note: closing stock is not added; GST ledgers are not counted", amount: "" },
+        ];
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [transactions, ledgers, accountsGroup, appliedFilters]);
+
+    const balanceSheetCorrectedData = useMemo(() => {
+        const { toTimestamp } = getFilterTimestamps();
+        const rows = groupedBalances(undefined, toTimestamp, true);
+        const assets = rows.filter((r) => r.cat === "assets").map((r) => ({ ...r, amt: r.bal }));
+        const liabilities = rows.filter((r) => r.cat === "liabilities").map((r) => ({ ...r, amt: -r.bal }));
+        const ta = assets.reduce((a, r) => a + r.amt, 0);
+        const tl = liabilities.reduce((a, r) => a + r.amt, 0);
+        const profit = rows.reduce((a, r) => a + (r.cat === "income" ? -r.bal : r.cat === "expenses" ? -r.bal : 0), 0);
+        const other = rows.filter((r) => !["assets", "liabilities", "income", "expenses"].includes(r.cat)).reduce((a, r) => a + r.bal, 0);
+        const totalLE = tl + profit;
+        return [
+            { account: "--- ASSETS ---", amount: "" },
+            ...assets.map((r) => ({ account: r.group, amount: money(r.amt) })),
+            { account: "Total Assets", amount: money(ta) },
+            { account: "--- LIABILITIES & CAPITAL ---", amount: "" },
+            ...liabilities.map((r) => ({ account: r.group, amount: money(r.amt) })),
+            { account: profit >= 0 ? "Profit to date" : "Loss to date", amount: money(profit) },
+            { account: "Total Liabilities & Capital", amount: money(totalLE) },
+            ...(Math.abs(other) >= 0.005 ? [{ account: "Ledgers without a group", amount: money(other) }] : []),
+            { account: "Difference (should be 0)", amount: money(ta - totalLE + other) },
+        ];
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [transactions, ledgers, accountsGroup, appliedFilters]);
+
     // Cash Flow
 
     const cashFlowData = useMemo(() => {
@@ -697,6 +775,26 @@ const AccountingFinanceReports: React.FC = () => {
             tableData = balanceSheetData;
             title = "Balance Sheet";
             exportFileName = "BalanceSheet";
+            columns = [
+                { label: "Account", key: "account" },
+                { label: "Amount (₹)", key: "amount", numeric: true },
+            ];
+            break;
+
+        case "Profit & Loss (Corrected)":
+            tableData = profitLossCorrectedData;
+            title = "Profit & Loss (Corrected)";
+            exportFileName = "ProfitLossCorrected";
+            columns = [
+                { label: "Account", key: "account" },
+                { label: "Amount (₹)", key: "amount", numeric: true },
+            ];
+            break;
+
+        case "Balance Sheet (Corrected)":
+            tableData = balanceSheetCorrectedData;
+            title = "Balance Sheet (Corrected)";
+            exportFileName = "BalanceSheetCorrected";
             columns = [
                 { label: "Account", key: "account" },
                 { label: "Amount (₹)", key: "amount", numeric: true },
