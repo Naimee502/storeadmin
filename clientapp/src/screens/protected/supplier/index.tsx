@@ -60,7 +60,7 @@ function Row({ title, sub, amount, badge, color, onPress }: { title: string; sub
 const billBadge = (b: any) => (b.outstanding <= 0 ? ['Paid', '#16a34a'] : b.outstanding < b.totalamount ? ['Part Paid', '#d97706'] : ['Unpaid', '#e11d48']);
 const billRow = (nav: any) => (b: any) => {
   const [badge, color] = billBadge(b);
-  return <Row key={b.id} title={b.billnumber || 'Bill'} sub={`${dateLabel(b.billdate)} · Unpaid ${rupees(b.outstanding)}`} amount={rupees(b.totalamount)} badge={badge} color={color}
+  return <Row key={b.id} title={b.billnumber ? `INV-${b.billnumber}` : 'Bill'} sub={`${dateLabel(b.billdate)} · Unpaid ${rupees(b.outstanding)}`} amount={rupees(b.totalamount)} badge={badge} color={color}
     onPress={() => nav.navigate('SupplierDocument', { kind: 'bill', id: b.id })} />;
 };
 const empty = (t: string, color: string) => <Text style={[styles.sub, { color, textAlign: 'center', marginTop: 20 }]}>{t}</Text>;
@@ -112,7 +112,7 @@ export function SupplierOrders() {
   return (
     <Shell title="Purchase Orders">
       {(p) => (p.orders.length ? p.orders.map((o: any) => (
-        <Row key={o.id} title={o.billnumber || 'Order'} sub={`${dateLabel(o.billdate)} · ${o.items} item${o.items === 1 ? '' : 's'}`}
+        <Row key={o.id} title={o.billnumber ? `PO-${o.billnumber}` : 'Order'} sub={`${dateLabel(o.billdate)} · ${o.items} item${o.items === 1 ? '' : 's'}`}
           amount={rupees(o.totalamount)} badge={cap(o.orderStatus)} color={ORDER_COLOR[o.orderStatus]}
           onPress={() => navigation.navigate('SupplierDocument', { kind: 'order', id: o.id })} />
       )) : empty('No purchase orders yet.', colors.subText))}

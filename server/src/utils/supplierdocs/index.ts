@@ -3,6 +3,7 @@ import { Types } from "mongoose";
 import { Account } from "../../models/accounts";
 import { Admin } from "../../models/admin";
 import { AdminSettings } from "../../models/adminsettings";
+import { Branch } from "../../models/branches";
 import { PurchaseOrder } from "../../models/purchaseorder";
 import { PurchaseInvoice } from "../../models/purchaseinvoice";
 import { getInvoiceOutstanding } from "../allocation";
@@ -97,33 +98,141 @@ export const printToken = (kind: string, id: string, partyid: any, adminid: any)
   jwt.sign({ kind, id: String(id), p: String(partyid), a: String(adminid) }, PRINT_SECRET(), { expiresIn: "15m" });
 
 const esc = (v: any) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c] as string));
-const money = (n: any) => `₹${(Number(n) || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-/** Printable HTML page for a supplier print link; null when the link is bad or expired. */
+const ONES = ["", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve", "thirteen", "fourteen", "fifteen", "sixteen", "seventeen", "eighteen", "nineteen"];
+const TENS = ["", "", "twenty", "thirty", "forty", "fifty", "sixty", "seventy", "eighty", "ninety"];
+const under1000 = (n: number) => {
+  const h = Math.floor(n / 100), r = n % 100;
+  const rest = r < 20 ? ONES[r] : `${TENS[Math.floor(r / 10)]}${r % 10 ? `-${ONES[r % 10]}` : ""}`;
+  return [h ? `${ONES[h]} hundred` : "", rest].filter(Boolean).join(" ");
+};
+/** Same wording as the billing system's print (number-to-words). */
+const toWords = (num: number) => {
+  let n = Math.round(Math.abs(num));
+  if (!n) return "zero";
+  const parts: string[] = [];
+  for (const [size, name] of [[1e12, "trillion"], [1e9, "billion"], [1e6, "million"], [1e3, "thousand"]] as [number, string][]) {
+    if (n >= size) { parts.push(`${under1000(Math.floor(n / size))} ${name}`); n %= size; }
+  }
+  if (n) parts.push(under1000(n));
+  return `${num < 0 ? "minus " : ""}${parts.join(", ")}`;
+};
+const dmy = (s?: string | null) => {
+  const m = String(s || "").match(/^(\d{4})-(\d{2})-(\d{2})/);
+  return m ? `${m[3]}-${m[2]}-${m[1]}` : String(s || "-");
+};
+const timeIst = (d?: any) => {
+  const t = d ? new Date(d) : null;
+  if (!t || isNaN(t.getTime())) return "";
+  const ist = new Date(t.getTime() + 330 * 60000);
+  let h = ist.getUTCHours();
+  const ampm = h >= 12 ? "PM" : "AM";
+  h = h % 12 || 12;
+  return ` ${String(h).padStart(2, "0")}:${String(ist.getUTCMinutes()).padStart(2, "0")} ${ampm}`;
+};
+const stateLabel = (slug?: string) => String(slug || "").split("_").filter(Boolean).map((w) => w[0].toUpperCase() + w.slice(1)).join(" ");
+const DEFAULT_TERMS = '1. Goods once sold will not be taken back.\n2. Interest @18% p.a. will be charged if payment is not made within due date.\n3. Our risk and responsibility ceases as soon as the goods leave our premises.\n4. "Subject to RAJKOT Jurisdiction only. E.&.O.E"';
+const PRINT_CSS = `body{margin:0;background:#fff}@media print{.bar{display:none}@page{margin:10mm}}.bar{text-align:right;padding:12px 16px}.bar button{background:#4f46e5;color:#fff;border:0;border-radius:8px;padding:8px 16px;font-size:14px;cursor:pointer}
+.inv-root{max-width:900px;margin:auto;padding:16px;background:#fff;color:#111;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:1.5}.inv-box{border:1.5px solid #111}
+.inv-company{text-align:center;padding:14px 16px 4px}.inv-company-name{font-size:22px;font-weight:700;letter-spacing:.5px;margin:0}.inv-company-addr{font-size:11.5px;color:#333;margin-top:4px;padding-bottom:10px}
+.inv-titlebar{display:flex;justify-content:space-between;align-items:center;border-top:1px solid #111;border-bottom:1px solid #111;padding:7px 12px;font-weight:700;font-size:12.5px;background:#f3f4f6}
+.inv-meta{display:flex;flex-wrap:wrap;border-bottom:1px solid #111}.inv-meta-cell{flex:1 1 33.33%;min-width:0;padding:8px 12px;border-right:1px solid #ccc;border-bottom:1px solid #ccc;box-sizing:border-box}.inv-meta-cell.nr{border-right:none}.inv-meta-cell.nb{border-bottom:none}
+.inv-meta-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:#555;margin-bottom:2px}.inv-meta-value{font-size:12px;font-weight:600;word-break:break-word}
+.inv-table{width:100%;border-collapse:collapse}.inv-table th{background:#f3f4f6;border-top:1px solid #111;border-bottom:1px solid #111;border-right:1px solid #ccc;padding:8px;font-size:11px;text-transform:uppercase;letter-spacing:.3px;text-align:center;white-space:nowrap}.inv-table th:last-child{border-right:none}
+.inv-table td{border-bottom:1px solid #ddd;border-right:1px solid #ddd;padding:7px 8px;vertical-align:top}.inv-table td:last-child{border-right:none}.num{text-align:right;white-space:nowrap}.ctr{text-align:center;white-space:nowrap}
+.inv-totals{display:flex;justify-content:flex-end;border-top:1px solid #111;border-bottom:1px solid #111}.inv-totals-box{width:46%;min-width:240px}.inv-totals-row{display:flex;justify-content:space-between;padding:5px 12px;border-bottom:1px solid #eee}.inv-totals-row .lbl{font-weight:600;color:#333}
+.inv-totals-row.grand{border-top:1.5px solid #111;border-bottom:none;background:#f3f4f6;padding:8px 12px;font-size:14px;font-weight:700}
+.inv-words{border-top:1px solid #111;padding:9px 12px}.inv-footer{display:flex;border-top:1px solid #111}.inv-terms{flex:1 1 62%;padding:10px 12px;border-right:1px solid #111;font-size:11px;line-height:1.7}
+.inv-sign{flex:1 1 38%;padding:10px 12px;display:flex;flex-direction:column;justify-content:flex-end;text-align:right;min-height:90px}.inv-sign.standalone{flex:0 0 auto;width:260px;margin-left:auto}`;
+
+/** Printable page for a supplier print link, in the billing system's invoice layout; null when the link is bad or expired. */
 export const supplierPrintHtml = async (token: string): Promise<string | null> => {
   let t: any;
   try { t = jwt.verify(token, PRINT_SECRET()); } catch { return null; }
-  const d = await loadSupplierDoc(t.kind, t.id, t.p, t.a).catch(() => null);
+  const d: any = await loadSupplierDoc(t.kind, t.id, t.p, t.a).catch(() => null);
   if (!d) return null;
-  const doc = await docShape(t.kind, d);
-  const [admin, settings, party]: any[] = await Promise.all([
-    Admin.findById(t.a).select("companyName address mobile email").lean(),
-    AdminSettings.findOne({ adminid: t.a }).select("gstin").lean(),
-    Account.findById(t.p).select("name mobile address city gstnumber").lean(),
+  const [admin, st, party, branch]: any[] = await Promise.all([
+    Admin.findById(t.a).select("companyName address mobile").lean(),
+    AdminSettings.findOne({ adminid: t.a }).lean(),
+    Account.findById(t.p).select("name mobile city state gstnumber").lean(),
+    d.branchid ? Branch.findById(d.branchid).select("address city phone mobile").lean() : null,
   ]);
-  const title = t.kind === "order" ? "Purchase Order" : "Purchase Bill";
-  const rows = doc.lines.map((l: any, i: number) => `<tr><td>${i + 1}</td><td>${esc(l.name)}</td><td class="r">${l.qty} ${esc(l.unit || "")}</td><td class="r">${money(l.rate)}</td><td class="r">${l.discount ? money(l.discount) : "-"}</td><td class="r">${l.gst || 0}%</td><td class="r">${money(l.amount)}</td></tr>`).join("");
-  const charges = doc.charges.map((c: any) => `<tr><td>${esc(c.name)}</td><td class="r">${money(c.amount)}</td></tr>`).join("");
-  return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title} ${esc(doc.billnumber || "")}</title>
-<style>body{font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#0f172a;margin:0;padding:24px;font-size:13px}.w{max-width:800px;margin:auto}h1{font-size:20px;margin:0}.muted{color:#64748b}.top{display:flex;justify-content:space-between;gap:16px;border-bottom:2px solid #0f172a;padding-bottom:12px;margin-bottom:12px}.two{display:flex;justify-content:space-between;gap:16px;margin-bottom:12px}table{width:100%;border-collapse:collapse}th,td{border-bottom:1px solid #e2e8f0;padding:6px 8px;text-align:left}th{background:#f8fafc;font-size:12px}.r{text-align:right}.tot{width:300px;margin-left:auto;margin-top:12px}.tot td{border:0;padding:3px 8px}.big td{font-size:15px;font-weight:700;border-top:1px solid #0f172a}.bar{margin:16px auto;max-width:800px;text-align:right}.bar button{background:#4f46e5;color:#fff;border:0;border-radius:8px;padding:8px 16px;font-size:14px;cursor:pointer}@media print{.bar{display:none}body{padding:0}}</style></head>
-<body><div class="bar"><button onclick="window.print()">Print / Save PDF</button></div><div class="w">
-<div class="top"><div><h1>${esc(admin?.companyName || "")}</h1><div class="muted">${esc(admin?.address || "")}</div><div class="muted">${esc(admin?.mobile || "")}${admin?.email ? ` · ${esc(admin.email)}` : ""}</div>${settings?.gstin ? `<div>GSTIN: ${esc(settings.gstin)}</div>` : ""}</div>
-<div style="text-align:right"><h1>${title}</h1><div>No. <b>${esc(doc.billnumber || "-")}</b></div><div>Date: ${esc(doc.billdate || "-")}</div>${doc.duedate ? `<div>Due: ${esc(doc.duedate)}</div>` : ""}${doc.orderStatus ? `<div>Status: ${esc(doc.orderStatus)}</div>` : ""}</div></div>
-<div class="two"><div><div class="muted">Supplier</div><b>${esc(party?.name || "")}</b><div>${esc([party?.address, party?.city].filter(Boolean).join(", "))}</div><div>${esc(party?.mobile || "")}</div>${party?.gstnumber ? `<div>GSTIN: ${esc(party.gstnumber)}</div>` : ""}</div></div>
-<table><thead><tr><th>#</th><th>Item</th><th class="r">Qty</th><th class="r">Rate</th><th class="r">Disc.</th><th class="r">GST</th><th class="r">Amount</th></tr></thead><tbody>${rows}</tbody></table>
-<table class="tot"><tr><td>Subtotal</td><td class="r">${money(doc.subtotal)}</td></tr>${doc.totaldiscount ? `<tr><td>Discount</td><td class="r">-${money(doc.totaldiscount)}</td></tr>` : ""}<tr><td>GST</td><td class="r">${money(doc.totalgst)}</td></tr>${charges}${doc.roundoff ? `<tr><td>Round off</td><td class="r">${money(doc.roundoff)}</td></tr>` : ""}<tr class="big"><td>Total</td><td class="r">${money(doc.totalamount)}</td></tr>${doc.outstanding != null ? `<tr><td>Unpaid</td><td class="r">${money(doc.outstanding)}</td></tr>` : ""}</table>
-${doc.notes ? `<p><b>Notes:</b> ${esc(doc.notes)}</p>` : ""}${doc.suppliernote ? `<p><b>Supplier note:</b> ${esc(doc.suppliernote)}</p>` : ""}
-</div></body></html>`;
+  const s: any = st || {};
+  const isOrder = t.kind === "order";
+  const title = isOrder ? "PURCHASE ORDER" : "TAX INVOICE";
+  const docNo = `${isOrder ? "PO" : "INV"}-${d.billnumber || ""}`;
+  const f2 = (n: number) => (Number(n) || 0).toFixed(2);
+
+  // Same totals as the billing system's print.
+  const items = d.productservice || [];
+  const productsTotal = items.reduce((a: number, p: any) => a + p.qty * p.rate, 0);
+  const totalDiscount = items.reduce((a: number, p: any) => a + (p.discount || 0), 0);
+  const taxableTotal = productsTotal - totalDiscount;
+  const totalGST = items.reduce((a: number, p: any) => a + ((p.qty * p.rate - (p.discount || 0)) * p.gst) / 100, 0);
+  const invDisc = d.invoicediscount || 0;
+  const computedInvDisc = d.invoicediscounttype === "percent" ? (taxableTotal * invDisc) / 100 : invDisc;
+  const charges = d.othercharges || [];
+  const chargesTotal = charges.reduce((a: number, c: any) => a + (c.totalamount || 0), 0);
+  const roundOff = d.roundoff || 0;
+  const grandTotal = taxableTotal + totalGST - computedInvDisc + chargesTotal + roundOff;
+
+  const companyName = admin?.companyName || "---";
+  const showTerms = s.printShowTermsAndConditions !== false;
+  const terms = String(s.printTermsAndConditions || DEFAULT_TERMS).split("\n").map((l) => l.trim()).filter(Boolean);
+  const showHsn = s.printShowHsnColumn !== false;
+  const showGst = s.printShowGstColumn !== false;
+  const nameWidth = 34 + (showHsn ? 0 : 9) + (showGst ? 0 : 8);
+
+  const cells: [string, string][] = [
+    ["M/S.", party?.name || "---"],
+    [isOrder ? "Order No." : "Invoice No.", docNo],
+    ["Place of Supply", [party?.city, stateLabel(party?.state)].filter(Boolean).join(" - ") || "---"],
+    ["Transport / Vehicle No", `${d.transportname || "---"} / ${d.vehiclenumber || "---"}`],
+  ];
+  if (s.printShowEwayBillDistance !== false) cells.push(["E-Way Bill / Distance", `${d.ewaybillno || "---"} / ${d.distance ? `${d.distance} km` : "---"}`]);
+  if (s.printShowDeliveryDueDate !== false) cells.push(["Delivery / Due Date", `${d.deliverydate ? dmy(d.deliverydate) : "---"} / ${d.duedate ? dmy(d.duedate) : "---"}`]);
+  if (s.printShowGstin !== false) cells.push(["GSTIN No.", party?.gstnumber || "---"]);
+  cells.push(["Date", `${dmy(d.billdate)}${timeIst(d.createdAt)}`]);
+  cells.push(["Party A/c", [party?.name, party?.mobile, party?.city].map((x) => String(x || "").trim()).filter(Boolean).join(" - ") || "N/A"]);
+  const lastRow = Math.floor((cells.length - 1) / 3) * 3;
+  const meta = cells.map(([l, v], i) => `<div class="inv-meta-cell${i % 3 === 2 ? " nr" : ""}${i >= lastRow ? " nb" : ""}"><div class="inv-meta-label">${esc(l)}</div><div class="inv-meta-value">${esc(v)}</div></div>`).join("");
+
+  const rows = items.map((p: any, i: number) => {
+    const disc = p.discount || 0;
+    const taxable = p.qty * p.rate - disc;
+    const total = taxable + (taxable * p.gst) / 100;
+    const unit = p.purchaseunitid?.unitname ? ` (${p.purchaseunitid.unitname})` : "";
+    return `<tr><td class="ctr">${i + 1}</td><td>${esc(p.productserviceid?.name || "Item")}${esc(unit)}</td>${showHsn ? `<td class="ctr">${esc(p.hsn || "-")}</td>` : ""}<td class="ctr">${p.qty}</td><td class="num">${f2(p.rate)}</td><td class="num">${f2(disc)}</td>${showGst ? `<td class="ctr">${p.gst}</td>` : ""}<td class="num">${f2(total)}</td></tr>`;
+  }).join("");
+
+  const row = (l: string, v: number) => `<div class="inv-totals-row"><span class="lbl">${esc(l)}</span><span>${f2(v)}</span></div>`;
+  let split = "";
+  if (s.printShowTaxSplit === true) {
+    const theirs = String(party?.state || "gujarat").toLowerCase();
+    const inter = theirs !== "default" && theirs !== String(s.companyState || "gujarat").toLowerCase();
+    const cgst = inter ? 0 : Math.round((totalGST / 2) * 100) / 100;
+    split = inter ? row("IGST", totalGST) : row("CGST", cgst) + row("SGST", Math.round((totalGST - cgst) * 100) / 100);
+  }
+  const totals = row("Sub Total", productsTotal) + row("Total Discount", totalDiscount) + split
+    + (s.printShowTotalGst !== false ? row("Total GST", totalGST) : "")
+    + charges.map((c: any) => row(c.ledgername || "Other Charge", c.totalamount || 0)).join("")
+    + (computedInvDisc > 0 ? row("Invoice Discount", computedInvDisc) : "")
+    + (roundOff !== 0 ? row("Round Off", roundOff) : "")
+    + `<div class="inv-totals-row grand"><span>Grand Total</span><span>${f2(grandTotal)}</span></div>`;
+
+  const header = s.printShowCompanyHeader !== false
+    ? `<div class="inv-company"><p class="inv-company-name">${esc(companyName)}</p><div class="inv-company-addr">${esc(admin?.address || branch?.address || "---")}<br/>${esc([branch?.city, admin?.mobile || branch?.phone || branch?.mobile].filter(Boolean).join(" - "))}${s.gstin ? `<br/>GSTIN: ${esc(s.gstin)}` : ""}</div></div>`
+    : "";
+  const footer = `<div class="inv-footer">${showTerms ? `<div class="inv-terms"><strong>Terms &amp; Condition :</strong><br/>${terms.map(esc).join("<br/>")}</div>` : ""}<div class="inv-sign${showTerms ? "" : " standalone"}">${s.printShowCompanyNameInSignature !== false ? `<div><strong>For, ${esc(companyName)}</strong></div>` : ""}<div>Authorised Signatory</div></div></div>`;
+
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title} ${esc(docNo)}</title><style>${PRINT_CSS}</style></head>
+<body><div class="bar"><button onclick="window.print()">Print / Save PDF</button></div><div class="inv-root"><div class="inv-box">${header}
+<div class="inv-titlebar"><span>Online Memo</span><span>${title} &nbsp;|&nbsp; Original</span></div>
+<div class="inv-meta">${meta}</div>
+<table class="inv-table"><thead><tr><th style="width:6%">Sr</th><th style="width:${nameWidth}%;text-align:left">Product Name</th>${showHsn ? '<th style="width:9%">HSN</th>' : ""}<th style="width:8%">Qty</th><th style="width:12%">Rate</th><th style="width:10%">Disc</th>${showGst ? '<th style="width:8%">GST%</th>' : ""}<th style="width:13%">Amount</th></tr></thead><tbody>${rows}</tbody></table>
+<div class="inv-totals"><div class="inv-totals-box">${totals}</div></div>
+<div class="inv-words"><strong>Amount in Words:</strong> ${esc(toWords(Math.round(grandTotal)))} Rupees</div>
+${footer}</div></div></body></html>`;
 };
 
 /** Tell a supplier (only when their portal login is on) about a document. */

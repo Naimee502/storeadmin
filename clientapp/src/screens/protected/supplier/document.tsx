@@ -68,7 +68,7 @@ export default function SupplierDocument() {
           <>
             <View style={[styles.card, { backgroundColor: colors.cardGlass, borderColor: colors.border }]}>
               <View style={styles.line}>
-                <Text style={[styles.head, { color: colors.text }]}>{title} {d.billnumber || ''}</Text>
+                <Text style={[styles.head, { color: colors.text }]}>{title} {d.billnumber ? `${kind === 'order' ? 'PO' : 'INV'}-${d.billnumber}` : ''}</Text>
                 {!!d.orderStatus && <Text style={[styles.badge, { color: STATUS_COLOR[d.orderStatus], borderColor: STATUS_COLOR[d.orderStatus] }]}>{d.orderStatus.charAt(0).toUpperCase() + d.orderStatus.slice(1)}</Text>}
                 {d.outstanding != null && <Text style={[styles.badge, { color: d.outstanding > 0 ? '#d97706' : '#16a34a', borderColor: d.outstanding > 0 ? '#d97706' : '#16a34a' }]}>{d.outstanding > 0 ? `Unpaid ${rupees(d.outstanding)}` : 'Paid'}</Text>}
               </View>

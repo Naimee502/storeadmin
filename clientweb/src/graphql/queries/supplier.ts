@@ -50,3 +50,9 @@ export const SUPPLIER_PRINT_LINK = gql`
     supplierPrintLink(kind: $kind, id: $id)
   }
 `;
+
+export const GET_SUPPLIER_NAME = gql`
+  query GetSupplierName {
+    getSupplierPortal { name }
+  }
+`;

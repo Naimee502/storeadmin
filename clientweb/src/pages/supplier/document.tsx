@@ -72,7 +72,7 @@ export default function SupplierDocumentPage() {
           <>
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
-                <h1 className="text-xl font-bold text-ink-900">{title} {d.billnumber || ""}</h1>
+                <h1 className="text-xl font-bold text-ink-900">{title} {d.billnumber ? `${kind === "order" ? "PO" : "INV"}-${d.billnumber}` : ""}</h1>
                 <p className="text-sm text-slate-500">Date {dateLabel(d.billdate)}{d.duedate ? ` · Due ${dateLabel(d.duedate)}` : ""}</p>
               </div>
               <div className="flex items-center gap-2">

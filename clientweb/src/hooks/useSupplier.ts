@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
+import { useQuery } from "@apollo/client";
 import { useTenant } from "../contexts/tenant";
-import { supplierTokenKey } from "../graphql/queries/supplier";
+import { GET_SUPPLIER_NAME, supplierTokenKey } from "../graphql/queries/supplier";
 
 const EVENT = "supplier-session";
 const read = (key: string) => {
@@ -29,5 +30,13 @@ export const useSupplier = () => {
     window.addEventListener("storage", sync);
     return () => { window.removeEventListener(EVENT, sync); window.removeEventListener("storage", sync); };
   }, [key]);
-  return { ...s, signedIn: !!s.token, signOut: () => setSupplierSession(adminid, "") };
+  // Older sessions saved no name: read it once from the server.
+  const { data } = useQuery(GET_SUPPLIER_NAME, {
+    skip: !s.token || !!s.name,
+    context: { headers: { Authorization: `Bearer ${s.token}` } },
+    fetchPolicy: "no-cache",
+  });
+  const fetched = data?.getSupplierPortal?.name;
+  useEffect(() => { if (fetched && s.token && !s.name) setSupplierSession(adminid, s.token, fetched); }, [fetched, s.token, s.name, adminid]);
+  return { ...s, name: s.name || fetched || "", signedIn: !!s.token, signOut: () => setSupplierSession(adminid, "") };
 };

@@ -283,7 +283,7 @@ export default function Header() {
                 >
                   <User className="h-5 w-5 text-ink-900" />
                   <span className="hidden text-left leading-tight sm:block">
-                    <span className="block text-[11px] text-slate-500">Supplier</span>
+                    <span className="block text-[11px] text-slate-500">Welcome</span>
                     <span className="flex items-center gap-0.5 font-semibold text-ink-900">
                       {supplier.name || "My Account"} <ChevronDown className="h-3.5 w-3.5" />
                     </span>

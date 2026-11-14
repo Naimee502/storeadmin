@@ -91,7 +91,7 @@ function Content({ tab, p, go, nav }: { tab: Tab; p: any; go: (t: Tab) => void; 
   const empty = (t: string) => <tr><td colSpan={5} className="px-3 py-6 text-center text-slate-500">{t}</td></tr>;
   const billRows = (rows: any[]) => rows.length ? rows.map((b: any) => (
     <tr key={b.id} className={rowCls} onClick={() => nav(`/supplier/bill/${b.id}`)}>
-      <td className={`${cell} font-medium text-brand-700`}>{b.billnumber || "-"}</td><td className={cell}>{dateLabel(b.billdate)}</td>
+      <td className={`${cell} font-medium text-brand-700`}>{b.billnumber ? `INV-${b.billnumber}` : "-"}</td><td className={cell}>{dateLabel(b.billdate)}</td>
       <td className={`${cell} text-right`}>{rupees(b.totalamount)}</td><td className={`${cell} text-right`}>{rupees(b.outstanding)}</td>
       <td className={cell}><span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${b.outstanding > 0 ? "bg-amber-50 text-amber-700" : "bg-emerald-50 text-emerald-700"}`}>{b.outstanding <= 0 ? "Paid" : b.outstanding < b.totalamount ? "Part Paid" : "Unpaid"}</span></td>
     </tr>
@@ -130,7 +130,7 @@ function Content({ tab, p, go, nav }: { tab: Tab; p: any; go: (t: Tab) => void; 
       <tbody className="divide-y divide-slate-100">
         {p.orders.length ? p.orders.map((o: any) => (
           <tr key={o.id} className={rowCls} onClick={() => nav(`/supplier/order/${o.id}`)}>
-            <td className={`${cell} font-medium text-brand-700`}>{o.billnumber || "-"}</td><td className={cell}>{dateLabel(o.billdate)}</td>
+            <td className={`${cell} font-medium text-brand-700`}>{o.billnumber ? `PO-${o.billnumber}` : "-"}</td><td className={cell}>{dateLabel(o.billdate)}</td>
             <td className={`${cell} text-right`}>{o.items}</td><td className={`${cell} text-right`}>{rupees(o.totalamount)}</td>
             <td className={cell}><span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${ORDER[o.orderStatus] || ORDER.pending}`}>{cap(o.orderStatus)}</span></td>
           </tr>
