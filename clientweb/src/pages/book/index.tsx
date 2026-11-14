@@ -67,14 +67,17 @@ export default function BookPage() {
     <div>
       <Breadcrumb items={[{ label: "Book Appointment" }]} />
       <div className="mx-auto max-w-3xl space-y-5 px-4 py-6 sm:px-6">
-        <h1 className="flex items-center gap-2 text-xl font-bold text-ink-900"><CalendarCheck className="h-5 w-5 text-brand-700" /> Book Appointment</h1>
+        <div className="flex items-center justify-between">
+          <h1 className="flex items-center gap-2 text-xl font-bold text-ink-900"><CalendarCheck className="h-5 w-5 text-brand-700" /> Book Appointment</h1>
+          {isLoggedIn && <Link to="/account/bookings" className="text-sm font-semibold text-brand-700 hover:underline">My Bookings</Link>}
+        </div>
 
         {off ? (
           <p className="rounded-lg border border-slate-200 bg-white p-4 text-sm text-slate-600">Online booking is not open right now. Please call us to book.</p>
         ) : done ? (
           <div className="space-y-3 rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
             <p>Your booking for <b>{chosen?.name}</b> on <b>{done.date}</b> at <b>{time12(done.time)}</b> is received. We will confirm it shortly.</p>
-            <Link to="/account" className="font-semibold text-brand-700">Go to my account</Link>
+            <Link to="/account/bookings" className="font-semibold text-brand-700">View my bookings</Link>
           </div>
         ) : (
           <>

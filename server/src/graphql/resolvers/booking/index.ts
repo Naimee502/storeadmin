@@ -64,8 +64,33 @@ const nowMinutesIst = () => {
   return ist.getUTCHours() * 60 + ist.getUTCMinutes();
 };
 
+const partyOnly = (context: any) => {
+  if (context?.user?.type !== "party") throw new TenantError("Please sign in to see your bookings.", "UNAUTHENTICATED");
+};
+
+const myShape = (a: any) => ({
+  id: String(a._id),
+  billdate: a.billdate,
+  starttime: a.starttime,
+  duration: a.duration ?? null,
+  apptStatus: a.apptStatus || "booked",
+  service: (a.services || []).map((l: any) => l.productserviceid?.name).filter(Boolean).join(", ") || null,
+  staff: a.staffid?.name || null,
+  amount: (a.services || []).reduce((t: number, l: any) => t + (Number(l.amount) || 0), 0),
+  notes: a.notes || null,
+});
+
+const loadMine = (filter: any) =>
+  Appointment.find(filter).sort({ billdate: -1, starttime: -1 }).limit(200)
+    .populate("services.productserviceid", "name").populate("staffid", "name").lean();
+
 export const bookingResolvers = {
   Query: {
+    getMyAppointments: async (_: any, __: any, context: any) => {
+      partyOnly(context);
+      const scope = await resolveTenant(context);
+      return (await loadMine({ adminid: scope.adminid, partyacc: context.user.id, status: true })).map(myShape);
+    },
     getBookingSlots: async (_: any, { adminid, serviceid, variantid, date }: any, context: any) => {
       const scope = await resolveTenant(context, { requestedAdminId: adminid });
       const pl = await plan(scope.adminid, serviceid, variantid, date);
@@ -83,6 +108,21 @@ export const bookingResolvers = {
     },
   },
   Mutation: {
+    cancelMyAppointment: async (_: any, { id }: any, context: any) => {
+      partyOnly(context);
+      const scope = await resolveTenant(context);
+      const a: any = await Appointment.findOne({ _id: id, adminid: scope.adminid, partyacc: context.user.id, status: true }).lean();
+      if (!a) throw new TenantError("Booking not found.", "NOT_FOUND");
+      if (!["booked", "confirmed"].includes(a.apptStatus || "booked")) throw bad("This booking can no longer be cancelled.");
+      if (`${a.billdate} ${a.starttime}` <= `${istDate()} ${hhmm(nowMinutesIst())}`) throw bad("This booking time has passed.");
+      await Appointment.updateOne({ _id: a._id }, { $set: { apptStatus: "cancelled" } });
+      pushNotification({
+        adminid: scope.adminid, targettype: "admin", ntype: "appointment",
+        title: "Booking cancelled by customer", message: `${a.billdate} ${a.starttime}`,
+        webpath: "/appointments", docmodel: "Appointment", docid: a._id,
+      }).catch(() => {});
+      return myShape((await loadMine({ _id: a._id }))[0]);
+    },
     bookAppointment: async (_: any, { input }: any, context: any) => {
       if (context?.user?.type !== "party") throw new TenantError("Please sign in to book.", "UNAUTHENTICATED");
       const scope = await resolveTenant(context);

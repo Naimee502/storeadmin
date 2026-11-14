@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, StatusBar, ScrollView, Pressable, TextInput, Ac
 import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useMutation, useQuery } from '@apollo/client/react';
+import { useNavigation } from '@react-navigation/native';
 import { useSelector } from 'react-redux';
 import { FONTS, useTheme } from '../../../../config';
 import { BackHeader } from '../../../../components';
@@ -20,6 +21,7 @@ const minutes = (d?: { amount?: number; unit?: string }) => Math.round((Number(d
 /** Party books a service slot: service, day, free time, confirm. */
 export default function BookingScreen() {
   const { colors, isDark } = useTheme();
+  const navigation = useNavigation<any>();
   const adminid = useSelector((s: RootState) => (s as any).tenant?.adminId ?? '');
   const { data: onData } = useQuery(GET_BOOKING_ON, { variables: { adminid }, skip: !adminid });
   const { data: svcData, loading: svcLoading } = useQuery(GET_BOOKABLE_SERVICES, { variables: { adminid }, skip: !adminid });
@@ -80,6 +82,9 @@ export default function BookingScreen() {
             <Icon name="check-circle-outline" size={28} color="#22c55e" />
             <Text style={[styles.title, { color: colors.text }]}>Booking received</Text>
             <Text style={[styles.note, { color: colors.subText }]}>{chosen?.name} on {dayLabel(date)} at {time12(time)}. We will confirm it shortly.</Text>
+            <Pressable onPress={() => navigation.navigate('MyBookings')}>
+              <Text style={[styles.title, { color: colors.brand }]}>View my bookings</Text>
+            </Pressable>
           </View>
         ) : (
           <>

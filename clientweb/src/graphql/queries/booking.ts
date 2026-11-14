@@ -46,3 +46,28 @@ export const BOOK_APPOINTMENT = gql`
     }
   }
 `;
+
+export const GET_MY_APPOINTMENTS = gql`
+  query GetMyAppointments {
+    getMyAppointments {
+      id
+      billdate
+      starttime
+      duration
+      apptStatus
+      service
+      staff
+      amount
+      notes
+    }
+  }
+`;
+
+export const CANCEL_MY_APPOINTMENT = gql`
+  mutation CancelMyAppointment($id: ID!) {
+    cancelMyAppointment(id: $id) {
+      id
+      apptStatus
+    }
+  }
+`;

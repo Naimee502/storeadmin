@@ -19,6 +19,7 @@ import AboutPage from "../pages/about";
 import PrivacyPage from "../pages/privacy";
 import TermsPage from "../pages/terms";
 import BookPage from "../pages/book";
+import MyBookingsPage from "../pages/mybookings";
 
 // Payment pages exist only while the business has the Payments module on — a
 // bookmarked or typed URL lands back on My Account instead.
@@ -47,6 +48,7 @@ export default function AppRoutes() {
         <Route path="/privacy" element={<PrivacyPage />} />
         <Route path="/terms" element={<TermsPage />} />
         <Route path="/book" element={<BookPage />} />
+        <Route path="/account/bookings" element={<MyBookingsPage />} />
       </Route>
     </Routes>
   );
