@@ -20,7 +20,7 @@ import {
   FaTruck,
   FaFunnelDollar,
   FaPhoneAlt,
-  FaShoppingBag, FaGift } from 'react-icons/fa';
+  FaShoppingBag, FaGift, FaPrescriptionBottleAlt } from 'react-icons/fa';
 import { MdBrandingWatermark } from 'react-icons/md';
 import { Link, useLocation, useNavigate } from 'react-router';
 import { useAppSelector } from '../../redux/hooks';
@@ -119,7 +119,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar, onHoverChange 
     "reports.production": "production",
     // Planning reads work orders and BOMs.
     materialplanning: "workorders",
-    "reports.service": "appointments|jobcards|contracts|memberships",
+    "reports.service": "appointments|jobcards|contracts|memberships|prescriptions",
   };
 
   const FEATURE_TO_MODULES: Record<string, string[]> = {
@@ -212,6 +212,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar, onHoverChange 
     { to: '/supporttickets', label: 'Support Tickets', icon: <LifeBuoy size={15} className="text-sky-400 flex-shrink-0" />, moduleId: "supporttickets", roles: ["admin", "branch", "staff"], section: "Service" },
     { to: '/contracts', label: 'AMC / Warranty', icon: <FaFileAlt className="text-teal-400 text-[15px] flex-shrink-0" />, moduleId: "contracts", roles: ["admin", "branch", "staff"], section: "Service" },
     { to: '/memberships', label: 'Memberships', icon: <FaUsers className="text-violet-400 text-[15px] flex-shrink-0" />, moduleId: "memberships", roles: ["admin", "branch", "staff"], section: "Service" },
+    { to: '/prescriptions', label: 'Prescriptions', icon: <FaPrescriptionBottleAlt className="text-teal-500 text-[15px] flex-shrink-0" />, moduleId: "prescriptions", roles: ["admin", "branch", "staff"], section: "Service" },
     { to: '/channels', label: 'Channels', icon: <FaSitemap className="text-cyan-400 text-[15px] flex-shrink-0" />, moduleId: "channels", roles: ["admin", "branch", "staff"], section: "Distribution" },
     { to: '/salesroutes', label: 'Sales Routes', icon: <FaRoute className="text-indigo-400 text-[15px] flex-shrink-0" />, moduleId: "salesroutes", roles: ["admin", "branch", "staff"], section: "Distribution" },
     { to: '/pricelists', label: 'Price Lists', icon: <FaTags className="text-rose-400 text-[15px] flex-shrink-0" />, moduleId: "pricelists", roles: ["admin", "branch", "staff"], section: "Distribution" },

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from "react";
+import { useOptInOn } from "../../hooks/useoptin";
 import { useNavigate } from "react-router";
 import { useAppDispatch, useAppSelector } from "../../redux/hooks";
 import DataTable from "../../components/datatable";
@@ -36,6 +37,8 @@ import { fieldOn } from "../../hooks/useformmode";
 
 // Columns the server can filter (Seq Number is per page).
 const SERVER_FILTER_KEYS = ["name", "mobile", "email", "salary", "commission", "target", "accountgroupname", "role", "status"];
+
+const EMPTY_DOCTOR = { isdoctor: false, specialization: "", qualification: "", regno: "", experience: "" as any, fee: "" as any, about: "", online: true };
 
 type FormValues = {
   branchid: string;
@@ -156,6 +159,11 @@ const StaffAccounts = () => {
   });
 
   const [formErrors, setFormErrors] = useState<{ [key: string]: string }>({});
+  // Clinic: doctor profile for this staff member.
+  const clinicOn = useOptInOn("prescriptions");
+  const [doctor, setDoctor] = useState<any>(EMPTY_DOCTOR);
+  const [wasDoctor, setWasDoctor] = useState(false);
+  const setDoc = (k: string, v: any) => setDoctor((d: any) => ({ ...d, [k]: v }));
   const [isEditing, setIsEditing] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const editingRole = editingId ? String(staffList.find((r: any) => r.id === editingId)?.role || "").toLowerCase() : "";
@@ -221,6 +229,8 @@ const StaffAccounts = () => {
       departmentid: row.departmentid || "",
       accessroleid: row.accessroleid || "",
     });
+    setDoctor(row.doctor ? { ...EMPTY_DOCTOR, ...row.doctor, isdoctor: true, experience: row.doctor.experience ?? "", fee: row.doctor.fee ?? "", online: row.doctor.online !== false } : EMPTY_DOCTOR);
+    setWasDoctor(!!row.doctor);
 
     setIsEditing(true);
     setEditingId(row.id);
@@ -277,6 +287,13 @@ const StaffAccounts = () => {
       departmentid: formValues.departmentid || null,
       accessroleid: formValues.accessroleid || null,
     };
+    if (clinicOn && doctor.isdoctor) {
+      const num = (v: any) => (v === "" || v === null || v === undefined ? null : Number(v));
+      payload.doctor = { specialization: doctor.specialization || null, qualification: doctor.qualification || null, regno: doctor.regno || null,
+        experience: num(doctor.experience), fee: num(doctor.fee), about: doctor.about || null, online: doctor.online !== false };
+    } else if (clinicOn && wasDoctor) {
+      payload.doctor = null;
+    }
 
     // Password only included if user typed something
     if (!isEditing && formValues.password.trim() !== "") {
@@ -310,7 +327,7 @@ const StaffAccounts = () => {
     }
 
     dispatch(hideLoading());
-  }, [formValues, selectedFile, isEditing, editingId]);
+  }, [formValues, selectedFile, isEditing, editingId, doctor, wasDoctor, clinicOn]);
 
   // Empty form with the staff account group pre-filled.
   function resetForm() {
@@ -333,6 +350,8 @@ const StaffAccounts = () => {
       departmentid: "",
       accessroleid: "",
     });
+    setDoctor(EMPTY_DOCTOR);
+    setWasDoctor(false);
     setFormErrors({});
     setSelectedFile(null);
     setIsEditing(false);
@@ -595,6 +614,23 @@ const StaffAccounts = () => {
                 searchable
                 placeholder="Select channels"
               />
+            )}
+
+            {clinicOn && formValues.role === "staff" && (
+              <div className="col-span-full rounded-lg border border-slate-200 p-3 space-y-3">
+                <FormSwitch label="This staff member is a Doctor" name="isdoctor" checked={!!doctor.isdoctor} onChange={(v) => setDoc("isdoctor", !!v)} />
+                {doctor.isdoctor && (
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                    <FormField label="Specialization" name="specialization" type="text" value={doctor.specialization || ""} placeholder="General Physician" onChange={(e) => setDoc("specialization", e.target.value)} />
+                    <FormField label="Qualification" name="qualification" type="text" value={doctor.qualification || ""} placeholder="MBBS, MD" onChange={(e) => setDoc("qualification", e.target.value)} />
+                    <FormField label="Registration No." name="regno" type="text" value={doctor.regno || ""} onChange={(e) => setDoc("regno", e.target.value)} />
+                    <FormField label="Experience (Years)" name="experience" type="number" value={doctor.experience} onChange={(e) => setDoc("experience", e.target.value)} />
+                    <FormField label="Consultation Fee (₹)" name="fee" type="number" value={doctor.fee} placeholder="Service rate" onChange={(e) => setDoc("fee", e.target.value)} />
+                    <div className="sm:col-span-2"><FormField label="About" name="about" type="text" value={doctor.about || ""} onChange={(e) => setDoc("about", e.target.value)} /></div>
+                    <FormSwitch label="Show for Online Booking" name="doctoronline" checked={doctor.online !== false} onChange={(v) => setDoc("online", !!v)} />
+                  </div>
+                )}
+              </div>
             )}
 
             {/* Profile Picture */}

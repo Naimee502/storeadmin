@@ -36,6 +36,7 @@ const REFRESH = [
   "GetJobCards", "GetJobCardsPage", "GetDeletedJobCards", "GetJobCardById",
   "GetContracts", "GetContractsPage", "GetDeletedContracts", "GetContractById",
   "GetMembershipPlans", "GetDeletedMembershipPlans", "GetMemberships", "GetMembershipsPage", "GetDeletedMemberships", "GetMembershipById",
+  "GetPrescriptions", "GetPrescriptionsPage", "GetDeletedPrescriptions", "GetPrescriptionById",
 ];
 
 export const useServiceMutations = () => {
@@ -50,6 +51,7 @@ export const useServiceMutations = () => {
     addMembershipPlan: useOne(M.ADD_MEMBERSHIP_PLAN), editMembershipPlan: useOne(M.EDIT_MEMBERSHIP_PLAN),
     deleteMembershipPlan: useOne(M.DELETE_MEMBERSHIP_PLAN), resetMembershipPlan: useOne(M.RESET_MEMBERSHIP_PLAN),
     addMembership: useOne(M.ADD_MEMBERSHIP), editMembership: useOne(M.EDIT_MEMBERSHIP), deleteMembership: useOne(M.DELETE_MEMBERSHIP), resetMembership: useOne(M.RESET_MEMBERSHIP),
+    addPrescription: useOne(M.ADD_PRESCRIPTION), editPrescription: useOne(M.EDIT_PRESCRIPTION), deletePrescription: useOne(M.DELETE_PRESCRIPTION), resetPrescription: useOne(M.RESET_PRESCRIPTION),
     linkServiceInvoice: useOne(M.LINK_SERVICE_INVOICE),
   };
 };
@@ -92,6 +94,10 @@ export const useMembershipsPageQuery = (v: PageVars) => usePage(Q.GET_MEMBERSHIP
 export const useMembershipsQuery = (filter: Record<string, any> = {}, skip = false) => useList(Q.GET_MEMBERSHIPS, filter, skip);
 export const useDeletedMembershipsQuery = () => useList(Q.GET_DELETED_MEMBERSHIPS);
 export const useMembershipByIdQuery = (id?: string | null) => useById(Q.GET_MEMBERSHIP_BY_ID, id);
+export const usePrescriptionsPageQuery = (v: PageVars) => usePage(Q.GET_PRESCRIPTIONS_PAGE, "getPrescriptionsPage", v);
+export const usePrescriptionsQuery = (filter: Record<string, any> = {}, skip = false) => useList(Q.GET_PRESCRIPTIONS, filter, skip);
+export const useDeletedPrescriptionsQuery = (skip = false) => useList(Q.GET_DELETED_PRESCRIPTIONS, {}, skip);
+export const usePrescriptionByIdQuery = (id?: string | null) => useById(Q.GET_PRESCRIPTION_BY_ID, id);
 
 /** Sessions left on a membership, counting done appointments (works offline from device data). */
 export const sessionsLeft = (m: any, appointments: any[] = []) => {

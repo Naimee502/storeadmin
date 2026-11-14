@@ -12,6 +12,8 @@ export const JOB_CARD_FIELDS = `id branchid billnumber offlineNumber billdate ${
 export const CONTRACT_FIELDS = `id branchid ${PARTY} title contractType items { productserviceid { id name } serial note }
   startdate enddate visitsallowed visitsdone amount invoiceid contractStatus notes customfields { key value } ${STAMP}`;
 export const PLAN_FIELDS = `id name sessions validitydays price services { id name } notes status createdAt updatedAt`;
+export const PRESCRIPTION_FIELDS = `id branchid ${PARTY} customername customermobile appointmentid staffid { id name } doctorname doctorqualification doctorregno rxnumber billdate
+  complaints diagnosis vitals { bp pulse temperature weight spo2 sugar } medicines { productserviceid { id name } name dose frequency timing days qty notes } tests advice nextvisit invoiceid ${STAMP}`;
 export const MEMBERSHIP_FIELDS = `id branchid planid { id name } ${PARTY} customername customermobile startdate enddate sessions sessionsused amount invoiceid memberStatus notes ${STAMP}`;
 
 const PAGE_ARGS = `$filter: ServiceFilterInput, $page: Int, $pageSize: Int, $search: String, $columnFilters: [ColumnFilter!]`;
@@ -38,4 +40,8 @@ export const GET_DELETED_MEMBERSHIP_PLANS = gql`query GetDeletedMembershipPlans 
 export const GET_MEMBERSHIPS = gql`query GetMemberships($filter: ServiceFilterInput) { getMemberships(filter: $filter) { ${MEMBERSHIP_FIELDS} } }`;
 export const GET_MEMBERSHIPS_PAGE = gql`query GetMembershipsPage(${PAGE_ARGS}) { getMembershipsPage(${PAGE_VARS}) { items { ${MEMBERSHIP_FIELDS} } total } }`;
 export const GET_DELETED_MEMBERSHIPS = gql`query GetDeletedMemberships($filter: ServiceFilterInput) { getDeletedMemberships(filter: $filter) { ${MEMBERSHIP_FIELDS} } }`;
+export const GET_PRESCRIPTIONS_PAGE = gql`query GetPrescriptionsPage(${PAGE_ARGS}) { getPrescriptionsPage(${PAGE_VARS}) { items { ${PRESCRIPTION_FIELDS} } total } }`;
+export const GET_PRESCRIPTIONS = gql`query GetPrescriptions($filter: ServiceFilterInput) { getPrescriptions(filter: $filter) { ${PRESCRIPTION_FIELDS} } }`;
+export const GET_DELETED_PRESCRIPTIONS = gql`query GetDeletedPrescriptions($filter: ServiceFilterInput) { getDeletedPrescriptions(filter: $filter) { ${PRESCRIPTION_FIELDS} } }`;
+export const GET_PRESCRIPTION_BY_ID = gql`query GetPrescriptionById($id: ID!) { getPrescriptionById(id: $id) { ${PRESCRIPTION_FIELDS} } }`;
 export const GET_MEMBERSHIP_BY_ID = gql`query GetMembershipById($id: ID!) { getMembershipById(id: $id) { ${MEMBERSHIP_FIELDS} } }`;

@@ -115,6 +115,7 @@ const SETTINGS_FIELDS = `
   loyaltyExpiryDays
   loyaltyMinRedeem
   loyaltyMaxRedeemPercent
+  ownerDoctor { name specialization qualification regno experience fee about photo online }
   geoFenceEnabled
   geoFenceRadiusM
   salesmanLeaderboardEnabled

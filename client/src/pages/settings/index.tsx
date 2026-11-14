@@ -1,6 +1,7 @@
 // Settings: one target dropdown (Branch for Admin, Staff for Branch) shared by all tabs.
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useOptInOn } from "../../hooks/useoptin";
 import HomeLayout from "../../layouts/home";
 import FormField from "../../components/formfiled";
 import FormSwitch from "../../components/formswitch";
@@ -342,7 +343,8 @@ const WebsiteTab: React.FC<{ adminId?: string; dispatch: any }> = ({ adminId, di
   const { data, refetch } = useAdminSettingsQuery(adminId);
   const { updateAdminSettings } = useAdminSettingsMutations();
   const { uploadImageMutation, deleteImages } = useImageUpload();
-  const loyaltyModuleOn = useAppSelector((st: any) => (st.auth?.admin?.allowedmodules || []).some((m: string) => String(m).toLowerCase() === "loyalty"));
+  const loyaltyModuleOn = useOptInOn("loyalty");
+  const clinicOn = useOptInOn("prescriptions");
   const settings = data?.getAdminSettings;
   const [draft, setDraft] = useState<any>(null);
   const [saving, setSaving] = useState(false);
@@ -388,6 +390,8 @@ const WebsiteTab: React.FC<{ adminId?: string; dispatch: any }> = ({ adminId, di
   if (!draft) return <div className="text-gray-500 text-sm">Loading…</div>;
 
   const set = (k: string, v: any) => setDraft((d: any) => ({ ...d, [k]: v }));
+  const od = draft?.ownerDoctor || {};
+  const setOd = (k: string, v: any) => set("ownerDoctor", { ...(draft?.ownerDoctor || {}), [k]: v });
 
   const handleSave = async () => {
     if (!adminId) return;
@@ -740,6 +744,21 @@ const WebsiteTab: React.FC<{ adminId?: string; dispatch: any }> = ({ adminId, di
             onChange={(e: any) => set("loyaltyMaxRedeemPercent", e.target.value === "" ? null : Math.max(0, Number(e.target.value) || 0))} />
         </div>
         <p className="text-[11px] text-slate-500">Points are earned on the bill total with GST and used as a discount on a later bill (POS, Sales Invoice, App &amp; Website). Expiry 0 = never.</p>
+      </Section>)}
+
+      {/* Clinic: when the owner is also a doctor (a clinic with no doctor staff). */}
+      {clinicOn && (<Section title="My Doctor Profile">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-x-3 gap-y-2">
+          <FormField label="Doctor Name" name="odName" type="text" value={od.name || ""} placeholder="Dr. Name" onChange={(e: any) => setOd("name", e.target.value)} />
+          <FormField label="Specialization" name="odSpecialization" type="text" value={od.specialization || ""} onChange={(e: any) => setOd("specialization", e.target.value)} />
+          <FormField label="Qualification" name="odQualification" type="text" value={od.qualification || ""} placeholder="MBBS, MD" onChange={(e: any) => setOd("qualification", e.target.value)} />
+          <FormField label="Registration No." name="odRegno" type="text" value={od.regno || ""} onChange={(e: any) => setOd("regno", e.target.value)} />
+          <FormField label="Experience (Years)" name="odExperience" type="number" value={od.experience ?? ""} onChange={(e: any) => setOd("experience", e.target.value === "" ? null : Number(e.target.value))} />
+          <FormField label="Consultation Fee (₹)" name="odFee" type="number" value={od.fee ?? ""} placeholder="Service rate" onChange={(e: any) => setOd("fee", e.target.value === "" ? null : Number(e.target.value))} />
+          <div className="sm:col-span-2"><FormField label="About" name="odAbout" type="text" value={od.about || ""} onChange={(e: any) => setOd("about", e.target.value)} /></div>
+          <FormSwitch label="Show for Online Booking" name="odOnline" checked={od.online !== false} onChange={(v) => setOd("online", !!v)} />
+        </div>
+        <p className="text-[11px] text-slate-500">Fill this when you see patients yourself. Doctors on your staff are set in Staff Accounts.</p>
       </Section>)}
 
       <Section title="Website Content">

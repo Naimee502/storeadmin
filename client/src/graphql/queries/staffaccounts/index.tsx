@@ -13,6 +13,7 @@ export const GET_STAFF = gql`
       imageurl
       address
       commission
+      doctor { specialization qualification regno experience fee about online }
       salary
       target
       role
@@ -57,6 +58,7 @@ export const GET_STAFF_LIST = gql`
       imageurl
       address
       commission
+      doctor { specialization qualification regno experience fee about online }
       salary
       target
       role
@@ -99,6 +101,7 @@ export const GET_STAFF_PAGE = gql`
         imageurl
         address
         commission
+        doctor { specialization qualification regno experience fee about online }
         salary
         target
         role
@@ -133,6 +136,7 @@ export const GET_DELETED_STAFF = gql`
       imageurl
       address
       commission
+      doctor { specialization qualification regno experience fee about online }
       salary
       target
       role
@@ -175,6 +179,7 @@ export const GET_STAFF_BY_ID = gql`
       imageurl
       address
       commission
+      doctor { specialization qualification regno experience fee about online }
       salary
       target
       role

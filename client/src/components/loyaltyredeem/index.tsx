@@ -2,15 +2,11 @@ import React, { useEffect } from "react";
 import { useQuery } from "@apollo/client";
 import { Gift } from "lucide-react";
 import FormField from "../formfiled";
-import { useAppSelector } from "../../redux/hooks";
+import { useOptInOn } from "../../hooks/useoptin";
 import { GET_PARTY_LOYALTY } from "../../graphql/queries/loyalty";
 
 /** Loyalty Points module ticked for this business (opt-in, so a blank module list is off). */
-export const useLoyaltyOn = () =>
-  useAppSelector((s: any) => {
-    const list = s.auth?.admin?.allowedmodules ?? s.auth?.branch?.admin?.allowedmodules ?? s.auth?.staff?.admin?.allowedmodules;
-    return Array.isArray(list) && list.some((m: string) => String(m).toLowerCase() === "loyalty");
-  });
+export const useLoyaltyOn = () => useOptInOn("loyalty");
 
 type Props = {
   partyId?: string | null;

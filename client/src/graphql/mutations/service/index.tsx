@@ -1,5 +1,5 @@
 import { gql } from "@apollo/client";
-import { APPOINTMENT_FIELDS, JOB_CARD_FIELDS, CONTRACT_FIELDS, PLAN_FIELDS, MEMBERSHIP_FIELDS } from "../../queries/service";
+import { APPOINTMENT_FIELDS, JOB_CARD_FIELDS, CONTRACT_FIELDS, PLAN_FIELDS, MEMBERSHIP_FIELDS, PRESCRIPTION_FIELDS } from "../../queries/service";
 
 export const ADD_APPOINTMENT = gql`mutation AddAppointment($input: AppointmentInput!) { addAppointment(input: $input) { ${APPOINTMENT_FIELDS} } }`;
 export const EDIT_APPOINTMENT = gql`mutation EditAppointment($id: ID!, $input: AppointmentInput!, $expectedUpdatedAt: String) { editAppointment(id: $id, input: $input, expectedUpdatedAt: $expectedUpdatedAt) { ${APPOINTMENT_FIELDS} } }`;
@@ -21,6 +21,10 @@ export const ADD_MEMBERSHIP = gql`mutation AddMembership($input: MembershipInput
 export const EDIT_MEMBERSHIP = gql`mutation EditMembership($id: ID!, $input: MembershipInput!, $expectedUpdatedAt: String) { editMembership(id: $id, input: $input, expectedUpdatedAt: $expectedUpdatedAt) { ${MEMBERSHIP_FIELDS} } }`;
 export const DELETE_MEMBERSHIP = gql`mutation DeleteMembership($id: ID!, $expectedUpdatedAt: String) { deleteMembership(id: $id, expectedUpdatedAt: $expectedUpdatedAt) }`;
 export const RESET_MEMBERSHIP = gql`mutation ResetMembership($id: ID!) { resetMembership(id: $id) }`;
+export const ADD_PRESCRIPTION = gql`mutation AddPrescription($input: PrescriptionInput!) { addPrescription(input: $input) { ${PRESCRIPTION_FIELDS} } }`;
+export const EDIT_PRESCRIPTION = gql`mutation EditPrescription($id: ID!, $input: PrescriptionInput!, $expectedUpdatedAt: String) { editPrescription(id: $id, input: $input, expectedUpdatedAt: $expectedUpdatedAt) { ${PRESCRIPTION_FIELDS} } }`;
+export const DELETE_PRESCRIPTION = gql`mutation DeletePrescription($id: ID!, $expectedUpdatedAt: String) { deletePrescription(id: $id, expectedUpdatedAt: $expectedUpdatedAt) }`;
+export const RESET_PRESCRIPTION = gql`mutation ResetPrescription($id: ID!) { resetPrescription(id: $id) }`;
 export const SET_APPOINTMENT_STATUS = gql`mutation SetAppointmentStatus($id: ID!, $apptStatus: String!, $invoiceid: ID, $expectedUpdatedAt: String) { setAppointmentStatus(id: $id, apptStatus: $apptStatus, invoiceid: $invoiceid, expectedUpdatedAt: $expectedUpdatedAt) { ${APPOINTMENT_FIELDS} } }`;
 export const SET_JOB_CARD_STATUS = gql`mutation SetJobCardStatus($id: ID!, $jobStatus: String!, $invoiceid: ID, $expectedUpdatedAt: String) { setJobCardStatus(id: $id, jobStatus: $jobStatus, invoiceid: $invoiceid, expectedUpdatedAt: $expectedUpdatedAt) { ${JOB_CARD_FIELDS} } }`;
 

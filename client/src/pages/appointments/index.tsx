@@ -13,6 +13,7 @@ import { useProductServicesQuery } from "../../graphql/hooks/products";
 import { APPT_STATUS, addDaysYMD, customerLabel, useAppointmentsPageQuery, useAppointmentsQuery, useServiceMutations } from "../../graphql/hooks/service";
 import { toInvoiceProducts } from "../../components/servicelines";
 import { formatDateDMY, todayYMD } from "../../utils/helper";
+import { useOptInOn } from "../../hooks/useoptin";
 
 const SERVER_FILTER_KEYS = ["partyacc", "billdate", "starttime", "services", "staff", "apptStatus", "notes"];
 const STYLE: Record<string, string> = {
@@ -33,13 +34,18 @@ export function useAppointmentActions() {
   const invoiceOn = useAppSelector((s) => selectIsModuleBusinessEnabled(s, "salesinvoice"));
   const { data: productData } = useProductServicesQuery();
   const { setAppointmentStatus } = useServiceMutations();
+  // Clinic: the doctor writes the prescription from the visit.
+  const clinicOn = useOptInOn("prescriptions");
+  const rxActions = useAppSelector((s) => selectModuleActions(s, "prescriptions"));
   const optionsFor = (a: any) => {
-    if (!actions.showEdit || a.invoiceid) return [];
+    const rx = clinicOn && rxActions.showAdd && !a.isOffline && !["cancelled", "noshow"].includes(a.apptStatus) ? [{ value: "rx", label: "Write Prescription" }] : [];
+    if (!actions.showEdit || a.invoiceid) return rx;
     const o = Object.entries(APPT_STATUS).filter(([k]) => k !== (a.apptStatus || "booked")).map(([value, label]) => ({ value, label }));
     if (invoiceOn && actions.showConvert && !a.isOffline && !["cancelled", "noshow"].includes(a.apptStatus)) o.push({ value: "invoice", label: "Make Sales Invoice" });
-    return o;
+    return [...o, ...rx];
   };
   const onStatus = async (a: any, v: string) => {
+    if (v === "rx") return navigate("/prescriptions/addedit", { state: { appointment: a } });
     if (v === "invoice") {
       return navigate("/salesinvoice/addedit", {
         state: { fromService: { kind: "appointment", id: a.id, partyacc: a.partyacc, isservice: true, notes: `Appointment ${formatDateDMY(a.billdate)} ${a.starttime}`, products: toInvoiceProducts(a.services, productData?.getProductServices || []) } },

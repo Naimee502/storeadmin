@@ -139,6 +139,8 @@ import Contracts from "../pages/contracts";
 import AddEditContract from "../pages/contracts/addedit";
 import Memberships from "../pages/memberships";
 import Loyalty from "../pages/loyalty";
+import Prescriptions from "../pages/prescriptions";
+import AddEditPrescription from "../pages/prescriptions/addedit";
 import AddEditMembership from "../pages/memberships/addedit";
 import ServiceReports from "../pages/reports/service";
 import CrmDashboard from "../pages/crmdashboard";
@@ -1124,6 +1126,10 @@ const AppRoutes = () => {
       <Route path="/contracts/addedit/:id" element={<ProtectedRoutes><AddEditContract /></ProtectedRoutes>} />
       <Route path="/contracts/deletedentries" element={<ProtectedRoutes><ServiceDeletedEntries key="contracts" kind="contracts" /></ProtectedRoutes>} />
       <Route path="/loyalty" element={<ProtectedRoutes><Loyalty /></ProtectedRoutes>} />
+      <Route path="/prescriptions" element={<ProtectedRoutes><Prescriptions /></ProtectedRoutes>} />
+      <Route path="/prescriptions/addedit" element={<ProtectedRoutes><AddEditPrescription /></ProtectedRoutes>} />
+      <Route path="/prescriptions/addedit/:id" element={<ProtectedRoutes><AddEditPrescription /></ProtectedRoutes>} />
+      <Route path="/prescriptions/deletedentries" element={<ProtectedRoutes><ServiceDeletedEntries key="prescriptions" kind="prescriptions" /></ProtectedRoutes>} />
       <Route path="/memberships" element={<ProtectedRoutes><Memberships /></ProtectedRoutes>} />
       <Route path="/memberships/addedit" element={<ProtectedRoutes><AddEditMembership /></ProtectedRoutes>} />
       <Route path="/memberships/addedit/:id" element={<ProtectedRoutes><AddEditMembership /></ProtectedRoutes>} />

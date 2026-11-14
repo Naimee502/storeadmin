@@ -17,6 +17,7 @@ export const ADD_STAFF = gql`
       imageurl
       address
       commission
+      doctor { specialization qualification regno experience fee about online }
       salary
       target
       role
@@ -59,6 +60,7 @@ export const EDIT_STAFF = gql`
       imageurl
       address
       commission
+      doctor { specialization qualification regno experience fee about online }
       salary
       target
       role
