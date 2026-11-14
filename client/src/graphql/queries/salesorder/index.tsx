@@ -104,6 +104,8 @@ export const GET_SALES_ORDERS_LIST = gql`
       createdby_name
       createdby_type
       deliveryStatus
+      deliveryboyid
+      invoiceid
       isConverted
       orderStatus
       cancelStatus
