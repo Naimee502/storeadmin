@@ -183,7 +183,7 @@ export default function AnnouncementsPage() {
                   {open && (
                     <div className="mt-3 space-y-3 pl-12">
                       {a.message && <p className="whitespace-pre-line text-sm text-ink-900">{a.message}</p>}
-                      {a.link && (
+                      {/^https?:\/\//i.test(a.link || "") && (
                         <a href={a.link} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-sm font-semibold text-brand-700">
                           <ExternalLink className="h-4 w-4" /> Open link
                         </a>

@@ -241,7 +241,7 @@ export default function AnnouncementsScreen() {
                 </Pressable>
               )}
               {!!open?.message && <Text style={[styles.detailMsg, { color: colors.text }]}>{open.message}</Text>}
-              {!!open?.link && (
+              {/^https?:\/\//i.test(open?.link || "") && (
                 <Pressable onPress={() => Linking.openURL(open.link).catch(() => {})} style={styles.linkRow}>
                   <Icon name="open-in-new" size={15} color={colors.brand} />
                   <Text style={[styles.link, { color: colors.brand }]} numberOfLines={1}>{open.link}</Text>
