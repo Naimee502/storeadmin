@@ -446,6 +446,12 @@ const GeneralTab: React.FC<{ adminId?: string; dispatch: any; allowedModules?: s
         )}
       </Section>
 
+      <Section title="Online Booking">
+        <Grid>
+          <Toggle label="Online Booking" hint="Lets this business take service bookings from its App & Website. Its owner then sets hours in Settings -> General." checked={!!draft.onlineBookingAllowed} onChange={(v: boolean) => set("onlineBookingAllowed", v)} />
+        </Grid>
+      </Section>
+
       <Section title="GST Profile (e-Invoice / e-Way Bill)">
         <div className="grid grid-cols-1 gap-x-3 gap-y-2 md:grid-cols-4">
           <FormField label="GSTIN" type="text" name="biz-gstin" placeholder="e.g. 24ABCDE1234F1Z5" value={draft.gstin ?? ""}

@@ -63,7 +63,7 @@ export default function Header() {
   const unreadAnnouncements = (annData?.getMyAnnouncements ?? []).filter((a: any) => !a.read).length;
   const { adminid: storeId } = useTenant();
   const { data: bookingData } = useQuery(GET_BOOKING_ON, { variables: { adminid: storeId }, skip: !storeId });
-  const bookingOn = !!bookingData?.getAdminSettings?.bookingOn;
+  const bookingOn = !!bookingData?.getAdminSettings?.bookingOn && !!bookingData?.getAdminSettings?.onlineBookingAllowed;
   // Which category the shop is currently filtered by, so the nav can mark it.
   // Same ?category=<id> param ShopPage reads, so the strip and the grid can
   // never disagree about what's selected.

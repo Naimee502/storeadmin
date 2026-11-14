@@ -102,6 +102,7 @@ const SETTINGS_FIELDS = `
   showPartyLiveLocation
   loginEmailOtp
   loginTabs
+  onlineBookingAllowed
   bookingOn
   bookingFrom
   bookingTo

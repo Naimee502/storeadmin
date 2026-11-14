@@ -33,7 +33,7 @@ import {
   ACTION_LABELS,
   type ModuleAction,
 } from "../../config/modules";
-import { findSectionPerms, resolveAction, selectIsModuleBusinessEnabled } from "../../redux/slices/permissions";
+import { findSectionPerms, resolveAction } from "../../redux/slices/permissions";
 import FormPermissionsTab from "../businesssettings/formpermissionstab";
 import { useSearchParams } from "react-router";
 import { useAccessRolesQuery } from "../../graphql/hooks/accessroles";
@@ -337,8 +337,6 @@ const PRODUCT_IMAGE_RATIO_FIELDS: { key: string; label: string; help: string }[]
 ];
 
 const WebsiteTab: React.FC<{ adminId?: string; dispatch: any }> = ({ adminId, dispatch }) => {
-  // Online Booking shows only for businesses given the module in Business Modules.
-  const bookingModuleOn = useAppSelector((st: any) => selectIsModuleBusinessEnabled(st, "onlinebooking"));
   const { data, refetch } = useAdminSettingsQuery(adminId);
   const { updateAdminSettings } = useAdminSettingsMutations();
   const { uploadImageMutation, deleteImages } = useImageUpload();
@@ -699,7 +697,8 @@ const WebsiteTab: React.FC<{ adminId?: string; dispatch: any }> = ({ adminId, di
         </div>
       </Section>
 
-      {bookingModuleOn && (<Section title="Online Booking">
+      {/* Shown only when the platform switches Online Booking on in Business Settings. */}
+      {draft.onlineBookingAllowed && (<Section title="Online Booking">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-x-3 gap-y-2">
           <div className="flex flex-col gap-1">
             <FormSwitch label="Online Booking" name="bookingOn" checked={!!draft.bookingOn} onChange={(v) => set("bookingOn", !!v)} />

@@ -4,6 +4,7 @@ export const GET_BOOKING_ON = gql`
   query GetBookingOn($adminid: ID!) {
     getAdminSettings(adminid: $adminid) {
       id
+      onlineBookingAllowed
       bookingOn
     }
   }

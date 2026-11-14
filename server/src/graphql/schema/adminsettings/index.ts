@@ -235,6 +235,7 @@ export const adminSettingsTypeDefs = gql`
     # Billing-panel login (Admin/Branch/Staff) needs an email OTP. Off by default.
     loginEmailOtp: Boolean
     loginTabs: [String]
+    onlineBookingAllowed: Boolean
     bookingOn: Boolean
     bookingFrom: String
     bookingTo: String
@@ -500,6 +501,7 @@ export const adminSettingsTypeDefs = gql`
     appProductAutoScroll: Boolean
     loginEmailOtp: Boolean
     loginTabs: [String]
+    onlineBookingAllowed: Boolean
     bookingOn: Boolean
     bookingFrom: String
     bookingTo: String

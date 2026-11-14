@@ -41,7 +41,7 @@ const ANON_FIELDS: Record<string, string[]> = {
     "geoFenceRadiusM", "heroBannerSlides", "partyManagesDownline", "printShowPartyBalance", "privacyPolicyUrl",
     "promoBanners", "restrictQuantityByStock", "salesmanLeaderboardEnabled", "salesmanOrderDiscountEnabled",
     "secureScreenApp", "showPartyLiveLocation", "showWhatsappChat", "supportEmail", "supportPhone",
-    "supportWhatsapp", "termsConditionsUrl", "themeBrandColor", "trackPartyStock", "loginTabs", "bookingOn",
+    "supportWhatsapp", "termsConditionsUrl", "themeBrandColor", "trackPartyStock", "loginTabs", "bookingOn", "onlineBookingAllowed",
   ],
 };
 
@@ -399,6 +399,7 @@ const check = async (field: string, args: any, context: any, info?: any) => {
   if ((field === "updateAdminSettings" || field === "testBusinessSmtp") && context.user.type !== "admin") {
     throw denied("Only the business owner can change business settings.");
   }
+  if (field === "updateAdminSettings" && args?.input) delete args.input.onlineBookingAllowed; // platform switch
   if (field === "punch" && args?.input) await checkPunch(context, args.input);
   if ((field === "addStaffAccount" || field === "editStaffAccount") && args?.input) {
     // Department and access role must be this business's own.
