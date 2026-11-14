@@ -37,6 +37,7 @@ export default function BookPage() {
   const [error, setError] = useState("");
   const [done, setDone] = useState<{ date: string; time: string } | null>(null);
   const [book, { loading: booking }] = useMutation(BOOK_APPOINTMENT);
+  const stepOne = useRef<HTMLElement>(null);
   const stepTwo = useRef<HTMLElement>(null);
 
   // Services that have at least one bookable option.
@@ -70,6 +71,7 @@ export default function BookPage() {
   }, [open]);
 
   const showDetail = (s: any) => { setOpen(s); setOpenVar(pick && pick.serviceid === s.id ? pick.variantid : s.options[0].id); setPhoto(0); };
+  const changeService = () => { setPick(null); setTime(""); stepOne.current?.scrollIntoView({ behavior: "smooth", block: "start" }); };
   const choose = (s: any, variantid: string) => { setPick({ serviceid: s.id, variantid }); setTime(""); setOpen(null); };
 
   const confirm = async () => {
@@ -112,7 +114,7 @@ export default function BookPage() {
           </div>
         ) : (
           <>
-            <section className="space-y-3">
+            <section ref={stepOne} className="scroll-mt-24 space-y-3">
               <h2 className="text-sm font-semibold text-ink-900">1. Choose a service</h2>
               {cats.length > 1 && (
                 <div className="flex flex-wrap gap-2">
@@ -165,7 +167,10 @@ export default function BookPage() {
                     <div className="font-semibold text-ink-900">{label}</div>
                     <div className="text-slate-600">{rupees(opt.servicerate)}{PER[opt.pricingunit] ? ` ${PER[opt.pricingunit]}` : ""} · {mins(minutes(opt.duration))}</div>
                   </div>
-                  <button type="button" onClick={() => showDetail(svc)} className="text-sm font-semibold text-brand-700 hover:underline">Change</button>
+                  <div className="flex shrink-0 items-center gap-4">
+                    {svc.options.length > 1 && <button type="button" onClick={() => showDetail(svc)} className="text-sm font-semibold text-brand-700 hover:underline">Change Option</button>}
+                    <button type="button" onClick={changeService} className="text-sm font-semibold text-brand-700 hover:underline">Change Service</button>
+                  </div>
                 </div>
                 <input type="date" value={date} min={todayIst()} onChange={(e) => { setDate(e.target.value); setTime(""); }}
                   className="h-10 rounded-lg border border-slate-300 px-3 text-sm" />
