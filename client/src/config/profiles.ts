@@ -39,6 +39,34 @@ export const BUSINESS_PROFILES: BusinessProfile[] = [
     note: "Services, appointments, job cards, AMC and memberships.",
     modules: [...CORE, ...CRM, "services", "appointments", "jobcards", "contracts", "memberships", "reports.service"],
   },
+  {
+    id: "exporter", label: "Exporter", types: ["exporter"],
+    note: "Quotations, orders, challans, e-Invoice and e-Way Bill, price lists and CRM.",
+    modules: [...CORE, ...GST_DOCS, ...CRM, "salesorder", "purchaseorder", "deliverychallan", "pricelists",
+      "priceassignments", "productgroups", "reports.deliverychallan"],
+  },
+  {
+    id: "pharma", label: "Pharma / Food (batch and expiry)", types: [],
+    note: "Counter billing, orders and challans; batch and expiry on items.",
+    modules: [...CORE, ...GST_DOCS, "posdashboard", "salesorder", "purchaseorder", "deliverychallan", "pricelists",
+      "priceassignments", "chargerules", "productgroups", "reports.analytical", "reports.deliverychallan"],
+  },
+  {
+    id: "hardware", label: "Hardware / Building Material", types: [],
+    note: "Counter billing, quotations, orders and challans, sizes and models.",
+    modules: [...CORE, ...GST_DOCS, "posdashboard", "quotations", "reports.quotation", "salesorder", "purchaseorder",
+      "deliverychallan", "sizes", "models", "productgroups", "pricelists", "priceassignments", "reports.deliverychallan"],
+  },
+  {
+    id: "repair", label: "Repair / Service Centre", types: [],
+    note: "Job cards, AMC contracts, spare parts billing and CRM.",
+    modules: [...CORE, ...CRM, "services", "jobcards", "contracts", "reports.service"],
+  },
+  {
+    id: "clinic", label: "Clinic / Salon", types: [],
+    note: "Appointments, services and memberships.",
+    modules: [...CORE, "services", "appointments", "memberships", "leads", "followups", "reports.service", "reports.crm"],
+  },
 ];
 
 const known = new Set(ADMIN_REGISTER_MODULES.map((m) => m.id));
