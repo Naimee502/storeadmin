@@ -57,7 +57,7 @@ export const BUSINESS_PROFILES: BusinessProfile[] = [
   {
     id: "electronics", label: "Electronics / Mobile Shop", group: "Trading", types: ["electronics"],
     note: "POS billing, models, warranty / AMC and repair job cards.",
-    modules: [...CORE, ...GST_DOCS, "posdashboard", "models", "productgroups", "pricelists", "services", "jobcards", "contracts",
+    modules: [...CORE, ...GST_DOCS, "serials", "posdashboard", "models", "productgroups", "pricelists", "services", "jobcards", "contracts",
       "reports.service", "reports.analytical"],
   },
   {

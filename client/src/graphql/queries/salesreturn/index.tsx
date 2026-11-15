@@ -22,6 +22,7 @@ const SALES_RETURN_FIELDS = `
   adminid
   branchid
   productservice {
+    serials
     productserviceid { id name }
     variantid { id name }
     salesunitid { id unitname }
@@ -83,6 +84,7 @@ export const GET_SALES_RETURNS_LIST = gql`
       refundMode
       totalamount
       productservice {
+        serials
         qty
       }
       createdby_name
@@ -114,6 +116,7 @@ export const GET_SALES_RETURNS_PAGE = gql`
         refundMode
         totalamount
         productservice {
+          serials
           qty
         }
         createdby_name

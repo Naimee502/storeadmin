@@ -1,4 +1,6 @@
 import React, { useEffect, useState, useMemo } from "react";
+import { useOptInOn } from "../../../hooks/useoptin";
+import SerialLines, { serialMismatch, type SerialItem } from "../../../components/seriallines";
 import BatchLines from "../../../components/batchlines";
 import LoyaltyRedeem from "../../../components/loyaltyredeem";
 import FormField from "../../../components/formfiled";
@@ -316,6 +318,7 @@ const AddEditSalesInvoice = () => {
           batchno: p.batchno || null,
           expirydate: p.expirydate || null,
           batchauto: p.batchauto || null,
+          serials: p.serials || null,
           salesUnits: unitOptions,
           selectedUnitValue: p.salesunitid && p.unitqty ? `${p.salesunitid.id}--${p.unitqty}` : null,
         };
@@ -496,6 +499,12 @@ const AddEditSalesInvoice = () => {
     return null;
   };
 
+  // IMEI / Serial No. module: units of serialised items.
+  const serialsOn = useOptInOn("serials");
+  const isSerialised = (id: string) => !!(salesProductData || []).find((x: any) => x.id === id)?.isserialised;
+  const serialItems: SerialItem[] = products.map((p) => ({ productid: p.productserviceid, variantid: p.variantid, name: p.productname, qty: Number(p.quantity || 0) * Number(p.unitquantity || 1), serials: p.serials }));
+  const setSerials = (i: number, serials: string[]) => setProducts((list) => list.map((x, j) => (j === i ? { ...x, serials } : x)));
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -506,6 +515,11 @@ const AddEditSalesInvoice = () => {
     }
 
     setErrors({});
+    const serialGap = serialsOn && serialMismatch(serialItems, isSerialised);
+    if (serialGap) {
+      dispatch(showMessage({ message: `${serialGap.name}: enter one IMEI / Serial No. for each of the ${serialGap.qty} units.`, type: "error" }));
+      return;
+    }
 
     // Document needs a real branch, not "All Branches"; warn with a toast.
     if (!branchId) {
@@ -608,6 +622,7 @@ const AddEditSalesInvoice = () => {
         purchaseaccountid: getUnitId(p.purchaseaccountid) ?? null,
         serviceaccountid: getUnitId(p.serviceaccountid) ?? null,
         ...(p.batchno ? { batchno: p.batchno, expirydate: p.expirydate || null, batchauto: !!p.batchauto } : {}),
+        ...(p.serials?.length ? { serials: p.serials } : {}),
       })),
       status,
     };
@@ -912,6 +927,7 @@ const AddEditSalesInvoice = () => {
             originalProducts={originalProducts}
           />
           <BatchLines mode="out" products={products} setProducts={setProducts} branchId={branchId} />
+          <SerialLines mode="out" items={serialItems} onChange={setSerials} serialised={isSerialised} />
 
           <PosAddCustomer
             open={addCustomerOpen}

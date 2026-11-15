@@ -132,6 +132,8 @@ const MODULE_LIST: ModuleDef[] = [
   { id: "stockadjustments",  label: "Stock Adjustments",  section: "inventory", actions: CRUD_ACTIONS, inAdminRegister: true },
   // Stock by batch with expiry (pharmacy, food). "edit" = put old stock into a batch, correct dates.
   { id: "batches",           label: "Batch & Expiry",     section: "inventory", actions: ["view", "edit", "export"], inAdminRegister: true },
+  // Each unit by its IMEI / serial number (mobiles, electronics) with warranty from the sale.
+  { id: "serials",           label: "IMEI / Serial No.",  section: "inventory", actions: ["view", "export"], inAdminRegister: true },
 
   // Distribution
   { id: "channels",       label: "Channels",        section: "distribution", actions: CRUD_ACTIONS, inAdminRegister: true },
@@ -258,7 +260,7 @@ export const DEFAULT_ON_MODULE_IDS: string[] = ["branches", "departments", "acce
 export const ADMIN_REGISTER_MODULES = MODULES.filter((m) => m.inAdminRegister);
 
 // Off until ticked, even for older businesses whose module list is blank (blank = everything else).
-export const OPT_IN_MODULE_IDS: string[] = ["loyalty", "prescriptions", "batches"];
+export const OPT_IN_MODULE_IDS: string[] = ["loyalty", "prescriptions", "batches", "serials"];
 export const isOptIn = (id: string) => OPT_IN_MODULE_IDS.includes(String(id).toLowerCase());
 export const MODULES_BY_SECTION = (() => {
   const map: Record<ModuleSection, ModuleDef[]> = {

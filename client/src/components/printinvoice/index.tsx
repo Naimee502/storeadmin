@@ -18,6 +18,7 @@ interface Product {
   hsn?: string;
   batchno?: string;
   expirydate?: string;
+  serials?: string[];
 }
 
 interface Invoice {
@@ -484,6 +485,9 @@ const PrintableInvoice = forwardRef<HTMLDivElement, PrintableInvoiceProps>(
                             <div style={{ fontSize: 10.5, color: "#555" }}>
                               Batch: {item.batchno}{item.expirydate ? ` · Exp: ${formatDateDMY(item.expirydate)}` : ""}
                             </div>
+                          )}
+                          {!!item.serials?.length && (
+                            <div style={{ fontSize: 10.5, color: "#555" }}>IMEI / Serial: {item.serials.join(", ")}</div>
                           )}
                         </td>
                         {showHsn && <td className="ctr">{item.hsn || "-"}</td>}

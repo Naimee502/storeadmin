@@ -49,7 +49,8 @@ export const checkSerials = async (docmodel: string, input: any, docid?: any) =>
   if (twice.length) throw bad(`IMEI / Serial ${twice[0]} is entered twice.`);
   for (const l of input.productservice || []) {
     const n = (l.serials || []).map(normSerial).filter(Boolean).length;
-    if (n > Number(l.qty || 0)) throw bad(`${await name(oid(l.productserviceid))}: ${n} serial numbers for a quantity of ${l.qty}.`);
+    const units = Number(l.qty || 0) * Number(l.unitqty || 1);
+    if (n > units) throw bad(`${await name(oid(l.productserviceid))}: ${n} serial numbers for ${units} units.`);
   }
   const mine = docid && Types.ObjectId.isValid(String(docid)) ? String(docid) : "";
   const found: any[] = all.length ? await SerialStock.find({ adminid, serialno: { $in: all } }).lean() : [];

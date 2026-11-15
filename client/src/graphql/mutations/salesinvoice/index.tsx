@@ -27,7 +27,7 @@ export const ADD_SALES_INVOICE = gql`
     adminid
     branchid
     productservice {
-      batchno expirydate batchauto
+      batchno expirydate batchauto serials
       productserviceid {
         id
         name
@@ -117,7 +117,7 @@ export const EDIT_SALES_INVOICE = gql`
       adminid
       branchid
       productservice {
-        batchno expirydate batchauto
+        batchno expirydate batchauto serials
         productserviceid {
           id
           name

@@ -1,6 +1,7 @@
 // Add / Edit a Sales Return: ?fromInvoice=<id>, /:id, or pick an invoice; qty also checked server-side.
 
 import React, { useEffect, useMemo, useState } from "react";
+import SerialLines from "../../../components/seriallines";
 import { useNavigate, useParams, useLocation } from "react-router";
 import HomeLayout from "../../../layouts/home";
 import FormField from "../../../components/formfiled";
@@ -38,6 +39,7 @@ type Line = {
   qty: number;        // returnable qty entered by user
   originalQty: number;
   amount: number;
+  serials?: string[] | null;
 };
 
 const todayStr = () => {
@@ -233,6 +235,7 @@ const AddEditSalesReturn: React.FC = () => {
         qty: p.qty || 0,
         originalQty: p.qty || 0,
         amount: p.amount || 0,
+        serials: p.serials || null,
       }))
     );
   }, [isEdit, existingData]);
@@ -484,6 +487,7 @@ const AddEditSalesReturn: React.FC = () => {
         rate: l.rate,
         amount: l.amount,
         discount: l.discount,
+        ...(l.serials?.length ? { serials: l.serials } : {}),
       })),
     };
 
@@ -631,6 +635,9 @@ const AddEditSalesReturn: React.FC = () => {
             />
             {errors.lines && <div className="text-red-600 text-sm">{errors.lines}</div>}
           </fieldset>
+          <SerialLines mode="return" invoiceId={sourceInvoiceId || null}
+            items={lines.map((l) => ({ productid: l.productserviceid, variantid: l.variantid || null, name: [l.productName, l.variantName].filter(Boolean).join(" - "), qty: Number(l.qty || 0) * Number(l.unitqty || 1), serials: l.serials }))}
+            onChange={(i, serials) => setLines((list) => list.map((x, j) => (j === i ? { ...x, serials } : x)))} />
 
           {/* Other Charges */}
           <OtherChargesSection

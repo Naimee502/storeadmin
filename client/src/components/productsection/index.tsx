@@ -33,6 +33,8 @@ export type InvoiceProduct = {
   expirydate?: string | null;
   mfgdate?: string | null;
   batchauto?: boolean | null;
+  /** IMEI / Serial No. module. */
+  serials?: string[] | null;
 };
 
 type ProductSectionProps = {

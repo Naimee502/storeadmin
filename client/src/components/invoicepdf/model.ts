@@ -15,6 +15,7 @@ export interface PdfProduct {
   hsn?: string;
   batchno?: string;
   expirydate?: string;
+  serials?: string[];
 }
 
 export interface PdfInvoice {
@@ -187,7 +188,8 @@ export const buildInvoicePdfModel = (
         item.productserviceid.name +
         (item.variantid?.name ? ` - ${item.variantid.name}` : "") +
         (unit ? ` (${unit})` : "") +
-        (item.batchno ? ` [Batch ${item.batchno}${item.expirydate ? `, Exp ${item.expirydate.split("-").reverse().join("-")}` : ""}]` : ""),
+        (item.batchno ? ` [Batch ${item.batchno}${item.expirydate ? `, Exp ${item.expirydate.split("-").reverse().join("-")}` : ""}]` : "") +
+        (item.serials?.length ? ` [IMEI / Serial: ${item.serials.join(", ")}]` : ""),
       hsn: item.hsn || "-",
       qty: String(item.qty),
       rate: money(item.rate),
