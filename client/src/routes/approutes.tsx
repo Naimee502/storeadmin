@@ -141,6 +141,8 @@ import Memberships from "../pages/memberships";
 import Loyalty from "../pages/loyalty";
 import Batches from "../pages/batches";
 import Serials from "../pages/serials";
+import Tailoring from "../pages/tailoring";
+import AddEditTailorOrder from "../pages/tailoring/addedit";
 import Prescriptions from "../pages/prescriptions";
 import AddEditPrescription from "../pages/prescriptions/addedit";
 import AddEditMembership from "../pages/memberships/addedit";
@@ -1130,6 +1132,10 @@ const AppRoutes = () => {
       <Route path="/loyalty" element={<ProtectedRoutes><Loyalty /></ProtectedRoutes>} />
       <Route path="/batches" element={<ProtectedRoutes><Batches /></ProtectedRoutes>} />
       <Route path="/serials" element={<ProtectedRoutes><Serials /></ProtectedRoutes>} />
+      <Route path="/tailoring" element={<ProtectedRoutes><Tailoring /></ProtectedRoutes>} />
+      <Route path="/tailoring/addedit" element={<ProtectedRoutes><AddEditTailorOrder /></ProtectedRoutes>} />
+      <Route path="/tailoring/addedit/:id" element={<ProtectedRoutes><AddEditTailorOrder /></ProtectedRoutes>} />
+      <Route path="/tailoring/deletedentries" element={<ProtectedRoutes><ServiceDeletedEntries key="tailoring" kind="tailoring" /></ProtectedRoutes>} />
       <Route path="/prescriptions" element={<ProtectedRoutes><Prescriptions /></ProtectedRoutes>} />
       <Route path="/prescriptions/addedit" element={<ProtectedRoutes><AddEditPrescription /></ProtectedRoutes>} />
       <Route path="/prescriptions/addedit/:id" element={<ProtectedRoutes><AddEditPrescription /></ProtectedRoutes>} />

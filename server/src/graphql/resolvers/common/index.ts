@@ -60,7 +60,7 @@ export const CLEAR_TARGETS: Record<string, ClearTarget> = {
   contracts: { model: "Contract", tenant: "adminid" },
   memberships: { model: "Membership", tenant: "adminid" },
   prescriptions: { model: "Prescription", tenant: "adminid" },
-  tailororders: { model: "TailorOrder", tenant: "adminid", permission: "tailoring" },
+  tailoring: { model: "TailorOrder", tenant: "adminid" },
   measurements: { model: "Measurement", tenant: "adminid", permission: "tailoring" },
   membershipplans: { model: "MembershipPlan", tenant: "adminid", permission: "memberships" },
 };

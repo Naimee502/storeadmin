@@ -14,6 +14,10 @@ export const CONTRACT_FIELDS = `id branchid ${PARTY} title contractType items { 
 export const PLAN_FIELDS = `id name sessions validitydays price services { id name } notes status createdAt updatedAt`;
 export const PRESCRIPTION_FIELDS = `id branchid ${PARTY} customername customermobile appointmentid staffid { id name } doctorname doctorqualification doctorregno rxnumber billdate
   complaints diagnosis vitals { bp pulse temperature weight spo2 sugar } medicines { productserviceid { id name } name dose frequency timing days qty notes } tests advice nextvisit invoiceid ${STAMP}`;
+const MVAL = `key label value`;
+export const MEASUREMENT_FIELDS = `id branchid ${PARTY} customername customermobile garment values { ${MVAL} } unit takenon notes ${STAMP}`;
+export const TAILOR_ORDER_FIELDS = `id branchid ${PARTY} customername customermobile billnumber billdate staffid { id name } trialdate deliverydate orderStatus total advance invoiceid deliveredAt notes
+  items { garment productserviceid { id name } qty rate amount fabric fabricnote design values { ${MVAL} } unit } ${STAMP}`;
 export const MEMBERSHIP_FIELDS = `id branchid planid { id name } ${PARTY} customername customermobile startdate enddate sessions sessionsused amount invoiceid memberStatus notes ${STAMP}`;
 
 const PAGE_ARGS = `$filter: ServiceFilterInput, $page: Int, $pageSize: Int, $search: String, $columnFilters: [ColumnFilter!]`;
@@ -44,4 +48,9 @@ export const GET_PRESCRIPTIONS_PAGE = gql`query GetPrescriptionsPage(${PAGE_ARGS
 export const GET_PRESCRIPTIONS = gql`query GetPrescriptions($filter: ServiceFilterInput) { getPrescriptions(filter: $filter) { ${PRESCRIPTION_FIELDS} } }`;
 export const GET_DELETED_PRESCRIPTIONS = gql`query GetDeletedPrescriptions($filter: ServiceFilterInput) { getDeletedPrescriptions(filter: $filter) { ${PRESCRIPTION_FIELDS} } }`;
 export const GET_PRESCRIPTION_BY_ID = gql`query GetPrescriptionById($id: ID!) { getPrescriptionById(id: $id) { ${PRESCRIPTION_FIELDS} } }`;
+export const GET_MEASUREMENTS = gql`query GetMeasurements($filter: ServiceFilterInput, $search: String) { getMeasurements(filter: $filter, search: $search) { ${MEASUREMENT_FIELDS} } }`;
+export const GET_LATEST_MEASUREMENTS = gql`query GetLatestMeasurements($partyacc: ID!) { getLatestMeasurements(partyacc: $partyacc) { ${MEASUREMENT_FIELDS} } }`;
+export const GET_TAILOR_ORDERS_PAGE = gql`query GetTailorOrdersPage(${PAGE_ARGS}) { getTailorOrdersPage(${PAGE_VARS}) { items { ${TAILOR_ORDER_FIELDS} } total } }`;
+export const GET_DELETED_TAILOR_ORDERS = gql`query GetDeletedTailorOrders($filter: ServiceFilterInput) { getDeletedTailorOrders(filter: $filter) { ${TAILOR_ORDER_FIELDS} } }`;
+export const GET_TAILOR_ORDER_BY_ID = gql`query GetTailorOrderById($id: ID!) { getTailorOrderById(id: $id) { ${TAILOR_ORDER_FIELDS} } }`;
 export const GET_MEMBERSHIP_BY_ID = gql`query GetMembershipById($id: ID!) { getMembershipById(id: $id) { ${MEMBERSHIP_FIELDS} } }`;

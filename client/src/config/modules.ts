@@ -186,6 +186,8 @@ const MODULE_LIST: ModuleDef[] = [
   { id: "supporttickets", label: "Support Tickets", section: "service", actions: CRUD_ACTIONS, inAdminRegister: true },
   { id: "contracts",    label: "AMC / Warranty", section: "service", actions: CRUD_ACTIONS, inAdminRegister: true },
   { id: "memberships",  label: "Memberships",    section: "service", actions: CRUD_ACTIONS, inAdminRegister: true },
+  // Tailor / Boutique: measurements and stitching orders. "convert" = make the Sales Invoice.
+  { id: "tailoring", label: "Tailoring", section: "service", actions: [...CRUD_ACTIONS, "print", "convert"], inAdminRegister: true },
   // Clinic. "view" = see every doctor's prescriptions; without it a doctor sees only their own.
   { id: "prescriptions", label: "Prescriptions", section: "service", actions: ["view", "add", "edit", "delete", "print", "reset"], inAdminRegister: true },
 
@@ -224,7 +226,7 @@ const CLEARABLE_MODULE_IDS = [
   "salesorder", "salesinvoice", "salesreturn", "deliverychallan", "purchaseorder", "purchaseinvoice", "purchasereturn",
   "transferstock", "stockadjustments", "channels", "salesroutes", "pricelists", "priceassignments",
   "chargerules", "transactions", "payments", "expensenote", "attendance", "announcements", "leads", "followups", "quotations", "bom", "workorders", "production",
-  "appointments", "jobcards", "contracts", "memberships", "prescriptions",
+  "appointments", "jobcards", "contracts", "memberships", "prescriptions", "tailoring",
 ];
 
 export const MODULES: ModuleDef[] = MODULE_LIST.map((m) =>
@@ -260,7 +262,7 @@ export const DEFAULT_ON_MODULE_IDS: string[] = ["branches", "departments", "acce
 export const ADMIN_REGISTER_MODULES = MODULES.filter((m) => m.inAdminRegister);
 
 // Off until ticked, even for older businesses whose module list is blank (blank = everything else).
-export const OPT_IN_MODULE_IDS: string[] = ["loyalty", "prescriptions", "batches", "serials"];
+export const OPT_IN_MODULE_IDS: string[] = ["loyalty", "prescriptions", "batches", "serials", "tailoring"];
 export const isOptIn = (id: string) => OPT_IN_MODULE_IDS.includes(String(id).toLowerCase());
 export const MODULES_BY_SECTION = (() => {
   const map: Record<ModuleSection, ModuleDef[]> = {

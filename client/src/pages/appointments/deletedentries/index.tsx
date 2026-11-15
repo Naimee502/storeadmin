@@ -5,12 +5,12 @@ import { selectModuleActions } from "../../../redux/slices/permissions";
 import { showMessage } from "../../../redux/slices/message";
 import { useClearDeleted } from "../../../graphql/hooks/common";
 import {
-  customerLabel, jobCardNo, useDeletedAppointmentsQuery, useDeletedContractsQuery, useDeletedJobCardsQuery, useDeletedMembershipsQuery, useDeletedPrescriptionsQuery, useServiceMutations,
+  customerLabel, jobCardNo, useDeletedAppointmentsQuery, useDeletedContractsQuery, useDeletedJobCardsQuery, useDeletedMembershipsQuery, useDeletedPrescriptionsQuery, useDeletedTailorOrdersQuery, useServiceMutations,
 } from "../../../graphql/hooks/service";
 import { formatDateDMY } from "../../../utils/helper";
 
-type Kind = "appointments" | "jobcards" | "contracts" | "memberships" | "prescriptions";
-const TITLE: Record<Kind, string> = { appointments: "Appointments", jobcards: "Job Cards", contracts: "AMC / Warranty", memberships: "Memberships", prescriptions: "Prescriptions" };
+type Kind = "appointments" | "jobcards" | "contracts" | "memberships" | "prescriptions" | "tailoring";
+const TITLE: Record<Kind, string> = { appointments: "Appointments", jobcards: "Job Cards", contracts: "AMC / Warranty", memberships: "Memberships", prescriptions: "Prescriptions", tailoring: "Stitching Orders" };
 
 /** Deleted appointments, job cards, contracts or memberships (one screen, four routes). */
 const ServiceDeletedEntries = ({ kind }: { kind: Kind }) => {
@@ -19,11 +19,12 @@ const ServiceDeletedEntries = ({ kind }: { kind: Kind }) => {
   const q = {
     appointments: useDeletedAppointmentsQuery(), jobcards: useDeletedJobCardsQuery(), contracts: useDeletedContractsQuery(), memberships: useDeletedMembershipsQuery(),
     prescriptions: useDeletedPrescriptionsQuery(kind !== "prescriptions"),
+    tailoring: useDeletedTailorOrdersQuery(kind !== "tailoring"),
   }[kind];
   const m = useServiceMutations();
-  const reset = { appointments: m.resetAppointment, jobcards: m.resetJobCard, contracts: m.resetContract, memberships: m.resetMembership, prescriptions: m.resetPrescription }[kind];
+  const reset = { appointments: m.resetAppointment, jobcards: m.resetJobCard, contracts: m.resetContract, memberships: m.resetMembership, prescriptions: m.resetPrescription, tailoring: m.resetTailorOrder }[kind];
   const clear = useClearDeleted(kind, q.refetch, TITLE[kind].toLowerCase());
-  const field = { appointments: "getDeletedAppointments", jobcards: "getDeletedJobCards", contracts: "getDeletedContracts", memberships: "getDeletedMemberships", prescriptions: "getDeletedPrescriptions" }[kind];
+  const field = { appointments: "getDeletedAppointments", jobcards: "getDeletedJobCards", contracts: "getDeletedContracts", memberships: "getDeletedMemberships", prescriptions: "getDeletedPrescriptions", tailoring: "getDeletedTailorOrders" }[kind];
 
   const columns = [
     { label: "S.No", key: "seqNo" },
@@ -42,6 +43,7 @@ const ServiceDeletedEntries = ({ kind }: { kind: Kind }) => {
         : kind === "jobcards" ? [d.devicename || d.productserviceid?.name, d.serial].filter(Boolean).join(" - ")
           : kind === "contracts" ? d.title || `Till ${formatDateDMY(d.enddate)}`
             : kind === "prescriptions" ? [`RX-${d.rxnumber || ""}`, d.doctorname, d.diagnosis].filter(Boolean).join(" - ")
+              : kind === "tailoring" ? [`TO-${d.billnumber || ""}`, (d.items || []).map((x: any) => `${x.qty} ${x.garment}`).join(", ")].filter(Boolean).join(" - ")
               : d.planid?.name || "",
     updated: formatDateDMY(d.updatedAt),
   }));

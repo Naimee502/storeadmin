@@ -654,6 +654,20 @@ const AddEditPayment = () => {
 
   // ?expensenote=<id> from an approved claim: preselect it once, new payments only.
   const location = useLocation();
+  // ?party=&amount=&reference= (e.g. an advance against a stitching order): a direct receipt, filled once.
+  const prefillReceipt = useRef(false);
+  useEffect(() => {
+    if (isEdit || prefillReceipt.current) return;
+    const q = new URLSearchParams(location.search);
+    if (!q.get("party")) return;
+    prefillReceipt.current = true;
+    setPayType("receipt");
+    setPartyid(q.get("party") || "");
+    setSettlementMode("direct");
+    if (q.get("amount")) setManualAmount(q.get("amount") || "");
+    if (q.get("reference")) setReference(q.get("reference") || "");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isEdit, location.search]);
   const prefillNoteId = !isEdit ? new URLSearchParams(location.search).get("expensenote") : null;
   const prefillDone = useRef(false);
   useEffect(() => {

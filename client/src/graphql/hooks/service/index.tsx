@@ -37,6 +37,7 @@ const REFRESH = [
   "GetContracts", "GetContractsPage", "GetDeletedContracts", "GetContractById",
   "GetMembershipPlans", "GetDeletedMembershipPlans", "GetMemberships", "GetMembershipsPage", "GetDeletedMemberships", "GetMembershipById",
   "GetPrescriptions", "GetPrescriptionsPage", "GetDeletedPrescriptions", "GetPrescriptionById",
+  "GetMeasurements", "GetLatestMeasurements", "GetTailorOrdersPage", "GetDeletedTailorOrders", "GetTailorOrderById",
 ];
 
 export const useServiceMutations = () => {
@@ -52,6 +53,9 @@ export const useServiceMutations = () => {
     deleteMembershipPlan: useOne(M.DELETE_MEMBERSHIP_PLAN), resetMembershipPlan: useOne(M.RESET_MEMBERSHIP_PLAN),
     addMembership: useOne(M.ADD_MEMBERSHIP), editMembership: useOne(M.EDIT_MEMBERSHIP), deleteMembership: useOne(M.DELETE_MEMBERSHIP), resetMembership: useOne(M.RESET_MEMBERSHIP),
     addPrescription: useOne(M.ADD_PRESCRIPTION), editPrescription: useOne(M.EDIT_PRESCRIPTION), deletePrescription: useOne(M.DELETE_PRESCRIPTION), resetPrescription: useOne(M.RESET_PRESCRIPTION),
+    addMeasurement: useOne(M.ADD_MEASUREMENT), editMeasurement: useOne(M.EDIT_MEASUREMENT), deleteMeasurement: useOne(M.DELETE_MEASUREMENT),
+    addTailorOrder: useOne(M.ADD_TAILOR_ORDER), editTailorOrder: useOne(M.EDIT_TAILOR_ORDER), setTailorOrderStatus: useOne(M.SET_TAILOR_ORDER_STATUS),
+    deleteTailorOrder: useOne(M.DELETE_TAILOR_ORDER), resetTailorOrder: useOne(M.RESET_TAILOR_ORDER),
     linkServiceInvoice: useOne(M.LINK_SERVICE_INVOICE),
   };
 };
@@ -94,6 +98,14 @@ export const useMembershipsPageQuery = (v: PageVars) => usePage(Q.GET_MEMBERSHIP
 export const useMembershipsQuery = (filter: Record<string, any> = {}, skip = false) => useList(Q.GET_MEMBERSHIPS, filter, skip);
 export const useDeletedMembershipsQuery = () => useList(Q.GET_DELETED_MEMBERSHIPS);
 export const useMembershipByIdQuery = (id?: string | null) => useById(Q.GET_MEMBERSHIP_BY_ID, id);
+export const useTailorOrdersPageQuery = (v: PageVars) => usePage(Q.GET_TAILOR_ORDERS_PAGE, "getTailorOrdersPage", v);
+export const useDeletedTailorOrdersQuery = (skip = false) => useList(Q.GET_DELETED_TAILOR_ORDERS, {}, skip);
+export const useTailorOrderByIdQuery = (id?: string | null) => useById(Q.GET_TAILOR_ORDER_BY_ID, id);
+export const useMeasurementsQuery = (search: string, skip = false) => {
+  const branchid = useServiceBranch();
+  return useQuery(Q.GET_MEASUREMENTS, { variables: { filter: { branchid }, search: search || null }, skip, ...live });
+};
+export const useLatestMeasurementsQuery = (partyacc?: string | null) => useQuery(Q.GET_LATEST_MEASUREMENTS, { variables: { partyacc }, skip: !partyacc, ...live });
 export const usePrescriptionsPageQuery = (v: PageVars) => usePage(Q.GET_PRESCRIPTIONS_PAGE, "getPrescriptionsPage", v);
 export const usePrescriptionsQuery = (filter: Record<string, any> = {}, skip = false) => useList(Q.GET_PRESCRIPTIONS, filter, skip);
 export const useDeletedPrescriptionsQuery = (skip = false) => useList(Q.GET_DELETED_PRESCRIPTIONS, {}, skip);

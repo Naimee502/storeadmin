@@ -654,7 +654,7 @@ const AddEditSalesInvoice = () => {
           const link = { id: fromService.id, invoiceid: invoiceId };
           await (fromService.kind === "jobcard"
             ? setJobCardStatus({ variables: { ...link, jobStatus: "delivered" } })
-            : fromService.kind === "membership" || fromService.kind === "contract"
+            : fromService.kind === "membership" || fromService.kind === "contract" || fromService.kind === "tailororder"
               ? linkServiceInvoice({ variables: { kind: fromService.kind, ...link } })
               : setAppointmentStatus({ variables: { ...link, apptStatus: "done" } })
           ).catch(() => undefined);

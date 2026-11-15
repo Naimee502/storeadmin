@@ -1,5 +1,5 @@
 import { gql } from "@apollo/client";
-import { APPOINTMENT_FIELDS, JOB_CARD_FIELDS, CONTRACT_FIELDS, PLAN_FIELDS, MEMBERSHIP_FIELDS, PRESCRIPTION_FIELDS } from "../../queries/service";
+import { APPOINTMENT_FIELDS, JOB_CARD_FIELDS, CONTRACT_FIELDS, PLAN_FIELDS, MEMBERSHIP_FIELDS, PRESCRIPTION_FIELDS, MEASUREMENT_FIELDS, TAILOR_ORDER_FIELDS } from "../../queries/service";
 
 export const ADD_APPOINTMENT = gql`mutation AddAppointment($input: AppointmentInput!) { addAppointment(input: $input) { ${APPOINTMENT_FIELDS} } }`;
 export const EDIT_APPOINTMENT = gql`mutation EditAppointment($id: ID!, $input: AppointmentInput!, $expectedUpdatedAt: String) { editAppointment(id: $id, input: $input, expectedUpdatedAt: $expectedUpdatedAt) { ${APPOINTMENT_FIELDS} } }`;
@@ -25,6 +25,14 @@ export const ADD_PRESCRIPTION = gql`mutation AddPrescription($input: Prescriptio
 export const EDIT_PRESCRIPTION = gql`mutation EditPrescription($id: ID!, $input: PrescriptionInput!, $expectedUpdatedAt: String) { editPrescription(id: $id, input: $input, expectedUpdatedAt: $expectedUpdatedAt) { ${PRESCRIPTION_FIELDS} } }`;
 export const DELETE_PRESCRIPTION = gql`mutation DeletePrescription($id: ID!, $expectedUpdatedAt: String) { deletePrescription(id: $id, expectedUpdatedAt: $expectedUpdatedAt) }`;
 export const RESET_PRESCRIPTION = gql`mutation ResetPrescription($id: ID!) { resetPrescription(id: $id) }`;
+export const ADD_MEASUREMENT = gql`mutation AddMeasurement($input: MeasurementInput!) { addMeasurement(input: $input) { ${MEASUREMENT_FIELDS} } }`;
+export const EDIT_MEASUREMENT = gql`mutation EditMeasurement($id: ID!, $input: MeasurementInput!) { editMeasurement(id: $id, input: $input) { ${MEASUREMENT_FIELDS} } }`;
+export const DELETE_MEASUREMENT = gql`mutation DeleteMeasurement($id: ID!) { deleteMeasurement(id: $id) }`;
+export const ADD_TAILOR_ORDER = gql`mutation AddTailorOrder($input: TailorOrderInput!) { addTailorOrder(input: $input) { ${TAILOR_ORDER_FIELDS} } }`;
+export const EDIT_TAILOR_ORDER = gql`mutation EditTailorOrder($id: ID!, $input: TailorOrderInput!, $expectedUpdatedAt: String) { editTailorOrder(id: $id, input: $input, expectedUpdatedAt: $expectedUpdatedAt) { ${TAILOR_ORDER_FIELDS} } }`;
+export const SET_TAILOR_ORDER_STATUS = gql`mutation SetTailorOrderStatus($id: ID!, $orderStatus: String!, $expectedUpdatedAt: String) { setTailorOrderStatus(id: $id, orderStatus: $orderStatus, expectedUpdatedAt: $expectedUpdatedAt) { ${TAILOR_ORDER_FIELDS} } }`;
+export const DELETE_TAILOR_ORDER = gql`mutation DeleteTailorOrder($id: ID!, $expectedUpdatedAt: String) { deleteTailorOrder(id: $id, expectedUpdatedAt: $expectedUpdatedAt) }`;
+export const RESET_TAILOR_ORDER = gql`mutation ResetTailorOrder($id: ID!) { resetTailorOrder(id: $id) }`;
 export const SET_APPOINTMENT_STATUS = gql`mutation SetAppointmentStatus($id: ID!, $apptStatus: String!, $invoiceid: ID, $expectedUpdatedAt: String) { setAppointmentStatus(id: $id, apptStatus: $apptStatus, invoiceid: $invoiceid, expectedUpdatedAt: $expectedUpdatedAt) { ${APPOINTMENT_FIELDS} } }`;
 export const SET_JOB_CARD_STATUS = gql`mutation SetJobCardStatus($id: ID!, $jobStatus: String!, $invoiceid: ID, $expectedUpdatedAt: String) { setJobCardStatus(id: $id, jobStatus: $jobStatus, invoiceid: $invoiceid, expectedUpdatedAt: $expectedUpdatedAt) { ${JOB_CARD_FIELDS} } }`;
 
