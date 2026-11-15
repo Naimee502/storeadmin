@@ -247,8 +247,6 @@ const GeneralTab: React.FC<{ adminId?: string; dispatch: any; allowedModules?: s
 }) => {
   const { admin: loggedInAdmin } = useAppSelector((s: any) => s.auth);
   const { data, refetch } = useAdminSettingsQuery(adminId);
-  const { data: adminsList } = useAdminsQuery();
-  const adminCode = adminsList?.getAdmins?.find((a: any) => a.id === adminId)?.admincode;
   const { updateAdminSettings, testBusinessSmtp, testingSmtp } = useAdminSettingsMutations();
   const settings = data?.getAdminSettings;
   const [draft, setDraft] = useState<any>(null);
@@ -428,11 +426,6 @@ const GeneralTab: React.FC<{ adminId?: string; dispatch: any; allowedModules?: s
           <Toggle label="Party login email OTP" hint="Customer login on the App & Website asks for a 4-digit OTP sent to the party's email." checked={!!draft.partyLoginEmailOtp} onChange={(v: boolean) => set("partyLoginEmailOtp", v)} />
           <Toggle label="New signups need approval" hint="Self-registered customers stay Pending and cannot log in until approved from Party Accounts." checked={!!draft.requirePartyApproval} onChange={(v: boolean) => set("requirePartyApproval", v)} />
         </Grid>
-        {adminCode && (
-          <div className="text-[12px] text-slate-600">
-            Login link (opens the login page with your business name): <span className="font-mono text-slate-900">{`${window.location.origin}${import.meta.env.PROD ? "/admin" : ""}/login?b=${encodeURIComponent(adminCode)}`}</span>
-          </div>
-        )}
       </Section>
 
       <Section title="Online Booking">

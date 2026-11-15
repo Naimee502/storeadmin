@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router";
-import { useMutation, useQuery } from "@apollo/client";
-import { FIND_LOGINS, GET_LOGIN_BUSINESS, GET_LOGIN_BUSINESS_BY_ID } from "../../graphql/queries/admin";
+import { useNavigate } from "react-router";
+import { useMutation } from "@apollo/client";
+import { FIND_LOGINS } from "../../graphql/queries/admin";
 import LoginLayout from "../../layouts/login";
 import FormField from "../../components/formfiled";
 import Button from "../../components/button";
@@ -14,9 +14,6 @@ import { useLoginAdminMutation } from "../../graphql/hooks/admin";
 import { useLoginStaffMutation } from "../../graphql/hooks/staffaccounts";
 import { useAuth } from "../../contexts/auth";
 
-
-/** Business shown on plain /login next time on this device. */
-const rememberBusiness = (id?: string) => { if (id) try { localStorage.setItem("loginBusinessId", id); } catch { /* storage off */ } };
 
 const Login = () => {
   const dispatch = useAppDispatch();
@@ -32,19 +29,6 @@ const Login = () => {
   const [password, setPassword] = useState("");
   const [loginType, setLoginType] = useState<"branch" | "admin" | "staff">("admin");
 
-  // A business login link (/login?b=code) shows that business's name and only its chosen tabs.
-  // "#" in a code starts the URL fragment, so an unencoded link (?b=#ADM0001) arrives in the hash.
-  // The business last signed in (or opened by link) on this device is remembered for plain /login.
-  const [params] = useSearchParams();
-  const fromLink = params.get("b") || (params.has("b") && /^#ADM/i.test(window.location.hash) ? window.location.hash : "");
-  const [savedId, setSavedId] = useState(() => { try { return localStorage.getItem("loginBusinessId") || ""; } catch { return ""; } });
-  const forgetBusiness = () => { try { localStorage.removeItem("loginBusinessId"); } catch { /* storage off */ } setSavedId(""); };
-  const { data: bizData } = useQuery(GET_LOGIN_BUSINESS, { variables: { admincode: fromLink }, skip: !fromLink });
-  const { data: savedData } = useQuery(GET_LOGIN_BUSINESS_BY_ID, { variables: { id: savedId }, skip: !!fromLink || !savedId });
-  const business = fromLink ? bizData?.getAdminByCode : savedData?.getAdminById;
-  useEffect(() => {
-    if (fromLink && bizData?.getAdminByCode?.id) rememberBusiness(bizData.getAdminByCode.id);
-  }, [fromLink, bizData]);
   // No tabs: the email and password say whether this is the owner, a branch or a staff login.
   const [findLogins] = useMutation(FIND_LOGINS);
   const [choices, setChoices] = useState<{ kind: string; label: string }[]>([]);
@@ -126,7 +110,6 @@ const Login = () => {
         localStorage.setItem("accessToken", accessToken);
         localStorage.setItem("branchid", staff.branchid?.id || "");
         localStorage.setItem("adminid", admin.id || "");
-        rememberBusiness(admin.id);
         dispatch(setBranchId(staff.branchid?.id || ""));
         dispatch(saveAuthData({ type: "staff", staff: staff }));
         login();
@@ -142,7 +125,6 @@ const Login = () => {
 
         localStorage.setItem("accessToken", accessToken);
         localStorage.setItem("adminid", admin.id || "");
-        rememberBusiness(admin.id);
 
         if (!admin.subscribed) {
           if (admin.needsReview) {
@@ -211,7 +193,6 @@ const Login = () => {
         localStorage.setItem("accessToken", accessToken);
         localStorage.setItem("branchid", branch.id);
         localStorage.setItem("adminid", admin.id || "");
-        rememberBusiness(admin.id);
         dispatch(setBranchId(branch.id));
         dispatch(saveAuthData({ type: "branch", branch: branch }));
         login();
@@ -266,12 +247,7 @@ const Login = () => {
           <div className="mx-auto w-full max-w-sm">
           <div className="mb-5 text-center">
             <h1 className="text-2xl font-bold tracking-tight text-slate-900">Login</h1>
-            <p className="mt-1 text-[13px] text-slate-500">
-              {business?.companyName ? `Sign in to ${business.companyName}` : "Sign in to your account to continue"}
-            </p>
-            {!fromLink && savedId && business?.companyName && (
-              <button type="button" onClick={forgetBusiness} className="mt-1 text-[12px] font-medium text-indigo-600 hover:underline">Not {business.companyName}?</button>
-            )}
+            <p className="mt-1 text-[13px] text-slate-500">Sign in to your account to continue</p>
           </div>
 
           {!hideTip && (
