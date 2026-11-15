@@ -86,7 +86,7 @@ export default function NotificationBell() {
       }
       refetch();
     }
-    const page: Record<string, string> = { SupportTicket: "/account/tickets/", JobCard: "/account/repairs/", Contract: "/account/amc", Membership: "/account/memberships", Prescription: "/account/prescriptions/" };
+    const page: Record<string, string> = { SupportTicket: "/account/tickets/", JobCard: "/account/repairs/", Contract: "/account/amc", Membership: "/account/memberships", Prescription: "/account/prescriptions/", TailorOrder: "/account/stitching/" };
     if (!asSupplier && page[n.docmodel]) {
       setOpen(false);
       navigate(page[n.docmodel].endsWith("/") ? `${page[n.docmodel]}${n.docid || ""}` : page[n.docmodel]);

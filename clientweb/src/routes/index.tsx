@@ -29,6 +29,7 @@ import { MyRepairPage, MyRepairsPage } from "../pages/myservice/repairs";
 import { MyContractsPage, MyMembershipsPage } from "../pages/myservice/plans";
 import { MyPointsPage } from "../pages/myservice/points";
 import { MyPrescriptionPage, MyPrescriptionsPage } from "../pages/myservice/prescriptions";
+import { MyStitchingOrderPage, MyStitchingPage } from "../pages/myservice/stitching";
 
 // Payment pages exist only while the business has the Payments module on — a
 // bookmarked or typed URL lands back on My Account instead.
@@ -71,6 +72,8 @@ export default function AppRoutes() {
           <Route path="/account/points" element={<MyPointsPage />} />
           <Route path="/account/prescriptions" element={<MyPrescriptionsPage />} />
           <Route path="/account/prescriptions/:id" element={<MyPrescriptionPage />} />
+          <Route path="/account/stitching" element={<MyStitchingPage />} />
+          <Route path="/account/stitching/:id" element={<MyStitchingOrderPage />} />
         </Route>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/about" element={<AboutPage />} />

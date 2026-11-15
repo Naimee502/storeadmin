@@ -2,7 +2,7 @@ import { gql } from "@apollo/client";
 
 export const GET_MY_SERVICE_SUMMARY = gql`
   query GetMyServiceSummary {
-    getMyServiceSummary { tickets openTickets jobcards activeJobcards contracts memberships loyaltyPoints prescriptions }
+    getMyServiceSummary { tickets openTickets jobcards activeJobcards contracts memberships loyaltyPoints prescriptions tailororders }
   }
 `;
 
@@ -49,3 +49,8 @@ const RX = `id rxnumber billdate doctorname doctorqualification complaints diagn
 export const GET_MY_PRESCRIPTIONS = gql`query GetMyPrescriptions { getMyPrescriptions { ${RX} } }`;
 export const GET_MY_PRESCRIPTION = gql`query GetMyPrescription($id: ID!) { getMyPrescription(id: $id) { ${RX} } }`;
 export const MY_PRESCRIPTION_PRINT_LINK = gql`mutation MyPrescriptionPrintLink($id: ID!) { myPrescriptionPrintLink(id: $id) }`;
+
+const TO = `id billnumber billdate orderStatus trialdate deliverydate total advance deliveredAt
+  items { garment productserviceid { id name } qty rate amount fabric fabricnote design values { key label value } unit }`;
+export const GET_MY_TAILOR_ORDERS = gql`query GetMyTailorOrders { getMyTailorOrders { ${TO} } }`;
+export const GET_MY_TAILOR_ORDER = gql`query GetMyTailorOrder($id: ID!) { getMyTailorOrder(id: $id) { ${TO} } }`;

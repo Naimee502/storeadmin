@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { Link, Navigate, useLocation } from "react-router";
-import { ArrowLeft, BadgeCheck, LifeBuoy, ShieldCheck, Wrench, Gift, Stethoscope } from "lucide-react";
+import { ArrowLeft, BadgeCheck, LifeBuoy, ShieldCheck, Wrench, Gift, Stethoscope, Scissors } from "lucide-react";
 import Breadcrumb from "../../components/breadcrumb";
 import { useAuth } from "../../contexts/auth";
 
@@ -44,6 +44,6 @@ export const Loading = () => <p className="text-sm text-slate-500">Loading...</p
 
 /** Menu icon for a service page. */
 export function ServiceIcon({ to, className = "h-4 w-4" }: { to: string; className?: string }) {
-  const I = to.includes("repairs") ? Wrench : to.includes("amc") ? ShieldCheck : to.includes("memberships") ? BadgeCheck : to.includes("points") ? Gift : to.includes("prescriptions") ? Stethoscope : LifeBuoy;
+  const I = to.includes("repairs") ? Wrench : to.includes("amc") ? ShieldCheck : to.includes("memberships") ? BadgeCheck : to.includes("points") ? Gift : to.includes("prescriptions") ? Stethoscope : to.includes("stitching") ? Scissors : LifeBuoy;
   return <I className={className} />;
 }
