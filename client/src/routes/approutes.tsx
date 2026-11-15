@@ -141,6 +141,7 @@ import Memberships from "../pages/memberships";
 import Loyalty from "../pages/loyalty";
 import Batches from "../pages/batches";
 import MetalRates from "../pages/metalrates";
+import Restaurant from "../pages/restaurant";
 import Serials from "../pages/serials";
 import Tailoring from "../pages/tailoring";
 import AddEditTailorOrder from "../pages/tailoring/addedit";
@@ -1133,6 +1134,7 @@ const AppRoutes = () => {
       <Route path="/loyalty" element={<ProtectedRoutes><Loyalty /></ProtectedRoutes>} />
       <Route path="/batches" element={<ProtectedRoutes><Batches /></ProtectedRoutes>} />
       <Route path="/metalrates" element={<ProtectedRoutes><MetalRates /></ProtectedRoutes>} />
+      <Route path="/restaurant" element={<ProtectedRoutes><Restaurant /></ProtectedRoutes>} />
       <Route path="/serials" element={<ProtectedRoutes><Serials /></ProtectedRoutes>} />
       <Route path="/tailoring" element={<ProtectedRoutes><Tailoring /></ProtectedRoutes>} />
       <Route path="/tailoring/addedit" element={<ProtectedRoutes><AddEditTailorOrder /></ProtectedRoutes>} />

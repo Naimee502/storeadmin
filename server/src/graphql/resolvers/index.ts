@@ -69,6 +69,7 @@ import { batchResolvers } from "./batches";
 import { withBatches } from "../../utils/batches";
 import { serialResolvers } from "./serials";
 import { jewelleryResolvers, withJewellery } from "./jewellery";
+import { restaurantResolvers } from "./restaurant";
 import { withSerials } from "../../utils/serials";
 import { withRxNotify } from "../../utils/clinic";
 import { panelLoginResolvers } from "./panellogin";
@@ -177,6 +178,7 @@ const guarded = guardResolvers([
   batchResolvers,
   serialResolvers,
   jewelleryResolvers,
+  restaurantResolvers,
   panelLoginResolvers,
   aiResolvers,
   insightResolvers,

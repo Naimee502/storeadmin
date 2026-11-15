@@ -1,4 +1,6 @@
 import React, { useEffect, useState, useMemo } from "react";
+import { useMutation } from "@apollo/client";
+import { BILL_TABLE_ORDER } from "../../../graphql/queries/restaurant";
 import { JewelLines, OldGoldPanel, oldGoldValue, type OldGold } from "../../../components/jewellines";
 import { useOptInOn } from "../../../hooks/useoptin";
 import SerialLines, { serialMismatch, type SerialItem } from "../../../components/seriallines";
@@ -64,6 +66,7 @@ const AddEditSalesInvoice = () => {
   const fromService: any = (location.state as any)?.fromService;
   const serviceFilled = React.useRef(false);
   const { setAppointmentStatus, setJobCardStatus, linkServiceInvoice } = useServiceMutations();
+  const [billTableOrder] = useMutation(BILL_TABLE_ORDER);
 
   const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
   const selectedBranchId = useAppSelector((state) => state.selectedBranch.branchId);
@@ -671,7 +674,9 @@ const AddEditSalesInvoice = () => {
         const invoiceId = res?.data?.addSalesInvoice?.id;
         if (fromService?.id && invoiceId && !savedOffline) {
           const link = { id: fromService.id, invoiceid: invoiceId };
-          await (fromService.kind === "jobcard"
+          await (fromService.kind === "tableorder"
+            ? billTableOrder({ variables: { ...link, lines: fromService.billlines || [] } })
+            : fromService.kind === "jobcard"
             ? setJobCardStatus({ variables: { ...link, jobStatus: "delivered" } })
             : fromService.kind === "membership" || fromService.kind === "contract" || fromService.kind === "tailororder"
               ? linkServiceInvoice({ variables: { kind: fromService.kind, ...link } })

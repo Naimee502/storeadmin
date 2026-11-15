@@ -20,7 +20,7 @@ import {
   FaTruck,
   FaFunnelDollar,
   FaPhoneAlt,
-  FaShoppingBag, FaGift, FaPrescriptionBottleAlt, FaCalendarTimes, FaBarcode, FaCut, FaCoins } from 'react-icons/fa';
+  FaShoppingBag, FaGift, FaPrescriptionBottleAlt, FaCalendarTimes, FaBarcode, FaCut, FaCoins, FaUtensils } from 'react-icons/fa';
 import { MdBrandingWatermark } from 'react-icons/md';
 import { Link, useLocation, useNavigate } from 'react-router';
 import { useAppSelector } from '../../redux/hooks';
@@ -183,6 +183,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar, onHoverChange 
     { to: '/salesorder', label: 'Sales Orders', icon: <FaClipboardList className="text-cyan-500 text-[15px] flex-shrink-0" />, moduleId: "salesorder", roles: ["admin", "branch", "staff"], section: "Branch" },
     { to: '/deliveryboard', label: 'Delivery Board', icon: <Truck size={15} className="text-cyan-500 flex-shrink-0" />, moduleId: "deliveryboard", roles: ["admin", "branch", "staff"], section: "Branch" },
     { to: '/marketplaceorders', label: 'Marketplace Orders', icon: <FaShoppingBag className="text-orange-500 text-[15px] flex-shrink-0" />, moduleId: "marketplace", roles: ["admin", "branch", "staff"], section: "Branch" },
+    { to: '/restaurant', label: 'Tables', icon: <FaUtensils className="text-orange-500 text-[15px] flex-shrink-0" />, moduleId: "restaurant", roles: ["admin", "branch", "staff"], section: "Branch" },
     { to: '/salesinvoice', label: 'Sales Invoices', icon: <FaFileInvoiceDollar className="text-emerald-500 text-[15px] flex-shrink-0" />, moduleId: "salesinvoice", roles: ["admin", "branch", "staff"], section: "Branch" },
     { to: '/deliverychallan', label: 'Delivery Challans', icon: <FaTruck className="text-sky-500 text-[15px] flex-shrink-0" />, moduleId: "deliverychallan", roles: ["admin", "branch", "staff"], section: "Branch" },
     { to: '/salesreturn', label: 'Sales Returns', icon: <FaUndoAlt className="text-rose-500 text-[15px] flex-shrink-0" />, moduleId: "salesreturn", roles: ["admin", "branch", "staff"], section: "Branch" },

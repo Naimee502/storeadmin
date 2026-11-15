@@ -225,12 +225,12 @@ export const BUSINESS_PROFILES: BusinessProfile[] = [
   {
     id: "restaurant", label: "Restaurant / Food", group: "Services", types: ["restaurant"],
     kinds: FOOD_KINDS, units: [U.pcs, U.plate],
-    note: "Counter billing, orders, charge rules and item groups.",
+    note: "Tables with KOT and running bills, counter billing, charge rules and item groups.",
     fields: {
       products: { ...NO_MASTER_BATCH, brandid: false, modelid: false, sizeid: false, isserialised: false, itemtype: false },
       services: { visitcharge: false, warrantydays: false, materials: false, locationType: false },
     },
-    modules: [...CORE, "posdashboard", "salesorder", "productgroups", "chargerules", "reports.analytical"],
+    modules: [...CORE, "restaurant", "posdashboard", "salesorder", "productgroups", "chargerules", "reports.analytical"],
   },
   {
     id: "doctor", label: "Doctor / Clinic", group: "Services", types: ["doctor"],
