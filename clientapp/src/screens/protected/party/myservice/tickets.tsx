@@ -1,9 +1,9 @@
 import React, { useCallback, useState } from 'react';
-import { View, Text, TextInput, Alert } from 'react-native';
+import { View, Text, TextInput, Alert, Pressable, StyleSheet } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import { useMutation, useQuery } from '@apollo/client/react';
-import { useTheme } from '../../../../config';
+import { FONTS, useTheme } from '../../../../config';
 import { ADD_MY_TICKET, GET_MY_TICKET, GET_MY_TICKETS, REPLY_MY_TICKET, SET_MY_TICKET_STATUS } from '../../../../apollo/queries/myservice';
 import { Btn, Card, Pill, Screen, s, whenLabel } from './shared';
 
@@ -35,8 +35,11 @@ export function MyTickets() {
       if (id) navigation.navigate('MyTicket', { id });
     } catch (e: any) { Alert.alert('Could not raise ticket', e?.message || 'Please try again.'); }
   };
+  // Bordered Text grows tall on Android, so the border sits on a Pressable.
   const chip = (on: boolean, label: string, onPress: () => void) => (
-    <Text key={label} onPress={onPress} style={[s.pill, { color: on ? '#fff' : colors.text, borderColor: on ? colors.brand : colors.border, backgroundColor: on ? colors.brand : 'transparent', paddingVertical: 5, paddingHorizontal: 10 }]}>{label}</Text>
+    <Pressable key={label} onPress={onPress} style={[st.chip, { borderColor: on ? colors.brand : colors.border, backgroundColor: on ? colors.brand : 'transparent' }]}>
+      <Text style={[st.chipText, { color: on ? '#fff' : colors.text }]}>{label}</Text>
+    </Pressable>
   );
 
   return (
@@ -46,10 +49,10 @@ export function MyTickets() {
           <Text style={[s.title, { color: colors.text }]}>New Ticket</Text>
           <TextInput value={form.subject} onChangeText={(t) => setForm({ ...form, subject: t })} maxLength={200} placeholder="Subject (e.g. AC not cooling)" placeholderTextColor={colors.subText}
             style={[s.input, { color: colors.text, borderColor: colors.border }]} />
-          <Text style={[s.label, { color: colors.subText }]}>Category</Text>
-          <View style={s.wrap}>{CATEGORIES.map((c) => chip(form.category === c, c, () => setForm({ ...form, category: form.category === c ? '' : c })))}</View>
-          <Text style={[s.label, { color: colors.subText }]}>Priority</Text>
-          <View style={s.wrap}>{PRIORITIES.map(([v, l]) => chip(form.priority === v, l, () => setForm({ ...form, priority: v })))}</View>
+          <Text style={[s.label, st.group, { color: colors.subText }]}>Category</Text>
+          <View style={st.chips}>{CATEGORIES.map((c) => chip(form.category === c, c, () => setForm({ ...form, category: form.category === c ? '' : c })))}</View>
+          <Text style={[s.label, st.group, { color: colors.subText }]}>Priority</Text>
+          <View style={st.chips}>{PRIORITIES.map(([v, l]) => chip(form.priority === v, l, () => setForm({ ...form, priority: v })))}</View>
           <TextInput value={form.description} onChangeText={(t) => setForm({ ...form, description: t })} multiline placeholder="Tell us what happened" placeholderTextColor={colors.subText}
             style={[s.input, { color: colors.text, borderColor: colors.border, minHeight: 90 }]} />
           <View style={s.row}>
@@ -141,3 +144,10 @@ export function MyTicket() {
     </Screen>
   );
 }
+
+const st = StyleSheet.create({
+  group: { marginTop: 6 },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, alignItems: 'flex-start' },
+  chip: { borderWidth: 1, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6, alignSelf: 'flex-start' },
+  chipText: { fontSize: 12, fontFamily: FONTS.semiBold, includeFontPadding: false },
+});

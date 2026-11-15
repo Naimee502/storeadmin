@@ -44,7 +44,7 @@ export function Card({ children, onPress, style }: { children: React.ReactNode; 
 }
 
 export function Pill({ label, color }: { label: string; color: string }) {
-  return <Text style={[s.pill, { color, borderColor: color }]}>{label}</Text>;
+  return <View style={[s.pillBox, { borderColor: color }]}><Text style={[s.pill, { color }]}>{label}</Text></View>;
 }
 
 export function Btn({ label, onPress, kind = 'primary', disabled, icon }: { label: string; onPress: () => void; kind?: 'primary' | 'outline' | 'danger'; disabled?: boolean; icon?: React.ReactNode }) {
@@ -70,7 +70,8 @@ export const s = StyleSheet.create({
   label: { fontSize: 11, fontFamily: FONTS.regular },
   value: { fontSize: 13, fontFamily: FONTS.semiBold },
   big: { fontSize: 20, fontFamily: FONTS.bold },
-  pill: { fontSize: 11, fontFamily: FONTS.semiBold, borderWidth: 1, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2, overflow: 'hidden' },
+  pillBox: { borderWidth: 1, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2, alignSelf: 'center' },
+  pill: { fontSize: 11, fontFamily: FONTS.semiBold, includeFontPadding: false },
   btn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, borderWidth: 1, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10, flexGrow: 1 },
   btnText: { fontSize: 13, fontFamily: FONTS.semiBold },
   input: { borderWidth: 1, borderRadius: 10, padding: 10, fontSize: 13, textAlignVertical: 'top' },
