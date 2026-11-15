@@ -3,7 +3,8 @@ import { ADMIN_REGISTER_MODULES, DEFAULT_ON_MODULE_IDS } from "./modules";
 // Business types, one list for Admin Register, the admin edit form and Business Settings.
 // Each type is also a one-click module preset; applying one only turns modules ON, never off.
 // `id` is the value saved as Admin.businesstype; `types` also matches values saved earlier.
-export type BusinessProfile = { id: string; label: string; group: string; types: string[]; modules: string[]; note: string };
+// `switches`: Business Settings switches the type also turns on (never off).
+export type BusinessProfile = { id: string; label: string; group: string; types: string[]; modules: string[]; note: string; switches?: Record<string, any> };
 
 const CORE = [
   "categories", "subcategories", "brands", "units", "products",
@@ -78,12 +79,14 @@ export const BUSINESS_PROFILES: BusinessProfile[] = [
   {
     id: "doctor", label: "Doctor / Clinic", group: "Services", types: ["doctor"],
     note: "Appointments, doctors and prescriptions.",
+    switches: { onlineBookingAllowed: true },
     modules: [...CORE, "services", "appointments", "prescriptions", "leads", "followups", "reports.service", "reports.crm"],
   },
   {
     // Saved as "clinic" before Doctor / Clinic had its own type.
     id: "salon", label: "Salon / Spa / Gym", group: "Services", types: ["salon", "clinic"],
     note: "Appointments, services and memberships.",
+    switches: { onlineBookingAllowed: true },
     modules: [...CORE, "posdashboard", "services", "appointments", "memberships", "leads", "followups", "reports.service", "reports.crm"],
   },
   {

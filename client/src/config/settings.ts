@@ -14,7 +14,14 @@ export const SETTINGS_TABS: Array<[SettingsTab, string]> = [
 ];
 
 // Section title → its tab. Sections not listed stay on General.
+// Business Modules sections carry the switches of their modules (see MODULE_SWITCHES).
 export const SECTION_HOME: Record<string, SettingsTab> = {
+  "Sales": "modules",
+  "Accounts": "modules",
+  "Distribution": "modules",
+  "Accounting": "modules",
+  "HR & Staff": "modules",
+  "Service": "modules",
   "AI Assistant": "ai",
   "Quotation Format": "print",
   "Invoice Print": "print",
@@ -32,12 +39,15 @@ export const SETTINGS_INDEX: SettingsEntry[] = [
   S("Show stock on App / Website", "Stock & Inventory", "display stock"),
   S("GST tracking", "Orders & Pricing", "gst tax"),
   S("Show prices on App / Website", "Orders & Pricing", "price display website app"),
-  S("Price-list discount on salesman orders", "Orders & Pricing", "price list discount salesman"),
-  S("Payments & accounts", "Payments & Accounts", "payment advance outstanding reminder"),
+  S("Price-list discount, salesman extra discount, delivery boy", "Sales", "price list discount salesman delivery boy order"),
+  S("Party manages downline, party stock", "Accounts", "party downline sub party stock channel"),
+  S("Discount & commission on payment, last payment", "Accounting", "payment discount commission outstanding last"),
+  S("Payments & accounts", "Payments & Accounts", "invoice delete inside"),
   S("App & website display", "App & Website Display", "app website display catalogue"),
-  S("Salesman & staff rules", "Salesman & Staff", "salesman staff geo fence selfie punch attendance delivery boy"),
+  S("Leaderboard, geo-fencing", "Distribution", "salesman leaderboard geo fence route"),
+  S("Selfie on punch in, auto punch-out", "HR & Staff", "selfie punch attendance auto"),
   S("Login & signup", "Login & Signup", "login otp signup register"),
-  S("Online booking", "Online Booking", "booking appointment slot website app"),
+  S("Online booking", "Service", "booking appointment slot website app"),
   S("GST profile (e-Invoice / e-Way Bill)", "GST Profile (e-Invoice / e-Way Bill)", "gstin einvoice ewaybill state igst"),
   S("CRM stages, sources, lost reasons", "CRM (Leads)", "crm lead stage source lost reason"),
   S("Website storefront & checkout", "Website Storefront", "website store slug domain checkout payment cod"),
@@ -59,3 +69,35 @@ export const searchSettings = (q: string): SettingsEntry[] => {
     return words.every((w) => hay.includes(w));
   }).slice(0, 8);
 };
+
+// Feature switches shown under their module on Business Modules (saved in AdminSettings as before).
+export type ModuleSwitch = {
+  module: string; key: string; label: string; hint?: string;
+  value: (s: any) => boolean; patch: (v: boolean) => Record<string, any>;
+  /** Shown only while this is true (e.g. sub-switch of Party manages downline). */
+  when?: (s: any) => boolean;
+};
+const flag = (module: string, key: string, label: string, hint = "", defaultOn = false, when?: (s: any) => boolean): ModuleSwitch => ({
+  module, key, label, hint, when,
+  value: (s) => (defaultOn ? s?.[key] !== false : !!s?.[key]),
+  patch: (v) => ({ [key]: v }),
+});
+
+export const MODULE_SWITCHES: ModuleSwitch[] = [
+  flag("appointments", "onlineBookingAllowed", "Online Booking", "Customers book a service slot from the App & Website. The owner sets hours in Settings → General."),
+  flag("salesorder", "salesmanPriceListDiscount", "Price-list discount on salesman orders", "On: orders a salesman / staff takes get the party's price-list discount. Off: only the party's own App / Website orders get it.", true),
+  flag("salesorder", "salesmanOrderDiscountEnabled", "Salesman extra discount on order", "The salesman app cart shows an Extra discount (₹ or %) on the whole order."),
+  {
+    module: "salesorder", key: "deliveryMode", label: "Deliver via Delivery Boy", hint: "Off: the salesman delivers on his route.",
+    value: (s) => s?.deliveryMode === "deliveryboy", patch: (v) => ({ deliveryMode: v ? "deliveryboy" : "salesman" }),
+  },
+  flag("accounts", "partyManagesDownline", "Party manages downline", "A channel party handles its sub-parties' orders and payments."),
+  flag("accounts", "directPartyOrdersOnly", "Company sees direct-party orders only", "Sales Orders shows only orders of your direct parties; sub-party orders are handled by their parent party.", false, (s) => !!s?.partyManagesDownline),
+  flag("accounts", "trackPartyStock", "Track party stock", "Each party gets its own stock, moved by invoices to it and by its own conversions.", false, (s) => !!s?.partyManagesDownline),
+  flag("payments", "enablePaymentDiscountCommission", "Discount & Commission on payment", "Enter a discount / commission per invoice while collecting a payment."),
+  flag("payments", "showLastPaymentOnStatement", "Last payment on Outstanding reports", "Adds last payment date, amount and days ago to Customer / Vendor Outstanding."),
+  flag("salesroutes", "salesmanLeaderboardEnabled", "Team Leaderboard (salesman app)", "Salesmen see each other's target, sales and rank.", true),
+  flag("salesroutes", "geoFenceEnabled", "Geo-fencing for salesmen", "Orders / no-order calls only within the set distance of the party's saved location."),
+  flag("attendance", "attendanceSelfieRequired", "Selfie on Punch In", "Punch In from the app needs a front-camera selfie."),
+  flag("attendance", "autoPunchOutEnabled", "Auto punch-out", "Anyone still punched in at this time is punched out automatically.", true),
+];

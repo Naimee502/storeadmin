@@ -31,7 +31,8 @@ import {
   type ModuleAction,
 } from "../../config/modules";
 import FormPermissionsTab from "./formpermissionstab";
-import { SETTINGS_TABS, SECTION_HOME, sectionId, searchSettings, type SettingsTab } from "../../config/settings";
+import { MODULE_SWITCHES, SETTINGS_TABS, SECTION_HOME, sectionId, searchSettings, type SettingsTab } from "../../config/settings";
+import { useStaffListQuery } from "../../graphql/hooks/staffaccounts";
 import { BUSINESS_PROFILES, BUSINESS_TYPE_OPTIONS, businessTypeValue, profileModules, profileForType } from "../../config/profiles";
 import { LeadSourcesPanel } from "../leadsources";
 import { stateOptions } from "../../utils/constants";
@@ -356,23 +357,11 @@ const GeneralTab: React.FC<{ adminId?: string; dispatch: any; allowedModules?: s
           <Toggle label="Show prices on App / Website" checked={draft.displayProductPriceOnWebsite} onChange={(v) => set("displayProductPriceOnWebsite", v)} />
           <Toggle label="Show double price (display only)" hint="Catalogue prices on the app and website show at twice the rate. Cart, checkout and the order use the real rate." checked={!!draft.doubleDisplayPrice} onChange={(v: boolean) => set("doubleDisplayPrice", v)} />
           <Toggle label="Encrypt invoice prices" checked={draft.encryptInvoicePrices} onChange={(v) => set("encryptInvoicePrices", v)} />
-          <Toggle label="Price-list discount on salesman orders" hint="On: orders a salesman / staff takes get the party's price-list discount. Off: only the party's own App / Website orders get it — salesman orders use the price-list rate with no discount." checked={draft.salesmanPriceListDiscount !== false} onChange={(v: boolean) => set("salesmanPriceListDiscount", v)} />
-          <Toggle label="Salesman extra discount on order" hint="The salesman app cart shows an Extra discount (₹ or %) on the whole order." checked={!!draft.salesmanOrderDiscountEnabled} onChange={(v: boolean) => set("salesmanOrderDiscountEnabled", v)} />
-          <Toggle label="Deliver via Delivery Boy" hint="Off: the salesman delivers on his route." checked={draft.deliveryMode === "deliveryboy"} onChange={(v: boolean) => set("deliveryMode", v ? "deliveryboy" : "salesman")} />
-          <Toggle label="Party manages downline" hint="A channel party handles its sub-parties' orders and payments." checked={!!draft.partyManagesDownline} onChange={(v: boolean) => set("partyManagesDownline", v)} />
-          {draft.partyManagesDownline && (
-            <Toggle label="Company sees direct-party orders only" hint="On: Sales Orders shows only orders of your direct parties (no parent party, e.g. Super Stockist). Sub-party orders are handled by their parent party. Off: the whole channel's orders, as before." checked={!!draft.directPartyOrdersOnly} onChange={(v: boolean) => set("directPartyOrdersOnly", v)} />
-          )}
-          {draft.partyManagesDownline && (
-            <Toggle label="Track party stock" hint="Each party gets its own stock. A Sales Invoice to a direct party adds to that party's stock (your stock goes down as usual). When a parent party converts its sub-party's order to an invoice, the parent's stock goes down and the sub-party's goes up — your stock is not touched." checked={!!draft.trackPartyStock} onChange={(v: boolean) => set("trackPartyStock", v)} />
-          )}
         </Grid>
       </Section>
 
       <Section title="Payments & Accounts">
         <Grid>
-          <Toggle label="Discount & Commission on payment" hint="Enter a discount / commission per invoice while collecting a payment." checked={!!draft.enablePaymentDiscountCommission} onChange={(v: boolean) => set("enablePaymentDiscountCommission", v)} />
-          <Toggle label="Last payment on Outstanding reports" hint="Adds last payment date, amount and days ago to Customer / Vendor Outstanding and their exports." checked={!!draft.showLastPaymentOnStatement} onChange={(v: boolean) => set("showLastPaymentOnStatement", v)} />
           <Toggle label="Delete invoice only from inside it" hint="Hides the delete icon on the Sales / Purchase Invoice lists; Delete is inside the invoice instead." checked={!!draft.deleteInvoiceFromInsideOnly} onChange={(v: boolean) => set("deleteInvoiceFromInsideOnly", v)} />
         </Grid>
       </Section>
@@ -386,51 +375,11 @@ const GeneralTab: React.FC<{ adminId?: string; dispatch: any; allowedModules?: s
         </Grid>
       </Section>
 
-      <Section title="Salesman & Staff">
-        <Grid>
-          <Toggle label="Team Leaderboard (salesman app)" hint="Salesmen see each other's target, sales and rank." checked={draft.salesmanLeaderboardEnabled !== false} onChange={(v: boolean) => set("salesmanLeaderboardEnabled", v)} />
-          <Toggle label="Geo-fencing for salesmen" hint="Orders / no-order calls only within the set distance of the party's saved location." checked={!!draft.geoFenceEnabled} onChange={(v: boolean) => set("geoFenceEnabled", v)} />
-          <Toggle label="Selfie on Punch In" hint="Punch In from the app needs a front-camera selfie." checked={!!draft.attendanceSelfieRequired} onChange={(v: boolean) => set("attendanceSelfieRequired", v)} />
-          <Toggle label="Auto punch-out" hint="Anyone still punched in at this time is punched out automatically." checked={draft.autoPunchOutEnabled !== false} onChange={(v: boolean) => set("autoPunchOutEnabled", v)} />
-        </Grid>
-        {(draft.geoFenceEnabled || draft.autoPunchOutEnabled !== false) && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6 gap-x-3 gap-y-2 pt-1">
-            {draft.geoFenceEnabled && (
-              <FormField
-                label="Geo-fence distance (metres)"
-                type="number"
-                name="geoFenceRadiusM"
-                placeholder="200"
-                value={draft.geoFenceRadiusM ?? 200}
-                onChange={(e: any) => set("geoFenceRadiusM", e.target.value === "" ? 200 : Number(e.target.value))}
-              />
-            )}
-            {draft.autoPunchOutEnabled !== false && (
-              <label className="flex flex-col gap-1 text-[12px] font-medium text-slate-600">
-                <span>Auto punch-out time</span>
-                <input
-                  type="time"
-                  className="h-8 rounded-md border border-slate-300 bg-white px-2 text-[13px] font-normal text-slate-900"
-                  value={draft.autoPunchOutTime || "22:00"}
-                  onChange={(e) => set("autoPunchOutTime", e.target.value || "22:00")}
-                />
-              </label>
-            )}
-          </div>
-        )}
-      </Section>
-
       <Section title="Login & Signup">
         <Grid>
           <Toggle label="Panel login email OTP" hint="Admin, Branch & Staff panel login asks for a 6-digit OTP sent to the login's email." checked={!!draft.loginEmailOtp} onChange={(v: boolean) => set("loginEmailOtp", v)} />
           <Toggle label="Party login email OTP" hint="Customer login on the App & Website asks for a 4-digit OTP sent to the party's email." checked={!!draft.partyLoginEmailOtp} onChange={(v: boolean) => set("partyLoginEmailOtp", v)} />
           <Toggle label="New signups need approval" hint="Self-registered customers stay Pending and cannot log in until approved from Party Accounts." checked={!!draft.requirePartyApproval} onChange={(v: boolean) => set("requirePartyApproval", v)} />
-        </Grid>
-      </Section>
-
-      <Section title="Online Booking">
-        <Grid>
-          <Toggle label="Online Booking" hint="Lets this business take service bookings from its App & Website. Its owner then sets hours in Settings -> General." checked={!!draft.onlineBookingAllowed} onChange={(v: boolean) => set("onlineBookingAllowed", v)} />
         </Grid>
       </Section>
 
@@ -784,9 +733,17 @@ const ModulesTab: React.FC<{ adminId?: string; dispatch: any }> = ({
   const { data: adminsData } = useAdminsQuery();
   const targetAdmin = useMemo(() => adminsData?.getAdmins?.find((a: any) => a.id === adminId), [adminsData, adminId]);
 
-  const { data: settingsData } = useAdminSettingsQuery(adminId);
+  const { data: settingsData, refetch: refetchSettings } = useAdminSettingsQuery(adminId);
   const settings = settingsData?.getAdminSettings;
   const [updateAdmin] = useUpdateAdminMutation();
+  const { updateAdminSettings } = useAdminSettingsMutations();
+  const { data: staffData } = useStaffListQuery(adminId);
+
+  // Switches of ticked modules, saved with the modules; only changed ones are sent.
+  const [sw, setSw] = useState<Record<string, any>>({});
+  useEffect(() => { setSw({}); }, [adminId]);
+  const cur = useMemo(() => ({ ...(settings || {}), ...sw }), [settings, sw]);
+  const setSwitch = (patch: Record<string, any>) => { setSw((x) => ({ ...x, ...patch })); setDirty(true); };
 
   const myAllowed = loggedInAdmin?.allowedmodules;
 
@@ -829,6 +786,20 @@ const ModulesTab: React.FC<{ adminId?: string; dispatch: any }> = ({
     const eligible = new Set(allCatalogIds);
     return profileModules(profile).filter((id) => eligible.has(id) && !draft.includes(id) && !featureDisabledIds.has(id));
   }, [profile, draft, allCatalogIds, featureDisabledIds]);
+  const switchesToTurnOn = Object.entries(profile?.switches || {}).filter(([k, v]) => cur[k] !== v);
+  const switchLabel = (k: string) => MODULE_SWITCHES.find((x) => x.key === k)?.label || k;
+
+  // Setup checklist: things a ticked module needs that are still missing.
+  const on = (id: string) => draft.includes(id) && !featureDisabledIds.has(id);
+  const staff: any[] = (staffData?.getStaffAccounts || []).filter((x: any) => x.status !== false);
+  const checklist = settings ? [
+    on("appointments") && !cur.onlineBookingAllowed && "Appointments is on but Online Booking is off: customers cannot book from the App & Website.",
+    (on("einvoice") || on("ewaybill")) && !cur.gstin && "e-Invoice / e-Way Bill is on but the GST Profile (GSTIN, address) is empty: fill it in General.",
+    on("salesorder") && cur.deliveryMode === "deliveryboy" && !staff.some((x) => x.role === "deliveryboy") && "Deliver via Delivery Boy is on but there is no delivery boy in Staff Accounts.",
+    on("salesroutes") && !staff.some((x) => x.role === "salesman") && "Sales Routes is on but there is no salesman in Staff Accounts.",
+    on("prescriptions") && !staff.some((x) => x.doctor) && !cur.ownerDoctor?.name && "Prescriptions is on but no doctor is set: mark a staff member as Doctor, or fill My Doctor Profile in Settings.",
+    on("prescriptions") && !on("appointments") && "Prescriptions is on but Appointments is off: patients cannot book a doctor.",
+  ].filter(Boolean) as string[] : [];
   const labelOf = (id: string) => MODULES.find((m) => m.id === id)?.label || id;
 
   const toggleOne = (id: string) => {
@@ -845,6 +816,12 @@ const ModulesTab: React.FC<{ adminId?: string; dispatch: any }> = ({
       await updateAdmin({ variables: { id: adminId, input: { allowedmodules: cleaned, ...(typeChanged ? { businesstype: profileId } : {}) } } });
       if (adminId === loggedInAdmin?.id) {
         dispatch(setAllowedModules(cleaned));
+      }
+      if (Object.keys(sw).length) {
+        await updateAdminSettings({ variables: { adminid: adminId, input: sw } });
+        const { data: updated } = await refetchSettings();
+        if (updated?.getAdminSettings && adminId === loggedInAdmin?.id) dispatch(setAdminSettings(updated.getAdminSettings));
+        setSw({});
       }
       setDirty(false);
       dispatch(showMessage({ message: "Business modules updated.", type: "success" }));
@@ -873,15 +850,31 @@ const ModulesTab: React.FC<{ adminId?: string; dispatch: any }> = ({
             <div className="space-y-2">
               <div className="text-[12px] text-slate-700">Will turn on ({willTurnOn.length}): {willTurnOn.map(labelOf).join(", ")}</div>
               <div className="flex items-center gap-2">
-                <Button onClick={() => { setDraft((prev) => Array.from(new Set([...prev, ...willTurnOn]))); setDirty(true); }}>Apply Profile</Button>
+                <Button onClick={() => {
+                  setDraft((prev) => Array.from(new Set([...prev, ...willTurnOn])));
+                  if (switchesToTurnOn.length) setSwitch(Object.fromEntries(switchesToTurnOn));
+                  setDirty(true);
+                }}>Apply Profile</Button>
                 <span className="text-[11px] text-slate-500">Nothing is turned off. Review below, then Save Business Modules.</span>
               </div>
+              {switchesToTurnOn.length > 0 && <div className="text-[12px] text-slate-700">Also turns on: {switchesToTurnOn.map(([k]) => switchLabel(k)).join(", ")}</div>}
+            </div>
+          ) : switchesToTurnOn.length ? (
+            <div className="flex items-center gap-2 text-[12px] text-slate-700">
+              <span>Modules are on. Still off: {switchesToTurnOn.map(([k]) => switchLabel(k)).join(", ")}</span>
+              <Button onClick={() => setSwitch(Object.fromEntries(switchesToTurnOn))}>Turn On</Button>
             </div>
           ) : <div className="text-[12px] text-emerald-700">Every module of this profile is already on.</div>
         )}
       </div>
+      {checklist.length > 0 && (
+        <div className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-[13px] text-amber-900">
+          <div className="font-semibold">Setup checklist</div>
+          <ul className="mt-1 list-disc space-y-0.5 pl-5">{checklist.map((c) => <li key={c}>{c}</li>)}</ul>
+        </div>
+      )}
       {Object.entries(grouped).map(([section, items]) => (
-        <div key={section} className="rounded-lg border border-slate-200 bg-white p-3">
+        <div key={section} id={sectionId(SECTION_LABELS[section as keyof typeof SECTION_LABELS] || section)} className="scroll-mt-4 rounded-lg border border-slate-200 bg-white p-3 transition-shadow">
           <div className="flex items-center justify-between mb-2">
             <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
               {SECTION_LABELS[section as keyof typeof SECTION_LABELS]}
@@ -917,6 +910,30 @@ const ModulesTab: React.FC<{ adminId?: string; dispatch: any }> = ({
               );
             })}
           </div>
+          {/* Switches of the ticked modules in this section. */}
+          {settings && items.filter((m: any) => on(m.id) && MODULE_SWITCHES.some((x) => x.module === m.id)).map((m: any) => (
+            <div key={m.id} className="mt-2 border-t border-slate-100 pt-2">
+              <div className="mb-1 text-[11px] font-semibold text-slate-500">{m.label} settings</div>
+              <Grid>
+                {MODULE_SWITCHES.filter((x) => x.module === m.id && (!x.when || x.when(cur))).map((x) => (
+                  <Toggle key={x.key} label={x.label} hint={x.hint} checked={x.value(cur)} onChange={(v) => setSwitch(x.patch(v))} />
+                ))}
+              </Grid>
+              {m.id === "salesroutes" && cur.geoFenceEnabled && (
+                <div className="mt-1.5 w-56">
+                  <FormField label="Geo-fence distance (metres)" type="number" name="geoFenceRadiusM" placeholder="200" value={cur.geoFenceRadiusM ?? 200}
+                    onChange={(e: any) => setSwitch({ geoFenceRadiusM: e.target.value === "" ? 200 : Number(e.target.value) })} />
+                </div>
+              )}
+              {m.id === "attendance" && cur.autoPunchOutEnabled !== false && (
+                <label className="mt-1.5 flex w-56 flex-col gap-1 text-[12px] font-medium text-slate-600">
+                  <span>Auto punch-out time</span>
+                  <input type="time" className="h-8 rounded-md border border-slate-300 bg-white px-2 text-[13px] font-normal text-slate-900"
+                    value={cur.autoPunchOutTime || "22:00"} onChange={(e) => setSwitch({ autoPunchOutTime: e.target.value || "22:00" })} />
+                </label>
+              )}
+            </div>
+          ))}
         </div>
       ))}
       <div className="flex justify-end">
