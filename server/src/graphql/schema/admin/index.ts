@@ -41,6 +41,8 @@ export const adminTypeDefs = gql`
     businesstype: String
     allowedmodules: [String!]
     status: Boolean
+    "Product / service form fields the business type shows or hides: { products: { field: true|false }, services: {...} }."
+    formfields: JSON
   }
 
   input AdminUpdateInput {

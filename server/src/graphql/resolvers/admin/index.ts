@@ -45,9 +45,18 @@ export const adminResolvers = {
       const existing = await Admin.findOne({ email: input.email });
       if (existing) throw new Error("Admin already exists");
 
-      const { gstin, ...adminInput } = input;
+      const { gstin, formfields, ...adminInput } = input;
+      // Starting product / service form fields of the business type (true / false only).
+      const forms: any = {};
+      for (const m of ["products", "services"]) {
+        const f = formfields?.[m];
+        if (!f || typeof f !== "object") continue;
+        const clean = Object.fromEntries(Object.entries(f).filter(([k, v]) => /^\w{1,40}$/.test(k) && typeof v === "boolean"));
+        if (Object.keys(clean).length) forms[m] = clean;
+      }
       const admin = new Admin({
         ...adminInput,
+        ...(Object.keys(forms).length ? { defaultPermissions: { formPermissions: forms } } : {}),
         subscribed: false,
         subscribedAt: null,
         subscriptionEnd: null,

@@ -33,7 +33,8 @@ import {
 import FormPermissionsTab from "./formpermissionstab";
 import { MODULE_SWITCHES, SETTINGS_TABS, SECTION_HOME, sectionId, searchSettings, type SettingsTab } from "../../config/settings";
 import { useStaffListQuery } from "../../graphql/hooks/staffaccounts";
-import { BUSINESS_PROFILES, BUSINESS_TYPE_OPTIONS, businessTypeValue, profileModules, profileForType } from "../../config/profiles";
+import { BUSINESS_PROFILES, BUSINESS_TYPE_OPTIONS, businessTypeValue, fieldChanges, profileModules, profileForType, withFieldChanges } from "../../config/profiles";
+import { FORM_PERMISSIONS_CONFIG } from "../../config/formpermissions";
 import { LeadSourcesPanel } from "../leadsources";
 import { stateOptions } from "../../utils/constants";
 import { DEFAULT_LOST_REASONS, DEFAULT_SOURCES, DEFAULT_STAGES, type CrmStage } from "../../graphql/hooks/lead";
@@ -738,6 +739,12 @@ const ModulesTab: React.FC<{ adminId?: string; dispatch: any }> = ({
   const [updateAdmin] = useUpdateAdminMutation();
   const { updateAdminSettings } = useAdminSettingsMutations();
   const { data: staffData } = useStaffListQuery(adminId);
+  // Form permissions: a business type also shows / hides product and service form fields.
+  const [loadPerms, { data: permData }] = usePermissionsLazy({ fetchPolicy: "network-only" });
+  const { setPermissions } = usePermissionsMutations();
+  useEffect(() => { if (adminId) loadPerms({ variables: { scope: "admin", scopeid: adminId } }); }, [adminId, loadPerms]);
+  const [fieldPatch, setFieldPatch] = useState<{ module: string; field: string; on: boolean }[]>([]);
+  useEffect(() => { setFieldPatch([]); }, [adminId]);
 
   // Switches of ticked modules, saved with the modules; only changed ones are sent.
   const [sw, setSw] = useState<Record<string, any>>({});
@@ -787,6 +794,22 @@ const ModulesTab: React.FC<{ adminId?: string; dispatch: any }> = ({
     return profileModules(profile).filter((id) => eligible.has(id) && !draft.includes(id) && !featureDisabledIds.has(id));
   }, [profile, draft, allCatalogIds, featureDisabledIds]);
   const switchesToTurnOn = Object.entries(profile?.switches || {}).filter(([k, v]) => cur[k] !== v);
+  const currentForms = withFieldChanges(permData?.getPermissions?.permissions?.formPermissions || {}, fieldPatch);
+  const fieldsToChange = permData ? fieldChanges(profile, currentForms) : [];
+  const fieldLabel = (module: string, field: string) =>
+    FORM_PERMISSIONS_CONFIG.find((c) => c.moduleId === module)?.sections.flatMap((x) => x.fields).find((f) => f.id === field)?.label || field;
+  const formName: Record<string, string> = { products: "Product form", services: "Service form" };
+  const fieldSummary = Object.entries(fieldsToChange.reduce((m: Record<string, { on: string[]; off: string[] }>, c) => {
+    const g = (m[c.module] ||= { on: [], off: [] });
+    (c.on ? g.on : g.off).push(fieldLabel(c.module, c.field));
+    return m;
+  }, {})).map(([module, g]) => `${formName[module] || module}: ${[g.on.length && `shows ${g.on.join(", ")}`, g.off.length && `hides ${g.off.join(", ")}`].filter(Boolean).join("; ")}`);
+  const applyProfile = () => {
+    setDraft((prev) => Array.from(new Set([...prev, ...willTurnOn])));
+    if (switchesToTurnOn.length) setSwitch(Object.fromEntries(switchesToTurnOn));
+    if (fieldsToChange.length) setFieldPatch((x) => [...x, ...fieldsToChange]);
+    setDirty(true);
+  };
   const switchLabel = (k: string) => MODULE_SWITCHES.find((x) => x.key === k)?.label || k;
 
   // Setup checklist: things a ticked module needs that are still missing.
@@ -817,6 +840,14 @@ const ModulesTab: React.FC<{ adminId?: string; dispatch: any }> = ({
       if (adminId === loggedInAdmin?.id) {
         dispatch(setAllowedModules(cleaned));
       }
+      if (fieldPatch.length && permData?.getPermissions) {
+        const { data: fresh } = await loadPerms({ variables: { scope: "admin", scopeid: adminId } });
+        const perms = fresh?.getPermissions?.permissions || {};
+        const next = { ...perms, formPermissions: withFieldChanges(perms.formPermissions || {}, fieldPatch) };
+        const res = await setPermissions({ variables: { scope: "admin", scopeid: adminId, permissions: next } });
+        if (adminId === loggedInAdmin?.id) dispatch(setReduxPermissions(res.data?.setPermissions?.permissions || next));
+        setFieldPatch([]);
+      }
       if (Object.keys(sw).length) {
         await updateAdminSettings({ variables: { adminid: adminId, input: sw } });
         const { data: updated } = await refetchSettings();
@@ -846,16 +877,13 @@ const ModulesTab: React.FC<{ adminId?: string; dispatch: any }> = ({
           <div className="md:col-span-2 text-[12px] text-slate-600">{profile?.note || "Pick a type to see which modules it turns on."}</div>
         </div>
         {profile && (
-          willTurnOn.length ? (
+          willTurnOn.length || fieldsToChange.length ? (
             <div className="space-y-2">
-              <div className="text-[12px] text-slate-700">Will turn on ({willTurnOn.length}): {willTurnOn.map(labelOf).join(", ")}</div>
+              {willTurnOn.length > 0 && <div className="text-[12px] text-slate-700">Will turn on ({willTurnOn.length}): {willTurnOn.map(labelOf).join(", ")}</div>}
+              {fieldSummary.map((t) => <div key={t} className="text-[12px] text-slate-700">{t}</div>)}
               <div className="flex items-center gap-2">
-                <Button onClick={() => {
-                  setDraft((prev) => Array.from(new Set([...prev, ...willTurnOn])));
-                  if (switchesToTurnOn.length) setSwitch(Object.fromEntries(switchesToTurnOn));
-                  setDirty(true);
-                }}>Apply Profile</Button>
-                <span className="text-[11px] text-slate-500">Nothing is turned off. Review below, then Save Business Modules.</span>
+                <Button onClick={applyProfile}>Apply Profile</Button>
+                <span className="text-[11px] text-slate-500">No module is turned off; form fields can be changed again in Business Form Permissions. Review, then Save Business Modules.</span>
               </div>
               {switchesToTurnOn.length > 0 && <div className="text-[12px] text-slate-700">Also turns on: {switchesToTurnOn.map(([k]) => switchLabel(k)).join(", ")}</div>}
             </div>

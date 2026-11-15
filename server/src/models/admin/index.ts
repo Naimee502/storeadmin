@@ -21,7 +21,7 @@ interface IAdmin extends Document {
   transactionId: string | null;
   needsReview: boolean;
   rejected: boolean;
-  businesstype: "retail" | "wholesale" | "manufacturer" | "service" | "trader" | "exporter" | "pharma" | "hardware" | "repair" | "clinic" | "other" | "garments" | "electronics" | "jewellery" | "restaurant" | "doctor" | "salon";
+  businesstype: "retail" | "wholesale" | "manufacturer" | "service" | "trader" | "exporter" | "pharma" | "hardware" | "repair" | "clinic" | "other" | "garments" | "electronics" | "jewellery" | "restaurant" | "doctor" | "salon" | "tailor";
   allowedmodules: string[];
   // Per-module action defaults that propagate to every Branch / Staff
   // under this admin unless overridden. Stored as Mixed JSON because the
@@ -63,7 +63,7 @@ const AdminSchema: Schema<IAdmin> = new mongoose.Schema(
     // Business Configuration
     businesstype: {
       type: String,
-      enum: ['retail', 'wholesale', 'manufacturer', 'service', 'trader', 'exporter', 'pharma', 'hardware', 'repair', 'clinic', 'other', 'garments', 'electronics', 'jewellery', 'restaurant', 'doctor', 'salon'],
+      enum: ['retail', 'wholesale', 'manufacturer', 'service', 'trader', 'exporter', 'pharma', 'hardware', 'repair', 'clinic', 'other', 'garments', 'electronics', 'jewellery', 'restaurant', 'doctor', 'salon', 'tailor'],
       default: 'retail',
     },
     allowedmodules: {

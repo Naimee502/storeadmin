@@ -95,6 +95,7 @@ const AdminRegister = () => {
             subscriptionType: subscription,
             businesstype,
             allowedmodules: startModules(businesstype),
+            ...(profileForType(businesstype)?.fields ? { formfields: profileForType(businesstype)!.fields } : {}),
           },
         },
       });
