@@ -40,7 +40,7 @@ const listOf = async (kind: "admin" | "branch" | "staff", id: any): Promise<stri
 };
 
 // Off until the business ticks them, even when its module list is blank.
-const OPT_IN = new Set(["loyalty", "prescriptions", "batches", "serials", "tailoring"]);
+const OPT_IN = new Set(["loyalty", "prescriptions", "batches", "serials", "tailoring", "jewellery"]);
 const includes = (list: string[] | null, moduleId: string) =>
   list === null || list.some((m) => String(m).toLowerCase() === moduleId.toLowerCase());
 const bizIncludes = (list: string[] | null, moduleId: string) =>

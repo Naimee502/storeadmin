@@ -180,3 +180,15 @@ export const defaultLedgers = [
 
 
 
+
+
+/** A ledger by name under the right account group (made once, group too if missing), so it lands in the right report. */
+export const ledgerInGroup = async (ledgername: string, groupName: string, category: string, adminId: any): Promise<any> => {
+  const { AccountLedger } = await import("../../models/accountledgers");
+  const found: any = await AccountLedger.findOne({ ledgername, admin: adminId }).select("_id").lean();
+  if (found?._id) return found._id;
+  let group: any = await AccountGroup.findOne({ accountgroupname: groupName, admin: adminId }).select("_id").lean();
+  if (!group) group = await AccountGroup.create({ accountgroupname: groupName, category, admin: adminId, status: true });
+  const created: any = await AccountLedger.create({ admin: adminId, accountgroupid: group._id, ledgername, openingbalance: 0, openingbalancetype: "debit", status: true });
+  return created._id;
+};

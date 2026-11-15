@@ -68,6 +68,7 @@ import { clinicResolvers } from "./clinic";
 import { batchResolvers } from "./batches";
 import { withBatches } from "../../utils/batches";
 import { serialResolvers } from "./serials";
+import { jewelleryResolvers, withJewellery } from "./jewellery";
 import { withSerials } from "../../utils/serials";
 import { withRxNotify } from "../../utils/clinic";
 import { panelLoginResolvers } from "./panellogin";
@@ -122,7 +123,7 @@ const guarded = guardResolvers([
   withOfflineWrites(productServiceResolvers, { model: ProductService, typename: "ProductService", tenant: "adminid", add: "addProductService", edit: "updateProductService", del: "deleteProductService" }),
   withOfflineWrites(servicesResolvers, { model: ProductService, typename: "ProductService", tenant: "adminid", add: "addService", edit: "updateService", del: "deleteService" }),
   productImportResolvers,
-  withOfflineActions(withBatches(withSerials(withLoyalty(salesInvoiceResolvers, "SalesInvoice"), "SalesInvoice", ["addSalesInvoice", "editSalesInvoice", "deleteSalesInvoice", "resetSalesInvoice", "cancelSalesInvoice", "reopenSalesInvoice", "convertSalesOrderToInvoice"]), "SalesInvoice", ["addSalesInvoice", "editSalesInvoice", "deleteSalesInvoice", "resetSalesInvoice", "cancelSalesInvoice", "reopenSalesInvoice", "convertSalesOrderToInvoice"], true), SalesInvoice, ["markSalesInvoiceDispatched", "markSalesInvoiceDelivered", "assignInvoiceDeliveryBoy", "saveInvoiceGstDetails"]),
+  withOfflineActions(withBatches(withSerials(withLoyalty(withJewellery(salesInvoiceResolvers), "SalesInvoice"), "SalesInvoice", ["addSalesInvoice", "editSalesInvoice", "deleteSalesInvoice", "resetSalesInvoice", "cancelSalesInvoice", "reopenSalesInvoice", "convertSalesOrderToInvoice"]), "SalesInvoice", ["addSalesInvoice", "editSalesInvoice", "deleteSalesInvoice", "resetSalesInvoice", "cancelSalesInvoice", "reopenSalesInvoice", "convertSalesOrderToInvoice"], true), SalesInvoice, ["markSalesInvoiceDispatched", "markSalesInvoiceDelivered", "assignInvoiceDeliveryBoy", "saveInvoiceGstDetails"]),
   withBatches(withSerials(withSupplierNotify(purchaseInvoiceResolvers), "PurchaseInvoice", ["addPurchaseInvoice", "editPurchaseInvoice", "deletePurchaseInvoice", "resetPurchaseInvoice", "cancelPurchaseInvoice", "reopenPurchaseInvoice", "convertPurchaseOrderToInvoice"]), "PurchaseInvoice", ["addPurchaseInvoice", "editPurchaseInvoice", "deletePurchaseInvoice", "resetPurchaseInvoice", "cancelPurchaseInvoice", "reopenPurchaseInvoice", "convertPurchaseOrderToInvoice"]),
   withBatches(transferStockResolvers, "TransferStock", ["addTransferStock", "editTransferStock", "deleteTransferStock", "resetTransferStock"]),
   adminResolvers,
@@ -175,6 +176,7 @@ const guarded = guardResolvers([
   clinicResolvers,
   batchResolvers,
   serialResolvers,
+  jewelleryResolvers,
   panelLoginResolvers,
   aiResolvers,
   insightResolvers,

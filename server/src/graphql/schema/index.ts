@@ -63,6 +63,7 @@ import { clinicTypeDefs } from "./clinic";
 import { batchTypeDefs } from "./batches";
 import { serialTypeDefs } from "./serials";
 import { tailoringTypeDefs } from "./tailoring";
+import { jewelleryTypeDefs } from "./jewellery";
 
 export const typeDefs = [
   branchTypeDefs,
@@ -130,4 +131,5 @@ export const typeDefs = [
   batchTypeDefs,
   serialTypeDefs,
   tailoringTypeDefs,
+  jewelleryTypeDefs,
 ];

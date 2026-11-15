@@ -7,7 +7,7 @@ import { ProductService } from "../products";
 import { convertToBaseUnit } from "../../utils/unitconversation";
 import { Transaction } from "../transactions";
 import { Payment } from "../payments";
-import { getOrCreateAccount } from "../../utils/helper";
+import { getOrCreateAccount, ledgerInGroup } from "../../utils/helper";
 import { AccountLedger } from "../accountledgers";
 import { Account } from "../accounts";
 import { StaffAccount } from "../staffaccounts";
@@ -58,6 +58,14 @@ const salesInvoiceSchema = new mongoose.Schema(
         salesunitid: { type: mongoose.Schema.Types.ObjectId, ref: "Unit" },
         // IMEI / Serial No. module: the units on this line (no default).
         serials: { type: [String], default: undefined },
+        // Jewellery module: how the line's price was worked out (no default).
+        jewel: {
+          type: new mongoose.Schema({
+            metal: String, purity: String, grossweight: Number, stoneweight: Number, netweight: Number, metalrate: Number, metalvalue: Number,
+            makingtype: String, making: Number, makingamount: Number, stonecharge: Number, othercharge: Number, huid: String,
+          }, { _id: false }),
+          default: undefined,
+        },
         // Batch & Expiry module: the batch this line sold / bought (no default).
         batchno: { type: String },
         expirydate: { type: String },
@@ -99,6 +107,12 @@ const salesInvoiceSchema = new mongoose.Schema(
     loyaltyredeempoints: { type: Number },
     loyaltydiscount: { type: Number },
     loyaltyearned: { type: Number },
+    // Jewellery: old gold / silver taken from the customer against this bill; settled like a receipt.
+    oldgold: {
+      type: [new mongoose.Schema({ description: String, metal: String, purity: String, weight: Number, deduction: Number, rate: Number, amount: Number }, { _id: false })],
+      default: undefined,
+    },
+    oldgoldamount: { type: Number },
 
     // Money collected AT THE COUNTER, on this bill, at the moment it was made.
     // 0 = pure credit, totalamount = fully paid, anything between = part paid
@@ -363,11 +377,7 @@ export async function buildSalesInvoiceJournal(newInv: any) {
 
   // Loyalty points redeemed: a discount on the bill, on its own ledger.
   if (Number(newInv.loyaltydiscount) > 0) {
-    let loyaltyLedger: any = await AccountLedger.findOne({ ledgername: "Loyalty Points Redeemed", admin: newInv.adminid });
-    if (!loyaltyLedger) {
-      const created = await getOrCreateAccount("Loyalty Points Redeemed", "indirect_expenses", newInv.adminid, newInv.branchid);
-      if (created) loyaltyLedger = { _id: created.ledgerid };
-    }
+    const loyaltyLedger: any = { _id: await ledgerInGroup("Loyalty Points Redeemed", "Indirect Expenses", "expenses", newInv.adminid) };
     if (loyaltyLedger?._id) {
       entries.push({ ledgerid: loyaltyLedger._id, debit: parseFloat(Number(newInv.loyaltydiscount).toFixed(2)), credit: 0, remarks: "Loyalty Points Redeemed" });
     }
@@ -839,11 +849,7 @@ salesInvoiceSchema.statics.adjustStockAndTransactions = async function (oldInv: 
   // ===================== CUSTOMER LEDGER ==========================
   // Loyalty points redeemed: a discount on the bill, on its own ledger.
   if (Number(newInv.loyaltydiscount) > 0) {
-    let loyaltyLedger: any = await AccountLedger.findOne({ ledgername: "Loyalty Points Redeemed", admin: newInv.adminid });
-    if (!loyaltyLedger) {
-      const created = await getOrCreateAccount("Loyalty Points Redeemed", "indirect_expenses", newInv.adminid, newInv.branchid);
-      if (created) loyaltyLedger = { _id: created.ledgerid };
-    }
+    const loyaltyLedger: any = { _id: await ledgerInGroup("Loyalty Points Redeemed", "Indirect Expenses", "expenses", newInv.adminid) };
     if (loyaltyLedger?._id) {
       entries.push({ ledgerid: loyaltyLedger._id, debit: parseFloat(Number(newInv.loyaltydiscount).toFixed(2)), credit: 0, remarks: "Loyalty Points Redeemed" });
     }
@@ -1038,6 +1044,7 @@ salesInvoiceSchema.statics.adjustStockAndTransactions = async function (oldInv: 
   const split = (Array.isArray(newInv.paymentsplit) ? newInv.paymentsplit : [])
     .map((p: any) => ({ mode: PAY_MODES.has(String(p?.mode).toLowerCase()) ? String(p.mode).toLowerCase() : "other", amount: parseFloat(Number(p?.amount || 0).toFixed(2)) }))
     .filter((p: any) => p.amount > 0);
+  await syncOldGoldReceipt(newInv, invId, customer, grandTotal, userContext, billNote);
   await syncSplitReceipts(newInv, invId, customer, split.slice(1), grandTotal, userContext, billNote);
   const payType = split.length ? split[0].mode : String(newInv.paymenttype || "").toLowerCase();
 
@@ -1242,9 +1249,51 @@ const LEDGER_BY_MODE: Record<string, string> = {
 };
 const PAY_MODES = new Set(Object.keys(LEDGER_BY_MODE));
 
+// Old gold taken against the bill: a receipt of its own (Dr Old Gold Received / Cr Customer), so the bill shows it as paid.
+const OLD_GOLD_PART = 99;
+async function syncOldGoldReceipt(newInv: any, invId: any, customer: any, grandTotal: number, userContext: any, billNote: string) {
+  const old: any = await Payment.findOne({ "autosource.docmodel": "SalesInvoice", "autosource.docid": invId, "autosource.part": OLD_GOLD_PART });
+  const amount = Math.min(parseFloat(Number(newInv.oldgoldamount || 0).toFixed(2)), grandTotal);
+  if (!(amount > 0)) {
+    if (old) {
+      await Transaction.deleteOne({ _id: old.transactionid });
+      await Payment.deleteOne({ _id: old._id });
+    }
+    return;
+  }
+  const ledger: any = { _id: await ledgerInGroup("Old Gold Received", "Stock-in-Hand", "assets", newInv.adminid) };
+  const entries = [
+    { ledgerid: ledger._id, debit: amount, credit: 0, remarks: `Old gold received (Invoice ${newInv.billnumber})` },
+    { ledgerid: customer.ledgerid, debit: 0, credit: amount, remarks: `Old gold against Invoice ${newInv.billnumber}` },
+  ];
+  const narration = `Old gold against Sales Invoice #${newInv.billnumber}`;
+  if (old) {
+    Object.assign(old, { mode: "other", paymentdate: newInv.billdate, ledgerid: ledger._id, amount, remarks: billNote || narration });
+    old.invoices = [{ invoiceid: invId, invoicemodel: "SalesInvoice", settledamount: amount } as any];
+    await old.save();
+    await Transaction.updateOne({ _id: old.transactionid }, { $set: { entries, totaldebit: amount, totalcredit: amount, transactiondate: newInv.billdate, narration } });
+    return;
+  }
+  const by = {
+    createdby_id: userContext?.createdby_id || newInv.createdby_id,
+    createdby_name: userContext?.createdby_name || newInv.createdby_name,
+    createdby_type: userContext?.createdby_type || newInv.createdby_type,
+  };
+  const trx = await Transaction.create({
+    adminid: newInv.adminid, branchid: newInv.branchid, entrytype: "auto", source: { docmodel: "Payment", docid: invId },
+    transactiondate: newInv.billdate, narration, entries, totaldebit: amount, totalcredit: amount, ...by,
+  });
+  await Payment.create({
+    adminid: newInv.adminid, branchid: newInv.branchid, type: "receipt", mode: "other", paymentdate: newInv.billdate,
+    partyid: customer._id, ledgerid: ledger._id, amount, remarks: billNote || narration, transactionid: trx._id, reference: "Old Gold",
+    invoices: [{ invoiceid: invId, invoicemodel: "SalesInvoice", settledamount: amount }],
+    autosource: { docmodel: "SalesInvoice", docid: invId, part: OLD_GOLD_PART }, ...by,
+  });
+}
+
 // Receipts for the 2nd, 3rd... parts of a split POS payment (autosource.part 1, 2...); extra old parts are removed.
 async function syncSplitReceipts(newInv: any, invId: any, customer: any, parts: any[], grandTotal: number, userContext: any, billNote: string) {
-  const existing: any[] = await Payment.find({ "autosource.docmodel": "SalesInvoice", "autosource.docid": invId, "autosource.part": { $gte: 1 } });
+  const existing: any[] = await Payment.find({ "autosource.docmodel": "SalesInvoice", "autosource.docid": invId, "autosource.part": { $gte: 1, $lt: OLD_GOLD_PART } });
   const byPart = new Map(existing.map((p: any) => [Number(p.autosource.part), p]));
   let left = grandTotal;
   for (let i = 0; i < parts.length; i += 1) {
