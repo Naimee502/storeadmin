@@ -862,7 +862,6 @@ const ModulesTab: React.FC<{ adminId?: string; dispatch: any }> = ({
   return (
     <div className="space-y-3">
       <div className="rounded-lg border border-indigo-200 bg-indigo-50/40 p-3 space-y-2">
-        <div className="text-[13px] font-semibold text-slate-900">Business Type</div>
         <div className="grid grid-cols-1 gap-2 md:grid-cols-3 md:items-end">
           <FormField label="Business Type" type="select" name="profile" value={profileId} searchable
             options={BUSINESS_TYPE_OPTIONS}
