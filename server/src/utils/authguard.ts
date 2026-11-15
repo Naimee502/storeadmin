@@ -163,6 +163,8 @@ own("Contract", ["getContractById", "editContract", "deleteContract", "resetCont
 own("MembershipPlan", ["getMembershipPlanById", "editMembershipPlan", "deleteMembershipPlan", "resetMembershipPlan"]);
 own("Membership", ["getMembershipById", "editMembership", "deleteMembership", "resetMembership"]);
 own("Prescription", ["getPrescriptionById", "editPrescription", "deletePrescription", "resetPrescription"]);
+own("Measurement", ["editMeasurement", "deleteMeasurement", "resetMeasurement"]);
+own("TailorOrder", ["getTailorOrderById", "editTailorOrder", "setTailorOrderStatus", "deleteTailorOrder", "resetTailorOrder"]);
 own("Opportunity", ["setOpportunityState", "convertOpportunityToLead", "aiDraftForOpportunity"]);
 own("Insight", ["setInsightState"]);
 own("LeadInbox", ["retryLeadInbox"]);

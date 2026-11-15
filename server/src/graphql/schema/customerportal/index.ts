@@ -13,6 +13,8 @@ export const customerPortalTypeDefs = gql`
     loyaltyPoints: Float
     "Prescriptions module on: how many the patient has (null when off)."
     prescriptions: Int
+    "Tailoring module on: how many stitching orders the customer has (null when off)."
+    tailororders: Int
   }
 
   type MyJobLine {

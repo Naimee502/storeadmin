@@ -243,6 +243,66 @@ oncePerRequest(prescriptionSchema);
 prescriptionSchema.index({ adminid: 1, partyacc: 1, billdate: -1 });
 prescriptionSchema.index({ nextvisit: 1 });
 
+// Tailoring: a customer's body measurements for one garment; a new record per change keeps the history.
+const measureValue = new mongoose.Schema({ key: { type: String, required: true }, label: { type: String }, value: { type: String } }, { _id: false });
+const measurementSchema = new mongoose.Schema(
+  {
+    ...tenant,
+    ...customer,
+    garment: { type: String, required: true },
+    values: { type: [measureValue], default: undefined },
+    // inch or cm
+    unit: { type: String },
+    takenon: { type: String },
+    notes: { type: String },
+  },
+  { timestamps: true }
+);
+oncePerRequest(measurementSchema);
+measurementSchema.index({ adminid: 1, partyacc: 1, garment: 1, createdAt: -1 });
+
+const tailorItemSchema = new mongoose.Schema(
+  {
+    garment: { type: String, required: true },
+    // The stitching service billed for this garment.
+    productserviceid: { type: ObjectId, ref: "ProductService" },
+    qty: { type: Number, required: true },
+    rate: { type: Number },
+    amount: { type: Number },
+    // own (customer's cloth) or shop
+    fabric: { type: String },
+    fabricnote: { type: String },
+    design: { type: String },
+    values: { type: [measureValue], default: undefined },
+    unit: { type: String },
+  },
+  { _id: false }
+);
+// Tailoring: a stitching order from measurement to delivery.
+const tailorOrderSchema = new mongoose.Schema(
+  {
+    ...tenant,
+    customfields,
+    ...customer,
+    billnumber: { type: String },
+    billdate: { type: String, required: true },
+    items: { type: [tailorItemSchema], default: undefined },
+    // Tailor / karigar doing the work.
+    staffid: { type: ObjectId, ref: "StaffAccount" },
+    trialdate: { type: String },
+    deliverydate: { type: String },
+    // received, cutting, stitching, trial, ready, delivered, cancelled
+    orderStatus: { type: String, default: "received" },
+    total: { type: Number },
+    invoiceid: { type: ObjectId, ref: "SalesInvoice" },
+    deliveredAt: { type: Date },
+    notes: { type: String },
+  },
+  { timestamps: true }
+);
+oncePerRequest(tailorOrderSchema);
+tailorOrderSchema.index({ adminid: 1, billdate: -1 });
+
 jobCardSchema.plugin(billNumberGuard("JobCard"));
 export const Appointment = mongoose.model("Appointment", appointmentSchema);
 export const JobCard = mongoose.model("JobCard", jobCardSchema);
@@ -250,3 +310,5 @@ export const Contract = mongoose.model("Contract", contractSchema);
 export const MembershipPlan = mongoose.model("MembershipPlan", membershipPlanSchema);
 export const Membership = mongoose.model("Membership", membershipSchema);
 export const Prescription = mongoose.model("Prescription", prescriptionSchema);
+export const Measurement = mongoose.model("Measurement", measurementSchema);
+export const TailorOrder = mongoose.model("TailorOrder", tailorOrderSchema);

@@ -129,6 +129,11 @@ const NOTIFY: Record<string, (r: any) => [string, string] | null> = {
     : [`Your repair ${jobNo(r)} is ${JOB_LABEL[r.jobStatus] || r.jobStatus}`, r.jobStatus === "ready" ? "You can collect it now" : r.productserviceid?.name || r.devicename || ""],
   addContract: (r) => [`${r.contractType === "warranty" ? "Warranty" : "AMC"} added${r.title ? `: ${r.title}` : ""}`, `Valid till ${dmy(r.enddate)}`],
   addMembership: (r) => [`Membership started: ${r.planid?.name || "plan"}`, r.enddate ? `Valid till ${dmy(r.enddate)}` : ""],
+  addTailorOrder: (r) => [`Stitching order TO-${r.billnumber} received`, [(r.items || []).map((i: any) => `${i.qty} ${i.garment}`).join(", "), r.deliverydate && `Delivery ${dmy(r.deliverydate)}`].filter(Boolean).join(" · ")],
+  setTailorOrderStatus: (r) => (["trial", "ready", "delivered", "cancelled"].includes(r.orderStatus)
+    ? [`Your order TO-${r.billnumber} is ${({ trial: "ready for trial", ready: "ready to collect", delivered: "delivered", cancelled: "cancelled" } as any)[r.orderStatus]}`,
+      r.orderStatus === "trial" && r.trialdate ? `Trial on ${dmy(r.trialdate)}` : (r.items || []).map((i: any) => `${i.qty} ${i.garment}`).join(", ")]
+    : null),
 };
 
 /** After these service mutations, tell the customer the record belongs to. */
@@ -143,7 +148,7 @@ export const withCustomerNotify = (map: any) => {
       try {
         const party = idOf(r?.partyacc);
         const msg = party && NOTIFY[field](r);
-        const model = field.includes("JobCard") ? "JobCard" : field.includes("Contract") ? "Contract" : "Membership";
+        const model = field.includes("JobCard") ? "JobCard" : field.includes("Contract") ? "Contract" : field.includes("TailorOrder") ? "TailorOrder" : "Membership";
         if (msg) tell(idOf(r.adminid), party, msg[0], msg[1], model, idOf(r.id));
       } catch { /* best-effort */ }
       return r;

@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
-import { Appointment, Contract, JobCard, Membership, MembershipPlan, Prescription, moveAppointmentMaterials, moveJobCardStock, serviceVariants } from "../../../models/service";
+import { Appointment, Contract, JobCard, Measurement, Membership, MembershipPlan, Prescription, TailorOrder, moveAppointmentMaterials, moveJobCardStock, serviceVariants } from "../../../models/service";
+import { Payment } from "../../../models/payments";
 import { Account } from "../../../models/accounts";
 import { ProductService } from "../../../models/products";
 import { StaffAccount } from "../../../models/staffaccounts";
@@ -22,6 +23,8 @@ export const jobCardPopulate: any[] = [PARTY, { path: "technicianid", select: "n
 export const contractPopulate: any[] = [PARTY, { path: "items.productserviceid", select: "name" }];
 export const planPopulate: any[] = [{ path: "services", select: "name" }];
 export const membershipPopulate: any[] = [PARTY, { path: "planid", select: "name" }];
+export const measurementPopulate: any[] = [PARTY];
+export const tailorPopulate: any[] = [PARTY, { path: "staffid", select: "name" }, { path: "items.productserviceid", select: "name" }];
 export const prescriptionPopulate: any[] = [PARTY, { path: "staffid", select: "name" }, { path: "medicines.productserviceid", select: "name" }];
 
 const sid = (v: any) => (v ? String(v._id ?? v) : null);
@@ -45,6 +48,11 @@ export const formatContract = (d: any) => ({
 });
 export const formatPlan = (d: any) => ({ ...base(d), services: (d.services || []).map((s: any) => ref(s)) });
 export const formatMembership = (d: any) => ({ ...base(d), partyacc: party(d.partyacc), planid: ref(d.planid) });
+export const formatMeasurement = (d: any) => ({ ...base(d), partyacc: party(d.partyacc) });
+export const formatTailorOrder = (d: any) => ({
+  ...base(d), partyacc: party(d.partyacc), staffid: ref(d.staffid), invoiceid: sid(d.invoiceid), deliveredAt: isoOf(d.deliveredAt),
+  items: (d.items || []).map((i: any) => ({ ...i, productserviceid: ref(i.productserviceid) })),
+});
 export const formatPrescription = (d: any) => ({
   ...base(d), partyacc: party(d.partyacc), staffid: ref(d.staffid), appointmentid: sid(d.appointmentid), invoiceid: sid(d.invoiceid),
   medicines: (d.medicines || []).map((m: any) => ({ ...m, productserviceid: ref(m.productserviceid) })),
@@ -66,7 +74,9 @@ export const buildServiceQuery = (scope: { adminid: any; branchid?: any }, filte
   return q;
 };
 
-const LABEL: Record<string, string> = { appointments: "Appointments", jobcards: "Job Cards", contracts: "AMC / Warranty", memberships: "Memberships", prescriptions: "Prescriptions" };
+const LABEL: Record<string, string> = { appointments: "Appointments", jobcards: "Job Cards", contracts: "AMC / Warranty", memberships: "Memberships", prescriptions: "Prescriptions", tailoring: "Tailoring" };
+export const TAILOR_STATUS: Record<string, string> = { received: "Received", cutting: "Cutting", stitching: "Stitching", trial: "Ready for Trial", ready: "Ready", delivered: "Delivered", cancelled: "Cancelled" };
+export const tailorNo = (d: any) => `TO-${d?.billnumber || ""}`;
 
 async function gate(context: any, module: string, action: string) {
   const scope = await requireBackofficeTenant(context);
@@ -137,6 +147,11 @@ const COLUMNS: Record<string, Record<string, Clause>> = {
   memberships: {
     plan: async (t, adminid) => ({ planid: { $in: (await MembershipPlan.find({ adminid, name: containsRx(t) }).select("_id").limit(200).lean()).map((p: any) => p._id) } }),
     customer: partyClause(), startdate: dateClause("startdate"), enddate: dateClause("enddate"), amount: amountClause("amount") },
+  tailoring: {
+    billnumber: (t) => ({ billnumber: containsRx(t.replace(/^TO-?/i, "")) }),
+    customer: partyClause(), billdate: dateClause("billdate"), items: (t) => ({ "items.garment": containsRx(t) }),
+    trialdate: dateClause("trialdate"), deliverydate: dateClause("deliverydate"), orderStatus: labelClause("orderStatus", TAILOR_STATUS), staff: staffClause("staffid"),
+  },
   prescriptions: {
     rxnumber: (t) => ({ rxnumber: containsRx(t.replace(/^RX-?/i, "")) }),
     customer: partyClause(), billdate: dateClause("billdate"), doctor: textClause("doctorname"),
@@ -190,6 +205,51 @@ const loadContract = load(Contract, contractPopulate, formatContract);
 const loadPlan = load(MembershipPlan, planPopulate, formatPlan);
 const loadMembership = load(Membership, membershipPopulate, formatMembership);
 const loadPrescription = load(Prescription, prescriptionPopulate, formatPrescription);
+const loadMeasurement = load(Measurement, measurementPopulate, formatMeasurement);
+export const loadTailorOrder = load(TailorOrder, tailorPopulate, formatTailorOrder);
+
+const r2 = (n: any) => Math.round((Number(n) || 0) * 100) / 100;
+const cleanValues = (vals: any[]) => (vals || []).map((v: any) => ({ key: String(v.key).slice(0, 40), label: v.label ? String(v.label).slice(0, 60) : undefined, value: String(v.value ?? "").trim().slice(0, 40) })).filter((v: any) => v.key && v.value);
+
+/** Order lines with amounts and the order total worked out here. */
+async function cleanTailorOrder(input: any, scope: any) {
+  const { clientRequestId, ...rest } = input || {};
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(rest.billdate || ""))) throw new TenantError("Pick the order date.", "BAD_USER_INPUT");
+  const items = (rest.items || []).map((i: any) => {
+    const qty = Math.max(0, Number(i.qty) || 0);
+    const rate = Math.max(0, Number(i.rate) || 0);
+    return { ...i, garment: String(i.garment || "").trim(), qty, rate, amount: r2(qty * rate), values: cleanValues(i.values), productserviceid: i.productserviceid || undefined };
+  }).filter((i: any) => i.garment && i.qty > 0);
+  if (!items.length) throw new TenantError("Add at least one garment.", "BAD_USER_INPUT");
+  const ids = items.map((i: any) => i.productserviceid).filter(Boolean);
+  if (ids.length) await assertOwnedIds(ProductService, ids, scope.adminid, "Stitching item", "adminid");
+  if (rest.staffid) await assertOwnedIds(StaffAccount, [rest.staffid], scope.adminid, "Tailor");
+  for (const k of ["trialdate", "deliverydate"]) if (rest[k] === "") rest[k] = null;
+  return { ...rest, items, total: r2(items.reduce((t: number, i: any) => t + i.amount, 0)) };
+}
+
+/** Keep the customer's measurements: a garment's values become its latest record when they changed. */
+async function keepMeasurements(order: any, scope: any, who?: string) {
+  if (!order.partyacc) return;
+  for (const i of order.items || []) {
+    if (!i.values?.length) continue;
+    const last: any = await Measurement.findOne({ adminid: scope.adminid, partyacc: order.partyacc, garment: i.garment, status: true }).sort({ createdAt: -1 }).lean();
+    const same = last && JSON.stringify((last.values || []).map((v: any) => [v.key, v.value])) === JSON.stringify(i.values.map((v: any) => [v.key, v.value]));
+    if (same) continue;
+    await Measurement.create({ adminid: scope.adminid, branchid: scope.branchid || order.branchid || undefined, partyacc: order.partyacc, garment: i.garment,
+      values: i.values, unit: i.unit || undefined, takenon: order.billdate, notes: `From ${tailorNo(order)}`, createdby_name: who });
+  }
+}
+
+/** Receipts recorded for an order: Payments of its customer with the order number as reference. */
+export const tailorAdvance = async (d: any) => {
+  if (!d?.partyacc || !d.billnumber) return 0;
+  const [row]: any[] = await Payment.aggregate([
+    { $match: { adminid: d.adminid, partyid: d.partyacc?._id || d.partyacc, type: "receipt", status: { $ne: false }, reference: { $regex: `^\\s*TO-?${d.billnumber}\\s*$`, $options: "i" } } },
+    { $group: { _id: null, a: { $sum: "$amount" } } },
+  ]);
+  return r2(row?.a || 0);
+};
 
 /** Prescriptions a login may see: a doctor without the View permission sees only their own. */
 async function rxScope(context: any, args: any) {
@@ -333,6 +393,24 @@ export const serviceResolvers = {
     getMembershipPlanById: tenantOnly((s, a) => byIdOf(MembershipPlan, planPopulate, formatPlan, s, a.id)),
     getMemberships: tenantOnly((s, a) => listOf(Membership, membershipPopulate, formatMembership, s, a.filter, { startdate: -1 }, "startdate")),
     getMembershipsPage: tenantOnly((s, a) => pageOf(Membership, "memberships", membershipPopulate, formatMembership, s, a, "startdate")),
+    getMeasurements: async (_: any, { filter = {}, search }: any, context: any) => {
+      const scope = await requireBackofficeTenant(context);
+      const q: any = buildServiceQuery(scope, filter, "takenon");
+      const t = String(search || "").trim();
+      if (t) Object.assign(q, await partyClause()(t, scope.adminid));
+      return (await Measurement.find(q).sort({ createdAt: -1 }).limit(500).populate(measurementPopulate).lean()).map(formatMeasurement);
+    },
+    getDeletedMeasurements: tenantOnly((s, a) => deletedOf(Measurement, measurementPopulate, formatMeasurement, s, a.filter)),
+    getLatestMeasurements: async (_: any, { partyacc }: any, context: any) => {
+      const scope = await requireBackofficeTenant(context);
+      const rows: any[] = await Measurement.find({ adminid: scope.adminid, partyacc, status: true }).sort({ createdAt: -1 }).limit(200).populate(measurementPopulate).lean();
+      const seen = new Set<string>();
+      return rows.filter((r) => (seen.has(r.garment) ? false : (seen.add(r.garment), true))).map(formatMeasurement);
+    },
+    getTailorOrdersPage: tenantOnly((s, a) => pageOf(TailorOrder, "tailoring", tailorPopulate, formatTailorOrder, s, a)),
+    getTailorOrders: tenantOnly((s, a) => listOf(TailorOrder, tailorPopulate, formatTailorOrder, s, a.filter, { billdate: -1, _id: -1 })),
+    getDeletedTailorOrders: tenantOnly((s, a) => deletedOf(TailorOrder, tailorPopulate, formatTailorOrder, s, a.filter)),
+    getTailorOrderById: tenantOnly((s, a) => byIdOf(TailorOrder, tailorPopulate, formatTailorOrder, s, a.id)),
     getPrescriptionsPage: async (_: any, args: any, context: any) => {
       const r = await rxScope(context, args);
       return pageOf(Prescription, "prescriptions", prescriptionPopulate, formatPrescription, r.scope, r.args);
@@ -358,7 +436,7 @@ export const serviceResolvers = {
   Mutation: {
     linkServiceInvoice: async (_: any, { kind, id, invoiceid }: any, context: any) => {
       const scope = await requireBackofficeTenant(context);
-      const model: any = kind === "membership" ? Membership : kind === "contract" ? Contract : null;
+      const model: any = kind === "membership" ? Membership : kind === "contract" ? Contract : kind === "tailororder" ? TailorOrder : null;
       if (!model) throw new TenantError("Unknown record type.", "BAD_USER_INPUT");
       const inv: any = await SalesInvoice.findOne({ _id: invoiceid, adminid: scope.adminid }).select("_id").lean();
       if (!inv) throw new TenantError("Invoice not found.", "BAD_USER_INPUT");
@@ -561,10 +639,60 @@ export const serviceResolvers = {
       await Prescription.updateOne({ _id: d._id }, { $set: { ...patch, ...doctor }, ...(Object.keys(unset).length ? { $unset: unset } : {}) });
       return loadPrescription(d._id);
     },
+    addMeasurement: addWith(Measurement, loadMeasurement, async (input, context) => {
+      const scope = await gate(context, "tailoring", "add");
+      const { clientRequestId, ...data } = input;
+      await checkCustomer(data, scope);
+      const created: any = await Measurement.create({ ...data, values: cleanValues(data.values), adminid: scope.adminid, branchid: scope.branchid || data.branchid || undefined, createdby_name: userName(context) });
+      return loadMeasurement(created._id);
+    }),
+    editMeasurement: async (_: any, { id, input }: any, context: any) => {
+      const { scope, d } = await own(Measurement, id, context, "tailoring", "edit");
+      const { clientRequestId, branchid, ...patch } = input;
+      await checkCustomer(patch, scope);
+      await Measurement.updateOne({ _id: d._id }, { $set: { ...patch, values: cleanValues(patch.values) } });
+      return loadMeasurement(d._id);
+    },
+    deleteMeasurement: softDelete(Measurement, "tailoring"),
+    resetMeasurement: restore(Measurement, "tailoring"),
+
+    addTailorOrder: addWith(TailorOrder, loadTailorOrder, async (input, context) => {
+      const scope = await gate(context, "tailoring", "add");
+      const data: any = await cleanTailorOrder(input, scope);
+      await checkCustomer(data, scope);
+      const count = await TailorOrder.countDocuments({ adminid: scope.adminid });
+      const created: any = await TailorOrder.create({ ...data, billnumber: String(count + 1), orderStatus: "received", adminid: scope.adminid,
+        branchid: scope.branchid || data.branchid || undefined, createdby_name: userName(context) });
+      await keepMeasurements(created.toObject(), scope, userName(context));
+      return loadTailorOrder(created._id);
+    }),
+    editTailorOrder: async (_: any, { id, input }: any, context: any) => {
+      const { scope, d } = await own(TailorOrder, id, context, "tailoring", "edit");
+      if (d.invoiceid) throw new TenantError("This order is billed; change the invoice instead.", "BAD_USER_INPUT");
+      const { branchid, ...patch } = await cleanTailorOrder(input, scope);
+      await checkCustomer(patch, scope);
+      await TailorOrder.updateOne({ _id: d._id }, { $set: patch });
+      await keepMeasurements({ ...d, ...patch }, scope, userName(context));
+      return loadTailorOrder(d._id);
+    },
+    setTailorOrderStatus: async (_: any, { id, orderStatus }: any, context: any) => {
+      const { d } = await own(TailorOrder, id, context, "tailoring", "edit");
+      if (!TAILOR_STATUS[orderStatus]) throw new TenantError("Unknown order status.", "BAD_USER_INPUT");
+      const set: any = { orderStatus };
+      const unset: any = {};
+      if (orderStatus === "delivered") set.deliveredAt = new Date(); else if (d.deliveredAt) unset.deliveredAt = "";
+      await TailorOrder.updateOne({ _id: d._id }, { $set: set, ...(Object.keys(unset).length ? { $unset: unset } : {}) });
+      return loadTailorOrder(d._id);
+    },
+    deleteTailorOrder: softDelete(TailorOrder, "tailoring"),
+    resetTailorOrder: restore(TailorOrder, "tailoring"),
     deletePrescription: softDelete(Prescription, "prescriptions"),
     resetPrescription: restore(Prescription, "prescriptions"),
   },
 
+  TailorOrder: {
+    advance: (d: any) => (d.id && !String(d.id).startsWith("offline-") ? TailorOrder.findById(d.id).lean().then((x: any) => tailorAdvance(x)) : 0),
+  },
   Membership: {
     sessionsused: (m: any) => (m.id && !String(m.id).startsWith("offline-") ? sessionsUsed(m.id) : 0),
   },

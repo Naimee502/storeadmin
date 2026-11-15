@@ -1,6 +1,8 @@
+import { Types } from "mongoose";
 import { Admin } from "../../../models/admin";
 import { Account } from "../../../models/accounts";
-import { Contract, JobCard, Membership, Prescription } from "../../../models/service";
+import { Contract, JobCard, Membership, Prescription, TailorOrder } from "../../../models/service";
+import { tailorAdvance } from "../service";
 import { SupportTicket } from "../../../models/supportticket";
 import { pushNotification } from "../../../models/notifications";
 import { resolveTenant, TenantError } from "../../../utils/tenant";
@@ -15,6 +17,12 @@ const me = async (context: any) => {
   return { partyid: context.user.id, adminid: scope.adminid };
 };
 const mineQ = (m: any) => ({ adminid: m.adminid, partyacc: m.partyid, status: true });
+const myTailorShape = async (d: any) => ({
+  id: String(d._id), billnumber: d.billnumber || null, billdate: d.billdate, orderStatus: d.orderStatus || "received",
+  trialdate: d.trialdate || null, deliverydate: d.deliverydate || null, total: d.total ?? null, advance: await tailorAdvance(d),
+  deliveredAt: d.deliveredAt ? new Date(d.deliveredAt).toISOString() : null,
+  items: (d.items || []).map((i: any) => ({ ...i, productserviceid: i.productserviceid?._id ? { id: String(i.productserviceid._id), name: i.productserviceid.name } : null })),
+});
 
 export const customerPortalResolvers = {
   Query: {
@@ -39,7 +47,19 @@ export const customerPortalResolvers = {
         contracts: on("contracts") ? contracts : 0, memberships: on("memberships") ? memberships : 0,
         loyaltyPoints: list?.includes("loyalty") ? await balanceOf(m.adminid, m.partyid) : null,
         prescriptions: list?.includes("prescriptions") ? await Prescription.countDocuments({ adminid: m.adminid, partyacc: m.partyid, status: true }) : null,
+        tailororders: list?.includes("tailoring") ? await TailorOrder.countDocuments(mineQ(m)) : null,
       };
+    },
+    getMyTailorOrders: async (_: any, __: any, context: any) => {
+      const m = await me(context);
+      const rows: any[] = await TailorOrder.find(mineQ(m)).sort({ billdate: -1, createdAt: -1 }).limit(200).populate("items.productserviceid", "name").lean();
+      return Promise.all(rows.map(myTailorShape));
+    },
+    getMyTailorOrder: async (_: any, { id }: any, context: any) => {
+      const m = await me(context);
+      const d: any = Types.ObjectId.isValid(String(id)) ? await TailorOrder.findOne({ _id: id, ...mineQ(m) }).populate("items.productserviceid", "name").lean() : null;
+      if (!d) throw new TenantError("Order not found.", "NOT_FOUND");
+      return myTailorShape(d);
     },
     getMyJobCards: async (_: any, __: any, context: any) => {
       const m = await me(context);
