@@ -3,6 +3,9 @@ import { ProductService, cleanJewel } from "../../../models/products";
 import { getStockDetails, manageStock } from "../../../utils/stockmanager";
 import { Branch } from "../../../models/branches";
 import { ProductBranchStock } from "../../../models/productbranchstock";
+import { BatchStock } from "../../../models/batch";
+import { isModuleOn } from "../../../utils/modulegate";
+import { istDate } from "../../../utils/ist";
 import {
   resolveTenant,
   requireBackofficeTenant,
@@ -258,11 +261,31 @@ async function stockLookup(products: any[], adminId: any, branchId: any) {
   return stockFor;
 }
 
+/** Expired batch qty per "product:variant" (Batch & Expiry on); the website and app do not count it as stock. */
+async function expiredQty(productIds: any[], adminId: any, branchId: any) {
+  const out = new Map<string, number>();
+  if (!productIds.length || !adminId || !(await isModuleOn("batches", { adminid: adminId }))) return out;
+  const rows = await BatchStock.aggregate([
+    { $match: {
+      adminid: new Types.ObjectId(String(adminId)), productid: { $in: productIds.map((x) => new Types.ObjectId(String(x))) },
+      qty: { $gt: 0 }, expirydate: { $gt: "", $lt: istDate() }, ...(branchId ? { branchid: new Types.ObjectId(String(branchId)) } : {}),
+    } },
+    { $group: { _id: { p: "$productid", v: "$variantid" }, qty: { $sum: "$qty" } } },
+  ]);
+  for (const r of rows) out.set(`${r._id.p}:${r._id.v || ""}`, Number(r.qty) || 0);
+  return out;
+}
+const lessExpired = (stock: any, expired: Map<string, number>, productId: any, variantId: any) => {
+  const e = expired.get(`${productId}:${variantId || ""}`) || 0;
+  return e ? { ...stock, currentstock: Math.max(0, Number(stock.currentstock || 0) - e) } : stock;
+};
+
 /** Adds stock to each variant and shapes products for the response. */
 export async function mapProductsWithStock(products: any[], tenant: any, isPublic: boolean) {
   const adminId = tenant.adminid;
   const branchId = tenant.branchid;
   const stockFor = await stockLookup(products, adminId, branchId);
+  const expired = isPublic ? await expiredQty(products.filter((p: any) => p?._id).map((p: any) => p._id), adminId, branchId) : new Map<string, number>();
 
   const convertRef = (obj: any) => {
     if (!obj) return obj;
@@ -294,7 +317,7 @@ export async function mapProductsWithStock(products: any[], tenant: any, isPubli
       if (mapped.productvariants?.length) {
         mapped.productvariants = await Promise.all(
           mapped.productvariants.map(async (v: any) => {
-            const stock = stockFor(mapped._id, v._id);
+            const stock = lessExpired(stockFor(mapped._id, v._id), expired, mapped._id, v._id);
 
             // ✅ Use unified mapping
             const variantMapped = mapVariantForResponse(v);
@@ -546,6 +569,7 @@ export const productServiceResolvers = {
       response.serviceaccountid = convertRef(response.serviceaccountid);
 
       // ✅ Variant + Pricing + Stock
+      const expired = isPublic ? await expiredQty([product._id], adminObjId, branchObjId) : new Map<string, number>();
       if (response.productvariants?.length) {
         response.productvariants = await Promise.all(
           response.productvariants.map(async (v: any) => {
@@ -553,6 +577,7 @@ export const productServiceResolvers = {
             if (stock.currentstock === 0) {
               stock = await getStockDetails(response._id, adminObjId, branchObjId);
             }
+            stock = lessExpired(stock, expired, response._id, v._id);
 
             // ✅ Use unified mapping
             const variantMapped = mapVariantForResponse(v);
