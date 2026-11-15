@@ -23,7 +23,7 @@ export const BUSINESS_PROFILES: BusinessProfile[] = [
     modules: [...CORE, "posdashboard", "sizes", "models", "productgroups", "pricelists", "chargerules", "reports.analytical"],
   },
   {
-    id: "wholesale", label: "Wholesale / Distributor", group: "Trading", types: ["wholesale", "trader"],
+    id: "wholesale", label: "Wholesale / Distributor / Trader", group: "Trading", types: ["wholesale", "trader"],
     note: "Orders, challans, channels, price lists, routes and field staff.",
     modules: [...CORE, ...GST_DOCS, "salesorder", "purchaseorder", "deliverychallan", "channels", "salesroutes",
       "pricelists", "priceassignments", "chargerules", "productgroups", "models", "sizes", "announcements",
@@ -115,7 +115,7 @@ export const profileModules = (p: BusinessProfile): string[] =>
 export const profileForType = (type: string): BusinessProfile | undefined =>
   BUSINESS_PROFILES.find((p) => p.types.includes(String(type || "").toLowerCase()));
 
-/** The list value for a saved type (older "trader" shows as Wholesale / Distributor). */
+/** The list value for a saved type (older "trader" shows as Wholesale / Distributor / Trader). */
 export const businessTypeValue = (type: string) => profileForType(type)?.id || String(type || "");
 
 /** Display label for a saved type. */
