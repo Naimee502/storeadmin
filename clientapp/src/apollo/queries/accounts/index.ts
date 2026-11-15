@@ -20,6 +20,7 @@ export const GET_PRODUCTS = gql`
         name
         sku
         gst
+        liveprice
         currentstock
         unitconversions {
           factor
@@ -68,6 +69,7 @@ export const GET_PRODUCT_BY_ID = gql`
         name
         sku
         gst
+        liveprice
         currentstock
         unitconversions {
           factor

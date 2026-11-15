@@ -54,6 +54,16 @@ export const jewelleryTypeDefs = gql`
   }
   input MetalRateInput { metal: String! purity: String! rate: Float! }
 
+  "Jewellery details of an item (per variant)."
+  type JewelDefaults { metal: String purity: String grossweight: Float stoneweight: Float netweight: Float makingtype: String making: Float stonecharge: Float othercharge: Float }
+  input JewelDefaultsInput { metal: String purity: String grossweight: Float stoneweight: Float netweight: Float makingtype: String making: Float stonecharge: Float othercharge: Float }
+  extend type ProductVariant {
+    jewel: JewelDefaults
+    "Price before GST from today's metal rate (Jewellery module on and a rate saved); null otherwise."
+    liveprice: Float
+  }
+  extend input ProductVariantInput { "null clears; left out keeps the saved details." jewel: JewelDefaultsInput }
+
   extend type Query {
     "Latest rate of each metal and purity (on or before the date; today when blank)."
     getMetalRates(date: String): [MetalRate!]!

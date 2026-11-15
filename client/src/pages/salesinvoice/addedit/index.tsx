@@ -952,7 +952,7 @@ const AddEditSalesInvoice = () => {
           />
           <BatchLines mode="out" products={products} setProducts={setProducts} branchId={branchId} />
           <SerialLines mode="out" items={serialItems} onChange={setSerials} serialised={isSerialised} />
-          <JewelLines products={products} setProducts={setProducts} />
+          <JewelLines products={products} setProducts={setProducts} autofill={!isEdit && !orderId && !challanId} />
           <OldGoldPanel lines={oldGold} setLines={setOldGold} />
 
           <PosAddCustomer

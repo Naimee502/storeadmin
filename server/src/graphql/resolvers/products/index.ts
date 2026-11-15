@@ -1,5 +1,5 @@
 import { Types } from "mongoose";
-import { ProductService } from "../../../models/products";
+import { ProductService, cleanJewel } from "../../../models/products";
 import { getStockDetails, manageStock } from "../../../utils/stockmanager";
 import { Branch } from "../../../models/branches";
 import { ProductBranchStock } from "../../../models/productbranchstock";
@@ -50,6 +50,7 @@ function normalizeId(value: any) {
 function normalizeVariant(v: any) {
   return {
     ...v,
+    ...(v.jewel !== undefined ? { jewel: cleanJewel(v.jewel) } : {}),
     baseunitid: normalizeId(v.baseunitid),
     purchaseunitid: normalizeId(v.purchaseunitid),
 
@@ -756,9 +757,13 @@ export const productServiceResolvers = {
         // ---------------------------
         const normalizedVariants = (input.productvariants || []).map((v: any) => {
           const varId = v._id || v.id;
+          // A client that does not send jewel details keeps the saved ones.
+          const old: any = existing.productvariants?.find((x: any) => varId && String(x._id) === String(varId));
+          const jewel = v.jewel === undefined ? old?.jewel : cleanJewel(v.jewel);
 
           return {
             ...v,
+            jewel: jewel && (jewel as any).toObject ? (jewel as any).toObject() : jewel,
             _id:
               varId && Types.ObjectId.isValid(varId)
                 ? new Types.ObjectId(varId)

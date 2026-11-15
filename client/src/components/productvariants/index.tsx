@@ -6,6 +6,8 @@ import { fieldOn, useFormMode } from "../../hooks/useformmode";
 import { typeAllows } from "../../config/itemtypes";
 import { selectIsModuleAllowed } from "../../redux/slices/permissions";
 import { useChannelsQuery } from "../../graphql/hooks/channels";
+import { useOptInOn } from "../../hooks/useoptin";
+import { MAKING, jewelTotals, useMetalRates } from "../jewellines";
 
 export type UnitsQuery = {
     getUnits: Array<{
@@ -101,6 +103,14 @@ export const ProductVariants: React.FC<ProductVariantsProps & { specDefs?: SpecD
     const marketOn = useAppSelector((s: any) => selectIsModuleAllowed(s, "marketplace"));
     const { data: channelData } = useChannelsQuery();
     const channelOptions = ((channelData as any)?.getChannels || []).map((c: any) => ({ value: c.id, label: c.channelName || c.channelCode }));
+    // Jewellery module: metal, weight and making per variant; the website / app price follows today's rate.
+    const jewelOn = useOptInOn("jewellery");
+    const { rows: metalRows, rateOf } = useMetalRates(!jewelOn);
+    const metalOptions = metalRows.map((r: any) => ({ value: `${r.metal}|${r.purity}`, label: `${r.metal[0].toUpperCase()}${r.metal.slice(1)} ${r.purity} · ₹${r.rate}/g` }));
+    const setJewel = (index: number, patch: Record<string, any>) => {
+        const cur = formData.productvariants?.[index]?.jewel || {};
+        handleChange({ target: { name: `productvariants.${index}.jewel`, value: { makingtype: "pergram", ...cur, ...patch } } } as any);
+    };
     const setListings = (index: number, next: any[]) => handleChange({ target: { name: `productvariants.${index}.listings`, value: next } } as any);
 
     // A section shows only if at least one of its fields is allowed.
@@ -375,6 +385,34 @@ export const ProductVariants: React.FC<ProductVariantsProps & { specDefs?: SpecD
                         <button type="button" onClick={() => addSerial(index)} className="inline-flex h-7 items-center gap-1 rounded-md border border-dashed border-slate-300 bg-white px-2.5 text-[12px] font-medium text-indigo-600 hover:border-indigo-400 hover:bg-indigo-50">+ Add Serial</button>
                     </div>
                 )}
+                {jewelOn && (() => {
+                    const j: any = variant.jewel || {};
+                    const rate = j.metal ? rateOf(j.metal, j.purity || "") : 0;
+                    const t = jewelTotals({ ...j, metalrate: rate });
+                    return (
+                        <div className="mt-3 space-y-2 border-t border-slate-200 pt-3">
+                            <h4 className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Jewellery Details</h4>
+                            <div className="grid grid-cols-2 gap-2 md:grid-cols-4 xl:grid-cols-8">
+                                <div className="col-span-2">
+                                    <FormField label="Metal & Purity" name={`jw-${index}-metal`} type="select" searchable options={metalOptions} value={j.metal ? `${j.metal}|${j.purity || ""}` : ""}
+                                        onChange={(e: any) => { const [metal, purity] = String(e.target.value || "").split("|"); setJewel(index, { metal: metal || "", purity: purity || "" }); }} />
+                                </div>
+                                <FormField label="Gross Wt (g)" type="number" name={`jw-${index}-gross`} value={j.grossweight ?? ""} onChange={(e: any) => setJewel(index, { grossweight: e.target.value })} />
+                                <FormField label="Stone Wt (g)" type="number" name={`jw-${index}-stone`} value={j.stoneweight ?? ""} onChange={(e: any) => setJewel(index, { stoneweight: e.target.value })} />
+                                <FormField label="Net Wt (g)" type="number" name={`jw-${index}-net`} value={j.netweight ?? ""} placeholder={String(t.netweight || "")} onChange={(e: any) => setJewel(index, { netweight: e.target.value })} />
+                                <FormField label="Making" type="select" searchable name={`jw-${index}-mtype`} value={j.makingtype || "pergram"} options={Object.entries(MAKING).map(([value, label]) => ({ value, label }))} onChange={(e: any) => setJewel(index, { makingtype: e.target.value || "pergram" })} />
+                                <FormField label="Making Value" type="number" name={`jw-${index}-making`} value={j.making ?? ""} onChange={(e: any) => setJewel(index, { making: e.target.value })} />
+                                <FormField label="Stone ₹" type="number" name={`jw-${index}-stonec`} value={j.stonecharge ?? ""} onChange={(e: any) => setJewel(index, { stonecharge: e.target.value })} />
+                                <FormField label="Other ₹ (hallmark…)" type="number" name={`jw-${index}-other`} value={j.othercharge ?? ""} onChange={(e: any) => setJewel(index, { othercharge: e.target.value })} />
+                            </div>
+                            <p className="text-[12px] text-slate-600">
+                                {!j.metal ? "Pick the metal to price this item from today's rate on the website, app and bills. Leave blank for a fixed-price item."
+                                    : rate ? <>Today: Metal ₹{t.metalvalue.toLocaleString("en-IN")} + Making ₹{t.makingamount.toLocaleString("en-IN")}{Number(j.stonecharge) ? ` + Stone ₹${Number(j.stonecharge).toLocaleString("en-IN")}` : ""}{Number(j.othercharge) ? ` + Other ₹${Number(j.othercharge).toLocaleString("en-IN")}` : ""} = <b>₹{t.total.toLocaleString("en-IN")}</b> before GST. The website and app show this price instead of the Sales Rate.</>
+                                    : "No rate saved today for this metal: the website and app show the Sales Rate until you set it in Today's Rates."}
+                            </p>
+                        </div>
+                    );
+                })()}
                 {marketOn && (
                     <div className="mt-3 space-y-2 border-t border-slate-200 pt-3">
                         <h4 className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Marketplace Listings</h4>

@@ -31,6 +31,7 @@ import Modal from "../../../components/modal";
 import { normalizeToYMD } from "../../../utils/helper";
 import { fieldOn, useFormMode } from "../../../hooks/useformmode";
 import { useQuery } from "@apollo/client";
+import { useOptInOn } from "../../../hooks/useoptin";
 import { GET_BOMS } from "../../../graphql/queries/manufacturing";
 import { MAKEABLE, NON_SELLING, typeAllows, usesOfType } from "../../../config/itemtypes";
 
@@ -41,6 +42,7 @@ const AddEditProductService = () => {
   const dispatch = useAppDispatch();
   const { admin, branch, type } = useAppSelector((state) => state.auth);
   const branchId = useAppSelector((state) => state.selectedBranch.branchId);
+  const jewelOn = useOptInOn("jewellery");
   const adminId = admin?.id;
 
   const isAddVariantEnabled = useAppSelector(state => selectIsFormFieldEnabled(state, "products", "add_product_variant", id ? "edit" : "add"));
@@ -1047,6 +1049,12 @@ const AddEditProductService = () => {
         moq: roundNum(v.moq) || undefined,
         salemultiple: roundNum(v.salemultiple) || undefined,
         warrantymonths: roundNum(v.warrantymonths) || undefined,
+        // Sent only with the Jewellery module on; left out, the server keeps the saved details.
+        ...(jewelOn ? { jewel: v.jewel?.metal ? {
+          metal: v.jewel.metal, purity: v.jewel.purity || "", grossweight: roundNum(v.jewel.grossweight), stoneweight: roundNum(v.jewel.stoneweight),
+          netweight: roundNum(v.jewel.netweight), makingtype: v.jewel.makingtype || "pergram", making: roundNum(v.jewel.making),
+          stonecharge: roundNum(v.jewel.stonecharge), othercharge: roundNum(v.jewel.othercharge),
+        } : null } : {}),
         listings: (v.listings || []).filter((l: any) => l?.channel || l?.sku).map((l: any) => ({ channel: l.channel || undefined, sku: String(l.sku || "").trim(), listingid: String(l.listingid || "").trim(), extra: (l.extra || []).filter((x: any) => x?.key).map((x: any) => ({ key: x.key, value: x.value })) })),
         package: v.package && Object.values(v.package).some((x: any) => Number(x) > 0) ? { weight: roundNum(v.package.weight), length: roundNum(v.package.length), width: roundNum(v.package.width), height: roundNum(v.package.height) } : undefined,
         customfields: (v.customfields || []).filter((c: any) => String(c?.value ?? "").trim()).map((c: any) => ({ key: c.key, value: String(c.value).trim() })),

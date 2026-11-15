@@ -1,6 +1,7 @@
+import { Types } from "mongoose";
 import { MetalRate } from "../../../models/metalrate";
 import { requireBackofficeTenant, TenantError } from "../../../utils/tenant";
-import { assertModuleOn } from "../../../utils/modulegate";
+import { assertModuleOn, isModuleOn } from "../../../utils/modulegate";
 import { istDate } from "../../../utils/ist";
 
 const shape = (r: any) => ({ id: String(r._id), date: r.date, metal: r.metal, purity: r.purity, rate: Number(r.rate), createdby_name: r.createdby_name || null, updatedAt: r.updatedAt ? new Date(r.updatedAt).toISOString() : null });
@@ -21,7 +22,44 @@ const latestRates = async (adminid: any, date: string) => {
   return rows.map((r) => r.doc).sort((a, b) => a.metal.localeCompare(b.metal) || b.purity.localeCompare(a.purity));
 };
 
+/** Price before GST of jewel details at a rate per gram (same sum as a jewellery bill line). */
+export const jewelPrice = (j: any, rate: number) => {
+  const net = Number(j.netweight) > 0 ? Number(j.netweight) : Math.max(0, Number(j.grossweight || 0) - Number(j.stoneweight || 0));
+  const metal = r2(net * rate);
+  const m = Number(j.making || 0);
+  const making = r2(j.makingtype === "percent" ? (metal * m) / 100 : j.makingtype === "fixed" ? m : net * m);
+  return r2(metal + making + Number(j.stonecharge || 0) + Number(j.othercharge || 0));
+};
+
+/** Today's rates of a business, looked up once per request; null when the module is off. */
+const ratesFor = (context: any, adminid: string): Promise<Map<string, number> | null> => {
+  const cache: Map<string, Promise<Map<string, number> | null>> = (context.__metalRates ||= new Map());
+  if (!cache.has(adminid)) {
+    cache.set(adminid, (async () => {
+      if (!Types.ObjectId.isValid(adminid) || !(await isModuleOn("jewellery", { adminid }))) return null;
+      const rows = await latestRates(new Types.ObjectId(adminid), istDate());
+      return new Map(rows.map((x: any) => [`${x.metal}|${x.purity}`, Number(x.rate)]));
+    })());
+  }
+  return cache.get(adminid)!;
+};
+const adminOf = (p: any) => String(p?.adminid?.id || p?.adminid?._id || p?.adminid || "");
+
 export const jewelleryResolvers = {
+  // Variants carry their business so liveprice can find its rates.
+  ProductService: {
+    productvariants: (p: any) => (Array.isArray(p.productvariants) ? p.productvariants.map((v: any) => ({ ...(v?.toObject ? v.toObject() : v), __adminid: adminOf(p) })) : p.productvariants),
+  },
+  ProductVariant: {
+    liveprice: async (v: any, _: any, context: any) => {
+      const j = v?.jewel;
+      if (!j?.metal || !v.__adminid || !context) return null;
+      const rate = (await ratesFor(context, v.__adminid))?.get(`${j.metal}|${j.purity || ""}`);
+      if (!rate) return null;
+      const price = jewelPrice(j, rate);
+      return price > 0 ? price : null;
+    },
+  },
   Query: {
     getMetalRates: async (_: any, { date }: any, context: any) => {
       const sc = await scopeOf(context);

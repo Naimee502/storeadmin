@@ -84,6 +84,8 @@ export const GET_PRODUCT_SERVICES = gql`
         moq
         salemultiple
         warrantymonths
+        jewel { metal purity grossweight stoneweight netweight makingtype making stonecharge othercharge }
+        liveprice
         listings { channel sku listingid extra { key value } }
         package { weight length width height }
         customfields { key value }
@@ -288,6 +290,8 @@ export const GET_PRODUCT_SERVICE_BY_ID = gql`
         moq
         salemultiple
         warrantymonths
+        jewel { metal purity grossweight stoneweight netweight makingtype making stonecharge othercharge }
+        liveprice
         listings { channel sku listingid extra { key value } }
         package { weight length width height }
         customfields { key value }

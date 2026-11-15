@@ -1,10 +1,11 @@
-import React from "react";
+import React, { useEffect, useRef } from "react";
 import { useQuery } from "@apollo/client";
 import { Gem, Plus, Trash2 } from "lucide-react";
 import FormField from "../formfiled";
 import { useOptInOn } from "../../hooks/useoptin";
 import { GET_METAL_RATES } from "../../graphql/queries/jewellery";
 import type { InvoiceProduct } from "../productsection";
+import { useProductServicesQuery } from "../../graphql/hooks/products";
 
 const r2 = (n: number) => Math.round((Number(n) || 0) * 100) / 100;
 const r3 = (n: number) => Math.round((Number(n) || 0) * 1000) / 1000;
@@ -28,16 +29,13 @@ export const useMetalRates = (skip = false) => {
   return { rows, rateOf: (metal: string, purity: string) => Number(rows.find((r) => r.metal === metal && r.purity === purity)?.rate || 0) };
 };
 
-type Props = { products: InvoiceProduct[]; setProducts: React.Dispatch<React.SetStateAction<InvoiceProduct[]>> };
+type Props = { products: InvoiceProduct[]; setProducts: React.Dispatch<React.SetStateAction<InvoiceProduct[]>>; autofill?: boolean };
 
 /** Weight × today's rate + making for each line (Jewellery module); sets the line rate. */
-export const JewelLines: React.FC<Props> = ({ products, setProducts }) => {
+export const JewelLines: React.FC<Props> = ({ products, setProducts, autofill }) => {
   const on = useOptInOn("jewellery");
   const { rows, rateOf } = useMetalRates(!on);
-  if (!on) return null;
-  const lines = products.map((p, i) => ({ p, i })).filter(({ p }) => p.productserviceid);
-  if (!lines.length) return null;
-  const metalOptions = rows.map((r) => ({ value: `${r.metal}|${r.purity}`, label: `${cap(r.metal)} ${r.purity} · ₹${r.rate}/g` }));
+  const { data: itemData } = useProductServicesQuery();
   const update = (i: number, patch: Record<string, any>) => setProducts((list) => list.map((x, j) => {
     if (j !== i) return x;
     const jewel: Record<string, any> = { makingtype: "pergram", ...(x.jewel || {}), ...patch };
@@ -47,6 +45,27 @@ export const JewelLines: React.FC<Props> = ({ products, setProducts }) => {
     const rate = r2(t.total / qty);
     return { ...x, jewel: { ...jewel, netweight: t.netweight, metalvalue: t.metalvalue, makingamount: t.makingamount }, rate, total: r2((rate - Number(x.discount || 0)) * qty * (1 + Number(x.gst || 0) / 100)) };
   }));
+  // New bill: a picked item brings its saved jewel details at today's rate (once per line).
+  const filled = useRef(new Set<string>());
+  useEffect(() => {
+    if (!on || !autofill || !rows.length) return;
+    const items: any[] = itemData?.getProductServices || [];
+    products.forEach((p, i) => {
+      const key = `${i}|${p.productserviceid}|${p.variantid || ""}`;
+      if (!p.productserviceid || p.jewel?.metal || filled.current.has(key)) return;
+      filled.current.add(key);
+      const item = items.find((x: any) => x.id === p.productserviceid);
+      const v = item?.productvariants?.find((x: any) => x.id === p.variantid) || item?.productvariants?.[0];
+      const d = v?.jewel;
+      if (!d?.metal) return;
+      const { __typename, ...rest } = d;
+      update(i, { ...rest, metalrate: rateOf(d.metal, d.purity || "") });
+    });
+  }, [on, autofill, rows, itemData, products]);
+  if (!on) return null;
+  const lines = products.map((p, i) => ({ p, i })).filter(({ p }) => p.productserviceid);
+  if (!lines.length) return null;
+  const metalOptions = rows.map((r) => ({ value: `${r.metal}|${r.purity}`, label: `${cap(r.metal)} ${r.purity} · ₹${r.rate}/g` }));
   return (
     <fieldset className="border rounded-xl p-4 space-y-3">
       <legend className="flex items-center gap-1.5 px-2 text-sm font-medium"><Gem size={15} className="text-indigo-600" /> Jewellery Price</legend>

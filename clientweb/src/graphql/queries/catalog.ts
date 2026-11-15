@@ -21,6 +21,7 @@ export const GET_STORE_PRODUCTS = gql`
         id
         name
         gst
+        liveprice
         currentstock
         unitconversions {
           factor

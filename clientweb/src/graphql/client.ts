@@ -83,9 +83,23 @@ const authLink = setContext((_, { headers }) => {
   };
 });
 
+// Jewellery items: today's metal-rate price (liveprice) replaces the saved unit rates.
+const liveUnitPrices = (existing: any, { readField }: any) => {
+  const live = Number(readField("liveprice"));
+  if (!(live > 0) || !Array.isArray(existing)) return existing;
+  const convs: any[] = readField("unitconversions") || [];
+  const unitIdOf = (x: any) => { const u = readField("unitid", x); return u ? readField("id", u) : null; };
+  return existing.map((up: any) => {
+    const conv = convs.find((c) => unitIdOf(c) === unitIdOf(up));
+    const factor = Number(conv ? readField("factor", conv) : 1) || 1;
+    const rate = Math.round(live * (Number(readField("quantity", up)) || 1) * factor * 100) / 100;
+    return { ...up, salesrate: rate, offerprice: 0, discount: 0, mrp: rate };
+  });
+};
+
 const apolloClient = new ApolloClient({
   link: from([offline.link, authLink, httpLink]),
-  cache: new InMemoryCache(),
+  cache: new InMemoryCache({ typePolicies: { ProductVariant: { fields: { unitprices: { read: liveUnitPrices } } } } }),
   // Saved data shows at once and the server refreshes it (offline-first).
   defaultOptions: { watchQuery: { fetchPolicy: "cache-and-network" } },
 });

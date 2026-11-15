@@ -65,7 +65,28 @@ export interface IProductVariant {
   serials?: ISerial[];
   unitprices?: IUnitPrice[]; // sales pricing
   productlikecount?: number;
+  jewel?: IJewelDefaults;
 }
+
+/** Jewellery item details; the online price is worked out from them and today's metal rate. */
+export interface IJewelDefaults {
+  metal?: string; purity?: string; grossweight?: number; stoneweight?: number; netweight?: number;
+  makingtype?: string; making?: number; stonecharge?: number; othercharge?: number;
+}
+
+const MAKING_TYPES = ["pergram", "percent", "fixed"];
+const pos = (v: any) => (Number(v) > 0 ? Math.round(Number(v) * 1000) / 1000 : undefined);
+/** Clean jewel details from a client; undefined when there is no metal. */
+export const cleanJewel = (j: any): IJewelDefaults | undefined => {
+  const metal = String(j?.metal || "").trim().toLowerCase().slice(0, 20);
+  if (!metal) return undefined;
+  return {
+    metal, purity: String(j.purity || "").trim().toUpperCase().slice(0, 10) || undefined,
+    grossweight: pos(j.grossweight), stoneweight: pos(j.stoneweight), netweight: pos(j.netweight),
+    makingtype: MAKING_TYPES.includes(j.makingtype) ? j.makingtype : "pergram", making: pos(j.making),
+    stonecharge: pos(j.stonecharge), othercharge: pos(j.othercharge),
+  };
+};
 
 // 🔹 Service Variant
 export interface IServiceVariant {
@@ -299,6 +320,11 @@ const productServiceSchema = new Schema<IProductService>(
           },
         ],
         productlikecount: { type: Number, default: 0 },
+        jewel: {
+          type: { _id: false, metal: String, purity: String, grossweight: Number, stoneweight: Number, netweight: Number,
+            makingtype: String, making: Number, stonecharge: Number, othercharge: Number },
+          default: undefined,
+        },
       },
     ],
     // Items a buyer can take instead, and the machines this spare fits.
