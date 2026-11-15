@@ -22,6 +22,8 @@ interface IAdmin extends Document {
   needsReview: boolean;
   rejected: boolean;
   businesstype: "retail" | "wholesale" | "manufacturer" | "service" | "trader" | "exporter" | "pharma" | "hardware" | "repair" | "clinic" | "other" | "garments" | "electronics" | "jewellery" | "restaurant" | "doctor" | "salon" | "tailor";
+  // Business Kind under the type (e.g. retail → kirana); unset on older businesses.
+  businesskind?: string;
   allowedmodules: string[];
   // Per-module action defaults that propagate to every Branch / Staff
   // under this admin unless overridden. Stored as Mixed JSON because the
@@ -66,6 +68,7 @@ const AdminSchema: Schema<IAdmin> = new mongoose.Schema(
       enum: ['retail', 'wholesale', 'manufacturer', 'service', 'trader', 'exporter', 'pharma', 'hardware', 'repair', 'clinic', 'other', 'garments', 'electronics', 'jewellery', 'restaurant', 'doctor', 'salon', 'tailor'],
       default: 'retail',
     },
+    businesskind: { type: String },
     allowedmodules: {
       type: [String],
       default: null,

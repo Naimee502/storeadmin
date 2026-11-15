@@ -7,6 +7,39 @@ import { enforceLoginOtp } from "../../../utils/loginotp";
 import { verifyPassword, upgradePassword } from "../../../utils/password";
 import { isPlatform } from "../../../utils/authguard";
 import { ensureMainBranch } from "../../../models/branches";
+import { Unit } from "../../../models/units";
+import { Category } from "../../../models/categories";
+import { requireBackofficeTenant } from "../../../utils/tenant";
+
+const KIND_RX = /^[a-z0-9_]{1,30}$/;
+const cleanKind = (v: any) => (KIND_RX.test(String(v || "")) ? String(v) : undefined);
+
+/** Creates the starter units and categories whose name the business has not used yet (deleted ones count). */
+const addStarter = async (adminid: any, starter: any): Promise<number> => {
+  const name = (v: any) => String(v || "").trim().slice(0, 40);
+  const units = (Array.isArray(starter?.units) ? starter.units : []).slice(0, 30)
+    .map((u: any) => ({ unitname: name(u?.name), uqc: /^[A-Z]{3}$/.test(String(u?.uqc || "")) ? String(u.uqc) : undefined }))
+    .filter((u: any) => u.unitname);
+  const cats = (Array.isArray(starter?.categories) ? starter.categories : []).slice(0, 30).map(name).filter(Boolean);
+  const taken = async (model: any, field: string) =>
+    new Set((await model.find({ admin: adminid }).select(field).lean()).map((d: any) => String(d[field] || "").toLowerCase()));
+  let added = 0;
+  const haveUnits = await taken(Unit, "unitname");
+  for (const u of units) {
+    if (haveUnits.has(u.unitname.toLowerCase())) continue;
+    haveUnits.add(u.unitname.toLowerCase());
+    await new Unit({ ...u, status: true, admin: adminid }).save();
+    added++;
+  }
+  const haveCats = await taken(Category, "categoryname");
+  for (const c of cats) {
+    if (haveCats.has(c.toLowerCase())) continue;
+    haveCats.add(c.toLowerCase());
+    await new Category({ categoryname: c, status: true, admin: adminid }).save();
+    added++;
+  }
+  return added;
+};
 
 export const adminResolvers = {
   Query: {
@@ -45,10 +78,10 @@ export const adminResolvers = {
       const existing = await Admin.findOne({ email: input.email });
       if (existing) throw new Error("Admin already exists");
 
-      const { gstin, formfields, ...adminInput } = input;
+      const { gstin, formfields, starter, businesskind, ...adminInput } = input;
       // Starting product / service form fields of the business type (true / false only).
       const forms: any = {};
-      for (const m of ["products", "services"]) {
+      for (const m of ["products", "services", "jobcards"]) {
         const f = formfields?.[m];
         if (!f || typeof f !== "object") continue;
         const clean = Object.fromEntries(Object.entries(f).filter(([k, v]) => /^\w{1,40}$/.test(k) && typeof v === "boolean"));
@@ -65,6 +98,7 @@ export const adminResolvers = {
         rejected: false,
         // Optional defaults (if not provided in input)
         businesstype: input.businesstype || 'retail',
+        ...(cleanKind(businesskind) ? { businesskind: cleanKind(businesskind) } : {}),
         allowedmodules: input.allowedmodules || [],
         status: input.status ?? true,
       });
@@ -90,8 +124,15 @@ export const adminResolvers = {
         settings.gstAddress = settings.gstAddress || admin.address;
       }
       await settings.save();
+      if (starter) await addStarter(admin._id, starter);
 
       return admin;
+    },
+
+    addStarterMasters: async (_: any, { adminid, starter }: any, context: any) => {
+      const target = isPlatform(context) && adminid ? adminid : (await requireBackofficeTenant(context)).adminid;
+      if (!(await Admin.exists({ _id: target }))) throw new ApolloError("Business not found.", "BAD_USER_INPUT");
+      return addStarter(target, starter);
     },
 
     updateAdminById: async (_: any, { id, input }: any, context: any) => {
@@ -120,6 +161,7 @@ export const adminResolvers = {
       if (input.noOfBranches !== undefined) admin.noOfBranches = input.noOfBranches;
       if (input.subscriptionType) admin.subscriptionType = input.subscriptionType;
       if (input.businesstype) admin.businesstype = input.businesstype;
+      if (input.businesskind !== undefined) (admin as any).businesskind = cleanKind(input.businesskind);
       if (Array.isArray(input.allowedmodules)) admin.allowedmodules = input.allowedmodules;
       if (typeof input.status === "boolean") admin.status = input.status;
 

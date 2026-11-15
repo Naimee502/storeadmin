@@ -9,6 +9,7 @@ import {
   UPDATE_ADMIN_BY_ID,
   DELETE_ADMIN,
   RESET_ADMIN, // ✅ import the new query
+  ADD_STARTER_MASTERS,
 } from "../../mutations/admin"; // or from "../../queries/admin" if separated
 import { GET_ADMINS, GET_DELETED_ADMINS } from "../../queries/admin";
 
@@ -17,6 +18,9 @@ export const useCreateAdminMutation = () => useMutation(CREATE_ADMIN);
 
 // Mutation: Update Admin
 export const useUpdateAdminMutation = () => useMutation(UPDATE_ADMIN_BY_ID);
+
+// Mutation: starter units and categories of a business type
+export const useAddStarterMastersMutation = () => useMutation(ADD_STARTER_MASTERS);
 
 // Mutation: Login Admin
 export const useLoginAdminMutation = () => useMutation(LOGIN_ADMIN);

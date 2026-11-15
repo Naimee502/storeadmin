@@ -18,6 +18,7 @@ const ADMIN_FIELDS = `
   needsReview
   rejected
   businesstype
+  businesskind
   allowedmodules
   status
 `;

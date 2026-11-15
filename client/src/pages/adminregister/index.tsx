@@ -6,7 +6,7 @@ import Button from "../../components/button";
 import registerImage from "../../assets/images/login.jpg";
 import { useCreateAdminMutation } from "../../graphql/hooks/admin";
 import { ADMIN_REGISTER_MODULES, isOptIn } from "../../config/modules";
-import { BUSINESS_TYPE_OPTIONS, profileForType, profileModules } from "../../config/profiles";
+import { BUSINESS_TYPE_OPTIONS, kindOptions, profileForType, profileModules, starterMasters, withKind } from "../../config/profiles";
 
 const AdminRegister = () => {
   const navigate = useNavigate();
@@ -22,13 +22,13 @@ const AdminRegister = () => {
   const [noOfBranches, setNoOfBranches] = useState<number>(1);
   const [subscription, setSubscription] = useState("monthly");
   const [businesstype, setBusinesstype] = useState("retail");
+  const [businesskind, setBusinesskind] = useState("");
+  const [addStarter, setAddStarter] = useState(true);
 
-  // The business type decides the starting modules (Other starts with the core ones).
+  // Type + kind decide the starting modules, form fields and starter masters (Other starts with the core ones).
   const allModules = ADMIN_REGISTER_MODULES.map((m) => m.id).filter((id) => !isOptIn(id));
-  const startModules = (type: string) => {
-    const p = profileForType(type);
-    return p ? profileModules(p) : allModules;
-  };
+  const preset = withKind(profileForType(businesstype), businesskind);
+  const starter = starterMasters(preset);
 
   const [emailError, setEmailError] = useState("");
   const [passwordError, setPasswordError] = useState("");
@@ -94,8 +94,10 @@ const AdminRegister = () => {
             noOfBranches: Number(noOfBranches),
             subscriptionType: subscription,
             businesstype,
-            allowedmodules: startModules(businesstype),
-            ...(profileForType(businesstype)?.fields ? { formfields: profileForType(businesstype)!.fields } : {}),
+            ...(businesskind ? { businesskind } : {}),
+            allowedmodules: preset ? profileModules(preset) : allModules,
+            ...(preset?.fields ? { formfields: preset.fields } : {}),
+            ...(addStarter && (starter.units.length || starter.categories.length) ? { starter } : {}),
           },
         },
       });
@@ -232,11 +234,29 @@ const AdminRegister = () => {
               </div>
 
               <div className="flex-1">
-                <FormField label="Business Type" name="businesstype" type="select" value={businesstype}
+                <FormField label="Business Type" name="businesstype" type="select" value={businesstype} searchable
                   options={BUSINESS_TYPE_OPTIONS}
-                  onChange={(e: any) => setBusinesstype(e.target.value || "retail")} />
+                  onChange={(e: any) => { setBusinesstype(e.target.value || "retail"); setBusinesskind(""); }} />
               </div>
             </div>
+
+            {kindOptions(businesstype).length > 0 && (
+              <FormField label="Business Kind" name="businesskind" type="select" value={businesskind} searchable
+                options={kindOptions(businesstype)} placeholder="Pick what the business sells or does"
+                onChange={(e: any) => setBusinesskind(e.target.value || "")} />
+            )}
+            {preset && (
+              <div className="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-2 text-[12px] text-slate-600 space-y-1">
+                <div>{preset.note}</div>
+                {(starter.units.length > 0 || starter.categories.length > 0) && (
+                  <label className="flex items-start gap-2 cursor-pointer">
+                    <input type="checkbox" className="mt-0.5 h-3.5 w-3.5" checked={addStarter} onChange={(e) => setAddStarter(e.target.checked)} />
+                    <span>Add starter masters: {[starter.units.length && `units ${starter.units.map((u) => u.name).join(", ")}`,
+                      starter.categories.length && `categories ${starter.categories.join(", ")}`].filter(Boolean).join("; ")}</span>
+                  </label>
+                )}
+              </div>
+            )}
 
             <Button type="submit" variant="primary" className="w-full h-9 font-semibold !mt-5">
               Register Admin

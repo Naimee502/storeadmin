@@ -21,6 +21,8 @@ export const adminTypeDefs = gql`
     needsReview: Boolean!
     rejected: Boolean!
     businesstype: String
+    "Business Kind under the type, e.g. kirana under retail."
+    businesskind: String
     allowedmodules: [String!]
     createdAt: String
     updatedAt: String
@@ -43,6 +45,9 @@ export const adminTypeDefs = gql`
     status: Boolean
     "Product / service form fields the business type shows or hides: { products: { field: true|false }, services: {...} }."
     formfields: JSON
+    businesskind: String
+    "Starter masters of the type: { units: [{ name, uqc }], categories: [name] }."
+    starter: JSON
   }
 
   input AdminUpdateInput {
@@ -57,6 +62,7 @@ export const adminTypeDefs = gql`
     noOfBranches: Int
     subscriptionType: String
     businesstype: String
+    businesskind: String
     allowedmodules: [String!]
     status: Boolean
   }
@@ -88,5 +94,7 @@ export const adminTypeDefs = gql`
     updateAdminById(id: ID!, input: AdminUpdateInput!): Admin
     deleteAdmin(id: ID!): Boolean!
     resetAdmin(id: ID!): Boolean!
+    "Adds starter units and categories the business does not have yet; returns how many were added."
+    addStarterMasters(adminid: ID, starter: JSON!): Int!
   }
 `;

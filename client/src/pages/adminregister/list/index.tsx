@@ -12,7 +12,7 @@ import { showLoading, hideLoading } from "../../../redux/slices/loader";
 import { showMessage } from "../../../redux/slices/message";
 import { selectModuleActions } from "../../../redux/slices/permissions";
 import { clearPlatformKey } from "../../../graphql/platformkey";
-import { BUSINESS_TYPE_OPTIONS, businessTypeLabel, businessTypeValue } from "../../../config/profiles";
+import { BUSINESS_TYPE_OPTIONS, businessTypeLabel, businessTypeValue, kindOptions } from "../../../config/profiles";
 
 const AdminList = () => {
   const dispatch = useAppDispatch();
@@ -36,6 +36,7 @@ const AdminList = () => {
     noOfBranches: number;
     subscriptionType: string;
     businesstype: string;
+    businesskind: string;
     status: boolean;
   }>({
     name: "",
@@ -47,6 +48,7 @@ const AdminList = () => {
     noOfBranches: 1,
     subscriptionType: "monthly",
     businesstype: "retail",
+    businesskind: "",
     status: true,
   });
 
@@ -87,6 +89,7 @@ const AdminList = () => {
       noOfBranches: Number(raw.noOfBranches) || 1,
       subscriptionType: raw.subscriptionType || "monthly",
       businesstype: businessTypeValue(raw.businesstype || "retail"),
+      businesskind: raw.businesskind || "",
       status: typeof raw.status === "boolean" ? raw.status : true,
     });
     setEditingId(raw.id);
@@ -131,6 +134,7 @@ const AdminList = () => {
         noOfBranches: 1,
         subscriptionType: "monthly",
         businesstype: "retail",
+        businesskind: "",
         status: true,
       });
       await refetch();
@@ -305,11 +309,17 @@ const AdminList = () => {
                 name="businesstype"
                 type="select"
                 value={formValues.businesstype}
-                onChange={(e: any) =>
-                  handleFormChange("businesstype", e.target.value)
-                }
+                onChange={(e: any) => {
+                  handleFormChange("businesstype", e.target.value);
+                  handleFormChange("businesskind", "");
+                }}
                 options={BUSINESS_TYPE_OPTIONS}
               />
+              {kindOptions(formValues.businesstype).length > 0 && (
+                <FormField label="Business Kind" name="businesskind" type="select" value={formValues.businesskind} searchable
+                  options={kindOptions(formValues.businesstype)}
+                  onChange={(e: any) => handleFormChange("businesskind", e.target.value || "")} />
+              )}
             </div>
 
             {/* Active toggle */}

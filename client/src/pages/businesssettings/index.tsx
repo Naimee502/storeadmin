@@ -20,7 +20,7 @@ import {
   usePermissionsLazy,
   usePermissionsMutations,
 } from "../../graphql/hooks/adminsettings";
-import { useAdminsQuery, useUpdateAdminMutation } from "../../graphql/hooks/admin";
+import { useAddStarterMastersMutation, useAdminsQuery, useUpdateAdminMutation } from "../../graphql/hooks/admin";
 import {
   MODULES,
   SECTION_LABELS,
@@ -33,7 +33,7 @@ import {
 import FormPermissionsTab from "./formpermissionstab";
 import { MODULE_SWITCHES, SETTINGS_TABS, SECTION_HOME, sectionId, searchSettings, type SettingsTab } from "../../config/settings";
 import { useStaffListQuery } from "../../graphql/hooks/staffaccounts";
-import { BUSINESS_PROFILES, BUSINESS_TYPE_OPTIONS, businessTypeValue, fieldChanges, profileModules, profileForType, withFieldChanges } from "../../config/profiles";
+import { BUSINESS_PROFILES, BUSINESS_TYPE_OPTIONS, businessTypeValue, fieldChanges, kindOptions, profileModules, profileForType, starterMasters, withFieldChanges, withKind } from "../../config/profiles";
 import { FORM_PERMISSIONS_CONFIG } from "../../config/formpermissions";
 import { LeadSourcesPanel } from "../leadsources";
 import { stateOptions } from "../../utils/constants";
@@ -737,6 +737,7 @@ const ModulesTab: React.FC<{ adminId?: string; dispatch: any }> = ({
   const { data: settingsData, refetch: refetchSettings } = useAdminSettingsQuery(adminId);
   const settings = settingsData?.getAdminSettings;
   const [updateAdmin] = useUpdateAdminMutation();
+  const [addStarterMasters, { loading: addingStarter }] = useAddStarterMastersMutation();
   const { updateAdminSettings } = useAdminSettingsMutations();
   const { data: staffData } = useStaffListQuery(adminId);
   // Form permissions: a business type also shows / hides product and service form fields.
@@ -786,8 +787,22 @@ const ModulesTab: React.FC<{ adminId?: string; dispatch: any }> = ({
 
   // Business profile: preview what turns on, then add it to the draft (nothing is turned off).
   const [profileId, setProfileId] = useState<string>("");
+  const [kindId, setKindId] = useState<string>("");
   useEffect(() => { setProfileId(profileForType(targetAdmin?.businesstype)?.id || ""); }, [targetAdmin?.businesstype]);
-  const profile = BUSINESS_PROFILES.find((p) => p.id === profileId);
+  useEffect(() => { setKindId(targetAdmin?.businesskind || ""); }, [targetAdmin?.businesskind]);
+  const profile = withKind(BUSINESS_PROFILES.find((p) => p.id === profileId), kindId);
+  const starter = starterMasters(profile);
+  const starterText = [starter.units.length && `units ${starter.units.map((u) => u.name).join(", ")}`,
+    starter.categories.length && `categories ${starter.categories.join(", ")}`].filter(Boolean).join("; ");
+  const addStarter = async () => {
+    try {
+      const { data } = await addStarterMasters({ variables: { adminid: adminId, starter } });
+      const n = data?.addStarterMasters || 0;
+      dispatch(showMessage({ message: n ? `${n} starter masters added.` : "Every starter master is already there.", type: "success" }));
+    } catch (e: any) {
+      dispatch(showMessage({ message: e?.message || "Could not add starter masters.", type: "error" }));
+    }
+  };
   const willTurnOn = useMemo(() => {
     if (!profile) return [] as string[];
     const eligible = new Set(allCatalogIds);
@@ -836,7 +851,9 @@ const ModulesTab: React.FC<{ adminId?: string; dispatch: any }> = ({
       const cleaned = draft.filter((id) => !featureDisabledIds.has(id));
       // A changed Business Type is saved with the modules, so every screen shows the same type.
       const typeChanged = profileId && profileId !== businessTypeValue(targetAdmin?.businesstype);
-      await updateAdmin({ variables: { id: adminId, input: { allowedmodules: cleaned, ...(typeChanged ? { businesstype: profileId } : {}) } } });
+      const kindChanged = profileId && kindId !== (targetAdmin?.businesskind || "");
+      await updateAdmin({ variables: { id: adminId, input: { allowedmodules: cleaned,
+        ...(typeChanged ? { businesstype: profileId } : {}), ...(kindChanged ? { businesskind: kindId } : {}) } } });
       if (adminId === loggedInAdmin?.id) {
         dispatch(setAllowedModules(cleaned));
       }
@@ -873,8 +890,13 @@ const ModulesTab: React.FC<{ adminId?: string; dispatch: any }> = ({
         <div className="grid grid-cols-1 gap-2 md:grid-cols-3 md:items-end">
           <FormField label="Business Type" type="select" name="profile" value={profileId} searchable
             options={BUSINESS_TYPE_OPTIONS}
-            onChange={(e: any) => { setProfileId(e.target.value || ""); setDirty(true); }} />
-          <div className="md:col-span-2 text-[12px] text-slate-600">{profile?.note || "Pick a type to see which modules it turns on."}</div>
+            onChange={(e: any) => { setProfileId(e.target.value || ""); setKindId(""); setDirty(true); }} />
+          {kindOptions(profileId).length > 0 ? (
+            <FormField label="Business Kind" type="select" name="kind" value={kindId} searchable
+              options={kindOptions(profileId)} placeholder="Pick what the business sells or does"
+              onChange={(e: any) => { setKindId(e.target.value || ""); setDirty(true); }} />
+          ) : <div className="hidden md:block" />}
+          <div className="text-[12px] text-slate-600">{profile?.note || "Pick a type to see which modules it turns on."}</div>
         </div>
         {profile && (
           willTurnOn.length || fieldsToChange.length ? (
@@ -893,6 +915,13 @@ const ModulesTab: React.FC<{ adminId?: string; dispatch: any }> = ({
               <Button onClick={() => setSwitch(Object.fromEntries(switchesToTurnOn))}>Turn On</Button>
             </div>
           ) : <div className="text-[12px] text-emerald-700">Every module of this profile is already on.</div>
+        )}
+        {starterText && (
+          <div className="flex flex-wrap items-center gap-2 border-t border-indigo-100 pt-2 text-[12px] text-slate-700">
+            <span>Starter masters: {starterText}.</span>
+            <Button variant="outline" onClick={addStarter} disabled={addingStarter}>Add Starter Masters</Button>
+            <span className="text-[11px] text-slate-500">Only names the business does not have yet are added.</span>
+          </div>
         )}
       </div>
       {checklist.length > 0 && (

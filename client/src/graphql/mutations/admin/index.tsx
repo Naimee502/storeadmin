@@ -30,6 +30,7 @@ export const UPDATE_ADMIN_BY_ID = gql`
       subscriptionType
       subscribed
       businesstype
+      businesskind
       companyName
       mobile
       address
@@ -151,6 +152,12 @@ export const GET_PENDING_SUBSCRIPTIONS = gql`
 export const DELETE_ADMIN = gql`
   mutation DeleteAdmin($id: ID!) {
     deleteAdmin(id: $id)
+  }
+`;
+
+export const ADD_STARTER_MASTERS = gql`
+  mutation AddStarterMasters($adminid: ID, $starter: JSON!) {
+    addStarterMasters(adminid: $adminid, starter: $starter)
   }
 `;
 
