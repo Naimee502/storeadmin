@@ -18,6 +18,9 @@ import {
   usePurchaseInvoiceByIDQuery,
 } from "../../../graphql/hooks/purchaseinvoice";
 import OtherChargesSection from "../../../components/othercharges";
+import SerialLines, { serialMismatch, type SerialItem } from "../../../components/seriallines";
+import { useOptInOn } from "../../../hooks/useoptin";
+import { useProductServicesQuery } from "../../../graphql/hooks/products";
 import { partyLabel } from "../../../utils/partylabel";
 import { OfflineNumberNote, savedOffline as wasSavedOffline, useOfflineNumber } from "../../../offline/billing";
 import { OFFLINE_SAVED_MESSAGE } from "../../../offline/billing";
@@ -38,6 +41,7 @@ type Line = {
   qty: number;
   originalQty: number;
   amount: number;
+  serials?: string[] | null;
 };
 
 const todayStr = () => {
@@ -223,6 +227,7 @@ const AddEditPurchaseReturn: React.FC = () => {
         discount: p.discount || 0,
         qty: p.qty || 0,
         originalQty: p.qty || 0,
+        serials: p.serials || null,
         amount: p.amount || 0,
       }))
     );
@@ -442,11 +447,23 @@ const AddEditPurchaseReturn: React.FC = () => {
     return true;
   };
 
+  // IMEI / Serial No. module: the units going back to the vendor.
+  const serialsOn = useOptInOn("serials");
+  const { data: itemData } = useProductServicesQuery();
+  const isSerialised = (pid: string) => !!(itemData?.getProductServices || []).find((x: any) => x.id === pid)?.isserialised;
+  const serialItems: SerialItem[] = lines.map((l) => ({ productid: l.productserviceid, variantid: l.variantid || null,
+    name: [l.productName, l.variantName].filter(Boolean).join(" - "), qty: Number(l.qty || 0) * Number(l.unitqty || 1), serials: l.serials }));
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     console.log("🔴 handleSubmit called");
     if (!validate()) {
       console.log("❌ Validation failed, stopping submission");
+      return;
+    }
+    const serialGap = serialsOn && serialMismatch(serialItems, isSerialised);
+    if (serialGap) {
+      dispatch(showMessage({ message: `${serialGap.name}: pick one IMEI / Serial No. for each of the ${serialGap.qty} units.`, type: "error" }));
       return;
     }
     console.log("✅ Validation passed, proceeding with submission");
@@ -495,6 +512,7 @@ const AddEditPurchaseReturn: React.FC = () => {
         rate: l.rate,
         amount: l.amount,
         discount: l.discount,
+        ...(serialsOn && isSerialised(l.productserviceid) ? { serials: (l.serials || []).slice(0, Number(l.qty) * Number(l.unitqty || 1)) } : {}),
       })),
     };
 
@@ -657,6 +675,8 @@ const AddEditPurchaseReturn: React.FC = () => {
             />
             {errors.lines && <div className="text-red-600 text-sm">{errors.lines}</div>}
           </fieldset>
+          <SerialLines mode="vendor" items={serialItems} serialised={isSerialised}
+            onChange={(i, serials) => setLines((list) => list.map((x, j) => (j === i ? { ...x, serials } : x)))} />
 
           {/* Other Charges */}
           <OtherChargesSection

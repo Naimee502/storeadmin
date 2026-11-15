@@ -33,6 +33,7 @@ const PURCHASE_RETURN_FIELDS = `
     rate
     amount
     discount
+    serials
   }
   othercharges {
     ledgerid { id ledgername }

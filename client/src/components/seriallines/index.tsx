@@ -9,8 +9,8 @@ export type SerialItem = { productid: string; variantid?: string | null; name: s
 const norm = (v: string) => v.trim().toUpperCase().replace(/\s+/g, "");
 
 type Props = {
-  /** in: units typed or scanned (purchase); out: units picked from stock (sale); return: units picked from the source invoice. */
-  mode: "in" | "out" | "return";
+  /** in: units typed or scanned (purchase); out: units picked from stock (sale); vendor: from stock back to the vendor; return: units picked from the source invoice. */
+  mode: "in" | "out" | "vendor" | "return";
   items: SerialItem[];
   onChange: (index: number, serials: string[]) => void;
   /** Items that carry IMEI / serial numbers (return: items with units on the invoice). */
@@ -53,19 +53,20 @@ const InRow: React.FC<{ item: SerialItem; set: (v: string[]) => void }> = ({ ite
 };
 
 /** Units picked from stock (sale) or from the invoice (return). */
-const PickRow: React.FC<{ item: SerialItem; mode: "out" | "return"; invoiceId?: string | null; set: (v: string[]) => void }> = ({ item, mode, invoiceId, set }) => {
-  const { data } = useQuery(mode === "out" ? GET_AVAILABLE_SERIALS : GET_INVOICE_SERIALS, {
-    variables: mode === "out" ? { productid: item.productid, variantid: item.variantid || null } : { invoiceid: invoiceId },
+const PickRow: React.FC<{ item: SerialItem; mode: "out" | "vendor" | "return"; invoiceId?: string | null; set: (v: string[]) => void }> = ({ item, mode, invoiceId, set }) => {
+  const fromStock = mode !== "return";
+  const { data } = useQuery(fromStock ? GET_AVAILABLE_SERIALS : GET_INVOICE_SERIALS, {
+    variables: fromStock ? { productid: item.productid, variantid: item.variantid || null } : { invoiceid: invoiceId },
     skip: mode === "return" && !invoiceId, fetchPolicy: "cache-and-network",
   });
-  const units: any[] = (mode === "out" ? data?.getAvailableSerials : data?.getInvoiceSerials) || [];
+  const units: any[] = (fromStock ? data?.getAvailableSerials : data?.getInvoiceSerials) || [];
   const mine = units.filter((u) => u.productid === item.productid && String(u.variantid || "") === String(item.variantid || ""));
   const list = item.serials || [];
   const options = [...new Set([...mine.map((u) => u.serialno), ...list])].map((x) => ({ value: x, label: x }));
   return (
     <div className="space-y-1.5 rounded-md border border-slate-200 p-2">
       <div className="flex items-center justify-between text-[13px]"><span className="font-medium text-slate-700">{item.name}</span><Count n={list.length} qty={item.qty} /></div>
-      <FormField label={mode === "out" ? "IMEI / Serial (in stock)" : "IMEI / Serial (sold on this invoice)"} name={`serials_${item.productid}_${item.variantid || ""}`}
+      <FormField label={fromStock ? "IMEI / Serial (in stock)" : "IMEI / Serial (sold on this invoice)"} name={`serials_${item.productid}_${item.variantid || ""}`}
         type="multiselect" searchable value={list} options={options} onChange={(e: any) => set((e.target.value || []).slice(0, Math.max(0, item.qty)))} />
     </div>
   );
@@ -85,7 +86,7 @@ const SerialLines: React.FC<Props> = ({ mode, items, onChange, serialised, invoi
       {rows.map(({ it, i }) => mode === "in"
         ? <InRow key={i} item={it} set={(v) => onChange(i, v)} />
         : <PickRow key={i} item={it} mode={mode} invoiceId={invoiceId} set={(v) => onChange(i, v)} />)}
-      <p className="text-[12px] text-slate-500">One number per unit. {mode === "out" ? "Only units in stock can be sold; the warranty starts from this bill." : mode === "return" ? "Returned units go back into stock." : "A number already in stock or sold cannot be bought again."}</p>
+      <p className="text-[12px] text-slate-500">One number per unit. {mode === "out" ? "Only units in stock can be sold; the warranty starts from this bill." : mode === "vendor" ? "These units go back to the vendor and leave stock." : mode === "return" ? "Returned units go back into stock." : "A number already in stock or sold cannot be bought again."}</p>
     </fieldset>
   );
 };
