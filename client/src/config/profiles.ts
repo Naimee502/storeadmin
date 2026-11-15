@@ -30,12 +30,6 @@ export const BUSINESS_PROFILES: BusinessProfile[] = [
       "reports.salesmen", "reports.salesmanfield", "reports.delivery", "reports.deliverychallan", "deliveryboard"],
   },
   {
-    id: "exporter", label: "Exporter", group: "Trading", types: ["exporter"],
-    note: "Quotations, orders, challans, e-Invoice and e-Way Bill, price lists and CRM.",
-    modules: [...CORE, ...GST_DOCS, ...CRM, "salesorder", "purchaseorder", "deliverychallan", "pricelists",
-      "priceassignments", "productgroups", "reports.deliverychallan"],
-  },
-  {
     id: "manufacturer", label: "Manufacturer", group: "Manufacturing", types: ["manufacturer"],
     note: "BOM, work orders, production, quotations and CRM.",
     modules: [...CORE, ...GST_DOCS, ...CRM, "salesorder", "purchaseorder", "deliverychallan", "bom", "workorders",
@@ -43,10 +37,32 @@ export const BUSINESS_PROFILES: BusinessProfile[] = [
       "reports.deliverychallan"],
   },
   {
-    id: "pharma", label: "Pharma / Food", group: "Industry", types: ["pharma"],
+    id: "exporter", label: "Exporter", group: "Trading", types: ["exporter"],
+    note: "Quotations, orders, challans, e-Invoice and e-Way Bill, price lists and CRM.",
+    modules: [...CORE, ...GST_DOCS, ...CRM, "salesorder", "purchaseorder", "deliverychallan", "pricelists",
+      "priceassignments", "productgroups", "reports.deliverychallan"],
+  },
+  {
+    id: "pharma", label: "Pharmacy / Medical Store", group: "Trading", types: ["pharma"],
     note: "Counter billing, orders and challans; batch and expiry on items.",
     modules: [...CORE, ...GST_DOCS, "posdashboard", "salesorder", "purchaseorder", "deliverychallan", "pricelists",
       "priceassignments", "chargerules", "productgroups", "reports.analytical", "reports.deliverychallan"],
+  },
+  {
+    id: "garments", label: "Garments / Fashion / Footwear", group: "Trading", types: ["garments"],
+    note: "POS billing with sizes and models, price lists and charge rules.",
+    modules: [...CORE, "posdashboard", "sizes", "models", "productgroups", "pricelists", "chargerules", "reports.analytical"],
+  },
+  {
+    id: "electronics", label: "Electronics / Mobile Shop", group: "Trading", types: ["electronics"],
+    note: "POS billing, models, warranty / AMC and repair job cards.",
+    modules: [...CORE, ...GST_DOCS, "posdashboard", "models", "productgroups", "pricelists", "services", "jobcards", "contracts",
+      "reports.service", "reports.analytical"],
+  },
+  {
+    id: "jewellery", label: "Jewellery", group: "Trading", types: ["jewellery"],
+    note: "Counter billing, quotations, product groups and price lists.",
+    modules: [...CORE, "posdashboard", "quotations", "reports.quotation", "productgroups", "models", "pricelists", "reports.analytical"],
   },
   {
     id: "hardware", label: "Hardware / Building Material", group: "Industry", types: ["hardware"],
@@ -55,14 +71,25 @@ export const BUSINESS_PROFILES: BusinessProfile[] = [
       "deliverychallan", "sizes", "models", "productgroups", "pricelists", "priceassignments", "reports.deliverychallan"],
   },
   {
+    id: "restaurant", label: "Restaurant / Food", group: "Services", types: ["restaurant"],
+    note: "Counter billing, orders, charge rules and item groups.",
+    modules: [...CORE, "posdashboard", "salesorder", "productgroups", "chargerules", "reports.analytical"],
+  },
+  {
+    id: "doctor", label: "Doctor / Clinic", group: "Services", types: ["doctor"],
+    note: "Appointments, doctors and prescriptions.",
+    modules: [...CORE, "services", "appointments", "prescriptions", "leads", "followups", "reports.service", "reports.crm"],
+  },
+  {
+    // Saved as "clinic" before Doctor / Clinic had its own type.
+    id: "salon", label: "Salon / Spa / Gym", group: "Services", types: ["salon", "clinic"],
+    note: "Appointments, services and memberships.",
+    modules: [...CORE, "posdashboard", "services", "appointments", "memberships", "leads", "followups", "reports.service", "reports.crm"],
+  },
+  {
     id: "repair", label: "Repair / Service Centre", group: "Services", types: ["repair"],
     note: "Job cards, AMC contracts, spare parts billing, support tickets and CRM.",
     modules: [...CORE, ...CRM, "services", "jobcards", "contracts", "reports.service", "supporttickets"],
-  },
-  {
-    id: "clinic", label: "Clinic / Salon / Spa", group: "Services", types: ["clinic"],
-    note: "Appointments, services and memberships.",
-    modules: [...CORE, "services", "appointments", "memberships", "leads", "followups", "reports.service", "reports.crm"],
   },
   {
     id: "service", label: "Other Services", group: "Services", types: ["service"],
