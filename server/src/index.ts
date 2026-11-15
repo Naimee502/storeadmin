@@ -14,6 +14,7 @@ import { supplierPrintHtml } from './utils/supplierdocs';
 import { jobSheetHtml, startServiceReminderScheduler } from './utils/customerportal';
 import { startLoyaltyExpiryScheduler } from './utils/loyalty';
 import { rxPrintHtml, startRxReminderScheduler } from './utils/clinic';
+import { startBatchExpiryScheduler } from './utils/batches';
 import { generateTokens, sendRefreshToken } from './utils/auth';
 import { Admin } from './models/admin';
 import { startReminderScheduler } from './utils/reminderscheduler';
@@ -239,6 +240,7 @@ const startServer = async () => {
   startServiceReminderScheduler();
   startLoyaltyExpiryScheduler();
   startRxReminderScheduler();
+  startBatchExpiryScheduler();
   // IndiaMART / TradeIndia pulls every 15 minutes.
   startLeadPullScheduler();
 };

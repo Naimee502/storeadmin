@@ -65,6 +65,8 @@ import { bookingResolvers } from "./booking";
 import { supplierPortalResolvers } from "./supplierportal";
 import { customerPortalResolvers } from "./customerportal";
 import { clinicResolvers } from "./clinic";
+import { batchResolvers } from "./batches";
+import { withBatches } from "../../utils/batches";
 import { withRxNotify } from "../../utils/clinic";
 import { panelLoginResolvers } from "./panellogin";
 import { withCustomerNotify } from "../../utils/customerportal";
@@ -118,9 +120,9 @@ const guarded = guardResolvers([
   withOfflineWrites(productServiceResolvers, { model: ProductService, typename: "ProductService", tenant: "adminid", add: "addProductService", edit: "updateProductService", del: "deleteProductService" }),
   withOfflineWrites(servicesResolvers, { model: ProductService, typename: "ProductService", tenant: "adminid", add: "addService", edit: "updateService", del: "deleteService" }),
   productImportResolvers,
-  withOfflineActions(withLoyalty(salesInvoiceResolvers, "SalesInvoice"), SalesInvoice, ["markSalesInvoiceDispatched", "markSalesInvoiceDelivered", "assignInvoiceDeliveryBoy", "saveInvoiceGstDetails"]),
-  withSupplierNotify(purchaseInvoiceResolvers),
-  transferStockResolvers,
+  withOfflineActions(withBatches(withLoyalty(salesInvoiceResolvers, "SalesInvoice"), "SalesInvoice", ["addSalesInvoice", "editSalesInvoice", "deleteSalesInvoice", "resetSalesInvoice", "cancelSalesInvoice", "reopenSalesInvoice", "convertSalesOrderToInvoice"], true), SalesInvoice, ["markSalesInvoiceDispatched", "markSalesInvoiceDelivered", "assignInvoiceDeliveryBoy", "saveInvoiceGstDetails"]),
+  withBatches(withSupplierNotify(purchaseInvoiceResolvers), "PurchaseInvoice", ["addPurchaseInvoice", "editPurchaseInvoice", "deletePurchaseInvoice", "resetPurchaseInvoice", "cancelPurchaseInvoice", "reopenPurchaseInvoice", "convertPurchaseOrderToInvoice"]),
+  withBatches(transferStockResolvers, "TransferStock", ["addTransferStock", "editTransferStock", "deleteTransferStock", "resetTransferStock"]),
   adminResolvers,
   withOfflineWrites(transactionResolvers, { model: Transaction, typename: "Transaction", tenant: "adminid", add: "addTransaction", edit: "editTransaction", del: "deleteTransaction" }),
   withSupplierNotify(paymentResolvers),
@@ -128,22 +130,22 @@ const guarded = guardResolvers([
   withOfflineWrites(expenseClaimResolvers, { model: ExpenseClaim, typename: "ExpenseClaim", tenant: "adminid", add: "addExpenseClaim", edit: "editExpenseClaim", del: "deleteExpenseClaim" }),
   announcementResolvers,
   withOfflineWrites(channelResolvers, { model: Channel, typename: "Channel", tenant: "admin", add: "createChannel", edit: "updateChannel", del: "deleteChannel" }),
-  stockAdjustmentResolvers,
+  withBatches(stockAdjustmentResolvers, "StockAdjustment", ["createStockAdjustment", "updateStockAdjustment", "deleteStockAdjustment", "cancelStockAdjustment", "resetStockAdjustment"]),
   withOfflineWrites(salesRouteResolvers, { model: SalesRoute, typename: "SalesRoute", tenant: "adminid", add: "createSalesRoute", edit: "updateSalesRoute", del: "deleteSalesRoute" }),
   withOfflineWrites(
     withOfflineWrites(priceListResolvers, { model: PriceList, typename: "PriceList", tenant: "adminid", add: "createPriceList", edit: "updatePriceList", del: "deletePriceList" }),
     { model: PriceAssignment, typename: "PriceAssignment", tenant: "adminid", add: "createPriceAssignment", edit: "updatePriceAssignment", del: "deletePriceAssignment" }
   ),
-  withOfflineActions(withLoyalty(salesOrderResolvers, "SalesOrder"), SalesOrder, ["confirmSalesOrder", "markSalesOrderDispatched", "markSalesOrderDelivered", "assignOrderDeliveryBoy"]),
+  withOfflineActions(withBatches(withLoyalty(salesOrderResolvers, "SalesOrder"), "SalesOrder", ["confirmSalesOrder", "markSalesOrderDispatched", "markSalesOrderDelivered"]), SalesOrder, ["confirmSalesOrder", "markSalesOrderDispatched", "markSalesOrderDelivered", "assignOrderDeliveryBoy"]),
   withSupplierNotify(withOfflineActions(purchaseOrderResolvers, PurchaseOrder, ["confirmPurchaseOrder", "markPurchaseOrderReceived"])),
   withOfflineWrites(
     withOfflineWrites(attendanceResolvers, { model: Holiday, typename: "Holiday", tenant: "adminid", add: "addHoliday", edit: "editHoliday", del: "deleteHoliday" }),
     { model: LeaveType, typename: "LeaveType", tenant: "adminid", add: "addLeaveType", edit: "editLeaveType", del: "deleteLeaveType" }
   ),
-  withLoyalty(salesReturnResolvers, "SalesReturn"),
+  withBatches(withLoyalty(salesReturnResolvers, "SalesReturn"), "SalesReturn", ["addSalesReturn", "editSalesReturn", "deleteSalesReturn", "resetSalesReturn"]),
   loyaltyResolvers,
   geocodeResolvers,
-  purchaseReturnResolvers,
+  withBatches(purchaseReturnResolvers, "PurchaseReturn", ["addPurchaseReturn", "editPurchaseReturn", "deletePurchaseReturn", "resetPurchaseReturn"], true),
   adminSettingsResolvers,
   permissionsResolvers,
   withOfflineWrites(chargeRuleResolvers, { model: ChargeRule, typename: "ChargeRule", tenant: "adminid", add: "addChargeRule", edit: "editChargeRule", del: "deleteChargeRule" }),
@@ -155,7 +157,7 @@ const guarded = guardResolvers([
   commonResolvers,
   offlineDeviceResolvers,
   syncResolvers,
-  withOfflineActions(deliveryChallanResolvers, DeliveryChallan, ["editDeliveryChallan", "deleteDeliveryChallan", "markDeliveryChallanDelivered", "markDeliveryChallanReturned", "saveChallanEWayBill"]),
+  withOfflineActions(withBatches(deliveryChallanResolvers, "DeliveryChallan", ["addDeliveryChallan", "editDeliveryChallan", "deleteDeliveryChallan", "resetDeliveryChallan", "markDeliveryChallanReturned"]), DeliveryChallan, ["editDeliveryChallan", "deleteDeliveryChallan", "markDeliveryChallanDelivered", "markDeliveryChallanReturned", "saveChallanEWayBill"]),
   withOfflineActions(
     withOfflineActions(leadResolvers, Lead, ["editLead", "deleteLead", "setLeadStage", "convertLeadToParty"]),
     Followup,
@@ -169,6 +171,7 @@ const guarded = guardResolvers([
   supplierPortalResolvers,
   customerPortalResolvers,
   clinicResolvers,
+  batchResolvers,
   panelLoginResolvers,
   aiResolvers,
   insightResolvers,

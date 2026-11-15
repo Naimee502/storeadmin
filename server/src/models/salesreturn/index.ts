@@ -66,6 +66,9 @@ const salesReturnSchema = new mongoose.Schema(
         productserviceid: { type: mongoose.Schema.Types.ObjectId, ref: "ProductService", required: true },
         variantid: { type: mongoose.Schema.Types.ObjectId },
         salesunitid: { type: mongoose.Schema.Types.ObjectId, ref: "Unit" },
+        // Batch & Expiry module: the batch this line sold / bought (no default).
+        batchno: { type: String },
+        expirydate: { type: String },
         unitqty: { type: Number, default: 1 },
         gst: { type: Number, required: true },
         qty: { type: Number, required: true },        // ← returned qty
