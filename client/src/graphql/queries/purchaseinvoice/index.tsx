@@ -51,6 +51,7 @@ export const GET_PURCHASE_INVOICES_LIST = gql`
       billnumber
       totalamount
       productservice {
+        batchno expirydate mfgdate
         qty
       }
       createdby_name
@@ -90,6 +91,7 @@ export const GET_PURCHASE_INVOICES = gql`
       totalamount
       paid
       productservice {
+        batchno expirydate mfgdate
         productserviceid { id name }
         variantid { id name }
         purchaseunitid { id unitname }
@@ -165,6 +167,7 @@ export const GET_DELETED_PURCHASE_INVOICES = gql`
       totalamount
       paid
       productservice {
+        batchno expirydate mfgdate
         productserviceid { id name }
         variantid { id name }
         purchaseunitid { id unitname }
@@ -251,6 +254,7 @@ export const GET_PURCHASE_INVOICE_BY_ID = gql`
       totalamount
       paid
       productservice {
+        batchno expirydate mfgdate
         productserviceid { id name }
         variantid { id name }
         purchaseunitid { id unitname }
@@ -324,6 +328,7 @@ export const GET_PURCHASE_INVOICES_PAGE = gql`
         billnumber
         totalamount
         productservice {
+          batchno expirydate mfgdate
           qty
         }
         createdby_name

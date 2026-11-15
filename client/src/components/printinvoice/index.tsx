@@ -16,6 +16,8 @@ interface Product {
   gst: number;
   discount?: number;
   hsn?: string;
+  batchno?: string;
+  expirydate?: string;
 }
 
 interface Invoice {
@@ -478,6 +480,11 @@ const PrintableInvoice = forwardRef<HTMLDivElement, PrintableInvoiceProps>(
                           {item.variantid?.name && ` - ${item.variantid.name}`}
                           {(item.salesunitid?.unitname || item.purchaseunitid?.unitname) &&
                             ` (${item.salesunitid?.unitname || item.purchaseunitid?.unitname})`}
+                          {item.batchno && (
+                            <div style={{ fontSize: 10.5, color: "#555" }}>
+                              Batch: {item.batchno}{item.expirydate ? ` · Exp: ${formatDateDMY(item.expirydate)}` : ""}
+                            </div>
+                          )}
                         </td>
                         {showHsn && <td className="ctr">{item.hsn || "-"}</td>}
                         <td className="ctr">{item.qty}</td>

@@ -28,6 +28,11 @@ export type InvoiceProduct = {
   purchaseaccountid?: string | null;
   serviceaccountid?: string | null;
   selectedUnitValue?: string | null;
+  /** Batch & Expiry module. */
+  batchno?: string | null;
+  expirydate?: string | null;
+  mfgdate?: string | null;
+  batchauto?: boolean | null;
 };
 
 type ProductSectionProps = {

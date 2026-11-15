@@ -20,7 +20,7 @@ import {
   FaTruck,
   FaFunnelDollar,
   FaPhoneAlt,
-  FaShoppingBag, FaGift, FaPrescriptionBottleAlt } from 'react-icons/fa';
+  FaShoppingBag, FaGift, FaPrescriptionBottleAlt, FaCalendarTimes } from 'react-icons/fa';
 import { MdBrandingWatermark } from 'react-icons/md';
 import { Link, useLocation, useNavigate } from 'react-router';
 import { useAppSelector } from '../../redux/hooks';
@@ -192,6 +192,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar, onHoverChange 
     { to: '/purchasereturn', label: 'Purchase Returns', icon: <FaUndoAlt className="text-red-400 text-[15px] flex-shrink-0" />, moduleId: "purchasereturn", roles: ["admin", "branch", "staff"], section: "Branch" },
     { to: '/transferstock', label: 'Transfer Stock', icon: <FaExchangeAlt className="text-purple-500 text-[15px] flex-shrink-0" />, moduleId: "transferstock", roles: ["admin", "branch", "staff"], section: "Branch" },
     { to: '/stockadjustments', label: 'Stock Adjustments', icon: <FaWrench className="text-yellow-500 text-[15px] flex-shrink-0" />, moduleId: "stockadjustments", roles: ["admin", "branch", "staff"], section: "Branch" },
+    { to: '/batches', label: 'Batch & Expiry', icon: <FaCalendarTimes className="text-rose-500 text-[15px] flex-shrink-0" />, moduleId: "batches", roles: ["admin", "branch", "staff"], section: "Branch" },
     { to: '/expensenote', label: 'Expense Notes', icon: <FaMoneyCheckAlt className="text-emerald-400 text-[15px] flex-shrink-0" />, moduleId: "expensenote", roles: ["admin", "branch", "staff"], section: "Branch" },
     { to: '/transactions', label: 'Transactions', icon: <FaFileInvoiceDollar className="text-emerald-500 text-[15px] flex-shrink-0" />, moduleId: "transactions", roles: ["admin", "branch", "staff"], section: "Branch" },
     { to: '/payments', label: 'Payments', icon: <FaWallet className="text-emerald-400 text-[15px] flex-shrink-0" />, moduleId: "payments", roles: ["admin", "branch", "staff"], section: "Branch" },

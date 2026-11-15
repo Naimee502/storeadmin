@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useMemo } from "react";
+import BatchLines from "../../../components/batchlines";
 import LoyaltyRedeem from "../../../components/loyaltyredeem";
 import FormField from "../../../components/formfiled";
 import FormPage from "../../../components/formpage";
@@ -312,6 +313,9 @@ const AddEditSalesInvoice = () => {
           salesaccountid: p.salesaccountid?.id || null,
           purchaseaccountid: p.purchaseaccountid?.id || null,
           serviceaccountid: p.serviceaccountid?.id || null,
+          batchno: p.batchno || null,
+          expirydate: p.expirydate || null,
+          batchauto: p.batchauto || null,
           salesUnits: unitOptions,
           selectedUnitValue: p.salesunitid && p.unitqty ? `${p.salesunitid.id}--${p.unitqty}` : null,
         };
@@ -603,6 +607,7 @@ const AddEditSalesInvoice = () => {
         salesaccountid: getUnitId(p.salesaccountid) ?? null,
         purchaseaccountid: getUnitId(p.purchaseaccountid) ?? null,
         serviceaccountid: getUnitId(p.serviceaccountid) ?? null,
+        ...(p.batchno ? { batchno: p.batchno, expirydate: p.expirydate || null, batchauto: !!p.batchauto } : {}),
       })),
       status,
     };
@@ -906,6 +911,7 @@ const AddEditSalesInvoice = () => {
             iservice={isService}
             originalProducts={originalProducts}
           />
+          <BatchLines mode="out" products={products} setProducts={setProducts} branchId={branchId} />
 
           <PosAddCustomer
             open={addCustomerOpen}

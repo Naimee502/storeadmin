@@ -139,6 +139,7 @@ import Contracts from "../pages/contracts";
 import AddEditContract from "../pages/contracts/addedit";
 import Memberships from "../pages/memberships";
 import Loyalty from "../pages/loyalty";
+import Batches from "../pages/batches";
 import Prescriptions from "../pages/prescriptions";
 import AddEditPrescription from "../pages/prescriptions/addedit";
 import AddEditMembership from "../pages/memberships/addedit";
@@ -1126,6 +1127,7 @@ const AppRoutes = () => {
       <Route path="/contracts/addedit/:id" element={<ProtectedRoutes><AddEditContract /></ProtectedRoutes>} />
       <Route path="/contracts/deletedentries" element={<ProtectedRoutes><ServiceDeletedEntries key="contracts" kind="contracts" /></ProtectedRoutes>} />
       <Route path="/loyalty" element={<ProtectedRoutes><Loyalty /></ProtectedRoutes>} />
+      <Route path="/batches" element={<ProtectedRoutes><Batches /></ProtectedRoutes>} />
       <Route path="/prescriptions" element={<ProtectedRoutes><Prescriptions /></ProtectedRoutes>} />
       <Route path="/prescriptions/addedit" element={<ProtectedRoutes><AddEditPrescription /></ProtectedRoutes>} />
       <Route path="/prescriptions/addedit/:id" element={<ProtectedRoutes><AddEditPrescription /></ProtectedRoutes>} />

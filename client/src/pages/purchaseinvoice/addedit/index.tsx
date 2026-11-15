@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useMemo } from "react";
+import BatchLines from "../../../components/batchlines";
 import FormField from "../../../components/formfiled";
 import FormPage from "../../../components/formpage";
 import ProductSection from "../../../components/productsection";
@@ -237,6 +238,9 @@ const AddEditPurchaseInvoice = () => {
           salesaccountid: p.salesaccountid?.id || null,
           purchaseaccountid: p.purchaseaccountid?.id || null,
           serviceaccountid: p.serviceaccountid?.id || null,
+          batchno: p.batchno || null,
+          expirydate: p.expirydate || null,
+          mfgdate: p.mfgdate || null,
           purchaseUnits: unitOptions,
           selectedUnitValue: p.purchaseunitid && p.unitqty ? `${p.purchaseunitid.id}--${p.unitqty}` : null,
         };
@@ -439,6 +443,7 @@ const AddEditPurchaseInvoice = () => {
         salesaccountid: getUnitId(p.salesaccountid) ?? null,
         purchaseaccountid: getUnitId(p.purchaseaccountid) ?? null,
         serviceaccountid: getUnitId(p.serviceaccountid) ?? null,
+        ...(p.batchno ? { batchno: p.batchno.trim(), expirydate: p.expirydate || null, mfgdate: p.mfgdate || null } : {}),
       })),
       status,
     };
@@ -697,6 +702,7 @@ const AddEditPurchaseInvoice = () => {
             type="purchase"
             navigate={navigate}
           />
+          <BatchLines mode="in" products={products} setProducts={setProducts} branchId={branchId} />
 
           {/* ===== Add Vendor Modal ===== */}
           <PosAddCustomer

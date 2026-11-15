@@ -24,6 +24,7 @@ export const ADD_PURCHASE_INVOICE = gql`
       totalgst
       totalamount
       productservice {
+        batchno expirydate mfgdate
         productserviceid {
           id
           name
@@ -107,6 +108,7 @@ export const EDIT_PURCHASE_INVOICE = gql`
       totalgst
       totalamount
       productservice {
+        batchno expirydate mfgdate
         productserviceid {
           id
           name

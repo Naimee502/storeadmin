@@ -33,6 +33,7 @@ export const GET_SALES_INVOICES = gql`
       adminid
       branchid
       productservice {
+        batchno expirydate batchauto
         productserviceid { id name }
         variantid { id name }
         salesunitid { id unitname }
@@ -114,6 +115,7 @@ export const GET_SALES_INVOICES_LIST = gql`
       billnumber
       totalamount
       productservice {
+        batchno expirydate batchauto
         qty
       }
       orderedby_name
@@ -192,6 +194,7 @@ export const GET_DELETED_SALES_INVOICES = gql`
       adminid
       branchid
       productservice {
+        batchno expirydate batchauto
         productserviceid { id name }
         variantid { id name }
         salesunitid { id unitname }
@@ -298,6 +301,7 @@ export const GET_SALES_INVOICE_BY_ID = gql`
       adminid
       branchid
       productservice {
+        batchno expirydate batchauto
         productserviceid { id name }
         variantid { id name }
         salesunitid { id unitname }
@@ -386,6 +390,7 @@ export const GET_SALES_INVOICES_PAGE = gql`
         billnumber
         totalamount
         productservice {
+          batchno expirydate batchauto
           qty
         }
         orderedby_name

@@ -46,7 +46,7 @@ export const BUSINESS_PROFILES: BusinessProfile[] = [
   {
     id: "pharma", label: "Pharmacy / Medical Store", group: "Trading", types: ["pharma"],
     note: "Counter billing, orders and challans; batch and expiry on items.",
-    modules: [...CORE, ...GST_DOCS, "posdashboard", "salesorder", "purchaseorder", "deliverychallan", "pricelists",
+    modules: [...CORE, ...GST_DOCS, "batches", "posdashboard", "salesorder", "purchaseorder", "deliverychallan", "pricelists",
       "priceassignments", "chargerules", "productgroups", "reports.analytical", "reports.deliverychallan"],
   },
   {
