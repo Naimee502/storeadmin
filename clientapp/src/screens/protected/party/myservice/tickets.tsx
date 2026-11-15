@@ -54,7 +54,7 @@ export function MyTickets() {
           <Text style={[s.label, st.group, { color: colors.subText }]}>Priority</Text>
           <View style={st.chips}>{PRIORITIES.map(([v, l]) => chip(form.priority === v, l, () => setForm({ ...form, priority: v })))}</View>
           <TextInput value={form.description} onChangeText={(t) => setForm({ ...form, description: t })} multiline placeholder="Tell us what happened" placeholderTextColor={colors.subText}
-            style={[s.input, { color: colors.text, borderColor: colors.border, minHeight: 90 }]} />
+            style={[s.input, { color: colors.text, borderColor: colors.border, minHeight: 90, marginTop: 10 }]} />
           <View style={s.row}>
             <Btn label="Cancel" kind="outline" onPress={() => setOpen(false)} />
             <Btn label={saving ? 'Sending...' : 'Submit Ticket'} onPress={submit} disabled={saving} />
