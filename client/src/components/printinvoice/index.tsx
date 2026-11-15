@@ -19,6 +19,7 @@ interface Product {
   batchno?: string;
   expirydate?: string;
   serials?: string[];
+  jewel?: { metal?: string; purity?: string; grossweight?: number; stoneweight?: number; netweight?: number; metalrate?: number; makingamount?: number; stonecharge?: number; huid?: string };
 }
 
 interface Invoice {
@@ -50,6 +51,7 @@ interface Invoice {
   invoicediscounttype?: string;
   loyaltyredeempoints?: number;
   loyaltydiscount?: number;
+  oldgoldamount?: number;
   // Party balance, fetched on Print click when enabled in settings.
   partyPreviousBalance?: number;
   partyCurrentBalance?: number;
@@ -489,6 +491,12 @@ const PrintableInvoice = forwardRef<HTMLDivElement, PrintableInvoiceProps>(
                           {!!item.serials?.length && (
                             <div style={{ fontSize: 10.5, color: "#555" }}>IMEI / Serial: {item.serials.join(", ")}</div>
                           )}
+                          {item.jewel?.metal && (
+                            <div style={{ fontSize: 10.5, color: "#555" }}>
+                              {item.jewel.metal[0].toUpperCase() + item.jewel.metal.slice(1)} {item.jewel.purity} · Gross {item.jewel.grossweight ?? "-"} g{item.jewel.stoneweight ? ` · Stone ${item.jewel.stoneweight} g` : ""} · Net {item.jewel.netweight} g @ {item.jewel.metalrate}/g
+                              {item.jewel.makingamount ? ` · Making ${mask(item.jewel.makingamount).toFixed(2)}` : ""}{item.jewel.stonecharge ? ` · Stone ${mask(item.jewel.stonecharge).toFixed(2)}` : ""}{item.jewel.huid ? ` · HUID ${item.jewel.huid}` : ""}
+                            </div>
+                          )}
                         </td>
                         {showHsn && <td className="ctr">{item.hsn || "-"}</td>}
                         <td className="ctr">{item.qty}</td>
@@ -561,6 +569,18 @@ const PrintableInvoice = forwardRef<HTMLDivElement, PrintableInvoiceProps>(
                 <span>Grand Total</span>
                 <span>{mask(grandTotal).toFixed(2)}</span>
               </div>
+              {Number(invoice.oldgoldamount) > 0 && (
+                <>
+                  <div className="inv-totals-row">
+                    <span className="lbl">Less: Old Gold</span>
+                    <span>-{mask(Number(invoice.oldgoldamount)).toFixed(2)}</span>
+                  </div>
+                  <div className="inv-totals-row">
+                    <span className="lbl">Net Payable</span>
+                    <span>{mask(grandTotal - Number(invoice.oldgoldamount)).toFixed(2)}</span>
+                  </div>
+                </>
+              )}
               {showPartyBalance && (
                 <>
                   <div className="inv-totals-row inv-balance-row">

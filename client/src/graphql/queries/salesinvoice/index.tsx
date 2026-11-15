@@ -34,6 +34,7 @@ export const GET_SALES_INVOICES = gql`
       branchid
       productservice {
         batchno expirydate batchauto serials
+        jewel { metal purity grossweight stoneweight netweight metalrate metalvalue makingtype making makingamount stonecharge othercharge huid }
         productserviceid { id name }
         variantid { id name }
         salesunitid { id unitname }
@@ -74,6 +75,8 @@ export const GET_SALES_INVOICES = gql`
       loyaltyredeempoints
       loyaltydiscount
       loyaltyearned
+      oldgold { description metal purity weight deduction rate amount }
+      oldgoldamount
       isservice
       createdby_id
       createdby_name
@@ -116,6 +119,7 @@ export const GET_SALES_INVOICES_LIST = gql`
       totalamount
       productservice {
         batchno expirydate batchauto serials
+        jewel { metal purity grossweight stoneweight netweight metalrate metalvalue makingtype making makingamount stonecharge othercharge huid }
         qty
       }
       orderedby_name
@@ -195,6 +199,7 @@ export const GET_DELETED_SALES_INVOICES = gql`
       branchid
       productservice {
         batchno expirydate batchauto serials
+        jewel { metal purity grossweight stoneweight netweight metalrate metalvalue makingtype making makingamount stonecharge othercharge huid }
         productserviceid { id name }
         variantid { id name }
         salesunitid { id unitname }
@@ -235,6 +240,8 @@ export const GET_DELETED_SALES_INVOICES = gql`
       loyaltyredeempoints
       loyaltydiscount
       loyaltyearned
+      oldgold { description metal purity weight deduction rate amount }
+      oldgoldamount
       isservice
       createdby_id
       createdby_name
@@ -302,6 +309,7 @@ export const GET_SALES_INVOICE_BY_ID = gql`
       branchid
       productservice {
         batchno expirydate batchauto serials
+        jewel { metal purity grossweight stoneweight netweight metalrate metalvalue makingtype making makingamount stonecharge othercharge huid }
         productserviceid { id name }
         variantid { id name }
         salesunitid { id unitname }
@@ -342,6 +350,8 @@ export const GET_SALES_INVOICE_BY_ID = gql`
       loyaltyredeempoints
       loyaltydiscount
       loyaltyearned
+      oldgold { description metal purity weight deduction rate amount }
+      oldgoldamount
       isservice
       createdby_id
       createdby_name
@@ -391,6 +401,7 @@ export const GET_SALES_INVOICES_PAGE = gql`
         totalamount
         productservice {
           batchno expirydate batchauto serials
+          jewel { metal purity grossweight stoneweight netweight metalrate metalvalue makingtype making makingamount stonecharge othercharge huid }
           qty
         }
         orderedby_name

@@ -73,7 +73,7 @@ export const BUSINESS_PROFILES: BusinessProfile[] = [
     id: "jewellery", label: "Jewellery", group: "Trading", types: ["jewellery"],
     note: "Counter billing, quotations, product groups and price lists.",
     fields: { products: { ...NO_MASTER_BATCH, sizeid: false, isserialised: false, itemtype: false } },
-    modules: [...CORE, "posdashboard", "quotations", "reports.quotation", "productgroups", "models", "pricelists", "reports.analytical"],
+    modules: [...CORE, "jewellery", "posdashboard", "quotations", "reports.quotation", "productgroups", "models", "pricelists", "reports.analytical"],
   },
   {
     id: "hardware", label: "Hardware / Building Material", group: "Industry", types: ["hardware"],

@@ -16,6 +16,7 @@ export interface PdfProduct {
   batchno?: string;
   expirydate?: string;
   serials?: string[];
+  jewel?: { metal?: string; purity?: string; netweight?: number; metalrate?: number; makingamount?: number; huid?: string };
 }
 
 export interface PdfInvoice {
@@ -42,6 +43,7 @@ export interface PdfInvoice {
   invoicediscounttype?: string;
   loyaltyredeempoints?: number;
   loyaltydiscount?: number;
+  oldgoldamount?: number;
   partyPreviousBalance?: number;
   partyCurrentBalance?: number;
 }
@@ -189,7 +191,8 @@ export const buildInvoicePdfModel = (
         (item.variantid?.name ? ` - ${item.variantid.name}` : "") +
         (unit ? ` (${unit})` : "") +
         (item.batchno ? ` [Batch ${item.batchno}${item.expirydate ? `, Exp ${item.expirydate.split("-").reverse().join("-")}` : ""}]` : "") +
-        (item.serials?.length ? ` [IMEI / Serial: ${item.serials.join(", ")}]` : ""),
+        (item.serials?.length ? ` [IMEI / Serial: ${item.serials.join(", ")}]` : "") +
+        (item.jewel?.metal ? ` [${item.jewel.metal} ${item.jewel.purity}, Net ${item.jewel.netweight} g @ ${item.jewel.metalrate}/g${item.jewel.makingamount ? `, Making ${item.jewel.makingamount}` : ""}${item.jewel.huid ? `, HUID ${item.jewel.huid}` : ""}]` : ""),
       hsn: item.hsn || "-",
       qty: String(item.qty),
       rate: money(item.rate),
@@ -228,6 +231,10 @@ export const buildInvoicePdfModel = (
     totals.push({ label: "Round Off", value: money(roundOff) });
   }
   totals.push({ label: "Grand Total", value: money(grandTotal), grand: true });
+  if (Number(invoice.oldgoldamount) > 0) {
+    totals.push({ label: "Less: Old Gold", value: `-${money(Number(invoice.oldgoldamount))}` });
+    totals.push({ label: "Net Payable", value: money(grandTotal - Number(invoice.oldgoldamount)) });
+  }
 
   // Only when the admin opted in AND the caller actually fetched the figures.
   const showPartyBalance =

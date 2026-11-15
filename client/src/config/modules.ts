@@ -116,6 +116,8 @@ const MODULE_LIST: ModuleDef[] = [
   { id: "salesreturn",    label: "Sales Returns",   section: "sales", actions: RETURN_TXN_ACTIONS, inAdminRegister: true },
   // Customers earn points on bills and use them as a discount; "edit" = add or remove points by hand.
   { id: "loyalty",        label: "Loyalty Points",  section: "sales", actions: ["view", "edit"], inAdminRegister: true },
+  // Jewellery billing: daily metal rates, weight × rate + making, old gold against the bill. "edit" = save today's rates.
+  { id: "jewellery",      label: "Jewellery",       section: "sales", actions: ["view", "edit"], inAdminRegister: true },
   // Goods sent with a challan (Rule 55); "convert" makes the invoice from it.
   { id: "deliverychallan", label: "Delivery Challans", section: "sales", actions: ["add", "edit", "delete", "print", "convert", "reset"], inAdminRegister: true },
 
@@ -262,7 +264,7 @@ export const DEFAULT_ON_MODULE_IDS: string[] = ["branches", "departments", "acce
 export const ADMIN_REGISTER_MODULES = MODULES.filter((m) => m.inAdminRegister);
 
 // Off until ticked, even for older businesses whose module list is blank (blank = everything else).
-export const OPT_IN_MODULE_IDS: string[] = ["loyalty", "prescriptions", "batches", "serials", "tailoring"];
+export const OPT_IN_MODULE_IDS: string[] = ["loyalty", "prescriptions", "batches", "serials", "tailoring", "jewellery"];
 export const isOptIn = (id: string) => OPT_IN_MODULE_IDS.includes(String(id).toLowerCase());
 export const MODULES_BY_SECTION = (() => {
   const map: Record<ModuleSection, ModuleDef[]> = {

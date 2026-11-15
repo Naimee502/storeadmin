@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useMemo } from "react";
+import { JewelLines, OldGoldPanel, oldGoldValue, type OldGold } from "../../../components/jewellines";
 import { useOptInOn } from "../../../hooks/useoptin";
 import SerialLines, { serialMismatch, type SerialItem } from "../../../components/seriallines";
 import BatchLines from "../../../components/batchlines";
@@ -32,6 +33,14 @@ import { OfflineNumberNote, savedOffline as wasSavedOffline, useOfflineNumber, u
 import { useServiceMutations } from "../../../graphql/hooks/service";
 import { fieldOn, useFormMode } from "../../../hooks/useformmode";
 import { forUse } from "../../../config/itemtypes";
+
+// Numbers of a line's jewellery details, as the server stores them.
+const jewelInput = (j: any) => {
+  const n = (v: any) => (v === "" || v === null || v === undefined ? null : Number(v));
+  return { metal: j.metal, purity: j.purity, grossweight: n(j.grossweight), stoneweight: n(j.stoneweight), netweight: n(j.netweight), metalrate: n(j.metalrate),
+    metalvalue: n(j.metalvalue), makingtype: j.makingtype || "pergram", making: n(j.making), makingamount: n(j.makingamount), stonecharge: n(j.stonecharge),
+    othercharge: n(j.othercharge), huid: j.huid || null };
+};
 
 const AddEditSalesInvoice = () => {
   const { id } = useParams<{ id?: string }>();
@@ -114,12 +123,17 @@ const AddEditSalesInvoice = () => {
   // Amount settled now: 0 = credit, grand total = fully paid, between = rest outstanding.
   const [received, setReceived] = useState<string | number>("");
 
+  // Jewellery: old gold the customer gives counts as paid (its own receipt).
+  const [oldGold, setOldGold] = useState<OldGold[]>([]);
+  const [invoice0HasOldGold, setInvoice0HasOldGold] = useState(false);
+  const oldGoldAmount = Math.min(parseFloat(oldGold.reduce((t, l) => t + oldGoldValue(l), 0).toFixed(2)), grandTotal);
+
   // Credit means received = 0; clamp here too so Balance stays right.
   const isCreditBill = String(paymentType).toLowerCase() === "credit";
   const receivedNum = isCreditBill
     ? 0
-    : Math.min(Math.max(Number(received) || 0, 0), grandTotal);
-  const balanceDue = parseFloat((grandTotal - receivedNum).toFixed(2));
+    : Math.min(Math.max(Number(received) || 0, 0), Math.max(0, grandTotal - oldGoldAmount));
+  const balanceDue = parseFloat((grandTotal - oldGoldAmount - receivedNum).toFixed(2));
   // Bill numbers come from the full list, cancelled included.
   const { data: billSourceData } = useSalesInvoicesListQuery("cache-and-network", { includeCancelled: true });
   const salesInvoices = useMemo(() => billSourceData?.getSalesInvoices || [], [billSourceData]);
@@ -246,6 +260,8 @@ const AddEditSalesInvoice = () => {
       // Header fields
       setPaymentType(invoice.paymenttype || "");
       setReceived(invoice.received ? String(invoice.received) : "");
+      setOldGold((invoice.oldgold || []).map(({ __typename, ...l }: any) => l));
+      setInvoice0HasOldGold(!!invoice.oldgold?.length);
       setPartyAccount({
         id: invoice.partyacc?.id || "",
         state: invoice.partyacc?.state || "",
@@ -319,6 +335,7 @@ const AddEditSalesInvoice = () => {
           expirydate: p.expirydate || null,
           batchauto: p.batchauto || null,
           serials: p.serials || null,
+          jewel: p.jewel ? (({ __typename, ...j }: any) => j)(p.jewel) : null,
           salesUnits: unitOptions,
           selectedUnitValue: p.salesunitid && p.unitqty ? `${p.salesunitid.id}--${p.unitqty}` : null,
         };
@@ -585,6 +602,7 @@ const AddEditSalesInvoice = () => {
       totalgst: taxAmount,
       totalamount: grandTotal,
       received: receivedNum,
+      ...(oldGold.length || invoice0HasOldGold ? { oldgold: oldGold.map((l) => ({ description: l.description || "", metal: l.metal || "", purity: l.purity || "", weight: Number(l.weight) || 0, deduction: Number(l.deduction) || 0, rate: Number(l.rate) || 0 })), oldgoldamount: oldGoldAmount } : {}),
       othercharges: otherCharges.map(c => ({
         ledgerid: c.ledgerid,
         amount: c.amount,
@@ -623,6 +641,7 @@ const AddEditSalesInvoice = () => {
         serviceaccountid: getUnitId(p.serviceaccountid) ?? null,
         ...(p.batchno ? { batchno: p.batchno, expirydate: p.expirydate || null, batchauto: !!p.batchauto } : {}),
         ...(p.serials?.length ? { serials: p.serials } : {}),
+        ...(p.jewel?.metal ? { jewel: jewelInput(p.jewel) } : {}),
       })),
       status,
     };
@@ -928,6 +947,8 @@ const AddEditSalesInvoice = () => {
           />
           <BatchLines mode="out" products={products} setProducts={setProducts} branchId={branchId} />
           <SerialLines mode="out" items={serialItems} onChange={setSerials} serialised={isSerialised} />
+          <JewelLines products={products} setProducts={setProducts} />
+          <OldGoldPanel lines={oldGold} setLines={setOldGold} />
 
           <PosAddCustomer
             open={addCustomerOpen}
@@ -1070,6 +1091,8 @@ const AddEditSalesInvoice = () => {
                 disabled={isCreditBill}
                 onChange={(e) => setReceived(e.target.value)}
               />}
+
+              {oldGoldAmount > 0 && <FormField label="Old Gold (₹)" name="oldGoldAmount" onChange={() => ""} type="text" value={oldGoldAmount.toFixed(2)} disabled />}
 
               {isFieldEnabled("received") && <FormField
                 label="Balance Due"

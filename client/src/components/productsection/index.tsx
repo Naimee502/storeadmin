@@ -35,6 +35,8 @@ export type InvoiceProduct = {
   batchauto?: boolean | null;
   /** IMEI / Serial No. module. */
   serials?: string[] | null;
+  /** Jewellery module: weight, rate and making behind the line's rate. */
+  jewel?: Record<string, any> | null;
 };
 
 type ProductSectionProps = {
