@@ -56,6 +56,8 @@ const salesInvoiceSchema = new mongoose.Schema(
         productserviceid: { type: mongoose.Schema.Types.ObjectId, ref: "ProductService", required: true },
         variantid: { type: mongoose.Schema.Types.ObjectId },
         salesunitid: { type: mongoose.Schema.Types.ObjectId, ref: "Unit" },
+        // IMEI / Serial No. module: the units on this line (no default).
+        serials: { type: [String], default: undefined },
         // Batch & Expiry module: the batch this line sold / bought (no default).
         batchno: { type: String },
         expirydate: { type: String },

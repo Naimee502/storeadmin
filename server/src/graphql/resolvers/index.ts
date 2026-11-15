@@ -67,6 +67,8 @@ import { customerPortalResolvers } from "./customerportal";
 import { clinicResolvers } from "./clinic";
 import { batchResolvers } from "./batches";
 import { withBatches } from "../../utils/batches";
+import { serialResolvers } from "./serials";
+import { withSerials } from "../../utils/serials";
 import { withRxNotify } from "../../utils/clinic";
 import { panelLoginResolvers } from "./panellogin";
 import { withCustomerNotify } from "../../utils/customerportal";
@@ -120,8 +122,8 @@ const guarded = guardResolvers([
   withOfflineWrites(productServiceResolvers, { model: ProductService, typename: "ProductService", tenant: "adminid", add: "addProductService", edit: "updateProductService", del: "deleteProductService" }),
   withOfflineWrites(servicesResolvers, { model: ProductService, typename: "ProductService", tenant: "adminid", add: "addService", edit: "updateService", del: "deleteService" }),
   productImportResolvers,
-  withOfflineActions(withBatches(withLoyalty(salesInvoiceResolvers, "SalesInvoice"), "SalesInvoice", ["addSalesInvoice", "editSalesInvoice", "deleteSalesInvoice", "resetSalesInvoice", "cancelSalesInvoice", "reopenSalesInvoice", "convertSalesOrderToInvoice"], true), SalesInvoice, ["markSalesInvoiceDispatched", "markSalesInvoiceDelivered", "assignInvoiceDeliveryBoy", "saveInvoiceGstDetails"]),
-  withBatches(withSupplierNotify(purchaseInvoiceResolvers), "PurchaseInvoice", ["addPurchaseInvoice", "editPurchaseInvoice", "deletePurchaseInvoice", "resetPurchaseInvoice", "cancelPurchaseInvoice", "reopenPurchaseInvoice", "convertPurchaseOrderToInvoice"]),
+  withOfflineActions(withBatches(withSerials(withLoyalty(salesInvoiceResolvers, "SalesInvoice"), "SalesInvoice", ["addSalesInvoice", "editSalesInvoice", "deleteSalesInvoice", "resetSalesInvoice", "cancelSalesInvoice", "reopenSalesInvoice", "convertSalesOrderToInvoice"]), "SalesInvoice", ["addSalesInvoice", "editSalesInvoice", "deleteSalesInvoice", "resetSalesInvoice", "cancelSalesInvoice", "reopenSalesInvoice", "convertSalesOrderToInvoice"], true), SalesInvoice, ["markSalesInvoiceDispatched", "markSalesInvoiceDelivered", "assignInvoiceDeliveryBoy", "saveInvoiceGstDetails"]),
+  withBatches(withSerials(withSupplierNotify(purchaseInvoiceResolvers), "PurchaseInvoice", ["addPurchaseInvoice", "editPurchaseInvoice", "deletePurchaseInvoice", "resetPurchaseInvoice", "cancelPurchaseInvoice", "reopenPurchaseInvoice", "convertPurchaseOrderToInvoice"]), "PurchaseInvoice", ["addPurchaseInvoice", "editPurchaseInvoice", "deletePurchaseInvoice", "resetPurchaseInvoice", "cancelPurchaseInvoice", "reopenPurchaseInvoice", "convertPurchaseOrderToInvoice"]),
   withBatches(transferStockResolvers, "TransferStock", ["addTransferStock", "editTransferStock", "deleteTransferStock", "resetTransferStock"]),
   adminResolvers,
   withOfflineWrites(transactionResolvers, { model: Transaction, typename: "Transaction", tenant: "adminid", add: "addTransaction", edit: "editTransaction", del: "deleteTransaction" }),
@@ -142,10 +144,10 @@ const guarded = guardResolvers([
     withOfflineWrites(attendanceResolvers, { model: Holiday, typename: "Holiday", tenant: "adminid", add: "addHoliday", edit: "editHoliday", del: "deleteHoliday" }),
     { model: LeaveType, typename: "LeaveType", tenant: "adminid", add: "addLeaveType", edit: "editLeaveType", del: "deleteLeaveType" }
   ),
-  withBatches(withLoyalty(salesReturnResolvers, "SalesReturn"), "SalesReturn", ["addSalesReturn", "editSalesReturn", "deleteSalesReturn", "resetSalesReturn"]),
+  withBatches(withSerials(withLoyalty(salesReturnResolvers, "SalesReturn"), "SalesReturn", ["addSalesReturn", "editSalesReturn", "deleteSalesReturn", "resetSalesReturn"]), "SalesReturn", ["addSalesReturn", "editSalesReturn", "deleteSalesReturn", "resetSalesReturn"]),
   loyaltyResolvers,
   geocodeResolvers,
-  withBatches(purchaseReturnResolvers, "PurchaseReturn", ["addPurchaseReturn", "editPurchaseReturn", "deletePurchaseReturn", "resetPurchaseReturn"], true),
+  withBatches(withSerials(purchaseReturnResolvers, "PurchaseReturn", ["addPurchaseReturn", "editPurchaseReturn", "deletePurchaseReturn", "resetPurchaseReturn"]), "PurchaseReturn", ["addPurchaseReturn", "editPurchaseReturn", "deletePurchaseReturn", "resetPurchaseReturn"], true),
   adminSettingsResolvers,
   permissionsResolvers,
   withOfflineWrites(chargeRuleResolvers, { model: ChargeRule, typename: "ChargeRule", tenant: "adminid", add: "addChargeRule", edit: "editChargeRule", del: "deleteChargeRule" }),
@@ -172,6 +174,7 @@ const guarded = guardResolvers([
   customerPortalResolvers,
   clinicResolvers,
   batchResolvers,
+  serialResolvers,
   panelLoginResolvers,
   aiResolvers,
   insightResolvers,

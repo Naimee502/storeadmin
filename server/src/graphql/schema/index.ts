@@ -61,6 +61,7 @@ import { panelLoginTypeDefs } from "./panellogin";
 import { loyaltyTypeDefs } from "./loyalty";
 import { clinicTypeDefs } from "./clinic";
 import { batchTypeDefs } from "./batches";
+import { serialTypeDefs } from "./serials";
 
 export const typeDefs = [
   branchTypeDefs,
@@ -126,4 +127,5 @@ export const typeDefs = [
   loyaltyTypeDefs,
   clinicTypeDefs,
   batchTypeDefs,
+  serialTypeDefs,
 ];
