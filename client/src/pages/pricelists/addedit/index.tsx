@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { useParams, useNavigate } from "react-router";
 import HomeLayout from "../../../layouts/home";
 import FormField from "../../../components/formfiled";
 import FormPage from "../../../components/formpage";
-import { useProductServicesQuery } from "../../../graphql/hooks/products";
+import { useProductServicesPickerQuery } from "../../../graphql/hooks/products";
 import { useUnitsQuery } from "../../../graphql/hooks/units";
 import { usePriceListByIdQuery, usePriceListMutations } from "../../../graphql/hooks/pricelists";
 import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
@@ -26,13 +26,14 @@ const AddEditPriceList = () => {
   });
 
   const { data: priceListData, refetch: refetchPriceList } = usePriceListByIdQuery(id || "");
-  const { data: productData } = useProductServicesQuery();
+  const { data: productData } = useProductServicesPickerQuery();
   const { data: unitData } = useUnitsQuery();
   const { createPriceList, updatePriceList } = usePriceListMutations();
 
-  const products = productData?.getProductServices || [];
+  const products = useMemo(() => productData?.getProductServices || [], [productData]);
   const units = unitData?.getUnits || [];
 
+  const filledId = useRef<string | null>(null);
   useEffect(() => {
     if (products.length > 0) {
       // 1. Generate master list of all available unit prices
@@ -70,7 +71,10 @@ const AddEditPriceList = () => {
       );
 
       if (isEdit && priceListData?.getPriceListById) {
+        // Merge once per list: a later refresh must not wipe typed rates.
+        if (filledId.current === priceListData.getPriceListById.id) return;
         const pl = priceListData.getPriceListById;
+        filledId.current = pl.id;
         const existingItems = pl.items || [];
 
         // Merge master list with saved values

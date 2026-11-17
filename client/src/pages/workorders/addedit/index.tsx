@@ -6,7 +6,7 @@ import FormField from "../../../components/formfiled";
 import FormPage from "../../../components/formpage";
 import { defaultBom, explodeBom, itemOptions, pickItem, unitFactor, unitOptions, variantOf } from "../../../components/mfglines";
 import HomeLayout from "../../../layouts/home";
-import { useProductServicesQuery } from "../../../graphql/hooks/products";
+import { useProductServicesPickerQuery } from "../../../graphql/hooks/products";
 import { mfgNo, useBomsQuery, useManufacturingMutations, useMfgBranch, useWorkOrderByIdQuery } from "../../../graphql/hooks/manufacturing";
 import { useAppDispatch } from "../../../redux/hooks";
 import { showMessage } from "../../../redux/slices/message";
@@ -47,7 +47,7 @@ const AddEditWorkOrder = () => {
   const { data: own } = useWorkOrderByIdQuery(id);
   const { data: bomsData } = useBomsQuery();
   const boms = bomsData?.getBoms || [];
-  const { data: productData } = useProductServicesQuery();
+  const { data: productData } = useProductServicesPickerQuery();
   const products = useOfflineStock(productData?.getProductServices ?? [], branchId);
   const { number: offlineNo, noDevice } = useOfflineNumber("workorder", !isEdit);
 

@@ -667,7 +667,8 @@ export const accountResolvers = {
         // Actor ≠ admin (e.g. salesman created a party from the app) → tell
         // admin. Party created with a salesman linked → tell that salesman
         // (unless he created it himself).
-        try {
+        // Not awaited: the saved party goes back to the user at once.
+        void (async () => { try {
           const actor = await resolveActor(context?.user);
           const adminid = input.admin;
           const branchid = input.branchid;
@@ -696,7 +697,7 @@ export const accountResolvers = {
               docid: account._id,
             });
           }
-        } catch (e) { /* notifications are best-effort */ }
+        } catch (e) { /* notifications are best-effort */ } })();
 
         return await Account.findById(account._id)
           .populate("admin")
@@ -728,7 +729,8 @@ export const accountResolvers = {
         .populate("channel");
 
       // ── Notification: party newly assigned to a salesman → tell him ──
-      try {
+      // Not awaited: the saved party goes back to the user at once.
+      void (async () => { try {
         const newSalesman = input.salesmanid;
         if (
           updated && newSalesman &&
@@ -750,7 +752,7 @@ export const accountResolvers = {
             });
           }
         }
-      } catch (e) { /* notifications are best-effort */ }
+      } catch (e) { /* notifications are best-effort */ } })();
 
       return updated;
     },

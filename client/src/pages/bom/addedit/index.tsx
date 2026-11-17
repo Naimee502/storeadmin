@@ -5,7 +5,7 @@ import FormField from "../../../components/formfiled";
 import FormPage from "../../../components/formpage";
 import MfgLines, { type MfgLine, CONSUMES, MAKES, itemOptions, mfgInput, pickItem, toMfgLines, unitOptions, variantOf } from "../../../components/mfglines";
 import HomeLayout from "../../../layouts/home";
-import { useProductServicesQuery } from "../../../graphql/hooks/products";
+import { useProductServicesPickerQuery } from "../../../graphql/hooks/products";
 import { useBomByIdQuery, useBomsQuery, useManufacturingMutations } from "../../../graphql/hooks/manufacturing";
 import { useAppDispatch } from "../../../redux/hooks";
 import { showMessage } from "../../../redux/slices/message";
@@ -24,8 +24,8 @@ const AddEditBom = () => {
   const { addBom, editBom } = useManufacturingMutations();
   const { data: own } = useBomByIdQuery(id);
   const { data: bomsData } = useBomsQuery();
-  const { data: productData } = useProductServicesQuery();
-  const products = productData?.getProductServices || [];
+  const { data: productData } = useProductServicesPickerQuery();
+  const products = useMemo(() => productData?.getProductServices || [], [productData]);
 
   const [head, setHead] = useState({ name: "", productserviceid: "", variantid: null as string | null, salesunitid: null as string | null, qty: 1 as number | string, overhead: "" as number | string, isdefault: true, notes: "" });
   const [items, setItems] = useState<MfgLine[]>([{ productserviceid: "", qty: 1 }]);

@@ -9,9 +9,9 @@ import { selectIsModuleAllowed, selectModuleActions } from "../../../redux/slice
 import { showMessage } from "../../../redux/slices/message";
 import { useStaffListQuery } from "../../../graphql/hooks/staffaccounts";
 import { useAccountsLiteQuery } from "../../../graphql/hooks/accounts";
-import { useProductServicesQuery } from "../../../graphql/hooks/products";
+import { useProductServicesPickerQuery } from "../../../graphql/hooks/products";
 import {
-  TEMPERATURES, leadNo, useCrmLists, useFollowupsQuery, useLeadByIdQuery, useLeadMutations, useLeadsQuery,
+  TEMPERATURES, leadNo, useCrmLists, useFollowupsQuery, useLeadByIdQuery, useLeadMutations, useLeadsDupcheckQuery,
 } from "../../../graphql/hooks/lead";
 import { stateOptions } from "../../../utils/constants";
 import CustomFieldsSection, { cleanCustomFields, missingCustomFields, useCustomFieldDefs, type CustomFieldValue } from "../../../components/customfields";
@@ -67,12 +67,12 @@ const AddEditLead = () => {
   const change = useChangeStage();
   const { data: own } = useLeadByIdQuery(id);
   const lead = own?.getLeadById;
-  const { data: allLeads } = useLeadsQuery();
+  const { data: allLeads } = useLeadsDupcheckQuery();
   const { data: fuData } = useFollowupsQuery(id, !id);
   const { data: qtData } = useQuotationsQuery(id, !id || !qtOn);
   const { data: staffData } = useStaffListQuery();
   const { data: accountData } = useAccountsLiteQuery();
-  const { data: productData } = useProductServicesQuery();
+  const { data: productData } = useProductServicesPickerQuery();
 
   const [f, setF] = useState({ ...EMPTY });
   const [stage, setStage] = useState("");
@@ -154,20 +154,21 @@ const AddEditLead = () => {
     if (m.length !== 10) return [];
     return (allLeads?.getLeads || []).filter((l: any) => l.id !== id && (last10(l.mobile) === m || last10(l.altmobile) === m));
   }, [allLeads, f.mobile, id]);
+  const partyOptions = useMemo(() => (accountData?.getAccounts || []).map((a: any) => ({ value: a.id, label: partyLabel(a) })), [accountData]);
   const partyMatches = useMemo(() => {
     const m = last10(f.mobile);
     return m.length === 10 ? (accountData?.getAccounts || []).filter((a: any) => last10(a.mobile) === m) : [];
   }, [accountData, f.mobile]);
 
-  const staffOptions = (staffData?.getStaffAccounts || []).map((s: any) => ({ value: s.id, label: s.name }));
-  const productList: any[] = productData?.getProductServices || [];
+  const staffOptions = useMemo(() => (staffData?.getStaffAccounts || []).map((s: any) => ({ value: s.id, label: s.name })), [staffData]);
+  const productList: any[] = useMemo(() => productData?.getProductServices || [], [productData]);
   // One pick for product and variant, like the Sales Invoice product field.
-  const productOptions = productList.flatMap((p: any) =>
+  const productOptions = useMemo(() => productList.flatMap((p: any) =>
     (p.productvariants?.length ? p.productvariants : [{ id: "" }]).map((v: any) => ({
       value: `${p.id}::${v.id || ""}`,
       label: v.name ? `${p.name} - ${v.name}` : p.name,
     }))
-  );
+  ), [productList]);
   const productOf = (id: string) => productList.find((p: any) => p.id === id);
   const variantOf = (pid: string, vid: string) => (productOf(pid)?.productvariants || []).find((v: any) => v.id === vid);
   const editLine = (i: number, patch: Partial<ProductLine>) => setProducts((ps) => ps.map((x, j) => (j === i ? { ...x, ...patch } : x)));
@@ -462,7 +463,7 @@ const AddEditLead = () => {
               </div>
             )}
             <FormField label="Or link any party" name="linkparty" type="select" value="" searchable
-              options={(accountData?.getAccounts || []).map((a: any) => ({ value: a.id, label: partyLabel(a) }))}
+              options={partyOptions}
               onChange={(e: any) => e.target.value && linkParty(e.target.value)} />
             <div className="flex justify-between gap-2 pt-1">
               <button type="button" className="h-8 rounded-md border border-slate-300 px-3" onClick={() => setLinking(false)}>Cancel</button>

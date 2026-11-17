@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate, useParams } from "react-router";
 import HomeLayout from "../../../layouts/home";
 import FormField from "../../../components/formfiled";
@@ -9,7 +9,7 @@ import {
   useGetSalesRouteById,
 } from "../../../graphql/hooks/salesroutes";
 import { useStaffQuery } from "../../../graphql/hooks/staffaccounts";
-import { useAccountsQuery } from "../../../graphql/hooks/accounts";
+import { useAccountsPickQuery } from "../../../graphql/hooks/accounts";
 import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
 import { showMessage } from "../../../redux/slices/message";
 import { isCustomerParty } from "../../../utils/partytype";
@@ -70,7 +70,7 @@ const SalesRouteAddEdit: React.FC = () => {
 
   // ── Data fetching
   const { data: staffData }  = useStaffQuery();
-  const { data: accountsData } = useAccountsQuery(true);
+  const { data: accountsData } = useAccountsPickQuery(true);
   const { data: editData, loading: loadingEdit } = useGetSalesRouteById(id || "", adminId, branchId);
 
   const { createSalesRoute, loading: creating } = useCreateSalesRoute();
@@ -86,10 +86,12 @@ const SalesRouteAddEdit: React.FC = () => {
     [accountsData]
   );
 
-  // ── Populate on edit
+  // ── Populate on edit (once per route, so a refresh can't wipe edits)
+  const filledId = useRef<string | null>(null);
   useEffect(() => {
-    if (isEdit && editData?.getSalesRouteById) {
+    if (isEdit && editData?.getSalesRouteById && filledId.current !== editData.getSalesRouteById.id) {
       const route = editData.getSalesRouteById;
+      filledId.current = route.id;
       setRouteName(route.routename || "");
       setDescription(route.description || "");
       setSalesmanId(route.salesmanid?.id || "");

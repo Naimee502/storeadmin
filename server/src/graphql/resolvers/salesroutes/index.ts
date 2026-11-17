@@ -373,7 +373,7 @@ export const salesRouteResolvers = {
           accounts: allAccountIds,
         });
         const doc = await SalesRoute.findById(newRoute._id);
-        await notifyRouteEvent(newRoute, context, "created");
+        void notifyRouteEvent(newRoute, context, "created");
         return await populateAndFormat(doc!);
       } catch (err) {
         console.error("createSalesRoute error:", err);
@@ -390,7 +390,7 @@ export const salesRouteResolvers = {
           { new: true }
         );
         if (!updated) throw new Error("Sales route not found");
-        await notifyRouteEvent(updated, context, "updated");
+        void notifyRouteEvent(updated, context, "updated");
         return await populateAndFormat(updated);
       } catch (err) {
         console.error("updateSalesRoute error:", err);

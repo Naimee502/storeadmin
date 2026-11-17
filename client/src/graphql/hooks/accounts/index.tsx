@@ -165,3 +165,20 @@ export const useAccountByIDQuery = (id: string) => {
 
   return { data, loading, error };
 };
+
+import { GET_ACCOUNTS_PICK } from '../../queries/accounts';
+
+/** Party pickers that need code and channel (lite); same filter as useAccountsQuery. */
+export const useAccountsPickQuery = (status: boolean = true) => {
+  const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
+  const adminId =
+    type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : type === 'staff' ? staff?.admin?.id : undefined;
+
+  const { data, loading, error, refetch } = useQuery(GET_ACCOUNTS_PICK, {
+    variables: { filter: { admin: adminId, status } },
+    skip: !adminId,
+    fetchPolicy: 'cache-and-network',
+  });
+
+  return { data, loading, error, refetch };
+};

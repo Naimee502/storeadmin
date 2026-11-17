@@ -1,6 +1,6 @@
 // Expense Note voucher with presets: general, tada (TA/DA) and salary.
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useParams, useNavigate } from "react-router";
 import HomeLayout from "../../../layouts/home";
 import FormPage from "../../../components/formpage";
@@ -63,8 +63,8 @@ const AddEditExpenseNote = () => {
   const { data: staffData } = useStaffQuery();
   const [fetchCategoryLedger] = useExpenseCategoryLedgerLazy();
 
-  const ledgerList = ledgerData?.getAccountLedgers || [];
-  const staffList = staffData?.getStaffAccounts || [];
+  const ledgerList: any[] = useMemo(() => ledgerData?.getAccountLedgers || [], [ledgerData]);
+  const staffList: any[] = useMemo(() => staffData?.getStaffAccounts || [], [staffData]);
 
   // TA/DA: only travelling roles; salary: all staff. UI only, not enforced by the server.
   const filteredStaffOptions = useMemo(
@@ -118,9 +118,12 @@ const AddEditExpenseNote = () => {
 
   // Load edit data
 
+  // Fill once per note: a cache refresh must not wipe what is being typed.
+  const filledId = useRef<string | null>(null);
   useEffect(() => {
-    if (isEdit && existingData?.getExpenseNoteById) {
+    if (isEdit && existingData?.getExpenseNoteById && filledId.current !== existingData.getExpenseNoteById.id) {
       const e = existingData.getExpenseNoteById;
+      filledId.current = e.id;
 
       setFormValues({
         expensedate: formatDate(e.expensedate),

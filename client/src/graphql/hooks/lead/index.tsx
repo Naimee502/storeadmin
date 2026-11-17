@@ -116,3 +116,11 @@ export const useDeletedFollowupsQuery = () => {
   const filter = useBranchFilter();
   return useQuery(GET_DELETED_FOLLOWUPS, { variables: { filter }, fetchPolicy: "cache-and-network" });
 };
+
+import { GET_LEADS_DUPCHECK } from '../../queries/lead';
+
+/** Same-mobile check on the lead form (lite); same filter as useLeadsQuery. */
+export const useLeadsDupcheckQuery = (skip = false) => {
+  const filter = useBranchFilter();
+  return useQuery(GET_LEADS_DUPCHECK, { variables: { filter }, skip, fetchPolicy: "cache-and-network" });
+};

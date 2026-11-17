@@ -120,3 +120,10 @@ export const GET_LEADS_PICKER = gql`
     getLeads(filter: $filter) { id name company mobile address city state gstin requirement partyid { id name } }
   }
 `;
+
+// Same-mobile check on the lead form (lite).
+export const GET_LEADS_DUPCHECK = gql`
+  query GetLeadsDupcheck($filter: LeadFilterInput) {
+    getLeads(filter: $filter) { id leadnumber name mobile altmobile ownerid { id name } }
+  }
+`;

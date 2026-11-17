@@ -5,7 +5,7 @@ import FormField from "../../../components/formfiled";
 import FormPage from "../../../components/formpage";
 import MfgLines, { type MfgLine, CONSUMES, MAKES, baseQtyOf, lineCost, mfgInput, toMfgLines, variantOf } from "../../../components/mfglines";
 import HomeLayout from "../../../layouts/home";
-import { useProductServicesQuery } from "../../../graphql/hooks/products";
+import { useProductServicesPickerQuery } from "../../../graphql/hooks/products";
 import {
   QC_STATUS, mfgNo, useBomsQuery, useManufacturingMutations, useMfgBranch, useProductionEntryByIdQuery, useWorkOrdersQuery,
 } from "../../../graphql/hooks/manufacturing";
@@ -34,7 +34,7 @@ const AddEditProduction = () => {
   const boms = bomsData?.getBoms || [];
   const { data: woData } = useWorkOrdersQuery();
   const workOrders = woData?.getWorkOrders || [];
-  const { data: productData } = useProductServicesQuery();
+  const { data: productData } = useProductServicesPickerQuery();
   const products = useOfflineStock(productData?.getProductServices ?? [], branchId);
   const { number: offlineNo, noDevice } = useOfflineNumber("production", !isEdit);
 

@@ -272,3 +272,20 @@ export const REVERSE_GEOCODE = gql`
     }
   }
 `;
+
+// Party pickers that need the code and channel (parent party, sales routes).
+export const GET_ACCOUNTS_PICK = gql`
+  query GetAccountsPick($filter: AccountFilterInput) {
+    getAccounts(filter: $filter) {
+      id
+      name
+      type
+      accountcode
+      channel {
+        id
+        channelName
+      }
+      status
+    }
+  }
+`;

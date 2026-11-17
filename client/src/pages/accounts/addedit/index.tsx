@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useParams, useNavigate, useLocation } from "react-router";
 import { useLazyQuery } from "@apollo/client";
 import { REVERSE_GEOCODE } from "../../../graphql/queries/accounts";
@@ -14,10 +14,9 @@ import FormSwitch from "../../../components/formswitch";
 import FormPage from "../../../components/formpage";
 import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
 import { showMessage } from "../../../redux/slices/message";
-import { useAccountMutations, useAccountByIDQuery, useAccountsQuery } from "../../../graphql/hooks/accounts";
+import { useAccountMutations, useAccountByIDQuery, useAccountsPickQuery } from "../../../graphql/hooks/accounts";
 import { useImageUpload } from "../../../graphql/hooks/uploads";
 import { useStaffQuery } from "../../../graphql/hooks/staffaccounts";
-import { useAccountLedgersQuery } from "../../../graphql/hooks/accountledgers";
 import { useAccountGroupsQuery } from "../../../graphql/hooks/accountgroups";
 import { useChannelsQuery } from "../../../graphql/hooks/channels";
 import { regionOptions, stateOptions } from "../../../utils/constants";
@@ -205,11 +204,9 @@ const AddEditAccount = () => {
 
   const { data: existingData } = useAccountByIDQuery(id || "");
   const { data: accountGroupData } = useAccountGroupsQuery();
-  const { data: assignAccountData } = useAccountsQuery();
+  const { data: assignAccountData } = useAccountsPickQuery();
   const { data: staffData } = useStaffQuery();
   const { data: channelData } = useChannelsQuery(adminId);
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { data: _ledgersData } = useAccountLedgersQuery();
 
   const [formValues, setFormValues] = useState({
     name: "",
@@ -282,9 +279,12 @@ const AddEditAccount = () => {
     }
   }, [accountGroupData, isEdit]); // intentionally not including type — only on data load
 
+  // Fill once per party: a cache refresh must not wipe what is being typed.
+  const filledId = useRef<string | null>(null);
   useEffect(() => {
-    if (isEdit && existingData?.getAccountById) {
+    if (isEdit && existingData?.getAccountById && filledId.current !== existingData.getAccountById.id) {
       const a = existingData.getAccountById;
+      filledId.current = a.id;
       setFormValues({
         name: a.name || "",
         mobile: a.mobile || "",
