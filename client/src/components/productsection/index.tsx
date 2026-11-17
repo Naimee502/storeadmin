@@ -10,6 +10,7 @@ import { useAppSelector } from "../../redux/hooks";
 import { usePriceResolvers } from "../../graphql/hooks/pricelists";
 import { getStockShortfalls } from "../../utils/products/stockcheck";
 import { fieldOn, useFormMode } from "../../hooks/useformmode";
+import QuickItemModal from "../quickitem";
 
 /* * Invoice line type */
 export type InvoiceProduct = {
@@ -118,18 +119,18 @@ const ProductSection: React.FC<ProductSectionProps> = ({
   type,
   onProductsChange,
   partyAccount,
-  navigate,
   iservice = false,
   invoiceHistory = [],
   permissionModuleId,
   originalProducts,
 }) => {
-  const normalizedProducts = productData.map(normalizeProduct);
+  // Memoised: the catalogue is large and the form re-renders on every keystroke.
+  const normalizedProducts = useMemo(() => productData.map(normalizeProduct), [productData]);
   const lineLabel = (p: any, v: any) => p?.isservice ? `${p?.name} - ${v?.name}` : `${p?.name} - ${v?.name} - (Stock: ${v?.currentstock ?? 0})`;
   // Services have no unit; the column shows only when a goods line is on the bill.
   const showUnit = type === "sales" && products.some((x) => !normalizedProducts.find((pd) => pd.id === x.productserviceid)?.isservice);
   // Product picker options; on sales forms nothing-in-stock items go to the bottom.
-  const variantOptions = (() => {
+  const variantOptions = useMemo(() => {
     // Services only on a service bill (listed first); a goods bill lists goods as before.
     const opts = [...normalizedProducts.filter((p) => p.isservice && iservice), ...normalizedProducts.filter((p) => !p.isservice)].flatMap((p) =>
       p.productvariants.map((v: any) => ({
@@ -139,7 +140,7 @@ const ProductSection: React.FC<ProductSectionProps> = ({
       }))
     );
     return type === "sales" ? [...opts.filter((o) => !o.empty), ...opts.filter((o) => o.empty)] : opts;
-  })();
+  }, [normalizedProducts, iservice, type]);
 
   // Short-stock flags for pre-filled lines (app/website orders), shown inline on each row.
   const shortfallByLine = useMemo(() => {
@@ -621,6 +622,49 @@ const ProductSection: React.FC<ProductSectionProps> = ({
     if (editIndex === i) setEditIndex(null);
   };
 
+  /* * Pick an item in the Add box; value is "productId--variantId" */
+  const pickProduct = (value: string) => {
+    if (!value) {
+      setSelectedProduct({}); // clear → unselect product
+      return;
+    }
+    const [pid, vid] = value.split("--");
+    const product = normalizedProducts.find((p) => p.id === pid);
+    const variant = product?.productvariants.find((v: any) => v.id === vid);
+
+    const salesAccountId = getUnitId(product?.salesaccountid?.id) ?? null;
+    const purchaseAccountId = getUnitId(product?.purchaseaccountid?.id) ?? null;
+    const purchaseUnitId = getUnitId(variant?.purchaseunitid) ?? null;
+
+    setSelectedProduct({
+      productserviceid: pid,
+      variantid: vid,
+      productname: product?.name || "",
+      rate: product?.isservice
+        ? Number(variant?.servicerate ?? 0)
+        : type === "sales"
+          ? 0
+          : Number(variant?.purchaserate ?? 0),
+      quantity: 1,
+      gst: Number(variant?.gst ?? 0),
+      salesaccountid: salesAccountId,
+      purchaseaccountid: purchaseAccountId,
+      purchaseunitid: purchaseUnitId,
+    });
+  };
+
+  // Dropdown "Add New": quick add in a modal, then the new item is picked here.
+  const [quickOpen, setQuickOpen] = useState(false);
+  const [made, setMade] = useState<string | null>(null);
+  useEffect(() => {
+    if (!made) return;
+    const [pid, vid] = made.split("|");
+    if (!normalizedProducts.some((p: any) => p.id === pid)) return;
+    pickProduct(`${pid}--${vid}`);
+    setMade(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [made, normalizedProducts]);
+
   return (
     <fieldset className="border rounded-xl p-4 space-y-4">
       <legend className="text-sm font-medium px-2">
@@ -637,39 +681,11 @@ const ProductSection: React.FC<ProductSectionProps> = ({
             name="productserviceid"
             type="select"
             value={selectedProduct.productserviceid ? `${selectedProduct.productserviceid}--${selectedProduct.variantid ?? ""}` : ""}
-            onChange={(e) => {
-              if (!e.target.value) {
-                setSelectedProduct({}); // clear → unselect product
-                return;
-              }
-              const [pid, vid] = e.target.value.split("--");
-              const product = normalizedProducts.find((p) => p.id === pid);
-              const variant = product?.productvariants.find((v: any) => v.id === vid);
-
-              const salesAccountId = getUnitId(product?.salesaccountid?.id) ?? null;
-              const purchaseAccountId = getUnitId(product?.purchaseaccountid?.id) ?? null;
-              const purchaseUnitId = getUnitId(variant?.purchaseunitid) ?? null;
-
-              setSelectedProduct({
-                productserviceid: pid,
-                variantid: vid,
-                productname: product?.name || "",
-                rate: product?.isservice
-                  ? Number(variant?.servicerate ?? 0)
-                  : type === "sales"
-                    ? 0
-                    : Number(variant?.purchaserate ?? 0),
-                quantity: 1,
-                gst: Number(variant?.gst ?? 0),
-                salesaccountid: salesAccountId,
-                purchaseaccountid: purchaseAccountId,
-                purchaseunitid: purchaseUnitId,
-              });
-            }}
+            onChange={(e) => pickProduct(e.target.value)}
             options={variantOptions}
             searchable
             addable
-            onAddNew={() => navigate("/products")}
+            onAddNew={() => setQuickOpen(true)}
             historyTitle={
               invoiceHistory.length
                 ? selectedProduct.productserviceid
@@ -1376,6 +1392,7 @@ const ProductSection: React.FC<ProductSectionProps> = ({
           )}
 
 </fieldset>
+      <QuickItemModal open={quickOpen} kind={iservice ? "all" : "goods"} onClose={() => setQuickOpen(false)} onCreated={setMade} />
     </fieldset>
   );
 };

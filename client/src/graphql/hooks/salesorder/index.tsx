@@ -14,6 +14,7 @@ import {
 import {
   GET_SALES_ORDERS,
   GET_SALES_ORDERS_LIST,
+  GET_SALES_ORDERS_HISTORY,
   GET_SALES_ORDERS_PAGE,
   GET_SALES_ORDER_BY_ID,
   GET_DELETED_SALES_ORDERS
@@ -71,6 +72,22 @@ export const useSalesOrdersListQuery = (extraFilter: Record<string, any> = {}) =
 
   const { data, loading, error, refetch } = useQuery(GET_SALES_ORDERS_LIST, {
     variables: { filter: { adminid, branchid, ...extraFilter } },
+  });
+
+  return { data, loading, error, refetch };
+};
+
+// Order form history (lite): next number, party's last orders, item sale rates.
+export const useSalesOrdersHistoryQuery = () => {
+  const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
+  const selectedBranchId = useAppSelector((state) => state.selectedBranch.branchId);
+
+  const adminid = type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : type === 'staff' ? staff?.admin?.id : undefined;
+  const branchid = type === 'admin' ? selectedBranchId : type === 'branch' ? branch?.id : type === 'staff' ? staff?.branchid?.id : undefined;
+
+  const { data, loading, error, refetch } = useQuery(GET_SALES_ORDERS_HISTORY, {
+    variables: { filter: { adminid, branchid } },
+    fetchPolicy: 'cache-and-network',
   });
 
   return { data, loading, error, refetch };

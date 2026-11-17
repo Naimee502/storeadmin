@@ -21,4 +21,4 @@ export function useAddNew(path: string, queries: string[]) {
 }
 
 export const PARTY_QUERIES = ["GetAccountsLite", "GetAccountsList", "GetAccounts"];
-export const ITEM_QUERIES = ["GetProductServices"];
+export const ITEM_QUERIES = ["GetProductServices", "GetProductServicesPicker"];

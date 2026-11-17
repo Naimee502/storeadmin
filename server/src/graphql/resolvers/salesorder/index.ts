@@ -868,7 +868,8 @@ async function addSalesOrderNow(_: any, { input }: any, context: any) {
         // Non-admin punched (salesman/staff/deliveryboy/party) → tell admin.
         // Back-office punched (admin/branch/staff) → tell the assigned
         // salesman + the party (app).
-        try {
+        // Not awaited: the saved order goes back to the user at once.
+        void (async () => { try {
           const orderNo = `SO-${doc?.billnumber || ""}`;
           const partyName = doc?.partyacc?.name || doc?.partyacc?.accountname || "Party";
           const amount = Number(doc?.totalamount || 0).toFixed(2);
@@ -986,7 +987,7 @@ async function addSalesOrderNow(_: any, { input }: any, context: any) {
               });
             }
           }
-        } catch (e) { /* notifications are best-effort */ }
+        } catch (e) { /* notifications are best-effort */ } })();
 
         return formatOrder(doc);
       } catch (error: any) {
@@ -1145,7 +1146,7 @@ export const salesOrderResolvers = {
       // (invoice creation already sends "converted to invoice") — otherwise
       // every conversion would fire a redundant, confusing "updated" notif.
       if (updated && !input?.isConverted) {
-        await notifyOrderEvent(updated, context, "updated", input);
+        void notifyOrderEvent(updated, context, "updated", input);
       }
       return updated ? formatOrder(updated) : null;
     },

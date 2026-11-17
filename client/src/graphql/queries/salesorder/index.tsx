@@ -117,6 +117,29 @@ export const GET_SALES_ORDERS_LIST = gql`
   }
 `;
 
+// Order form: next number and party / item history only.
+export const GET_SALES_ORDERS_HISTORY = gql`
+  query GetSalesOrdersHistory($filter: SalesOrderFilterInput) {
+    getSalesOrders(filter: $filter) {
+      id
+      partyacc { id accountname }
+      billdate
+      billnumber
+      totaldiscount
+      invoicediscount
+      totalamount
+      productservice {
+        productserviceid { id }
+        variantid { id }
+        qty
+        rate
+        discount
+      }
+      createdAt
+    }
+  }
+`;
+
 // Full order for Print/WhatsApp, with party state/GSTIN/address.
 export const GET_SALES_ORDER_PRINT = gql`
   query GetSalesOrderPrint($id: ID!) {

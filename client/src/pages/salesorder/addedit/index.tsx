@@ -8,8 +8,8 @@ import HomeLayout from "../../../layouts/home";
 import { useParams, useNavigate, useLocation } from "react-router";
 import { useQuotationMutations, quotationNo } from "../../../graphql/hooks/quotation";
 import { useAccountsLiteQuery } from "../../../graphql/hooks/accounts";
-import { useProductServicesQuery } from "../../../graphql/hooks/products";
-import { useSalesOrderByIDQuery, useSalesOrderMutations, useSalesOrdersListQuery, useSalesOrdersQuery } from "../../../graphql/hooks/salesorder";
+import { useProductServicesPickerQuery } from "../../../graphql/hooks/products";
+import { useSalesOrderByIDQuery, useSalesOrderMutations, useSalesOrdersHistoryQuery } from "../../../graphql/hooks/salesorder";
 import { getLastPartyDocRows } from "../../../utils/helper";
 import { useBranchesQuery } from "../../../graphql/hooks/branches";
 import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
@@ -95,18 +95,18 @@ const AddEditSalesOrder = () => {
 
   const { data } = useSalesOrderByIDQuery(id || "");
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
-  // Next order number comes from the order list.
-  const { data: numberSource } = useSalesOrdersListQuery();
-  const salesOrders: any[] = useMemo(() => numberSource?.getSalesOrders || [], [numberSource]);
+  // One lite query feeds the next order number and the party / item history.
+  const { data: allOrdersData } = useSalesOrdersHistoryQuery();
+  const salesOrders: any[] = useMemo(() => allOrdersData?.getSalesOrders || [], [allOrdersData]);
 
   const { data: accountData, refetch: accountRefetch } = useAccountsLiteQuery();
-  const customerAccounts = accountData?.getAccounts?.filter((acc: any) => isCustomerParty(acc.type)) || [];
-  const accountOptions = customerAccounts.map((acc: any) => ({
+  const customerAccounts = useMemo(() => accountData?.getAccounts?.filter((acc: any) => isCustomerParty(acc.type)) || [], [accountData]);
+  const accountOptions = useMemo(() => customerAccounts.map((acc: any) => ({
     value: acc.id,
     label: partyLabel(acc),
-  }));
+  })), [customerAccounts]);
 
-  const { data: producData } = useProductServicesQuery();
+  const { data: producData } = useProductServicesPickerQuery();
   // Offline mode adds unsynced stock moves; otherwise the list as fetched.
   const salesProductData = useOfflineStock(forUse(producData?.getProductServices ?? [], "sell"), branchId);
   const { number: offlineNo, noDevice } = useOfflineNumber("salesorder", !isEdit);
@@ -116,10 +116,9 @@ const AddEditSalesOrder = () => {
   const isFieldEnabled = (fieldId: string) => fieldOn(salesorderFormPermissions, fieldId, formMode);
 
   // Party's last 5 orders — powers dropdown history
-  const { data: allOrdersData } = useSalesOrdersQuery();
   const partyOrderHistory = useMemo(
-    () => getLastPartyDocRows(allOrdersData?.getSalesOrders || [], partyAccount?.id, id, "SO"),
-    [allOrdersData, partyAccount?.id, id]
+    () => getLastPartyDocRows(salesOrders, partyAccount?.id, id, "SO"),
+    [salesOrders, partyAccount?.id, id]
   );
 
   useEffect(() => {
@@ -144,9 +143,12 @@ const AddEditSalesOrder = () => {
     })));
   }, [isEdit, fromQuotation]);
 
+  // Fill once per order: a later cache refresh of the same order must not wipe edits.
+  const filledId = React.useRef<string | null>(null);
   useEffect(() => {
-    if (isEdit && data?.getSalesOrderById) {
+    if (isEdit && data?.getSalesOrderById && filledId.current !== data.getSalesOrderById.id) {
       const order = data.getSalesOrderById;
+      filledId.current = order.id;
       setPaymentType(order.paymenttype || "");
       setPartyAccount({
         id: order.partyacc?.id || "",
@@ -185,7 +187,12 @@ const AddEditSalesOrder = () => {
         selectedUnitValue: p.salesunitid && p.unitqty ? `${p.salesunitid.id}--${p.unitqty}` : null,
       }));
       setProducts(mappedProducts);
-    } else if (!isEdit) {
+    }
+  }, [isEdit, data]);
+
+  // Kept apart from the edit fill so a history refresh never resets typed changes.
+  useEffect(() => {
+    if (!isEdit) {
       // NEW ORDER MODE - Auto-calculate next bill number
       // Offline mode without network: this device's own series.
       if (offlineNo || noDevice) {
@@ -204,7 +211,7 @@ const AddEditSalesOrder = () => {
         setBillNumber("000001");
       }
     }
-  }, [isEdit, data, salesOrders, offlineNo, noDevice]);
+  }, [isEdit, salesOrders, offlineNo, noDevice]);
 
   useEffect(() => {
     let productsTotalCalc = 0;
@@ -430,7 +437,7 @@ const AddEditSalesOrder = () => {
             products={products}
             setProducts={setProducts}
             productData={salesProductData}
-            invoiceHistory={allOrdersData?.getSalesOrders || []}
+            invoiceHistory={salesOrders}
             partyAccount={partyAccount}
             type="sales"
             navigate={navigate}

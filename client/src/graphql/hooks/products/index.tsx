@@ -9,6 +9,7 @@ import {
 import {
   GET_PRODUCT_SERVICES,
   GET_PRODUCT_SERVICES_LIST,
+  GET_PRODUCT_SERVICES_PICKER,
   GET_PRODUCT_SERVICES_PAGE,
   GET_PRODUCT_SERVICE_BY_ID,
   GET_PRODUCT_IMPORT_MASTERS,
@@ -32,7 +33,8 @@ export const useProductServiceMutations = () => {
 export const useProductServicesQuery = (
   status: boolean = true,
   limit: number = 0,
-  offset: number = 0
+  offset: number = 0,
+  skip: boolean = false
 ) => {
   const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
   const selectedBranchId = useAppSelector((state) => state.selectedBranch.branchId);
@@ -52,6 +54,25 @@ export const useProductServicesQuery = (
       limit,
       offset,
     },
+    skip: skip || !adminId,
+    fetchPolicy: 'cache-and-network',
+  });
+
+  return { data, loading, error, refetch };
+};
+
+/** Item picker on bill forms (lite); same filter as useProductServicesQuery. */
+export const useProductServicesPickerQuery = (status: boolean = true) => {
+  const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
+  const selectedBranchId = useAppSelector((state) => state.selectedBranch.branchId);
+
+  const adminId =
+    type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : type === 'staff' ? staff?.admin?.id : undefined;
+  const branchid =
+    type === 'admin' ? selectedBranchId : type === 'branch' ? branch?.id : type === 'staff' ? staff?.branchid?.id : undefined;
+
+  const { data, loading, error, refetch } = useQuery(GET_PRODUCT_SERVICES_PICKER, {
+    variables: { filter: { adminid: adminId, branchid, status }, limit: 0, offset: 0 },
     skip: !adminId,
     fetchPolicy: 'cache-and-network',
   });

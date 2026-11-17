@@ -154,6 +154,59 @@ export const GET_PRODUCT_SERVICES_LIST = gql`
   }
 `;
 
+// Bill forms' item picker: only what pricing, units, stock and GST need.
+export const GET_PRODUCT_SERVICES_PICKER = gql`
+  query GetProductServicesPicker($filter: ProductServiceFilterInput, $limit: Int, $offset: Int) {
+    getProductServices(filter: $filter, limit: $limit, offset: $offset) {
+      id
+      isservice
+      isserialised
+      itemtype
+      cansell
+      canbuy
+      canmake
+      name
+      status
+      salesaccountid { id ledgername }
+      purchaseaccountid { id ledgername }
+      serviceaccountid { id ledgername }
+      servicevariants {
+        id
+        name
+        servicerate
+        gst
+        saccode
+        taxinclusive
+      }
+      productvariants {
+        id
+        name
+        baseunitid { id unitname }
+        purchaseunitid { id unitname }
+        purchaserate
+        unitconversions {
+          unitid { id unitname }
+          factor
+        }
+        gst
+        hsncode
+        currentstock
+        moq
+        salemultiple
+        unitprices {
+          quantity
+          unitid { id unitname }
+          mrp
+          salesrate
+          discount
+          discounttype
+          offerprice
+        }
+      }
+    }
+  }
+`;
+
 // One page of the Products list page: same fields as GET_PRODUCT_SERVICES_LIST.
 export const GET_PRODUCT_SERVICES_PAGE = gql`
   query GetProductServicesPage(
