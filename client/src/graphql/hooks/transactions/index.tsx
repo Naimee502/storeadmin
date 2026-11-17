@@ -10,6 +10,8 @@ import {
 import {
   GET_TRANSACTIONS,
   GET_TRANSACTIONS_LIST,
+  GET_TRANSACTIONS_LINKS,
+  GET_EXPENSE_NOTES_JOURNAL,
   GET_TRANSACTIONS_PAGE,
   GET_TRANSACTION_BY_ID,
   GET_DELETED_TRANSACTIONS,
@@ -139,4 +141,16 @@ export const useTransactionsPageQuery = ({
     error,
     refetch,
   };
+};
+
+// Journal form (lite): settled links and the expense note picker, same filter as the full lists.
+export const useJournalFormLists = () => {
+  const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
+  const selectedBranchId = useAppSelector((state) => state.selectedBranch.branchId);
+  const adminid = type === "admin" ? admin?.id : type === "branch" ? branch?.admin?.id : type === "staff" ? staff?.admin?.id : undefined;
+  const branchid = type === "admin" ? selectedBranchId : type === "branch" ? branch?.id : type === "staff" ? staff?.branchid?.id : undefined;
+  const variables = { filter: { adminid, branchid } };
+  const { data: links } = useQuery(GET_TRANSACTIONS_LINKS, { variables, fetchPolicy: "cache-and-network" });
+  const { data: notes } = useQuery(GET_EXPENSE_NOTES_JOURNAL, { variables });
+  return { transactions: links?.getTransactions, expenseNotes: notes?.getExpenseNotes };
 };

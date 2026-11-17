@@ -143,3 +143,20 @@ export const GET_SALES_RETURN_BY_ID = gql`
     }
   }
 `;
+
+// Return form: next number and already-returned qty per invoice line.
+export const GET_SALES_RETURNS_FORM = gql`
+  query GetSalesReturnsForm($filter: SalesReturnFilterInput) {
+    getSalesReturns(filter: $filter) {
+      id
+      sourceInvoiceId
+      billnumber
+      productservice {
+        productserviceid { id }
+        variantid { id }
+        qty
+      }
+      status
+    }
+  }
+`;

@@ -12,10 +12,10 @@ import { showMessage } from "../../../redux/slices/message";
 import {
   useSalesReturnByIDQuery,
   useSalesReturnMutations,
-  useSalesReturnsQuery,
+  useSalesReturnsFormQuery,
 } from "../../../graphql/hooks/salesreturn";
 import {
-  useSalesInvoicesQuery,
+  useSalesInvoicesHistoryQuery,
   useSalesInvoiceByIDQuery,
 } from "../../../graphql/hooks/salesinvoice";
 import OtherChargesSection, { type OtherCharge } from "../../../components/othercharges";
@@ -75,8 +75,9 @@ const AddEditSalesReturn: React.FC = () => {
     return { id: "", name: "Unknown", type: "unknown" };
   }, [type, admin, branch, staff]);
 
-  const { data: salesReturnsData } = useSalesReturnsQuery();
-  const salesReturns = salesReturnsData?.getSalesReturns || [];
+  const { data: salesReturnsData } = useSalesReturnsFormQuery();
+  // Memoised: a fresh [] each render re-ran the source fill and reset ticked qty.
+  const salesReturns: any[] = useMemo(() => salesReturnsData?.getSalesReturns || [], [salesReturnsData]);
 
   // Source invoice selection
   const [sourceInvoiceId, setSourceInvoiceId] = useState(fromInvoiceParam || "");
@@ -113,7 +114,8 @@ const AddEditSalesReturn: React.FC = () => {
   // Source invoice details
   const { data: sourceInvData } = useSalesInvoiceByIDQuery(sourceInvoiceId || "");
   // List of invoices for the picker
-  const { data: invoicesData } = useSalesInvoicesQuery();
+  // Lite invoice list (cancelled left out, as before) for the picker.
+  const { active: activeInvoices } = useSalesInvoicesHistoryQuery();
   const invoiceOptions = useMemo(() => {
     // Calculate how much has been returned for each item in each invoice
     const returnedByInvoiceAndItem = new Map<string, Record<string, number>>();
@@ -136,7 +138,7 @@ const AddEditSalesReturn: React.FC = () => {
       });
 
     // Filter invoices: only exclude if ALL items have been fully returned
-    return (invoicesData?.getSalesInvoices ?? [])
+    return activeInvoices
       .filter((inv: any) => {
         const returnedItems = returnedByInvoiceAndItem.get(inv.id);
 
@@ -172,7 +174,7 @@ const AddEditSalesReturn: React.FC = () => {
           label: `INV-${inv.billnumber} · ${inv.partyacc?.accountname ?? "?"} · ₹${inv.totalamount} · Remaining: ${remainingQty}`,
         };
       });
-  }, [invoicesData, salesReturns]);
+  }, [activeInvoices, salesReturns]);
 
   // Mutations
   const { addSalesReturnMutation, editSalesReturnMutation } = useSalesReturnMutations();
@@ -183,11 +185,13 @@ const AddEditSalesReturn: React.FC = () => {
     return fieldOn(salesReturnFormPermissions, fieldId, formMode);
   };
 
-  // Hydrate from existing return when editing
+  // Hydrate from existing return when editing (once per return).
+  const filledEdit = React.useRef("");
   useEffect(() => {
     if (!isEdit) return;
     const ret = existingData?.getSalesReturnById;
-    if (!ret) return;
+    if (!ret || filledEdit.current === ret.id) return;
+    filledEdit.current = ret.id;
     setSourceInvoiceId(ret.sourceInvoiceId);
     setReturndate(ret.returndate || todayStr());
     setReason(ret.reason || "");
@@ -271,11 +275,15 @@ const AddEditSalesReturn: React.FC = () => {
     }
   }, [isEdit, sourceInvoiceId, billnumber, offlineNo, noDevice]);
 
-  // Hydrate from source invoice when adding/converting
+  // Hydrate from source invoice when adding/converting: once per invoice, again when returns first load.
+  const filledSource = React.useRef("");
   useEffect(() => {
     if (isEdit) return;
     const inv = sourceInvData?.getSalesInvoiceById;
     if (!inv) return;
+    const key = `${sourceInvoiceId}|${salesReturnsData ? 1 : 0}`;
+    if (filledSource.current === key) return;
+    filledSource.current = key;
 
     setReturndate(todayStr());
     setPaymentType(inv.paymenttype || "");

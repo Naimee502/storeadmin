@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router";
 import FormField from "../../../components/formfiled";
 import FormPage from "../../../components/formpage";
@@ -6,7 +6,7 @@ import ProductSection from "../../../components/productsection";
 import type { InvoiceProduct } from "../../../components/productsection";
 import HomeLayout from "../../../layouts/home";
 import { useAccountsLiteQuery } from "../../../graphql/hooks/accounts";
-import { useProductServicesQuery } from "../../../graphql/hooks/products";
+import { useProductServicesPickerQuery } from "../../../graphql/hooks/products";
 import { useSalesOrderByIDQuery } from "../../../graphql/hooks/salesorder";
 import { useSalesInvoiceByIDQuery } from "../../../graphql/hooks/salesinvoice";
 import { useDeliveryChallanByIdQuery, useDeliveryChallanMutations } from "../../../graphql/hooks/deliverychallan";
@@ -74,11 +74,13 @@ const AddEditDeliveryChallan = () => {
   const { number: offlineNo, noDevice } = useOfflineNumber("deliverychallan", !isEdit);
 
   const { data: accountData } = useAccountsLiteQuery();
-  const accounts = accountData?.getAccounts || [];
-  const accountOptions = accounts.map((a: any) => ({ value: a.id, label: partyLabel(a) }));
-  const { data: productData } = useProductServicesQuery();
+  const accounts = useMemo(() => accountData?.getAccounts || [], [accountData]);
+  const accountOptions = useMemo(() => accounts.map((a: any) => ({ value: a.id, label: partyLabel(a) })), [accounts]);
+  const { data: productData } = useProductServicesPickerQuery();
   const productList = useOfflineStock(forUse(productData?.getProductServices ?? [], "sell"), branchId);
 
+  // Fill once per source doc: a cache refresh must not wipe typed changes.
+  const filled = useRef("");
   const fill = (doc: any) => {
     setParty(doc.partyacc ? { id: doc.partyacc.id, ...doc.partyacc } : null);
     setProducts(toLines(doc.productservice));
@@ -90,7 +92,8 @@ const AddEditDeliveryChallan = () => {
 
   useEffect(() => {
     const c = own?.getDeliveryChallanById;
-    if (isEdit && c) {
+    if (isEdit && c && filled.current !== `c${c.id}`) {
+      filled.current = `c${c.id}`;
       fill(c);
       setBillDate(c.billdate || todayYMD());
       setBillNumber(challanNo(c));
@@ -103,7 +106,8 @@ const AddEditDeliveryChallan = () => {
 
   useEffect(() => {
     const o = orderData?.getSalesOrderById;
-    if (!isEdit && o) {
+    if (!isEdit && o && filled.current !== `o${o.id}`) {
+      filled.current = `o${o.id}`;
       fill(o);
       setSource({ sourceorderid: o.id, label: `Order SO-${o.billnumber}` });
     }
@@ -111,7 +115,8 @@ const AddEditDeliveryChallan = () => {
 
   useEffect(() => {
     const inv = invoiceData?.getSalesInvoiceById;
-    if (!isEdit && inv) {
+    if (!isEdit && inv && filled.current !== `i${inv.id}`) {
+      filled.current = `i${inv.id}`;
       fill(inv);
       setSource({ sourceinvoiceid: inv.id, sourceorderid: inv.sourceorderid || null, label: `Invoice ${inv.billnumber}` });
     }

@@ -215,3 +215,17 @@ export const GET_TRANSACTIONS_PAGE = gql`
     }
   }
 `;
+
+// Journal form: which bills / expense notes are already settled.
+export const GET_TRANSACTIONS_LINKS = gql`
+  query GetTransactionsLinks($filter: TransactionFilterInput) {
+    getTransactions(filter: $filter) { id invoices { invoiceid invoicemodel settledamount } }
+  }
+`;
+
+// Journal form: expense note picker.
+export const GET_EXPENSE_NOTES_JOURNAL = gql`
+  query GetExpenseNotesJournal($filter: ExpenseNoteFilterInput) {
+    getExpenseNotes(filter: $filter) { id expensenumber totalamount narration }
+  }
+`;

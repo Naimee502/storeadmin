@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useParams, useNavigate } from "react-router";
 import HomeLayout from "../../../layouts/home";
 import { FaCalendarAlt, FaFileAlt, FaTrash } from "react-icons/fa";
@@ -9,10 +9,9 @@ import FormPage from "../../../components/formpage";
 import BillAllocation, { type Allocation } from "../../../components/billallocation";
 import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
 import { showMessage } from "../../../redux/slices/message";
-import { useTransactionMutations, useTransactionByIDQuery, usePreviewInvoiceJournalLazy, useTransactionsQuery } from "../../../graphql/hooks/transactions";
+import { useTransactionMutations, useTransactionByIDQuery, usePreviewInvoiceJournalLazy, useJournalFormLists } from "../../../graphql/hooks/transactions";
 import { useAccountLedgersQuery } from "../../../graphql/hooks/accountledgers";
-import { useAccountsQuery } from "../../../graphql/hooks/accounts";
-import { useExpenseNotesQuery } from "../../../graphql/hooks/expensenote";
+import { useAccountsLiteQuery } from "../../../graphql/hooks/accounts";
 import { partyLabel } from "../../../utils/partylabel";
 import { todayYMD, normalizeToYMD } from "../../../utils/helper";
 import { isCustomerParty, isVendorParty } from "../../../utils/partytype";
@@ -42,26 +41,25 @@ const AddEditTransaction = () => {
 
   const { data: existingData } = useTransactionByIDQuery(id || "");
   const { data: ledgerData } = useAccountLedgersQuery();
-  const { data: accountsData } = useAccountsQuery();
-  const { data: expenseNotesData } = useExpenseNotesQuery();
-  const { data: transactionsData } = useTransactionsQuery();
+  const { data: accountsData } = useAccountsLiteQuery();
+  const { transactions, expenseNotes } = useJournalFormLists();
   const ledgerList = ledgerData?.getAccountLedgers || [];
 
   // Hide expense notes already journal-recorded (except this txn) so they can't be recorded twice.
   const recordedExpenseNoteIds = useMemo(() => {
     const s = new Set<string>();
-    (transactionsData?.getTransactions || []).forEach((txn: any) => {
+    (transactions || []).forEach((txn: any) => {
       if (id && txn.id === id) return;
       (txn.invoices || []).forEach((inv: any) => {
         if (inv.invoicemodel === "ExpenseNote" && inv.invoiceid) s.add(inv.invoiceid);
       });
     });
     return s;
-  }, [transactionsData, id]);
+  }, [transactions, id]);
 
   const expenseNoteOptions = useMemo(
     () =>
-      (expenseNotesData?.getExpenseNotes || [])
+      (expenseNotes || [])
         .filter((e: any) => !recordedExpenseNoteIds.has(e.id))
         .map((e: any) => ({
           value: e.id,
@@ -69,7 +67,7 @@ const AddEditTransaction = () => {
             e.narration ? ` · ${e.narration}` : ""
           }`,
         })),
-    [expenseNotesData, recordedExpenseNoteIds]
+    [expenseNotes, recordedExpenseNoteIds]
   );
 
   // ── Tally-style bill allocation (Agst Ref)
@@ -167,10 +165,12 @@ const AddEditTransaction = () => {
 
   const { addTransactionMutation, editTransactionMutation } = useTransactionMutations();
 
-  // Load existing transaction for edit
+  // Load existing transaction for edit (once per voucher).
+  const filledId = useRef("");
   useEffect(() => {
-  if (isEdit && existingData?.getTransactionById) {
+  if (isEdit && existingData?.getTransactionById && filledId.current !== existingData.getTransactionById.id) {
     const t = existingData.getTransactionById;
+    filledId.current = t.id;
     setFormValues({
       transactiondate: formatTransactionDate(t.transactiondate),
       narration: t.narration || "",
