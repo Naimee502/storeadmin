@@ -11,7 +11,7 @@ import { showMessage } from "../../../redux/slices/message";
 import { useCategoriesQuery } from "../../../graphql/hooks/categories";
 import { useAccountLedgersQuery } from "../../../graphql/hooks/accountledgers";
 import { useStaffListQuery } from "../../../graphql/hooks/staffaccounts";
-import { useProductServicesQuery } from "../../../graphql/hooks/products";
+import { useProductServicesPickerQuery } from "../../../graphql/hooks/products";
 import { PRICING_UNITS, useServiceByIdQuery, useServiceMasterMutations } from "../../../graphql/hooks/services";
 import { useAddNew } from "../../../hooks/useaddnew";
 import { useImageUpload } from "../../../graphql/hooks/uploads";
@@ -89,7 +89,7 @@ const AddEditService = () => {
   const { data: catData } = useCategoriesQuery();
   const { data: ledgerData } = useAccountLedgersQuery();
   const { data: staffData } = useStaffListQuery();
-  const { data: productData } = useProductServicesQuery();
+  const { data: productData } = useProductServicesPickerQuery();
   const goods = useMemo(() => (productData?.getProductServices || []).filter((p: any) => !p.isservice), [productData]);
   const addCategory = useAddNew("/categories", ["GetCategories"]);
   const addLedger = useAddNew("/accountledgers", ["GetAccountLedgers"]);

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router";
 import FormField from "../../../components/formfiled";
 import FormPage from "../../../components/formpage";
@@ -6,10 +6,9 @@ import ServiceLines, { type SvcLine, serviceMinutes, svcInput, toSvcLines } from
 import HomeLayout from "../../../layouts/home";
 import { PartyQuickAdd } from "../../../components/posaddcustomer";
 import { useAccountsLiteQuery } from "../../../graphql/hooks/accounts";
-import { useProductServicesQuery } from "../../../graphql/hooks/products";
 import { useStaffListQuery } from "../../../graphql/hooks/staffaccounts";
 import {
-  sessionsLeft, useAppointmentByIdQuery, useAppointmentsQuery, useMembershipsQuery, useServiceBranch, useServiceMutations,
+  sessionsLeft, useAppointmentByIdQuery, useAppointmentSessionsQuery, useMembershipsQuery, useServiceBranch, useServiceItemsPickerQuery, useServiceMutations,
 } from "../../../graphql/hooks/service";
 import { useAppDispatch } from "../../../redux/hooks";
 import { showMessage } from "../../../redux/slices/message";
@@ -33,10 +32,11 @@ const AddEditAppointment = () => {
   const { addAppointment, editAppointment } = useServiceMutations();
   const { data: own } = useAppointmentByIdQuery(id);
   const { data: accountData } = useAccountsLiteQuery();
-  const accounts = accountData?.getAccounts || [];
+  const accounts = useMemo(() => accountData?.getAccounts || [], [accountData]);
+  const accountOptions = useMemo(() => accounts.map((a: any) => ({ value: a.id, label: partyLabel(a) })), [accounts]);
   const { data: staffData } = useStaffListQuery();
-  const { data: productData } = useProductServicesQuery();
-  const products = productData?.getProductServices || [];
+  const { data: productData } = useServiceItemsPickerQuery();
+  const products = useMemo(() => productData?.getProductServices || [], [productData]);
 
   const [f, setF] = useState({ partyacc: "", customername: "", customermobile: "", staffid: "", billdate: date || todayYMD(), starttime: "10:00", duration: "30", membershipid: "", notes: "" });
   const [services, setServices] = useState<SvcLine[]>([{ productserviceid: null, qty: 1, rate: 0 }]);
@@ -48,7 +48,7 @@ const AddEditAppointment = () => {
   const set = (k: keyof typeof f) => (e: any) => setF((x) => ({ ...x, [k]: e.target.value }));
 
   const { data: memberData } = useMembershipsQuery(f.partyacc ? { partyacc: f.partyacc } : {}, !f.partyacc && !f.customermobile);
-  const { data: apptData } = useAppointmentsQuery({}, !f.membershipid);
+  const { data: apptData } = useAppointmentSessionsQuery(!f.membershipid);
   const memberships = (memberData?.getMemberships || []).filter((m: any) =>
     m.memberStatus !== "cancelled" && (f.partyacc ? idOf(m.partyacc) === f.partyacc : m.customermobile && m.customermobile === f.customermobile));
 
@@ -129,7 +129,7 @@ const AddEditAppointment = () => {
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div className="md:col-span-2">
                 <FormField label="Party" name="partyacc" type="select" searchable addable onAddNew={() => setPartyOpen(true)} error={errors.customer} value={f.partyacc}
-                  options={accounts.map((a: any) => ({ value: a.id, label: partyLabel(a) }))}
+                  options={accountOptions}
                   onChange={(e: any) => setF((x) => ({ ...x, partyacc: e.target.value || "", membershipid: "" }))} />
               </div>
               {!f.partyacc && <FormField label="Walk-in Name" name="customername" type="text" value={f.customername} onChange={set("customername")} />}

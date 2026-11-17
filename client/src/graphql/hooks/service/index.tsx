@@ -32,7 +32,7 @@ export const useServiceBranch = () => {
 };
 
 const REFRESH = [
-  "GetAppointments", "GetAppointmentsPage", "GetDeletedAppointments", "GetAppointmentById",
+  "GetAppointments", "GetAppointmentSessions", "GetAppointmentsPage", "GetDeletedAppointments", "GetAppointmentById",
   "GetJobCards", "GetJobCardsPage", "GetDeletedJobCards", "GetJobCardById",
   "GetContracts", "GetContractsPage", "GetDeletedContracts", "GetContractById",
   "GetMembershipPlans", "GetDeletedMembershipPlans", "GetMemberships", "GetMembershipsPage", "GetDeletedMemberships", "GetMembershipById",
@@ -81,6 +81,21 @@ export const useAppointmentsPageQuery = (v: PageVars) => usePage(Q.GET_APPOINTME
 export const useAppointmentsQuery = (filter: Record<string, any> = {}, skip = false) => useList(Q.GET_APPOINTMENTS, filter, skip);
 export const useDeletedAppointmentsQuery = () => useList(Q.GET_DELETED_APPOINTMENTS);
 export const useAppointmentByIdQuery = (id?: string | null) => useById(Q.GET_APPOINTMENT_BY_ID, id);
+export const useAppointmentSessionsQuery = (skip = false) => useList(Q.GET_APPOINTMENT_SESSIONS, {}, skip);
+
+export const SERVICE_ITEM_QUERIES = ["GetServiceItemsPicker"];
+/** Items for service forms (lite), same filter as the product picker. */
+export const useServiceItemsPickerQuery = () => {
+  const { type, admin, branch, staff } = useAppSelector((s) => s.auth);
+  const selectedBranchId = useAppSelector((s) => s.selectedBranch.branchId);
+  const branchid = type === "admin" ? selectedBranchId : type === "branch" ? branch?.id : type === "staff" ? staff?.branchid?.id : undefined;
+  const adminid = type === "admin" ? admin?.id : type === "branch" ? branch?.admin?.id : type === "staff" ? staff?.admin?.id : undefined;
+  return useQuery(Q.GET_SERVICE_ITEMS_PICKER, {
+    variables: { filter: { adminid, branchid, status: true }, limit: 0, offset: 0 },
+    skip: !adminid,
+    fetchPolicy: "cache-and-network",
+  });
+};
 
 export const useJobCardsPageQuery = (v: PageVars) => usePage(Q.GET_JOB_CARDS_PAGE, "getJobCardsPage", v);
 export const useJobCardsQuery = (filter: Record<string, any> = {}, skip = false) => useList(Q.GET_JOB_CARDS, filter, skip);

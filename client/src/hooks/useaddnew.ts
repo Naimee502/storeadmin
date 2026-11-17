@@ -20,5 +20,5 @@ export function useAddNew(path: string, queries: string[]) {
   };
 }
 
-export const PARTY_QUERIES = ["GetAccountsLite", "GetAccountsList", "GetAccounts"];
-export const ITEM_QUERIES = ["GetProductServices", "GetProductServicesPicker"];
+export const PARTY_QUERIES = ["GetAccountsLite", "GetAccountsList", "GetAccounts", "GetAccountsPick"];
+export const ITEM_QUERIES = ["GetProductServices", "GetProductServicesPicker", "GetServiceItemsPicker", "GetProductServicesPOS"];

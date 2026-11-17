@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router";
 import { Plus, Trash2 } from "lucide-react";
 import FormField from "../../../components/formfiled";
@@ -6,7 +6,7 @@ import FormPage from "../../../components/formpage";
 import HomeLayout from "../../../layouts/home";
 import { PartyQuickAdd } from "../../../components/posaddcustomer";
 import { useAccountsLiteQuery } from "../../../graphql/hooks/accounts";
-import { useProductServicesQuery } from "../../../graphql/hooks/products";
+import { useProductServicesPickerQuery } from "../../../graphql/hooks/products";
 import { CONTRACT_TYPE, addDaysYMD, useContractByIdQuery, useServiceBranch, useServiceMutations } from "../../../graphql/hooks/service";
 import { useAppDispatch } from "../../../redux/hooks";
 import { showMessage } from "../../../redux/slices/message";
@@ -29,8 +29,9 @@ const AddEditContract = () => {
   const { addContract, editContract } = useServiceMutations();
   const { data: own } = useContractByIdQuery(id);
   const { data: accountData } = useAccountsLiteQuery();
-  const { data: productData } = useProductServicesQuery();
-  const products = productData?.getProductServices || [];
+  const partyOptions = useMemo(() => (accountData?.getAccounts || []).map((a: any) => ({ value: a.id, label: partyLabel(a) })), [accountData]);
+  const { data: productData } = useProductServicesPickerQuery();
+  const itemOptions = useMemo(() => (productData?.getProductServices || []).map((p: any) => ({ value: p.id, label: p.name })), [productData]);
 
   const [f, setF] = useState({
     partyacc: "", title: "", contractType: "amc", startdate: todayYMD(), enddate: addDaysYMD(todayYMD(), 364), visitsallowed: "", visitsdone: "", amount: "", contractStatus: "active", notes: "",
@@ -101,7 +102,7 @@ const AddEditContract = () => {
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div className="md:col-span-2">
                 <FormField label="Party" name="partyacc" type="select" searchable addable onAddNew={() => setPartyOpen(true)} error={errors.partyacc} value={f.partyacc}
-                  options={(accountData?.getAccounts || []).map((a: any) => ({ value: a.id, label: partyLabel(a) }))} onChange={set("partyacc")} />
+                  options={partyOptions} onChange={set("partyacc")} />
               </div>
               <FormField label="Type" name="contractType" type="select" searchable value={f.contractType}
                 options={Object.entries(CONTRACT_TYPE).map(([value, label]) => ({ value, label }))} onChange={set("contractType")} />
@@ -129,7 +130,7 @@ const AddEditContract = () => {
                   <tr key={i} className="border-t border-slate-100 align-top">
                     <td className="py-1 pr-2 min-w-[220px]">
                       <FormField label="" name={`ci${i}`} type="select" searchable value={x.productserviceid || ""}
-                        options={products.map((p: any) => ({ value: p.id, label: p.name }))} onChange={(e: any) => editItem(i, { productserviceid: e.target.value })} />
+                        options={itemOptions} onChange={(e: any) => editItem(i, { productserviceid: e.target.value })} />
                     </td>
                     <td className="py-1 pr-2"><input className="h-8 w-full rounded-md border border-slate-300 px-2" value={x.serial || ""} onChange={(e) => editItem(i, { serial: e.target.value })} /></td>
                     <td className="py-1 pr-2"><input className="h-8 w-full rounded-md border border-slate-300 px-2" value={x.note || ""} placeholder="Note" onChange={(e) => editItem(i, { note: e.target.value })} /></td>

@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
+import { useApolloClient } from "@apollo/client";
 import QuickItemModal from "../quickitem";
 import { Plus, Trash2 } from "lucide-react";
 import FormField from "../formfiled";
+import { SERVICE_ITEM_QUERIES } from "../../graphql/hooks/service";
 
 export type SvcLine = { productserviceid?: string | null; variantid?: string | null; salesunitid?: string | null; description?: string; qty: number | string; rate: number | string };
 
@@ -78,6 +80,7 @@ export default function ServiceLines({
   freeText?: boolean;
   hint?: string;
 }) {
+  const client = useApolloClient();
   const options = useMemo(() => itemChoices(products, kind), [products, kind]);
   // Row whose "Add New" opened the quick add, and the item made for it.
   const [quickRow, setQuickRow] = useState<number | null>(null);
@@ -153,7 +156,11 @@ export default function ServiceLines({
         </button>
         {lines.length > 0 && <span className="text-[13px] font-semibold text-slate-800">Total ₹{svcTotal(lines).toFixed(2)}</span>}
       </div>
-      <QuickItemModal open={quickRow !== null} kind={kind} onClose={() => setQuickRow(null)} onCreated={(value) => setMade({ row: quickRow ?? 0, value })} />
+      <QuickItemModal open={quickRow !== null} kind={kind} onClose={() => setQuickRow(null)} onCreated={(value) => {
+        setMade({ row: quickRow ?? 0, value });
+        // The quick add refreshes the product lists; service forms read their own picker.
+        client.refetchQueries({ include: SERVICE_ITEM_QUERIES }).catch(() => undefined);
+      }} />
     </fieldset>
   );
 }

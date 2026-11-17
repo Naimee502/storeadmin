@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router";
 import { Plus, Trash2 } from "lucide-react";
 import FormField from "../../../components/formfiled";
@@ -6,7 +6,7 @@ import FormPage from "../../../components/formpage";
 import HomeLayout from "../../../layouts/home";
 import { PartyQuickAdd } from "../../../components/posaddcustomer";
 import { useAccountsLiteQuery } from "../../../graphql/hooks/accounts";
-import { useProductServicesQuery } from "../../../graphql/hooks/products";
+import { useProductServicesPickerQuery } from "../../../graphql/hooks/products";
 import { useStaffListQuery } from "../../../graphql/hooks/staffaccounts";
 import { addDaysYMD, useLatestMeasurementsQuery, useServiceBranch, useServiceMutations, useTailorOrderByIdQuery } from "../../../graphql/hooks/service";
 import { useAddNew } from "../../../hooks/useaddnew";
@@ -33,11 +33,13 @@ const AddEditTailorOrder = () => {
   const { addTailorOrder, editTailorOrder } = useServiceMutations();
   const { data: own } = useTailorOrderByIdQuery(id);
   const { data: accountData } = useAccountsLiteQuery();
+  const partyOptions = useMemo(() => (accountData?.getAccounts || []).map((a: any) => ({ value: a.id, label: partyLabel(a) })), [accountData]);
   const { data: staffData } = useStaffListQuery();
-  const { data: productData } = useProductServicesQuery();
-  const addService = useAddNew("/services/addedit", ["GetProductServices"]);
+  const { data: productData } = useProductServicesPickerQuery();
+  const addService = useAddNew("/services/addedit", ["GetProductServices", "GetProductServicesPicker"]);
   const [partyOpen, setPartyOpen] = useState(false);
-  const services = (productData?.getProductServices || []).filter((p: any) => p.isservice);
+  const services = useMemo(() => (productData?.getProductServices || []).filter((p: any) => p.isservice), [productData]);
+  const serviceOptions = useMemo(() => services.map((p: any) => ({ value: p.id, label: p.name })), [services]);
   const rateOf = (sid: string) => Number(services.find((p: any) => p.id === sid)?.servicevariants?.[0]?.servicerate || 0);
 
   const [f, setF] = useState<any>({ partyacc: "", customername: "", customermobile: "", billdate: todayYMD(), trialdate: "", deliverydate: addDaysYMD(todayYMD(), 7), staffid: "", notes: "" });
@@ -127,7 +129,7 @@ const AddEditTailorOrder = () => {
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div className="md:col-span-2">
                 <FormField label="Customer" name="partyacc" type="select" searchable addable onAddNew={() => setPartyOpen(true)} error={errors.customer} value={f.partyacc}
-                  options={(accountData?.getAccounts || []).map((a: any) => ({ value: a.id, label: partyLabel(a) }))} onChange={set("partyacc")} />
+                  options={partyOptions} onChange={set("partyacc")} />
               </div>
               {!f.partyacc && <FormField label="Customer Name" name="customername" type="text" value={f.customername} onChange={set("customername")} />}
               {!f.partyacc && <FormField label="Mobile" name="customermobile" type="tel" value={f.customermobile} onChange={set("customermobile")} />}
@@ -150,7 +152,7 @@ const AddEditTailorOrder = () => {
                     onChange={(e: any) => { const g = e.target.value || "Shirt"; setItem(i, { garment: g, values: {}, extra: [] }); fillFromLatest(i, g); }} />
                   <div className="col-span-2">
                     <FormField label="Stitching Item" name={`service_${i}`} type="select" searchable addable onAddNew={addService} value={it.productserviceid}
-                      options={services.map((p: any) => ({ value: p.id, label: p.name }))}
+                      options={serviceOptions}
                       onChange={(e: any) => setItem(i, { productserviceid: e.target.value, rate: it.rate || String(rateOf(e.target.value) || "") })} />
                   </div>
                   <FormField label="Qty" name={`qty_${i}`} type="number" value={it.qty} onChange={(e: any) => setItem(i, { qty: e.target.value })} />

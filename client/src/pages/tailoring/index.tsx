@@ -10,7 +10,7 @@ import { selectIsModuleBusinessEnabled, selectModuleActions } from "../../redux/
 import { showMessage } from "../../redux/slices/message";
 import { useServerPaging, useServerTable } from "../../hooks/useservertable";
 import { useAccountsLiteQuery } from "../../graphql/hooks/accounts";
-import { useProductServicesQuery } from "../../graphql/hooks/products";
+import { useProductServicesPickerQuery } from "../../graphql/hooks/products";
 import { customerLabel, useMeasurementsQuery, useServiceMutations, useTailorOrdersPageQuery } from "../../graphql/hooks/service";
 import { toInvoiceProducts } from "../../components/servicelines";
 import { useCompany } from "../deliverychallan";
@@ -147,7 +147,7 @@ const Tailoring = () => {
   const table = useServerTable("tailoring", SERVER_FILTER_KEYS);
   const { items, total, loading, refetch } = useTailorOrdersPageQuery(table.variables);
   const serverPaging = useServerPaging(table, total, loading);
-  const { data: productData } = useProductServicesQuery();
+  const { data: productData } = useProductServicesPickerQuery();
   const { setTailorOrderStatus, deleteTailorOrder, deleteMeasurement } = useServiceMutations();
   const [mSearch, setMSearch] = useState("");
   const { data: mData, loading: mLoading } = useMeasurementsQuery(mSearch, tab !== "measurements");

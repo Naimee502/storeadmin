@@ -6,7 +6,7 @@ import FormPage from "../../../components/formpage";
 import HomeLayout from "../../../layouts/home";
 import { PartyQuickAdd } from "../../../components/posaddcustomer";
 import { useAccountsLiteQuery } from "../../../graphql/hooks/accounts";
-import { useProductServicesQuery } from "../../../graphql/hooks/products";
+import { useProductServicesPickerQuery } from "../../../graphql/hooks/products";
 import { useStaffListQuery } from "../../../graphql/hooks/staffaccounts";
 import { addDaysYMD, usePrescriptionByIdQuery, usePrescriptionsQuery, useServiceBranch, useServiceMutations } from "../../../graphql/hooks/service";
 import { useAddNew, ITEM_QUERIES } from "../../../hooks/useaddnew";
@@ -37,8 +37,9 @@ const AddEditPrescription = () => {
   const { addPrescription, editPrescription } = useServiceMutations();
   const { data: own } = usePrescriptionByIdQuery(id);
   const { data: accountData } = useAccountsLiteQuery();
+  const partyOptions = useMemo(() => (accountData?.getAccounts || []).map((a: any) => ({ value: a.id, label: partyLabel(a) })), [accountData]);
   const { data: staffData } = useStaffListQuery();
-  const { data: productData } = useProductServicesQuery();
+  const { data: productData } = useProductServicesPickerQuery();
   const addItem = useAddNew("/products/addedit", ITEM_QUERIES);
   const [partyOpen, setPartyOpen] = useState(false);
 
@@ -46,7 +47,8 @@ const AddEditPrescription = () => {
   const doctors = (staffData?.getStaffAccounts || []).filter((s: any) => s.doctor && s.status !== false);
   const ownerName = settings?.ownerDoctor?.name || auth?.admin?.name || "Owner";
   const doctorOptions = [{ value: OWNER, label: `${ownerName} (Owner)` }, ...doctors.map((d: any) => ({ value: d.id, label: [d.name, d.doctor?.specialization].filter(Boolean).join(" - ") }))];
-  const items = (productData?.getProductServices || []).filter((p: any) => !p.isservice);
+  const items = useMemo(() => (productData?.getProductServices || []).filter((p: any) => !p.isservice), [productData]);
+  const itemOptions = useMemo(() => items.map((p: any) => ({ value: p.id, label: p.name })), [items]);
 
   const [f, setF] = useState<any>({
     partyacc: "", customername: "", customermobile: "", staffid: isStaff ? auth?.staff?.id || "" : OWNER, billdate: todayYMD(), appointmentid: "",
@@ -125,7 +127,7 @@ const AddEditPrescription = () => {
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div className="md:col-span-2">
                 <FormField label="Patient" name="partyacc" type="select" searchable addable onAddNew={() => setPartyOpen(true)} error={errors.customer} value={f.partyacc}
-                  options={(accountData?.getAccounts || []).map((a: any) => ({ value: a.id, label: partyLabel(a) }))} onChange={set("partyacc")} />
+                  options={partyOptions} onChange={set("partyacc")} />
               </div>
               {!f.partyacc && <FormField label="Patient Name" name="customername" type="text" value={f.customername} onChange={set("customername")} />}
               {!f.partyacc && <FormField label="Mobile" name="customermobile" type="tel" value={f.customermobile} onChange={set("customermobile")} />}
@@ -167,7 +169,7 @@ const AddEditPrescription = () => {
               <div key={i} className="grid grid-cols-2 items-end gap-2 rounded-md border border-slate-200 p-2 md:grid-cols-12">
                 <div className="col-span-2 md:col-span-3">
                   <FormField label="Item (optional)" name={`med_item_${i}`} type="select" searchable addable onAddNew={addItem} value={m.productserviceid}
-                    options={items.map((p: any) => ({ value: p.id, label: p.name }))}
+                    options={itemOptions}
                     onChange={(e: any) => { const p = items.find((x: any) => x.id === e.target.value); setMed(i, "productserviceid", e.target.value); if (p) setMed(i, "name", p.name); }} />
                 </div>
                 <div className="col-span-2 md:col-span-3"><FormField label="Medicine" name={`med_name_${i}`} type="text" value={m.name} placeholder="Tab. Paracetamol 500" onChange={(e: any) => setMed(i, "name", e.target.value)} /></div>

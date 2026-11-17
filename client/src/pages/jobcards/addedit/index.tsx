@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useApolloClient } from "@apollo/client";
 import { useNavigate, useParams } from "react-router";
 import FormField from "../../../components/formfiled";
 import FormPage from "../../../components/formpage";
@@ -7,9 +8,8 @@ import HomeLayout from "../../../layouts/home";
 import { PartyQuickAdd } from "../../../components/posaddcustomer";
 import QuickItemModal from "../../../components/quickitem";
 import { useAccountsLiteQuery } from "../../../graphql/hooks/accounts";
-import { useProductServicesQuery } from "../../../graphql/hooks/products";
 import { useStaffListQuery } from "../../../graphql/hooks/staffaccounts";
-import { jobCardNo, useJobCardByIdQuery, useServiceBranch, useServiceMutations } from "../../../graphql/hooks/service";
+import { SERVICE_ITEM_QUERIES, jobCardNo, useJobCardByIdQuery, useServiceBranch, useServiceItemsPickerQuery, useServiceMutations } from "../../../graphql/hooks/service";
 import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
 import { showMessage } from "../../../redux/slices/message";
 import { partyLabel } from "../../../utils/partylabel";
@@ -32,10 +32,13 @@ const AddEditJobCard = () => {
   const { addJobCard, editJobCard } = useServiceMutations();
   const { data: own } = useJobCardByIdQuery(id);
   const { data: accountData } = useAccountsLiteQuery();
-  const accounts = accountData?.getAccounts || [];
+  const accounts = useMemo(() => accountData?.getAccounts || [], [accountData]);
+  const partyOptions = useMemo(() => accounts.map((a: any) => ({ value: a.id, label: partyLabel(a) })), [accounts]);
   const { data: staffData } = useStaffListQuery();
-  const { data: productData } = useProductServicesQuery();
-  const products = useOfflineStock(productData?.getProductServices ?? [], branchId);
+  const client = useApolloClient();
+  const { data: productData } = useServiceItemsPickerQuery();
+  const products = useOfflineStock(useMemo(() => productData?.getProductServices ?? [], [productData]), branchId);
+  const deviceOptions = useMemo(() => products.filter((p: any) => !p.isservice).map((p: any) => ({ value: p.id, label: p.name })), [products]);
   const { number: offlineNo, noDevice } = useOfflineNumber("jobcard", !isEdit);
 
   const [f, setF] = useState({
@@ -146,14 +149,14 @@ const AddEditJobCard = () => {
               <FormField label="Date" name="billdate" type="date" value={f.billdate} error={errors.billdate} onChange={set("billdate")} />
               <div className="md:col-span-2">
                 <FormField label="Party" name="partyacc" type="select" searchable addable onAddNew={() => setPartyOpen(true)} error={errors.customer} value={f.partyacc}
-                  options={accounts.map((a: any) => ({ value: a.id, label: partyLabel(a) }))} onChange={set("partyacc")} />
+                  options={partyOptions} onChange={set("partyacc")} />
               </div>
               <OfflineNumberNote show={!isEdit && noDevice} />
               {!f.partyacc && <FormField label="Walk-in Name" name="customername" type="text" value={f.customername} onChange={set("customername")} />}
               {!f.partyacc && <FormField label="Mobile" name="customermobile" type="tel" value={f.customermobile} onChange={set("customermobile")} />}
               <div className="md:col-span-2">
                 <FormField label="Item (from your products)" name="productserviceid" type="select" searchable addable onAddNew={() => setItemOpen(true)} error={errors.device} value={f.productserviceid}
-                  options={products.filter((p: any) => !p.isservice).map((p: any) => ({ value: p.id, label: p.name }))} onChange={set("productserviceid")} />
+                  options={deviceOptions} onChange={set("productserviceid")} />
               </div>
               <FormField label="Device / Model" name="devicename" type="text" value={f.devicename} placeholder="Device / Model" onChange={set("devicename")} />
               <FormField label="Serial / IMEI" name="serial" type="text" value={f.serial} onChange={set("serial")} />
@@ -196,7 +199,10 @@ const AddEditJobCard = () => {
             <FormField label="" name="notes" type="text" multiline value={f.notes} onChange={set("notes")} />
           </fieldset>
         </form>
-        <QuickItemModal open={itemOpen} kind="goods" onClose={() => setItemOpen(false)} onCreated={(v) => setF((x) => ({ ...x, productserviceid: v.split("|")[0] }))} />
+        <QuickItemModal open={itemOpen} kind="goods" onClose={() => setItemOpen(false)} onCreated={(v) => {
+          setF((x) => ({ ...x, productserviceid: v.split("|")[0] }));
+          client.refetchQueries({ include: SERVICE_ITEM_QUERIES }).catch(() => undefined);
+        }} />
         <PartyQuickAdd open={partyOpen} onClose={() => setPartyOpen(false)} onPicked={(id) => set("partyacc")({ target: { value: id } })} />
       </FormPage>
     </HomeLayout>

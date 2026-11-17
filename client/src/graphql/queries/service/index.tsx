@@ -54,3 +54,25 @@ export const GET_TAILOR_ORDERS_PAGE = gql`query GetTailorOrdersPage(${PAGE_ARGS}
 export const GET_DELETED_TAILOR_ORDERS = gql`query GetDeletedTailorOrders($filter: ServiceFilterInput) { getDeletedTailorOrders(filter: $filter) { ${TAILOR_ORDER_FIELDS} } }`;
 export const GET_TAILOR_ORDER_BY_ID = gql`query GetTailorOrderById($id: ID!) { getTailorOrderById(id: $id) { ${TAILOR_ORDER_FIELDS} } }`;
 export const GET_MEMBERSHIP_BY_ID = gql`query GetMembershipById($id: ID!) { getMembershipById(id: $id) { ${MEMBERSHIP_FIELDS} } }`;
+
+// Appointment form: membership sessions used, nothing else.
+export const GET_APPOINTMENT_SESSIONS = gql`query GetAppointmentSessions($filter: ServiceFilterInput) { getAppointments(filter: $filter) { id membershipid apptStatus } }`;
+
+// Service forms' item picker: the product picker fields plus service duration, staff and warranty.
+export const GET_SERVICE_ITEMS_PICKER = gql`
+  query GetServiceItemsPicker($filter: ProductServiceFilterInput, $limit: Int, $offset: Int) {
+    getProductServices(filter: $filter, limit: $limit, offset: $offset) {
+      id isservice isserialised itemtype cansell canbuy canmake name status
+      salesaccountid { id ledgername }
+      purchaseaccountid { id ledgername }
+      serviceaccountid { id ledgername }
+      servicevariants { id name servicerate gst saccode taxinclusive duration { amount unit } staffids warrantydays }
+      productvariants {
+        id name baseunitid { id unitname } purchaseunitid { id unitname } purchaserate
+        unitconversions { unitid { id unitname } factor }
+        gst hsncode currentstock moq salemultiple
+        unitprices { quantity unitid { id unitname } mrp salesrate discount discounttype offerprice }
+      }
+    }
+  }
+`;
