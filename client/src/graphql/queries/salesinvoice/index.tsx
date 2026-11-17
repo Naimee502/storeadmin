@@ -135,6 +135,30 @@ export const GET_SALES_INVOICES_LIST = gql`
 `;
 
 // Bill amounts and labels for the Payment form; no line items.
+// Invoice form: next number and party / item history only.
+export const GET_SALES_INVOICES_HISTORY = gql`
+  query GetSalesInvoicesHistory($filter: SalesInvoiceFilterInput) {
+    getSalesInvoices(filter: $filter) {
+      id
+      partyacc { id accountname }
+      billdate
+      billnumber
+      totaldiscount
+      invoicediscount
+      totalamount
+      productservice {
+        productserviceid { id name }
+        variantid { id name }
+        qty
+        rate
+        discount
+      }
+      cancelStatus
+      createdAt
+    }
+  }
+`;
+
 export const GET_SALES_INVOICES_SETTLE = gql`
   query GetSalesInvoicesSettle($filter: SalesInvoiceFilterInput) {
     getSalesInvoices(filter: $filter) {

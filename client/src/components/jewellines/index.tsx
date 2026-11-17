@@ -35,7 +35,8 @@ type Props = { products: InvoiceProduct[]; setProducts: React.Dispatch<React.Set
 export const JewelLines: React.FC<Props> = ({ products, setProducts, autofill }) => {
   const on = useOptInOn("jewellery");
   const { rows, rateOf } = useMetalRates(!on);
-  const { data: itemData } = useProductServicesQuery();
+  // Full catalogue only when jewellery autofill can use it.
+  const { data: itemData } = useProductServicesQuery(true, 0, 0, !on || !autofill);
   const update = (i: number, patch: Record<string, any>) => setProducts((list) => list.map((x, j) => {
     if (j !== i) return x;
     const jewel: Record<string, any> = { makingtype: "pergram", ...(x.jewel || {}), ...patch };

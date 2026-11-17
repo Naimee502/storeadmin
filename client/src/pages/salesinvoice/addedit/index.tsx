@@ -14,8 +14,8 @@ import OtherChargesSection, { type OtherCharge } from "../../../components/other
 import HomeLayout from "../../../layouts/home";
 import { useParams, useNavigate, useLocation } from "react-router";
 import { useAccountsLiteQuery } from "../../../graphql/hooks/accounts";
-import { useProductServicesQuery } from "../../../graphql/hooks/products";
-import { useSalesInvoiceByIDQuery, useSalesInvoiceMutations, useSalesInvoicesListQuery, useSalesInvoicesQuery } from "../../../graphql/hooks/salesinvoice";
+import { useProductServicesPickerQuery } from "../../../graphql/hooks/products";
+import { useSalesInvoiceByIDQuery, useSalesInvoiceMutations, useSalesInvoicesHistoryQuery } from "../../../graphql/hooks/salesinvoice";
 import { formatDateDMY, todayYMD, gstSplit } from "../../../utils/helper";
 import { useSalesOrderByIDQuery, useSalesOrderMutations } from "../../../graphql/hooks/salesorder";
 import { useDeliveryChallanByIdQuery } from "../../../graphql/hooks/deliverychallan";
@@ -137,9 +137,8 @@ const AddEditSalesInvoice = () => {
     ? 0
     : Math.min(Math.max(Number(received) || 0, 0), Math.max(0, grandTotal - oldGoldAmount));
   const balanceDue = parseFloat((grandTotal - oldGoldAmount - receivedNum).toFixed(2));
-  // Bill numbers come from the full list, cancelled included.
-  const { data: billSourceData } = useSalesInvoicesListQuery("cache-and-network", { includeCancelled: true });
-  const salesInvoices = useMemo(() => billSourceData?.getSalesInvoices || [], [billSourceData]);
+  // One lite query: bill numbers from the full list (cancelled included), history from the rest.
+  const { all: salesInvoices, active: activeInvoices } = useSalesInvoicesHistoryQuery();
 
   const [otherCharges, setOtherCharges] = useState<OtherCharge[]>([]);
   const [showCharges, setShowCharges] = useState(false);
@@ -168,20 +167,17 @@ const AddEditSalesInvoice = () => {
 
   // Party Accounts
   const { data: accountData, refetch: accountRefetch } = useAccountsLiteQuery();
-  const accountsList = accountData?.getAccounts || [];
-  const customerAccounts = accountsList.filter((acc: any) => isCustomerParty(acc.type));
-  const accountOptions = customerAccounts.map((acc: any) => ({
+  const accountsList = useMemo(() => accountData?.getAccounts || [], [accountData]);
+  const customerAccounts = useMemo(() => accountsList.filter((acc: any) => isCustomerParty(acc.type)), [accountsList]);
+  const accountOptions = useMemo(() => customerAccounts.map((acc: any) => ({
     value: acc.id,
     label: partyLabel(acc),
-  }));
-
-  // All invoices — for the selected party's last 5 bills (Vyapar-style helper)
-  const { data: allInvoicesData } = useSalesInvoicesQuery();
+  })), [customerAccounts]);
 
   const lastPartyBills = useMemo(() => {
     const partyId = partyAccount?.id;
     if (!partyId) return [];
-    const list = allInvoicesData?.getSalesInvoices || [];
+    const list = activeInvoices;
     return list
       .filter((inv: any) => inv.partyacc?.id === partyId && inv.id !== id)
       .slice()
@@ -208,10 +204,10 @@ const AddEditSalesInvoice = () => {
           total: Number(inv.totalamount || 0),
         };
       });
-  }, [allInvoicesData, partyAccount, id]);
+  }, [activeInvoices, partyAccount, id]);
 
   // Product List
-  const { data: producData, refetch } = useProductServicesQuery();
+  const { data: producData, refetch } = useProductServicesPickerQuery();
   // Offline mode adds unsynced stock moves; otherwise the list as fetched.
   const salesProductData = useOfflineStock(forUse(producData?.getProductServices ?? [], "sell"), branchId);
   const { number: offlineNo, noDevice } = useOfflineNumber("salesinvoice", !isEdit);
@@ -255,9 +251,13 @@ const AddEditSalesInvoice = () => {
   const isCancelledBill = data?.getSalesInvoiceById?.cancelStatus === "cancelled";
   const cancelledInfo = data?.getSalesInvoiceById;
 
+  // Fill once per source: a list or cache refresh must not wipe typed changes.
+  const filledFrom = React.useRef("");
   useEffect(() => {
     if (isEdit && data?.getSalesInvoiceById) {
       // EDIT MODE
+      if (filledFrom.current === `e${id}`) return;
+      filledFrom.current = `e${id}`;
       const invoice = data.getSalesInvoiceById;
 
       // Header fields
@@ -347,6 +347,8 @@ const AddEditSalesInvoice = () => {
       setProducts(mappedProducts);
     } else if (orderData?.getSalesOrderById) {
       // CONVERT FROM ORDER MODE
+      if (filledFrom.current === `o${orderId}`) return;
+      filledFrom.current = `o${orderId}`;
       const order = orderData.getSalesOrderById;
       setPaymentType(order.paymenttype || "");
       setPartyAccount({
@@ -402,6 +404,8 @@ const AddEditSalesInvoice = () => {
       setProducts(mappedProducts);
     } else if (!isEdit && challanData?.getDeliveryChallanById) {
       // CONVERT FROM DELIVERY CHALLAN
+      if (filledFrom.current === `c${challanId}`) return;
+      filledFrom.current = `c${challanId}`;
       const c = challanData.getDeliveryChallanById;
       setPartyAccount({ id: c.partyacc?.id || "", name: c.partyacc?.accountname || c.partyacc?.name || "", mobile: c.partyacc?.mobile || "" });
       setBillDate(todayYMD());
@@ -943,7 +947,7 @@ const AddEditSalesInvoice = () => {
             products={products}
             setProducts={setProducts}
             productData={salesProductData}
-            invoiceHistory={allInvoicesData?.getSalesInvoices || []}
+            invoiceHistory={activeInvoices}
             partyAccount={partyAccount}
             type="sales"
             navigate={navigate}
