@@ -16,6 +16,7 @@ import {
   GET_DELETED_PAYMENTS,
   GET_PARTY_OUTSTANDING_BILLS,
   PREVIEW_ALLOCATION,
+  GET_EXPENSE_NOTES_SETTLE,
 } from "../../queries/payments";
 
 import { useAppSelector } from "../../../redux/hooks";
@@ -167,4 +168,20 @@ export const usePaymentsPageQuery = ({
     error,
     refetch,
   };
+};
+
+// Expense notes for the payment form (lite); same filter as useExpenseNotesQuery.
+export const useExpenseNotesSettleQuery = (fetchPolicy?: WatchQueryFetchPolicy) => {
+  const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
+  const selectedBranchId = useAppSelector((state) => state.selectedBranch.branchId);
+
+  const adminid = type === "admin" ? admin?.id : type === "branch" ? branch?.admin?.id : type === "staff" ? staff?.admin?.id : undefined;
+  const branchid = type === "admin" ? selectedBranchId : type === "branch" ? branch?.id : type === "staff" ? staff?.branchid?.id : undefined;
+
+  const { data, loading, error, refetch } = useQuery(GET_EXPENSE_NOTES_SETTLE, {
+    variables: { filter: { adminid, branchid } },
+    fetchPolicy,
+  });
+
+  return { data, loading, error, refetch };
 };

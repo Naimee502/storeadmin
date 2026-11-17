@@ -467,7 +467,8 @@ async function addPaymentNow(_: any, { input }: any, context: any) {
       // ── Notifications ──────────────────────────────────────────
       // Actor ≠ admin → tell admin. Always tell the party's linked salesman and
       // the party — skipping whoever recorded the payment themselves.
-      try {
+      // Not awaited: the saved payment goes back to the user at once.
+      void (async () => { try {
         const p: any = populated;
         const partyName = p?.partyid?.name || "Party";
         const amount = Number(p?.amount || 0).toFixed(2);
@@ -542,7 +543,7 @@ async function addPaymentNow(_: any, { input }: any, context: any) {
             docid: created._id,
           });
         }
-      } catch (e) { /* notifications are best-effort */ }
+      } catch (e) { /* notifications are best-effort */ } })();
 
       return formatPayment(populated);
     }

@@ -11,6 +11,7 @@ import {
   usePaymentMutations,
   usePaymentByIDQuery,
   usePreviewAllocationLazy,
+  useExpenseNotesSettleQuery,
 } from "../../../graphql/hooks/payments";
 import { useLedgerMovementsLazy } from "../../../graphql/hooks/transactions";
 import { useOutstanding } from "../../../graphql/hooks/shared/useoutstanding";
@@ -18,7 +19,6 @@ import { useAccountLedgersQuery } from "../../../graphql/hooks/accountledgers";
 import { useAccountsLiteQuery } from "../../../graphql/hooks/accounts";
 import { useSalesInvoicesSettleQuery } from "../../../graphql/hooks/salesinvoice";
 import { usePurchaseInvoicesSettleQuery } from "../../../graphql/hooks/purchaseinvoice";
-import { useExpenseNotesQuery } from "../../../graphql/hooks/expensenote";
 import { useAdminSettingsQuery } from "../../../graphql/hooks/adminsettings";
 import { partyLabel } from "../../../utils/partylabel";
 import { todayYMD, normalizeToYMD } from "../../../utils/helper";
@@ -137,22 +137,11 @@ const AddEditPayment = () => {
   const { data: accountsData, refetch: refetchAccounts } =
     useAccountsLiteQuery(true, "cache-and-network");
   // Sources may be created just before this page, so revalidate (settlement-lite query).
-  const { data: salesInvData, refetch: refetchSalesInv } = useSalesInvoicesSettleQuery("cache-and-network");
-  const { data: purchaseInvData, refetch: refetchPurchaseInv } = usePurchaseInvoicesSettleQuery("cache-and-network");
+  const { data: salesInvData } = useSalesInvoicesSettleQuery("cache-and-network");
+  const { data: purchaseInvData } = usePurchaseInvoicesSettleQuery("cache-and-network");
   // Shared hook so this page and Transaction agree on what a party owes.
   const { outstandingOf } = useOutstanding({ excludePaymentId: id || undefined });
-  const { data: expenseNotesData, refetch: refetchExpenseNotes } = useExpenseNotesQuery("cache-and-network");
-
-  // Refetch settle-able sources on mount; they may have just been created.
-  useEffect(() => {
-    refetchSalesInv?.();
-    refetchPurchaseInv?.();
-    refetchExpenseNotes?.();
-    // Refetch pickers too so a just-added ledger or party is selectable.
-    refetchLedgers?.();
-    refetchAccounts?.();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  const { data: expenseNotesData } = useExpenseNotesSettleQuery("cache-and-network");
 
   // Refresh pickers when the tab regains focus.
   useEffect(() => {
@@ -452,9 +441,12 @@ const AddEditPayment = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [counterledgerid, isLedgerMode, payType, adminId, id, ledgerData]);
 
-  // ── Load existing payment for edit
+  // ── Load existing payment for edit (once per payment, so a cache refresh can't wipe edits)
+  const filledId = useRef<string | null>(null);
   useEffect(() => {
     if (!isEdit || !existingData?.getPaymentById) return;
+    if (filledId.current === existingData.getPaymentById.id) return;
+    filledId.current = existingData.getPaymentById.id;
     const p = existingData.getPaymentById;
     setPaymentdate(formatDate(p.paymentdate));
     // "expense" is stored as type "payment"; detect it by an ExpenseNote line.

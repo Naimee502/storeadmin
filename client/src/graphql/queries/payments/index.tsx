@@ -310,3 +310,18 @@ export const GET_PAYMENTS_PAGE = gql`
     }
   }
 `;
+
+// Payment form: expense notes it can settle, without staff and expense lines.
+export const GET_EXPENSE_NOTES_SETTLE = gql`
+  query GetExpenseNotesSettle($filter: ExpenseNoteFilterInput) {
+    getExpenseNotes(filter: $filter) {
+      id
+      expensenumber
+      paymenttype
+      ledgerid { id ledgername }
+      totalamount
+      totalgst
+      status
+    }
+  }
+`;

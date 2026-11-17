@@ -1,8 +1,38 @@
 import { useMemo } from "react";
-import { usePaymentsQuery } from "../payments";
-import { useTransactionsQuery } from "../transactions";
-import { useSalesReturnsQuery } from "../salesreturn";
-import { usePurchaseReturnsQuery } from "../purchasereturn";
+import { gql, useQuery } from "@apollo/client";
+import type { DocumentNode } from "@apollo/client";
+import { useAppSelector } from "../../../redux/hooks";
+
+// Lite reads; nested lists keep the full queries' sub-fields so the shared cache stays complete.
+const OUTSTANDING_PAYMENTS = gql`
+  query GetPaymentsOutstanding($filter: PaymentFilterInput) {
+    getPayments(filter: $filter) { id invoices { invoiceid invoicemodel settledamount discount commission allocatedmode allocatedat } }
+  }
+`;
+const OUTSTANDING_TRANSACTIONS = gql`
+  query GetTransactionsOutstanding($filter: TransactionFilterInput) {
+    getTransactions(filter: $filter) { id invoices { invoiceid invoicemodel settledamount } }
+  }
+`;
+const OUTSTANDING_SALES_RETURNS = gql`
+  query GetSalesReturnsOutstanding($filter: SalesReturnFilterInput) {
+    getSalesReturns(filter: $filter) { id sourceInvoiceId totalamount status }
+  }
+`;
+const OUTSTANDING_PURCHASE_RETURNS = gql`
+  query GetPurchaseReturnsOutstanding($filter: PurchaseReturnFilterInput) {
+    getPurchaseReturns(filter: $filter) { id sourceInvoiceId totalamount status }
+  }
+`;
+
+// Same tenant filter and policy as the full list hooks.
+const useTenantList = (query: DocumentNode) => {
+  const { type, admin, branch, staff } = useAppSelector((s: any) => s.auth);
+  const selectedBranchId = useAppSelector((s: any) => s.selectedBranch.branchId);
+  const adminid = type === "admin" ? admin?.id : type === "branch" ? branch?.admin?.id : type === "staff" ? staff?.admin?.id : undefined;
+  const branchid = type === "admin" ? selectedBranchId : type === "branch" ? branch?.id : type === "staff" ? staff?.branchid?.id : undefined;
+  return useQuery(query, { variables: { filter: { adminid, branchid } }, fetchPolicy: "cache-and-network" });
+};
 
 /** Outstanding = total − payment allocations − journal allocations − un-refunded returns (never stored). */
 
@@ -14,10 +44,10 @@ type Options = {
 };
 
 export const useOutstanding = ({ excludePaymentId, excludeTransactionId }: Options = {}) => {
-  const { data: paymentsData } = usePaymentsQuery();
-  const { data: transactionsData } = useTransactionsQuery();
-  const { data: salesReturnsData } = useSalesReturnsQuery();
-  const { data: purchaseReturnsData } = usePurchaseReturnsQuery();
+  const { data: paymentsData } = useTenantList(OUTSTANDING_PAYMENTS);
+  const { data: transactionsData } = useTenantList(OUTSTANDING_TRANSACTIONS);
+  const { data: salesReturnsData } = useTenantList(OUTSTANDING_SALES_RETURNS);
+  const { data: purchaseReturnsData } = useTenantList(OUTSTANDING_PURCHASE_RETURNS);
 
   // ── Settled per invoice: Payments + "Agst Ref" journal transactions
   const paidByInvoice = useMemo(() => {
