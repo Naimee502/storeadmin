@@ -12,7 +12,7 @@ import { useCompany } from "../deliverychallan";
 import { useAppDispatch, useAppSelector } from "../../redux/hooks";
 import { selectModuleActions } from "../../redux/slices/permissions";
 import { showMessage } from "../../redux/slices/message";
-import { useProductServicesQuery } from "../../graphql/hooks/products";
+import { useProductServicesPickerQuery } from "../../graphql/hooks/products";
 import { esc, printHtml } from "../../utils/billprint";
 import {
   CANCEL_TABLE_ORDER, CANCEL_TABLE_ORDER_LINE, DELETE_DINING_TABLE, GET_DINING_TABLES, GET_OPEN_TABLE_ORDERS,
@@ -122,8 +122,8 @@ function TableOrderPanel({ order: initial, tables, busy, onClose }: { order: any
   const navigate = useNavigate();
   const company = useCompany();
   const actions = useAppSelector((s) => selectModuleActions(s, "restaurant"));
-  const { data: productData } = useProductServicesQuery();
-  const products = productData?.getProductServices || [];
+  const { data: productData } = useProductServicesPickerQuery();
+  const products = useMemo(() => productData?.getProductServices || [], [productData]);
   const [order, setOrder] = useState<any>(initial);
   const [draft, setDraft] = useState<SvcLine[]>(() => initial.lines.filter((l: any) => !l.kotno).map((l: any) => ({ ...l, qty: l.qty, rate: l.rate })));
   const [covers, setCovers] = useState<string>(initial.covers ? String(initial.covers) : "");

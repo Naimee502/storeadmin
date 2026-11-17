@@ -1,7 +1,7 @@
 import React, { useMemo } from "react";
 import { Menu } from "@headlessui/react";
 import { useNavigate } from "react-router";
-import { useQuery, useMutation } from "@apollo/client";
+import { gql, useQuery, useMutation } from "@apollo/client";
 import {
   FaBell,
   FaExclamationTriangle,
@@ -15,9 +15,7 @@ import {
   FaRoute,
 } from "react-icons/fa";
 import { useAppSelector } from "../../redux/hooks";
-import { useProductServicesQuery } from "../../graphql/hooks/products";
-import { useSalesOrdersQuery } from "../../graphql/hooks/salesorder";
-import { usePurchaseOrdersQuery } from "../../graphql/hooks/purchaseorder";
+import { useProductStockAlertsQuery } from "../../graphql/hooks/products";
 import { GET_LEAVE_REQUESTS } from "../../graphql/queries/attendance";
 import {
   GET_NOTIFICATIONS,
@@ -35,6 +33,18 @@ type SystemNotification = {
   accent: string; // tailwind bg for the icon chip
 };
 
+// Pending order counts need the status only.
+const BELL_SALES_ORDERS = gql`
+  query GetSalesOrdersBell($filter: SalesOrderFilterInput) {
+    getSalesOrders(filter: $filter) { id status }
+  }
+`;
+const BELL_PURCHASE_ORDERS = gql`
+  query GetPurchaseOrdersBell($filter: PurchaseOrderFilterInput) {
+    getPurchaseOrders(filter: $filter) { id status }
+  }
+`;
+
 // Bell dropdown of alerts derived from live data (stock, pending orders, leaves).
 const NotificationBell: React.FC = () => {
   const navigate = useNavigate();
@@ -49,9 +59,13 @@ const NotificationBell: React.FC = () => {
           ? staff?.admin?.id
           : undefined;
 
-  const { data: productsData } = useProductServicesQuery();
-  const { data: soData } = useSalesOrdersQuery();
-  const { data: poData } = usePurchaseOrdersQuery();
+  // Bell is on every page: counts only, never the full lists.
+  const { data: productsData } = useProductStockAlertsQuery();
+  const selectedBranchId = useAppSelector((state) => state.selectedBranch.branchId);
+  const soBranch = type === "admin" ? selectedBranchId : type === "branch" ? branch?.id : type === "staff" ? staff?.branchid?.id : undefined;
+  const poBranch = type === "branch" ? branch?.id : type === "staff" ? staff?.branchid?.id : selectedBranchId;
+  const { data: soData } = useQuery(BELL_SALES_ORDERS, { variables: { filter: { adminid: adminId, branchid: soBranch } }, skip: !adminId });
+  const { data: poData } = useQuery(BELL_PURCHASE_ORDERS, { variables: { filter: { adminid: adminId, branchid: poBranch } }, skip: !adminId });
   const leaveReqQ = useQuery(GET_LEAVE_REQUESTS, {
     variables: { filter: { adminid: adminId } },
     skip: !adminId,

@@ -13,6 +13,9 @@ import {
   GET_PRODUCT_SERVICES_PAGE,
   GET_PRODUCT_SERVICE_BY_ID,
   GET_PRODUCT_IMPORT_MASTERS,
+  GET_PRODUCT_SERVICES_POS,
+  GET_PRODUCT_STOCK_ALERTS,
+  GET_PRODUCT_SERVICES_NAMES,
 } from '../../queries/products';
 import { useAppSelector } from '../../../redux/hooks';
 
@@ -235,4 +238,37 @@ export const useProductImport = () => {
   };
 
   return { runImport, importing: loading };
+};
+
+// Same filter as useProductServicesQuery, any lite selection on getProductServices.
+const useProductsLite = (query: any, limit: number, skip: boolean, fetchPolicy: any = 'cache-and-network') => {
+  const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
+  const selectedBranchId = useAppSelector((state) => state.selectedBranch.branchId);
+  const adminId =
+    type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : type === 'staff' ? staff?.admin?.id : undefined;
+  const branchid =
+    type === 'admin' ? selectedBranchId : type === 'branch' ? branch?.id : type === 'staff' ? staff?.branchid?.id : undefined;
+  return useQuery(query, {
+    variables: { filter: { adminid: adminId, branchid, status: true }, limit, offset: 0 },
+    skip: skip || !adminId,
+    fetchPolicy,
+  });
+};
+
+/** POS item list (lite). */
+export const useProductServicesPOSQuery = () => {
+  const { data, loading, error, refetch } = useProductsLite(GET_PRODUCT_SERVICES_POS, 0, false);
+  return { data, loading, error, refetch };
+};
+
+/** Stock alert counts for the header bell. */
+export const useProductStockAlertsQuery = () => {
+  const { data, loading, error, refetch } = useProductsLite(GET_PRODUCT_STOCK_ALERTS, 0, false);
+  return { data, loading, error, refetch };
+};
+
+/** Item names for multi-pickers; skipped when not shown. */
+export const useProductServicesNamesQuery = (limit: number = 0, skip: boolean = false) => {
+  const { data, loading, error, refetch } = useProductsLite(GET_PRODUCT_SERVICES_NAMES, limit, skip);
+  return { data, loading, error, refetch };
 };

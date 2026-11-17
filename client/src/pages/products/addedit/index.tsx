@@ -10,7 +10,7 @@ import { selectIsFormFieldEnabled, selectIsModuleAllowed } from "../../../redux/
 import {
   useProductServiceByIDQuery,
   useProductServiceMutations,
-  useProductServicesQuery,
+  useProductServicesNamesQuery,
 } from "../../../graphql/hooks/products";
 import { useImageUpload } from "../../../graphql/hooks/uploads";
 import { useCategoriesQuery } from "../../../graphql/hooks/categories";
@@ -58,7 +58,8 @@ const AddEditProductService = () => {
   // Category spec fields are opt-in; off keeps the variant cards as they were.
   const specsOn = useAppSelector((s: any) => !!s.adminsettings.settings?.productSpecsOn);
   const extrasOn = useAppSelector((s: any) => !!s.adminsettings.settings?.productExtrasOn);
-  const { data: allProductsData } = useProductServicesQuery(true, extrasOn ? 500 : 0, 0);
+  // Names only, and only when the alternate / fitment pickers show.
+  const { data: allProductsData } = useProductServicesNamesQuery(500, !extrasOn);
   const [uploadingDoc, setUploadingDoc] = useState(false);
   const formMode = useFormMode();
   const isFieldEnabled = (fieldId: string) => {

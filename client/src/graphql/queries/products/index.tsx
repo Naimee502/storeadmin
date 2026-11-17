@@ -398,3 +398,77 @@ export const GET_PRODUCT_IMPORT_MASTERS = gql`
     }
   }
 `;
+
+// POS item list: the picker fields plus image, masters for the filters and SKU for the scanner.
+export const GET_PRODUCT_SERVICES_POS = gql`
+  query GetProductServicesPOS($filter: ProductServiceFilterInput, $limit: Int, $offset: Int) {
+    getProductServices(filter: $filter, limit: $limit, offset: $offset) {
+      id
+      isservice
+      itemtype
+      cansell
+      name
+      status
+      imageurl
+      categoryid { id categoryname }
+      subcategoryid { id subcategoryname }
+      brandid { id brandname }
+      sizeid { id sizename }
+      modelid { id modelname }
+      groupid { id productgroupname }
+      salesaccountid { id ledgername }
+      purchaseaccountid { id ledgername }
+      serviceaccountid { id ledgername }
+      productvariants {
+        id
+        name
+        sku
+        baseunitid { id unitname }
+        purchaseunitid { id unitname }
+        purchaserate
+        unitconversions {
+          unitid { id unitname }
+          factor
+        }
+        gst
+        currentstock
+        unitprices {
+          quantity
+          unitid { id unitname }
+          mrp
+          salesrate
+          discount
+          discounttype
+          offerprice
+        }
+      }
+    }
+  }
+`;
+
+// Header bell: only what the stock alerts count.
+export const GET_PRODUCT_STOCK_ALERTS = gql`
+  query GetProductStockAlerts($filter: ProductServiceFilterInput, $limit: Int, $offset: Int) {
+    getProductServices(filter: $filter, limit: $limit, offset: $offset) {
+      id
+      isservice
+      productvariants {
+        id
+        currentstock
+        minimumstock
+        reorderlevel
+      }
+    }
+  }
+`;
+
+// Alternate / fitment pickers on the product form.
+export const GET_PRODUCT_SERVICES_NAMES = gql`
+  query GetProductServicesNames($filter: ProductServiceFilterInput, $limit: Int, $offset: Int) {
+    getProductServices(filter: $filter, limit: $limit, offset: $offset) {
+      id
+      isservice
+      name
+    }
+  }
+`;

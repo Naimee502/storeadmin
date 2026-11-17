@@ -18,15 +18,12 @@ import {
 import { useCategoriesQuery } from "../../graphql/hooks/categories";
 import { useSubCategoriesQuery } from "../../graphql/hooks/subcategories";
 import { useBrandsQuery } from "../../graphql/hooks/brands";
-import { useModelsQuery } from "../../graphql/hooks/models";
-import { useSizesQuery } from "../../graphql/hooks/sizes";
-import { useProductGroupsQuery } from "../../graphql/hooks/productgroups";
-import { useProductServicesQuery } from "../../graphql/hooks/products";
-import { useSalesInvoiceMutations, useSalesInvoicesQuery } from "../../graphql/hooks/salesinvoice";
+import { useProductServicesPOSQuery } from "../../graphql/hooks/products";
+import { useSalesInvoiceMutations, useSalesInvoicesHistoryQuery } from "../../graphql/hooks/salesinvoice";
 import { getLastPartyDocRows, todayYMD } from "../../utils/helper";
-import { useSalesOrderMutations, useSalesOrdersQuery } from "../../graphql/hooks/salesorder";
+import { useSalesOrderMutations, useSalesOrdersHistoryQuery } from "../../graphql/hooks/salesorder";
 import { usePriceResolvers } from "../../graphql/hooks/pricelists";
-import { useAccountsQuery } from "../../graphql/hooks/accounts";
+import { useAccountsLiteQuery } from "../../graphql/hooks/accounts";
 import { useBranchesQuery } from "../../graphql/hooks/branches";
 import PosAddCustomer from "../../components/posaddcustomer";
 import FormField from "../../components/formfiled";
@@ -132,12 +129,8 @@ export default function POSDashboard() {
   const { data: brandData } = useBrandsQuery();
   const brandList = brandData?.getBrands || [];
 
-  // Models & ProductGroups still queried (kept for future filters / data freshness)
-  useModelsQuery();
-  useProductGroupsQuery();
-  useSizesQuery();
-
-  const { data: psData, refetch: refetchProducts } = useProductServicesQuery();
+  // Item list: only what the POS shows, filters and bills.
+  const { data: psData, refetch: refetchProducts } = useProductServicesPOSQuery();
   const productServiceList = forUse(psData?.getProductServices ?? [], "sell");
 
   /* UI state */
@@ -175,9 +168,9 @@ export default function POSDashboard() {
   const { resolvePrice, offlinePrice } = usePriceResolvers();
 
   /* Customer / accounts */
-  const { data: accountData, refetch: refetchAccounts } = useAccountsQuery();
-  const accounts = accountData?.getAccounts || [];
-  const customerOptions = accounts.filter((a: any) => isCustomerParty(a.type));
+  const { data: accountData, refetch: refetchAccounts } = useAccountsLiteQuery();
+  const customerOptions = useMemo(() => (accountData?.getAccounts || []).filter((a: any) => isCustomerParty(a.type)), [accountData]);
+  const customerSelectOptions = useMemo(() => customerOptions.map((c: any) => ({ value: c.id, label: partyLabel(c, "•") })), [customerOptions]);
 
   /* Auth context */
   const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
@@ -234,10 +227,10 @@ export default function POSDashboard() {
   const { addSalesOrderMutation } = useSalesOrderMutations();
 
   // Fetch invoices & orders from server so we compute the real next number
-  const { data: invoicesData, refetch: refetchInvoices } = useSalesInvoicesQuery();
-  const { data: ordersData, refetch: refetchOrders } = useSalesOrdersQuery();
-  const serverInvoices = invoicesData?.getSalesInvoices ?? [];
-  const serverOrders = ordersData?.getSalesOrders ?? [];
+  // Lite lists: next number and the customer's last bills / orders only.
+  const { active: serverInvoices, refetch: refetchInvoices } = useSalesInvoicesHistoryQuery();
+  const { data: ordersData, refetch: refetchOrders } = useSalesOrdersHistoryQuery();
+  const serverOrders = useMemo(() => ordersData?.getSalesOrders ?? [], [ordersData]);
 
   // Selected customer's last 5 bills/orders — dropdown history (mode-aware)
   const partyDocHistory = useMemo(
@@ -790,7 +783,7 @@ export default function POSDashboard() {
     const s = p.variants?.[0]?.currentstock ?? 0;
     return s <= 0 ? 2 : s < 10 ? 1 : 0;
   };
-  const sortedProducts = [...filteredProducts].sort((a, b) => stockTier(a) - stockTier(b));
+  const sortedProducts = useMemo(() => [...filteredProducts].sort((a, b) => stockTier(a) - stockTier(b)), [filteredProducts]);
   const rowIndex = Math.min(activeRow, Math.max(sortedProducts.length - 1, 0));
   const addRow = (p: any) => {
     if (!p || (p.variants?.[0]?.currentstock ?? 0) <= 0) return;
@@ -1213,10 +1206,7 @@ export default function POSDashboard() {
                 type="select"
                 value={selectedParty?.id || ""}
                 onChange={(e: any) => onPickCustomer(e.target.value)}
-                options={customerOptions.map((c: any) => ({
-                  value: c.id,
-                  label: partyLabel(c, "•"),
-                }))}
+                options={customerSelectOptions}
                 searchable
                 addable
                 onAddNew={() => setAddCustomerOpen(true)}
@@ -1448,8 +1438,9 @@ export default function POSDashboard() {
           open={addCustomerOpen}
           onClose={() => setAddCustomerOpen(false)}
           onCreated={async (newId: string) => {
-            await refetchAccounts();
-            const fresh = (accountData?.getAccounts || []).find((a: any) => a.id === newId);
+            // Read the refetched list; the closure's accountData is still the old one.
+            const { data: fresh0 } = await refetchAccounts();
+            const fresh = (fresh0?.getAccounts || []).find((a: any) => a.id === newId);
             if (fresh) setSelectedParty(fresh);
           }}
           mode="customer"
