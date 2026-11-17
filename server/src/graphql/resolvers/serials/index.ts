@@ -3,7 +3,10 @@ import { SerialMove, SerialStock } from "../../../models/serial";
 import { ProductService } from "../../../models/products";
 import { Branch } from "../../../models/branches";
 import { Account } from "../../../models/accounts";
-import { requireBackofficeTenant } from "../../../utils/tenant";
+import { requireBackofficeTenant, resolveTenant, TenantError } from "../../../utils/tenant";
+import { SalesInvoice } from "../../../models/salesinvoice";
+import { serialsOn } from "../../../utils/serials";
+import { istDate } from "../../../utils/ist";
 import { assertModuleOn } from "../../../utils/modulegate";
 import { containsRx } from "../../../utils/listquery";
 import { normSerial } from "../../../utils/serials";
@@ -43,8 +46,43 @@ const shapeAll = async (rows: any[]) => {
   });
 };
 
+/** Signed-in customer and their business. */
+const myParty = async (context: any) => {
+  if (context?.user?.type !== "party" || !context.user.id) throw new TenantError("Please sign in.", "UNAUTHENTICATED");
+  const scope = await resolveTenant(context);
+  return { partyid: new Types.ObjectId(String(context.user.id)), adminid: scope.adminid };
+};
+
 export const serialResolvers = {
+  MyServiceSummary: {
+    warranties: async (_: any, __: any, context: any) => {
+      const m = await myParty(context);
+      if (!(await serialsOn(m.adminid))) return null;
+      return SerialStock.countDocuments({ adminid: m.adminid, customerid: m.partyid, status: "sold" });
+    },
+  },
   Query: {
+    getMyWarranties: async (_: any, __: any, context: any) => {
+      const m = await myParty(context);
+      if (!(await serialsOn(m.adminid))) return [];
+      const rows: any[] = await SerialStock.find({ adminid: m.adminid, customerid: m.partyid, status: "sold" }).sort({ saledate: -1 }).limit(300).lean();
+      const [items, bills]: any[] = await Promise.all([
+        ProductService.find({ _id: { $in: ids(rows, "productid") } }).select("name productvariants._id productvariants.name").lean(),
+        SalesInvoice.find({ _id: { $in: ids(rows, "saledocid") }, adminid: m.adminid }).select("billnumber").lean(),
+      ]);
+      const item = new Map(items.map((p: any) => [s(p._id), p]));
+      const bill = new Map(bills.map((b: any) => [s(b._id), b.billnumber]));
+      const today = istDate();
+      return rows.map((u) => {
+        const p: any = item.get(s(u.productid));
+        return {
+          serialno: u.serialno, productname: p?.name || null,
+          variantname: p?.productvariants?.find((v: any) => s(v._id) === s(u.variantid))?.name || null,
+          saledate: u.saledate || null, billnumber: bill.get(s(u.saledocid)) || null,
+          warrantytill: u.warrantytill || null, active: !!u.warrantytill && u.warrantytill >= today,
+        };
+      });
+    },
     getSerials: async (_: any, { filter = {} }: any, context: any) => {
       const sc = await scopeOf(context);
       const q: any = { adminid: sc.adminid };

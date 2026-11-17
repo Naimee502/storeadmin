@@ -56,5 +56,22 @@ export const serialTypeDefs = gql`
     getInvoiceSerials(invoiceid: ID!): [SerialUnit!]!
     "One unit and everything that happened to it."
     getSerialHistory(serialno: String!): [SerialHistoryLine!]!
+    "Signed-in customer: the units (IMEI / serial) they bought, with warranty."
+    getMyWarranties: [MyWarranty!]!
+  }
+
+  type MyWarranty {
+    serialno: String!
+    productname: String
+    variantname: String
+    saledate: String
+    billnumber: String
+    "YYYY-MM-DD; empty when the item has no warranty."
+    warrantytill: String
+    active: Boolean!
+  }
+  extend type MyServiceSummary {
+    "IMEI / Serial No. module on: how many units the customer bought (null when off)."
+    warranties: Int
   }
 `;
