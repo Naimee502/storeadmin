@@ -113,3 +113,10 @@ export const GET_LEAD_INBOX = gql`
     getLeadInbox(adminid: $adminid, source: $source, result: $result, limit: $limit) { id source externalid result error leadid payload createdAt }
   }
 `;
+
+// Lead picker on the quotation form: only what filling the customer needs.
+export const GET_LEADS_PICKER = gql`
+  query GetLeadsPicker($filter: LeadFilterInput) {
+    getLeads(filter: $filter) { id name company mobile address city state gstin requirement partyid { id name } }
+  }
+`;

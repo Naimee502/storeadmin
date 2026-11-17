@@ -105,6 +105,28 @@ export const GET_PURCHASE_ORDERS_LIST = gql`
   }
 `;
 
+// PO form: next number and vendor / item history only.
+export const GET_PURCHASE_ORDERS_HISTORY = gql`
+  query GetPurchaseOrdersHistory($filter: PurchaseOrderFilterInput) {
+    getPurchaseOrders(filter: $filter) {
+      id
+      partyacc { id accountname }
+      billdate
+      billnumber
+      totaldiscount
+      totalamount
+      productservice {
+        productserviceid { id name }
+        variantid { id name }
+        qty
+        rate
+        discount
+      }
+      createdAt
+    }
+  }
+`;
+
 export const GET_DELETED_PURCHASE_ORDERS = gql`
   query GetDeletedPurchaseOrders($filter: PurchaseOrderFilterInput) {
     getDeletedPurchaseOrders(filter: $filter) {

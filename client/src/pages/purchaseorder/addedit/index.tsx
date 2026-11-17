@@ -6,12 +6,11 @@ import type { InvoiceProduct } from "../../../components/productsection";
 import HomeLayout from "../../../layouts/home";
 import { useParams, useNavigate, useLocation } from "react-router";
 import { useAccountsLiteQuery } from "../../../graphql/hooks/accounts";
-import { useProductServicesQuery } from "../../../graphql/hooks/products";
+import { useProductServicesPickerQuery } from "../../../graphql/hooks/products";
 import {
   usePurchaseOrderByIDQuery,
   usePurchaseOrderMutations,
-  usePurchaseOrdersQuery,
-  usePurchaseOrdersListQuery,
+  usePurchaseOrdersHistoryQuery,
 } from "../../../graphql/hooks/purchaseorder";
 import { getLastPartyDocRows } from "../../../utils/helper";
 import { useBranchesQuery } from "../../../graphql/hooks/branches";
@@ -110,20 +109,22 @@ const AddEditPurchaseOrder = () => {
 
   const { data } = usePurchaseOrderByIDQuery(id || "");
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
-  // Next PO number comes from the order list.
-  const { data: numberSource } = usePurchaseOrdersListQuery();
-  const purchaseOrders: any[] = useMemo(() => numberSource?.getPurchaseOrders || [], [numberSource]);
+  // One lite query feeds the next PO number and the vendor / item history.
+  const { data: allOrdersData } = usePurchaseOrdersHistoryQuery();
+  const purchaseOrders: any[] = useMemo(() => allOrdersData?.getPurchaseOrders || [], [allOrdersData]);
 
   const { data: accountData, refetch: accountRefetch } = useAccountsLiteQuery();
   // For Purchase Order, the party is a vendor / supplier
-  const vendorAccounts =
-    accountData?.getAccounts?.filter((acc: any) => isVendorParty(acc.type)) || [];
-  const accountOptions = vendorAccounts.map((acc: any) => ({
+  const vendorAccounts = useMemo(
+    () => accountData?.getAccounts?.filter((acc: any) => isVendorParty(acc.type)) || [],
+    [accountData]
+  );
+  const accountOptions = useMemo(() => vendorAccounts.map((acc: any) => ({
     value: acc.id,
     label: partyLabel(acc),
-  }));
+  })), [vendorAccounts]);
 
-  const { data: producData } = useProductServicesQuery();
+  const { data: producData } = useProductServicesPickerQuery();
   // Offline mode adds unsynced stock moves; otherwise the list as fetched.
   const purchaseProductData = useOfflineStock(forUse(producData?.getProductServices ?? [], "buy"), branchId);
   const { number: offlineNo, noDevice } = useOfflineNumber("purchaseorder", !isEdit);
@@ -133,15 +134,17 @@ const AddEditPurchaseOrder = () => {
   const isFieldEnabled = (fieldId: string) => fieldOn(purchaseorderFormPermissions, fieldId, formMode);
 
   // Vendor's last 5 orders — powers dropdown history
-  const { data: allOrdersData } = usePurchaseOrdersQuery();
   const partyOrderHistory = useMemo(
-    () => getLastPartyDocRows(allOrdersData?.getPurchaseOrders || [], partyAccount?.id, id, "PO"),
-    [allOrdersData, partyAccount?.id, id]
+    () => getLastPartyDocRows(purchaseOrders, partyAccount?.id, id, "PO"),
+    [purchaseOrders, partyAccount?.id, id]
   );
 
+  // Fill once per order: a later cache refresh must not wipe typed edits.
+  const filledId = React.useRef<string | null>(null);
   useEffect(() => {
-    if (isEdit && data?.getPurchaseOrderById) {
+    if (isEdit && data?.getPurchaseOrderById && filledId.current !== data.getPurchaseOrderById.id) {
       const order = data.getPurchaseOrderById;
+      filledId.current = order.id;
       setPaymentType(order.paymenttype || "");
       setPartyAccount({
         id: order.partyacc?.id || "",
@@ -179,7 +182,12 @@ const AddEditPurchaseOrder = () => {
             : null,
       }));
       setProducts(mappedProducts);
-    } else if (!isEdit) {
+    }
+  }, [isEdit, data]);
+
+  // Kept apart from the edit fill so a history refresh never resets typed changes.
+  useEffect(() => {
+    if (!isEdit) {
       // NEW ORDER MODE - Auto-calculate next bill number
       // Offline mode without network: this device's own series.
       if (offlineNo || noDevice) {
@@ -197,7 +205,7 @@ const AddEditPurchaseOrder = () => {
         setBillNumber("000001");
       }
     }
-  }, [isEdit, data, purchaseOrders, offlineNo, noDevice]);
+  }, [isEdit, purchaseOrders, offlineNo, noDevice]);
 
   useEffect(() => {
     let productsTotalCalc = 0;
@@ -407,7 +415,7 @@ const AddEditPurchaseOrder = () => {
             products={products}
             setProducts={setProducts}
             productData={purchaseProductData}
-            invoiceHistory={allOrdersData?.getPurchaseOrders || []}
+            invoiceHistory={purchaseOrders}
             partyAccount={partyAccount}
             type="purchase"
             navigate={navigate}

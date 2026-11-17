@@ -3,7 +3,7 @@ import {
   ADD_LEAD, EDIT_LEAD, DELETE_LEAD, RESET_LEAD, SET_LEAD_STAGE, CONVERT_LEAD_TO_PARTY,
   ADD_FOLLOWUP, EDIT_FOLLOWUP, DELETE_FOLLOWUP, RESET_FOLLOWUP, COMPLETE_FOLLOWUP,
 } from "../../mutations/lead";
-import { GET_LEADS, GET_LEADS_PAGE, GET_DELETED_LEADS, GET_LEAD_BY_ID, GET_FOLLOWUPS, GET_DELETED_FOLLOWUPS } from "../../queries/lead";
+import { GET_LEADS, GET_LEADS_PICKER, GET_LEADS_PAGE, GET_DELETED_LEADS, GET_LEAD_BY_ID, GET_FOLLOWUPS, GET_DELETED_FOLLOWUPS } from "../../queries/lead";
 import { useAppSelector } from "../../../redux/hooks";
 
 export type CrmStage = { key: string; label: string; kind: "open" | "won" | "lost" };
@@ -90,6 +90,12 @@ export const useLeadsPageQuery = ({ page, pageSize, search, columnFilters = [] }
 export const useLeadsQuery = (skip = false) => {
   const filter = useBranchFilter();
   return useQuery(GET_LEADS, { variables: { filter }, skip, fetchPolicy: "cache-and-network" });
+};
+
+/** Lead picker (lite); same filter as useLeadsQuery. */
+export const useLeadsPickerQuery = (skip = false) => {
+  const filter = useBranchFilter();
+  return useQuery(GET_LEADS_PICKER, { variables: { filter }, skip, fetchPolicy: "cache-and-network" });
 };
 
 export const useDeletedLeadsQuery = () => {

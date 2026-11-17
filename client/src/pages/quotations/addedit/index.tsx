@@ -6,8 +6,8 @@ import ProductSection from "../../../components/productsection";
 import type { InvoiceProduct } from "../../../components/productsection";
 import HomeLayout from "../../../layouts/home";
 import { useAccountsLiteQuery } from "../../../graphql/hooks/accounts";
-import { useProductServicesQuery } from "../../../graphql/hooks/products";
-import { useLeadByIdQuery, useLeadsQuery } from "../../../graphql/hooks/lead";
+import { useProductServicesPickerQuery } from "../../../graphql/hooks/products";
+import { useLeadByIdQuery, useLeadsPickerQuery } from "../../../graphql/hooks/lead";
 import { quotationNo, useQuotationByIdQuery, useQuotationMutations } from "../../../graphql/hooks/quotation";
 import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
 import { showMessage } from "../../../redux/slices/message";
@@ -78,13 +78,16 @@ const AddEditQuotation = () => {
 
   const { data: own } = useQuotationByIdQuery(id);
   const { data: leadData } = useLeadByIdQuery(!isEdit ? leadId : null);
-  const { data: leadsData } = useLeadsQuery();
+  const { data: leadsData } = useLeadsPickerQuery();
   const { number: offlineNo, noDevice } = useOfflineNumber("quotation", !isEdit);
   const { data: accountData } = useAccountsLiteQuery();
-  const accounts = accountData?.getAccounts || [];
-  const accountOptions = accounts.map((a: any) => ({ value: a.id, label: partyLabel(a) }));
-  const leadOptions = (leadsData?.getLeads || []).map((l: any) => ({ value: l.id, label: [l.name, l.company, l.mobile, l.city].filter(Boolean).join(" - ") }));
-  const { data: productData } = useProductServicesQuery();
+  const accounts = useMemo(() => accountData?.getAccounts || [], [accountData]);
+  const accountOptions = useMemo(() => accounts.map((a: any) => ({ value: a.id, label: partyLabel(a) })), [accounts]);
+  const leadOptions = useMemo(
+    () => (leadsData?.getLeads || []).map((l: any) => ({ value: l.id, label: [l.name, l.company, l.mobile, l.city].filter(Boolean).join(" - ") })),
+    [leadsData]
+  );
+  const { data: productData } = useProductServicesPickerQuery();
   const productList = useOfflineStock(forUse(productData?.getProductServices ?? [], "sell"), branchId);
 
   const fillLead = (l: any) => {
