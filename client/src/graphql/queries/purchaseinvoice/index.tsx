@@ -34,6 +34,30 @@ export const GET_PURCHASE_INVOICES_SETTLE = gql`
 `;
 
 // Listing-only columns; Print/WhatsApp load the full bill by id.
+// Invoice form: next number and vendor / item history only.
+export const GET_PURCHASE_INVOICES_HISTORY = gql`
+  query GetPurchaseInvoicesHistory($filter: PurchaseInvoiceFilterInput) {
+    getPurchaseInvoices(filter: $filter) {
+      id
+      partyacc { id accountname }
+      billdate
+      billnumber
+      totaldiscount
+      invoicediscount
+      totalamount
+      productservice {
+        productserviceid { id name }
+        variantid { id name }
+        qty
+        rate
+        discount
+      }
+      cancelStatus
+      createdAt
+    }
+  }
+`;
+
 export const GET_PURCHASE_INVOICES_LIST = gql`
   query GetPurchaseInvoicesList($filter: PurchaseInvoiceFilterInput) {
     getPurchaseInvoices(filter: $filter) {

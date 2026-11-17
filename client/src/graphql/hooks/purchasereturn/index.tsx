@@ -8,6 +8,7 @@ import {
 import {
   GET_PURCHASE_RETURNS,
   GET_PURCHASE_RETURNS_LIST,
+  GET_PURCHASE_RETURNS_FORM,
   GET_PURCHASE_RETURN_BY_ID,
   GET_DELETED_PURCHASE_RETURNS,
   GET_PURCHASE_RETURNS_PAGE,
@@ -69,6 +70,20 @@ export const usePurchaseReturnsQuery = (fetchPolicy: WatchQueryFetchPolicy = "ca
   const { data, loading, error, refetch } = useQuery(GET_PURCHASE_RETURNS, {
     variables: { filter: { adminid, branchid } },
     fetchPolicy,
+  });
+  return { data, loading, error, refetch };
+};
+
+// Return form (lite): next number and already-returned qty only.
+export const usePurchaseReturnsFormQuery = () => {
+  const { type, admin, branch, staff } = useAppSelector((s) => s.auth);
+  const selectedBranchId = useAppSelector((s) => s.selectedBranch.branchId);
+  const adminid = type === "admin" ? admin?.id : type === "branch" ? branch?.admin?.id : type === "staff" ? staff?.admin?.id : undefined;
+  const branchid = type === "admin" ? selectedBranchId : type === "branch" ? branch?.id : type === "staff" ? staff?.branchid?.id : undefined;
+
+  const { data, loading, error, refetch } = useQuery(GET_PURCHASE_RETURNS_FORM, {
+    variables: { filter: { adminid, branchid } },
+    fetchPolicy: "cache-and-network",
   });
   return { data, loading, error, refetch };
 };

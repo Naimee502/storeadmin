@@ -10,8 +10,8 @@ import OtherChargesSection, { type OtherCharge } from "../../../components/other
 import HomeLayout from "../../../layouts/home";
 import { useParams, useNavigate, useLocation } from "react-router";
 import { useAccountsLiteQuery } from "../../../graphql/hooks/accounts";
-import { useProductServicesQuery } from "../../../graphql/hooks/products";
-import { usePurchaseInvoiceByIDQuery, usePurchaseInvoiceMutations, usePurchaseInvoicesListQuery, usePurchaseInvoicesQuery } from "../../../graphql/hooks/purchaseinvoice";
+import { useProductServicesPickerQuery } from "../../../graphql/hooks/products";
+import { usePurchaseInvoiceByIDQuery, usePurchaseInvoiceMutations, usePurchaseInvoicesHistoryQuery } from "../../../graphql/hooks/purchaseinvoice";
 import { getLastPartyDocRows, gstSplit } from "../../../utils/helper";
 import { usePurchaseOrderByIDQuery, usePurchaseOrderMutations } from "../../../graphql/hooks/purchaseorder";
 import { useBranchesQuery } from "../../../graphql/hooks/branches";
@@ -111,9 +111,8 @@ const AddEditPurchaseInvoice = () => {
     ? 0
     : Math.min(Math.max(Number(paid) || 0, 0), grandTotal);
   const balanceDue = parseFloat((grandTotal - paidNum).toFixed(2));
-  // Bill numbers come from the full list, cancelled included.
-  const { data: numberSource } = usePurchaseInvoicesListQuery("cache-and-network", { includeCancelled: true });
-  const purchaseInvoices: any[] = useMemo(() => numberSource?.getPurchaseInvoices || [], [numberSource]);
+  // One lite query: bill numbers from the full list (cancelled included), history from the rest.
+  const { all: purchaseInvoices, active: activeInvoices } = usePurchaseInvoicesHistoryQuery();
 
   const [otherCharges, setOtherCharges] = useState<OtherCharge[]>([]);
   const [deliveryDate, setDeliveryDate] = useState("");
@@ -136,22 +135,20 @@ const AddEditPurchaseInvoice = () => {
 
   // Vendor Accounts
   const { data: accountData, refetch: accountRefetch } = useAccountsLiteQuery();
-  const accountsList = accountData?.getAccounts || [];
-  const vendorAccounts = accountsList.filter((acc: any) => isVendorParty(acc.type));
-  const accountOptions = vendorAccounts.map((acc: any) => ({
+  const vendorAccounts = useMemo(() => (accountData?.getAccounts || []).filter((acc: any) => isVendorParty(acc.type)), [accountData]);
+  const accountOptions = useMemo(() => vendorAccounts.map((acc: any) => ({
     value: acc.id,
     label: partyLabel(acc),
-  }));
+  })), [vendorAccounts]);
 
   // Vendor's last 5 purchase invoices — powers dropdown history
-  const { data: allInvoicesData } = usePurchaseInvoicesQuery();
   const partyBillHistory = useMemo(
-    () => getLastPartyDocRows(allInvoicesData?.getPurchaseInvoices || [], partyAccount?.id, id, "INV"),
-    [allInvoicesData, partyAccount?.id, id]
+    () => getLastPartyDocRows(activeInvoices, partyAccount?.id, id, "INV"),
+    [activeInvoices, partyAccount?.id, id]
   );
 
   // Product List
-  const { data: productData, refetch } = useProductServicesQuery();
+  const { data: productData, refetch } = useProductServicesPickerQuery();
   // Offline mode adds unsynced stock moves; otherwise the list as fetched.
   const purchaseProductData = useOfflineStock(forUse(productData?.getProductServices ?? [], "buy"), branchId);
   const { number: offlineNo, noDevice } = useOfflineNumber("purchaseinvoice", !isEdit);
@@ -166,9 +163,13 @@ const AddEditPurchaseInvoice = () => {
   const isCancelledBill = data?.getPurchaseInvoiceById?.cancelStatus === "cancelled";
   const cancelledInfo = data?.getPurchaseInvoiceById;
 
+  // Fill once per source: a list or cache refresh must not wipe typed changes.
+  const filledFrom = React.useRef("");
   useEffect(() => {
     if (isEdit && data?.getPurchaseInvoiceById) {
       // EDIT MODE
+      if (filledFrom.current === `e${id}`) return;
+      filledFrom.current = `e${id}`;
       const invoice = data.getPurchaseInvoiceById;
 
       // Header fields
@@ -252,6 +253,8 @@ const AddEditPurchaseInvoice = () => {
       setProducts(mappedProducts);
     } else if (orderData?.getPurchaseOrderById) {
       // CONVERT FROM PURCHASE ORDER MODE
+      if (filledFrom.current === `o${orderId}`) return;
+      filledFrom.current = `o${orderId}`;
       const order = orderData.getPurchaseOrderById;
       setPaymentType(order.paymenttype || "");
       setPartyAccount({
@@ -712,7 +715,7 @@ const AddEditPurchaseInvoice = () => {
             products={products}
             setProducts={setProducts}
             productData={purchaseProductData}
-            invoiceHistory={allInvoicesData?.getPurchaseInvoices || []}
+            invoiceHistory={activeInvoices}
             partyAccount={partyAccount?.id || partyAccount}
             type="purchase"
             navigate={navigate}

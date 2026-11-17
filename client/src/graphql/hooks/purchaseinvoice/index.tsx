@@ -12,6 +12,7 @@ import {
   GET_PURCHASE_INVOICES,
   GET_PURCHASE_INVOICES_SETTLE,
   GET_PURCHASE_INVOICES_LIST,
+  GET_PURCHASE_INVOICES_HISTORY,
   GET_PURCHASE_INVOICE_BY_ID,
   GET_DELETED_PURCHASE_INVOICES,
   GET_PURCHASE_INVOICES_PAGE
@@ -104,6 +105,24 @@ export const usePurchaseInvoiceByIDQuery = (id?: string) => {
   });
 
   return { data, loading, error };
+};
+
+/** Invoice form (lite): `all` for the next number (cancelled included), `active` for history. */
+export const usePurchaseInvoicesHistoryQuery = () => {
+  const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
+  const selectedBranchId = useAppSelector((state) => state.selectedBranch.branchId);
+
+  const adminid = type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : type === 'staff' ? staff?.admin?.id : undefined;
+  const branchid = type === 'admin' ? selectedBranchId : type === 'branch' ? branch?.id : type === 'staff' ? staff?.branchid?.id : undefined;
+
+  const { data, loading, error, refetch } = useQuery(GET_PURCHASE_INVOICES_HISTORY, {
+    variables: { filter: { adminid, branchid } },
+    fetchPolicy: 'cache-and-network',
+  });
+
+  const all: any[] = useMemo(() => data?.getPurchaseInvoices || [], [data]);
+  const active = useMemo(() => all.filter((i: any) => i?.cancelStatus !== "cancelled"), [all]);
+  return { all, active, loading, error, refetch };
 };
 
 // Purchase Invoices LIST (lite)

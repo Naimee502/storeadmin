@@ -93,6 +93,23 @@ export const GET_PURCHASE_RETURNS_LIST = gql`
   }
 `;
 
+// Return form: next number and qty already returned per invoice line.
+export const GET_PURCHASE_RETURNS_FORM = gql`
+  query GetPurchaseReturnsForm($filter: PurchaseReturnFilterInput) {
+    getPurchaseReturns(filter: $filter) {
+      id
+      sourceInvoiceId
+      billnumber
+      productservice {
+        productserviceid { id }
+        variantid { id }
+        qty
+      }
+      status
+    }
+  }
+`;
+
 export const GET_DELETED_PURCHASE_RETURNS = gql`
   query GetDeletedPurchaseReturns($filter: PurchaseReturnFilterInput) {
     getDeletedPurchaseReturns(filter: $filter) {

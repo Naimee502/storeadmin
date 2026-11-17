@@ -11,16 +11,16 @@ import { showMessage } from "../../../redux/slices/message";
 import {
   usePurchaseReturnByIDQuery,
   usePurchaseReturnMutations,
-  usePurchaseReturnsQuery,
+  usePurchaseReturnsFormQuery,
 } from "../../../graphql/hooks/purchasereturn";
 import {
-  usePurchaseInvoicesQuery,
+  usePurchaseInvoicesHistoryQuery,
   usePurchaseInvoiceByIDQuery,
 } from "../../../graphql/hooks/purchaseinvoice";
 import OtherChargesSection from "../../../components/othercharges";
 import SerialLines, { serialMismatch, type SerialItem } from "../../../components/seriallines";
 import { useOptInOn } from "../../../hooks/useoptin";
-import { useProductServicesQuery } from "../../../graphql/hooks/products";
+import { useProductServicesPickerQuery } from "../../../graphql/hooks/products";
 import { partyLabel } from "../../../utils/partylabel";
 import { OfflineNumberNote, savedOffline as wasSavedOffline, useOfflineNumber } from "../../../offline/billing";
 import { OFFLINE_SAVED_MESSAGE } from "../../../offline/billing";
@@ -83,8 +83,8 @@ const AddEditPurchaseReturn: React.FC = () => {
     return { id: "", name: "Unknown", type: "unknown" };
   }, [type, admin, branch, staff]);
 
-  const { data: purchaseReturnsData } = usePurchaseReturnsQuery();
-  const purchaseReturns = purchaseReturnsData?.getPurchaseReturns || [];
+  const { data: purchaseReturnsData } = usePurchaseReturnsFormQuery();
+  const purchaseReturns: any[] = useMemo(() => purchaseReturnsData?.getPurchaseReturns || [], [purchaseReturnsData]);
 
   const [sourceInvoiceId, setSourceInvoiceId] = useState(fromInvoiceParam || "");
 
@@ -114,7 +114,8 @@ const AddEditPurchaseReturn: React.FC = () => {
 
   const { data: existingData } = usePurchaseReturnByIDQuery(id || "");
   const { data: sourceInvData } = usePurchaseInvoiceByIDQuery(sourceInvoiceId || "");
-  const { data: invoicesData } = usePurchaseInvoicesQuery();
+  // Lite list (cancelled left out): enough for the invoice picker and remaining qty.
+  const { active: purchaseInvoices } = usePurchaseInvoicesHistoryQuery();
 
   const invoiceOptions = useMemo(() => {
     // Calculate how much has been returned for each item in each invoice
@@ -138,7 +139,7 @@ const AddEditPurchaseReturn: React.FC = () => {
       });
 
     // Filter invoices: only exclude if ALL items have been fully returned
-    return (invoicesData?.getPurchaseInvoices ?? [])
+    return purchaseInvoices
       .filter((inv: any) => {
         const returnedItems = returnedByInvoiceAndItem.get(inv.id);
 
@@ -174,15 +175,17 @@ const AddEditPurchaseReturn: React.FC = () => {
           label: `INV-${inv.billnumber} · ${inv.partyacc?.accountname ?? "?"} · ₹${inv.totalamount} · Remaining: ${remainingQty}`,
         };
       });
-  }, [invoicesData, purchaseReturns]);
+  }, [purchaseInvoices, purchaseReturns]);
 
   const { addPurchaseReturnMutation, editPurchaseReturnMutation } = usePurchaseReturnMutations();
 
-  // Hydrate from existing return
+  // Hydrate from existing return, once: a cache refresh must not wipe typed changes.
+  const filledFrom = React.useRef("");
   useEffect(() => {
     if (!isEdit) return;
     const ret = existingData?.getPurchaseReturnById;
-    if (!ret) return;
+    if (!ret || filledFrom.current === `e${ret.id}`) return;
+    filledFrom.current = `e${ret.id}`;
     setSourceInvoiceId(ret.sourceInvoiceId);
     setReturndate(ret.returndate || todayStr());
     setReason(ret.reason || "");
@@ -269,6 +272,10 @@ const AddEditPurchaseReturn: React.FC = () => {
     if (isEdit) return;
     const inv = sourceInvData?.getPurchaseInvoiceById;
     if (!inv) return;
+    // Once per invoice (and again when the returns list first arrives) so refreshes keep ticked qty.
+    const key = `s${inv.id}|${purchaseReturnsData ? 1 : 0}`;
+    if (filledFrom.current === key) return;
+    filledFrom.current = key;
 
     setReturndate(todayStr());
     setPaymentType(inv.paymenttype || "");
@@ -352,7 +359,7 @@ const AddEditPurchaseReturn: React.FC = () => {
             : l
         )
     );
-  }, [isEdit, sourceInvData, purchaseReturns, sourceInvoiceId]);
+  }, [isEdit, sourceInvData, purchaseReturns, purchaseReturnsData, sourceInvoiceId]);
 
 
 
@@ -449,7 +456,7 @@ const AddEditPurchaseReturn: React.FC = () => {
 
   // IMEI / Serial No. module: the units going back to the vendor.
   const serialsOn = useOptInOn("serials");
-  const { data: itemData } = useProductServicesQuery();
+  const { data: itemData } = useProductServicesPickerQuery();
   const isSerialised = (pid: string) => !!(itemData?.getProductServices || []).find((x: any) => x.id === pid)?.isserialised;
   const serialItems: SerialItem[] = lines.map((l) => ({ productid: l.productserviceid, variantid: l.variantid || null,
     name: [l.productName, l.variantName].filter(Boolean).join(" - "), qty: Number(l.qty || 0) * Number(l.unitqty || 1), serials: l.serials }));
