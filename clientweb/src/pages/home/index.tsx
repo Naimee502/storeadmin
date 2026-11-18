@@ -9,7 +9,8 @@ import Newsletter from "../../components/newsletter";
 import SectionHeader from "../../components/sectionheader";
 import ProductCard from "../../components/productcard";
 import DealTimer from "../../components/dealtimer";
-import { useCatalog } from "../../hooks/useCatalog";
+import { useCatalogCategories, useProductFeed } from "../../hooks/useCatalog";
+import LoadMore from "../../components/loadmore";
 import { useTenant } from "../../contexts/tenant";
 import { siteConfig } from "../../config/site";
 import { discountPercent } from "../../utils/format";
@@ -55,8 +56,18 @@ export default function HomePage() {
   const tenant = useTenant();
   const { companyName, dealOfDayEnabled, dealOfDayTitle, dealOfDaySubtitle } = tenant;
   const brandName = companyName || siteConfig.name;
-  const { products, categories } = useCatalog();
+  const { categories } = useCatalogCategories();
   const [activeTab, setActiveTab] = useState("all");
+
+  // Only what is on screen is loaded: admin picks by id, a first page for deals/brands, the newest few,
+  // and Featured one page at a time as the shopper scrolls.
+  const pickedIds = useMemo(
+    () => Array.from(new Set([...tenant.featuredProductItems, ...tenant.dealOfDayItems, ...tenant.newArrivalItems].map((i) => i.productid))),
+    [tenant.featuredProductItems, tenant.dealOfDayItems, tenant.newArrivalItems]
+  );
+  const { products: picked } = useProductFeed({ ids: pickedIds }, { pageSize: 0 });
+  const { products: firstPage } = useProductFeed({}, { pageSize: 60 });
+  const { products: newest } = useProductFeed({ instockfirst: false }, { pageSize: 30, skip: tenant.newArrivalItems.length > 0 });
 
   // Admin's Settings → General "Hero Banner" slides — fully replaces the
   // carousel when the admin has added any; leave empty to keep the
@@ -100,15 +111,13 @@ export default function HomePage() {
   // list makes tab-browsing redundant); otherwise the live catalog with
   // category tabs is shown, same as before.
   const curatedFeatured = useMemo(
-    () => inStockFirst(resolvePickedProducts(tenant.featuredProductItems, products)),
-    [tenant.featuredProductItems, products]
+    () => inStockFirst(resolvePickedProducts(tenant.featuredProductItems, picked)),
+    [tenant.featuredProductItems, picked]
   );
   const hasCuratedFeatured = curatedFeatured.length > 0;
 
-  const featured = useMemo(() => {
-    if (hasCuratedFeatured) return curatedFeatured;
-    return activeTab === "all" ? products : products.filter((p) => p.category === activeTab);
-  }, [hasCuratedFeatured, curatedFeatured, products, activeTab]);
+  const feed = useProductFeed({ categoryid: activeTab === "all" ? null : activeTab }, { pageSize: 20, skip: hasCuratedFeatured });
+  const featured = hasCuratedFeatured ? curatedFeatured : feed.products;
 
   // Deal of the Day — admin's explicit product+variant picks come first,
   // in the order they were added. Falls back to the products with the
@@ -118,28 +127,28 @@ export default function HomePage() {
   // are left out of this strip entirely (picked or automatic). If nothing
   // is left, the section hides itself below.
   const dealProducts = useMemo(() => {
-    const available = products.filter((p) => !isOutOfStock(p));
     if (tenant.dealOfDayItems.length === 0) {
-      return [...available]
+      return firstPage
+        .filter((p) => !isOutOfStock(p))
         .sort((a, b) => discountPercent(b.price, b.mrp) - discountPercent(a.price, a.mrp))
         .slice(0, 8);
     }
-    return resolvePickedProducts(tenant.dealOfDayItems, available);
-  }, [tenant.dealOfDayItems, products]);
+    return resolvePickedProducts(tenant.dealOfDayItems, picked.filter((p) => !isOutOfStock(p)));
+  }, [tenant.dealOfDayItems, firstPage, picked]);
 
   // New Arrivals — admin's explicit picks take over when set; otherwise
   // genuinely the most recently added products (by real createdAt), not
   // just whatever order the catalog query happened to return.
   const newArrivals = useMemo(() => {
     if (tenant.newArrivalItems.length > 0) {
-      return inStockFirst(resolvePickedProducts(tenant.newArrivalItems, products));
+      return inStockFirst(resolvePickedProducts(tenant.newArrivalItems, picked));
     }
-    const withDates = products.filter((p) => p.createdAt);
-    if (withDates.length === 0) return products.slice(0, 8);
+    const withDates = newest.filter((p) => p.createdAt);
+    if (withDates.length === 0) return newest.slice(0, 8);
     return [...withDates]
       .sort(stockAware((a, b) => new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime()))
       .slice(0, 8);
-  }, [tenant.newArrivalItems, products]);
+  }, [tenant.newArrivalItems, picked, newest]);
 
   // Business Settings → "Auto-scroll the products": the Deal of the Day row
   // drifts along by itself (still scrollable by hand; hover/touch pauses it).
@@ -228,6 +237,7 @@ export default function HomePage() {
             <ProductCard key={p.id} product={p} />
           ))}
         </div>
+        {!hasCuratedFeatured && <LoadMore hasMore={feed.hasMore} loading={feed.loadingMore} onMore={feed.loadMore} />}
       </section>
 
       <PromoBanners />

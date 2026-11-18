@@ -41,6 +41,53 @@ export const GET_STORE_PRODUCTS = gql`
   }
 `;
 
+// One page (or a picked set) of the storefront catalog; same fields as GET_STORE_PRODUCTS.
+export const GET_STORE_PRODUCTS_PAGE = gql`
+  query GetStoreProductsPage($filter: ProductServiceFilterInput!, $limit: Int, $offset: Int) {
+    getProductServices(filter: $filter, limit: $limit, offset: $offset) {
+      id
+      name
+      description
+      imageurl
+      imageurls
+      status
+      createdAt
+      categoryid { id categoryname }
+      brandid { id brandname }
+      productvariants {
+        id
+        name
+        gst
+        liveprice
+        currentstock
+        unitconversions {
+          factor
+          unitid { id }
+        }
+        unitprices {
+          mrp
+          salesrate
+          offerprice
+          discount
+          discounttype
+          quantity
+          unitid { id unitname }
+        }
+      }
+    }
+  }
+`;
+
+// Product count per category without loading the products.
+export const GET_STORE_CATEGORY_COUNTS = gql`
+  query GetStoreCategoryCounts($adminid: ID) {
+    getStoreCategoryCounts(adminid: $adminid) {
+      categoryid
+      count
+    }
+  }
+`;
+
 export const GET_STORE_CATEGORIES = gql`
   query GetStoreCategories($adminId: ID) {
     getCategories(adminId: $adminId) {

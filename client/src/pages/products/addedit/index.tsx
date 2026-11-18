@@ -1349,7 +1349,8 @@ const AddEditProductService = () => {
                   />
                 </fieldset>
               )}
-              {!formData.isservice && (["cansell", "canbuy", "canmake"] as const).map((k) => (
+              {/* Part of Item Type: shown only when Item Type and this switch are on in Form Permissions. */}
+              {!formData.isservice && isFieldEnabled("itemtype") && (["cansell", "canbuy", "canmake"] as const).filter((k) => isFieldEnabled(k)).map((k) => (
                 <fieldset key={k} className="flex flex-col gap-2">
                   <legend className="text-sm sm:text-base font-medium">{k === "cansell" ? "Can Sell" : k === "canbuy" ? "Can Buy" : "Can Make"}</legend>
                   <FormSwitch label="" name={k} checked={pickOf(k) !== false} onChange={(checked) => handleSwitchChange(k, checked)} />

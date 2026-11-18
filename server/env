@@ -20,3 +20,6 @@ SMTP_PORT=465
 SMTP_USER=info@digisysindiatech.com
 SMTP_PASS=NTindiatech@502
 MAIL_FROM="Rudra ERP <info@digisysindiatech.com>"
+
+
+PLATFORM_KEY=7d1169f110d3d27e2c01dbbeecbfa313b18fb1f5766314c5f664025a12a3684c

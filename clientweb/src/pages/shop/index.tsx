@@ -4,7 +4,7 @@ import { Search } from "lucide-react";
 import { SlidersHorizontal, X, ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import Breadcrumb from "../../components/breadcrumb";
 import ProductCard from "../../components/productcard";
-import { useCatalog } from "../../hooks/useCatalog";
+import { useCatalog, useCatalogCategories, useProductFeed } from "../../hooks/useCatalog";
 import { useTenant } from "../../contexts/tenant";
 import { useCatalogPrice } from "../../utils/catalogprice";
 import { stockAware } from "../../utils/stock";
@@ -23,7 +23,6 @@ const PAGE_SIZE = 8;
 const DEFAULT_MAX_PRICE = 30000;
 
 export default function ShopPage() {
-  const { categories, products, loading } = useCatalog();
   const { displayProductPrice, shopProductImageRatio, shopInfiniteScroll } = useTenant();
   // The slider still filters on the real stored rate — only its label is
   // doubled, so the number the shopper drags to matches the prices printed on
@@ -39,6 +38,20 @@ export default function ShopPage() {
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [page, setPage] = useState(1);
   const [query, setQuery] = useState("");
+  const [priceTouched, setPriceTouched] = useState(false);
+
+  // Plain browsing (all or one category, default sort) pages from the server, so the shop opens fast.
+  // Search, several categories, brands, price filter or price sort need the whole list, loaded only then.
+  const serverMode = selectedCategories.length <= 1 && !selectedBrands.length && !priceTouched && !query.trim() && !sortBy.startsWith("price");
+  const { categories, total: catalogTotal } = useCatalogCategories();
+  const full = useCatalog({ skip: serverMode });
+  const feed = useProductFeed(
+    { categoryid: selectedCategories[0] || null },
+    { pageSize: shopInfiniteScroll ? 24 : PAGE_SIZE, page: shopInfiniteScroll ? undefined : page, skip: !serverMode }
+  );
+  const products = serverMode ? feed.products : full.products;
+  const loading = serverMode ? feed.loading : full.loading;
+  const serverCount = selectedCategories[0] ? categories.find((c) => c.id === selectedCategories[0])?.items ?? 0 : catalogTotal;
 
   // Support /shop?category=<id> links from CategoryGrid / Header nav, and
   // /shop?q=<text> from the header search bar.
@@ -98,17 +111,20 @@ export default function ShopPage() {
     return result;
   }, [products, selectedCategories, selectedBrands, priceMax, sortBy, query]);
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const resultCount = serverMode ? serverCount : filtered.length;
+  const totalPages = Math.max(1, Math.ceil(resultCount / PAGE_SIZE));
 
   // Settings -> Website — Shop Page -> Infinite Scroll. On: `page` counts how
   // many PAGE_SIZE batches are showing, and reaching the bottom of the grid
   // adds the next batch. Off: `page` is the one numbered page on screen.
   // Every filter/sort/search change already resets `page` to 1, so both modes
   // start from the top of the new result set.
-  const paged = shopInfiniteScroll
-    ? filtered.slice(0, page * PAGE_SIZE)
-    : filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
-  const hasMore = shopInfiniteScroll && page < totalPages;
+  const paged = serverMode
+    ? filtered
+    : shopInfiniteScroll
+      ? filtered.slice(0, page * PAGE_SIZE)
+      : filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const hasMore = shopInfiniteScroll && (serverMode ? feed.hasMore : page < totalPages);
 
   // Sentinel just below the grid; when it scrolls into view (with a 400px
   // head start so the next batch is there before the shopper hits the end),
@@ -120,13 +136,15 @@ export default function ShopPage() {
     if (!el) return;
     const io = new IntersectionObserver(
       (entries) => {
-        if (entries.some((e) => e.isIntersecting)) setPage((n) => Math.min(totalPages, n + 1));
+        if (!entries.some((e) => e.isIntersecting)) return;
+        if (serverMode) feed.loadMore();
+        else setPage((n) => Math.min(totalPages, n + 1));
       },
       { rootMargin: "400px 0px" }
     );
     io.observe(el);
     return () => io.disconnect();
-  }, [hasMore, totalPages, page]);
+  }, [hasMore, totalPages, page, serverMode, feed.loadMore]);
 
   // Search typed into the box resets to the top too (it doesn't go through
   // toggle()/clearFilters, which already do).
@@ -171,6 +189,7 @@ export default function ShopPage() {
     setSelectedCategories([]);
     setSelectedBrands([]);
     setPriceMax(maxPrice);
+    setPriceTouched(false);
     setPage(1);
   };
 
@@ -229,6 +248,7 @@ export default function ShopPage() {
             value={priceMax}
             onChange={(e) => {
               setPriceMax(Number(e.target.value));
+              setPriceTouched(true);
               setPage(1);
             }}
             className="w-full accent-brand-600"
@@ -248,7 +268,7 @@ export default function ShopPage() {
             <h1 className="text-2xl font-bold text-ink-900 sm:text-3xl">
               {query ? `Results for "${query}"` : "All Products"}
             </h1>
-            <p className="mt-1 text-sm text-slate-500">{filtered.length} products across every category</p>
+            <p className="mt-1 text-sm text-slate-500">{resultCount} products across every category</p>
           </div>
 
           <div className="flex items-center gap-2">
@@ -392,7 +412,7 @@ export default function ShopPage() {
               onClick={() => setMobileFiltersOpen(false)}
               className="mt-6 w-full rounded-lg bg-brand-700 py-2.5 text-sm font-semibold text-white"
             >
-              Show {filtered.length} results
+              Show {resultCount} results
             </button>
           </div>
         </div>

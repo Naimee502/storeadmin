@@ -4,7 +4,7 @@ import { Star, Minus, Plus, ShieldCheck, Truck, RotateCcw, Briefcase, Check, Dow
 import Breadcrumb from "../../components/breadcrumb";
 import ProductCard from "../../components/productcard";
 import SectionHeader from "../../components/sectionheader";
-import { useCatalog } from "../../hooks/useCatalog";
+import { useCatalogCategories, useProductFeed } from "../../hooks/useCatalog";
 import { useCart } from "../../contexts/cart";
 import { useTenant } from "../../contexts/tenant";
 import { discountPercent } from "../../utils/format";
@@ -109,8 +109,11 @@ const sampleReviews = [
 
 export default function ProductDetailPage() {
   const { id } = useParams();
-  const { products, categories, loading } = useCatalog();
-  const product = useMemo(() => products.find((p) => p.id === id) ?? products[0], [products, id]);
+  // This product by id, and a few from its category for "Related" — not the whole catalog.
+  const { categories } = useCatalogCategories();
+  const { products: found, loading } = useProductFeed({ ids: id ? [id] : [] }, { pageSize: 0 });
+  const product = useMemo(() => found.find((p) => p.id === id), [found, id]);
+  const { products: sameCategory } = useProductFeed({ categoryid: product?.category || null }, { pageSize: 5, skip: !product?.category });
   const category = categories.find((c) => c.id === product?.category);
 
   const [selectedUnit, setSelectedUnit] = useState(product?.units[0]);
@@ -165,7 +168,7 @@ export default function ProductDetailPage() {
   };
   const discount = discountPercent(selected.price, selected.mrp);
   const outOfStock = typeof product.stock === "number" && product.stock <= 0;
-  const related = products.filter((p) => p.category === product.category && p.id !== product.id).slice(0, 4);
+  const related = sameCategory.filter((p) => p.category === product.category && p.id !== product.id).slice(0, 4);
 
   // Full gallery — falls back to the single imageurl, or no images at all
   // (decorative icon tiles below cover that case, same as before).

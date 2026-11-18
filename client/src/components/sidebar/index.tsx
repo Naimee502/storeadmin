@@ -24,7 +24,7 @@ import {
 import { MdBrandingWatermark } from 'react-icons/md';
 import { Link, useLocation, useNavigate } from 'react-router';
 import { useAppSelector } from '../../redux/hooks';
-import { DEFAULT_ON_MODULE_IDS, isOptIn } from '../../config/modules';
+import { ALWAYS_ON_MODULE_IDS, DEFAULT_ON_MODULE_IDS, isOptIn } from '../../config/modules';
 import { selectModuleActions } from '../../redux/slices/permissions';
 import { Building2, LifeBuoy, ShieldCheck, Truck } from 'lucide-react';
 
@@ -81,10 +81,14 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar, onHoverChange 
     const mid = moduleId.toLowerCase();
     const includes = (arr: string[]) => arr.map((m: any) => m.toString().toLowerCase()).includes(mid);
 
-    // Default-on system modules skip the business gate (never offered in the checklist).
-    if (DEFAULT_ON_MODULE_IDS.map((m) => m.toLowerCase()).includes(mid)) return true;
+    // Branches is never in the checklist, so it is always on.
+    if (ALWAYS_ON_MODULE_IDS.map((m) => m.toLowerCase()).includes(mid)) return true;
 
     const bizList = businessAllowed ?? branch?.admin?.allowedmodules ?? staff?.admin?.allowedmodules;
+    // Departments / Access Roles: on until a saved Business Modules list leaves them out.
+    if (DEFAULT_ON_MODULE_IDS.map((m) => m.toLowerCase()).includes(mid)) {
+      return !(Array.isArray(bizList) && bizList.length) || includes(bizList);
+    }
     if (isOptIn(mid) && !(Array.isArray(bizList) && includes(bizList))) return false;
 
     // 1. Business level, required for all roles

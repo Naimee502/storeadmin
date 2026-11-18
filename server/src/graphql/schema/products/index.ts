@@ -211,6 +211,11 @@ export const productServiceTypeDefs = gql`
   }
 
   # Filter Input
+  type StoreCategoryCount {
+    categoryid: ID
+    count: Int!
+  }
+
   input ProductServiceFilterInput {
     adminid: ID
     vendorid: ID
@@ -241,6 +246,8 @@ export const productServiceTypeDefs = gql`
     # Services have no stock and count as available. Off (default) keeps the
     # plain newest-first order the admin panel uses.
     instockfirst: Boolean
+    "Only these products (storefront picks and detail page)."
+    ids: [ID!]
   }
 
   # Input Types
@@ -490,6 +497,8 @@ export const productServiceTypeDefs = gql`
 
   type Query {
     getProductServices(filter: ProductServiceFilterInput, limit: Int, offset: Int): [ProductService]!
+    "Storefront: active product count per category (no product data)."
+    getStoreCategoryCounts(adminid: ID): [StoreCategoryCount!]!
     getProductServicesPage(filter: ProductServiceFilterInput, page: Int, pageSize: Int, search: String, columnFilters: [ColumnFilter!], lowStock: Boolean): ProductServicePage!
     getProductServiceById(id: ID!, adminId: ID, branchId: ID): ProductService
     getProductImportMasters: ProductImportMasters!

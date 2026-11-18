@@ -9,7 +9,6 @@ import {
   FaColumns,
 } from "react-icons/fa";
 import FormField from "../formfiled";
-import * as XLSX from "xlsx";
 import Papa from "papaparse";
 import { getFinancialYear, formatDateDMY, todayYMD, shiftDaysYMD } from "../../utils/helper";
 import { useAppSelector } from "../../redux/hooks";
@@ -132,10 +131,34 @@ const renderCell = (col: ReportColumn, value: any): React.ReactNode => {
   return value ?? "";
 };
 
+/** Excel / CSV cell, laid out like the screen: one product per line, party as name over "mobile · city". */
+const exportText = (col: ReportColumn, v: any): any => {
+  if (Array.isArray(v)) return v.join("\n");
+  if (typeof v === "string" && (PARTY_COL.test(col.key) || PARTY_COL.test(col.label))) {
+    const { name, mobile, city } = splitPartyLabel(v);
+    if (mobile) return `${name}\n${[mobile, city].filter(Boolean).join(" · ")}`;
+  }
+  return cellText(v);
+};
+
 const buildExportRow = (row: any, columns: ReportColumn[]) => {
   const obj: Record<string, any> = {};
-  columns.forEach((col) => { obj[col.label] = cellText(row[col.key]); });
+  columns.forEach((col) => { obj[col.label] = exportText(col, row[col.key]); });
   return obj;
+};
+
+const esc = (v: any) => String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+/** PDF cell, laid out like the screen: one product per line, party as name over "mobile · city". */
+const pdfCell = (col: ReportColumn, v: any): string => {
+  if (Array.isArray(v)) return v.length ? v.map((x) => `<div class="ln">${esc(x)}</div>`).join("") : "-";
+  if (typeof v === "string" && (PARTY_COL.test(col.key) || PARTY_COL.test(col.label))) {
+    const { name, mobile, city } = splitPartyLabel(v);
+    if (mobile) return `<div class="pn">${esc(name)}</div><div class="ps">${esc([mobile, city].filter(Boolean).join(" · "))}</div>`;
+  }
+  const t = esc(cellText(v));
+  // Dates and doc numbers stay on one line instead of breaking at "-".
+  return !t.includes(" ") && t.length <= 16 ? `<span class="nw">${t}</span>` : t;
 };
 
 // PDF via print window (Tally-style)
@@ -159,9 +182,8 @@ const printReportAsPDF = (
   const bodyRows = data
     .map((row, i) => {
       const cells = columns.map((col) => {
-        const val = cellText(row[col.key]);
         const align = col.numeric ? "text-align:right;" : "";
-        return `<td style="${align}">${val}</td>`;
+        return `<td style="${align}">${pdfCell(col, row[col.key])}</td>`;
       }).join("");
       return `<tr class="${i % 2 === 0 ? "even" : ""}">${cells}</tr>`;
     }).join("");
@@ -217,6 +239,11 @@ const printReportAsPDF = (
   thead tr th{background:#1e3a5f;color:#fff;padding:${pad};text-align:left;font-size:${fs}px;border:1px solid #1e3a5f;white-space:normal;word-break:normal;line-height:1.2;}
   tbody tr td{padding:${pad};border:1px solid #ccc;font-size:${fs}px;line-height:1.25;}
   tbody tr.even td{background:#f7f9fc;}
+  td .ln{white-space:normal;}
+  td .ln + .ln{margin-top:2px;}
+  td .pn{font-weight:bold;}
+  td .ps{color:#666;font-size:0.9em;}
+  td .nw{white-space:nowrap;}
   @media print{body{margin:0;}}
 </style></head><body>
 <h2>${title}</h2>
@@ -393,26 +420,37 @@ const ReportTable: React.FC<ReportTableProps> = ({
     [columns]
   );
 
-  const handleExcelExport = () => {
+  const handleExcelExport = async () => {
     if (onExport) { onExport(); return; }
     const rows = filteredData.map((r) => buildExportRow(r, exportColumns));
+    const labels = exportColumns.map((c) => c.label);
 
-    const headerRows = [
-      [title],
-      [`Financial Year: ${fyInfo()}`],
-      [`Generated on: ${formatDateDMY(new Date())}`],
-    ];
-
-    if (pdfSubtitle && pdfSubtitle.length > 0) {
-      pdfSubtitle.forEach(sub => headerRows.push([sub]));
-    }
-    headerRows.push([]); // Empty row before data
-
-    const ws = XLSX.utils.aoa_to_sheet(headerRows);
-    XLSX.utils.sheet_add_json(ws, rows, { origin: `A${headerRows.length + 1}` });
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Report");
-    XLSX.writeFile(wb, `${exportFileName}.xlsx`);
+    // ExcelJS so multi-line cells (products, party) wrap like the screen.
+    const ExcelJS = (await import("exceljs")).default;
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet("Report");
+    ws.addRow([title]).font = { bold: true, size: 13 };
+    ws.addRow([`Financial Year: ${fyInfo()}`]);
+    ws.addRow([`Generated on: ${formatDateDMY(new Date())}`]);
+    (pdfSubtitle || []).forEach((sub) => ws.addRow([sub]));
+    ws.addRow([]);
+    ws.addRow(labels).font = { bold: true };
+    rows.forEach((r) => {
+      const row = ws.addRow(labels.map((l) => r[l]));
+      row.alignment = { wrapText: true, vertical: "top" };
+    });
+    // Width from the longest line in each column.
+    exportColumns.forEach((c, i) => {
+      const longest = Math.max(c.label.length, ...rows.map((r) => Math.max(...String(r[c.label] ?? "").split("\n").map((t) => t.length))));
+      ws.getColumn(i + 1).width = Math.min(60, Math.max(8, longest + 2));
+    });
+    const buf = await wb.xlsx.writeBuffer();
+    const url = URL.createObjectURL(new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.setAttribute("download", `${exportFileName}.xlsx`);
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   const handleCsvExport = () => {

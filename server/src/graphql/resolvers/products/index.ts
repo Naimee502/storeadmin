@@ -147,6 +147,9 @@ export async function buildProductListQuery(filter: any, context: any) {
   if (filter.name_contains) {
     query.name = { $regex: filter.name_contains, $options: "i" };
   }
+  if (Array.isArray(filter.ids) && filter.ids.length) {
+    query._id = { $in: filter.ids.filter((x: any) => Types.ObjectId.isValid(String(x))) };
+  }
 
   // Item type was added later, so a blank one is a finished good.
   if (Array.isArray(filter.itemtype_in) && filter.itemtype_in.length) {
@@ -478,6 +481,14 @@ export const productServiceResolvers = {
         console.error("❌ Error in getProductServices:", err);
         throw new Error("Failed to fetch products / services");
       }
+    },
+
+    getStoreCategoryCounts: async (_: any, { adminid }: any, context: any) => {
+      const { query } = await buildProductListQuery({ adminid }, context);
+      const rows: any[] = await ProductService.find(query).select("categoryid").lean();
+      const counts = new Map<string, number>();
+      rows.forEach((r) => { const k = r.categoryid ? String(r.categoryid) : ""; counts.set(k, (counts.get(k) || 0) + 1); });
+      return [...counts].map(([categoryid, count]) => ({ categoryid: categoryid || null, count }));
     },
 
     getProductServicesPage: async (

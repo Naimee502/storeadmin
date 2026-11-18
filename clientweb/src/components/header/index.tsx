@@ -29,7 +29,7 @@ import { useSupplier } from "../../hooks/useSupplier";
 import { serviceMenu, useMyService } from "../../hooks/useMyService";
 import { ServiceIcon } from "../../pages/myservice/shared";
 import { useAuth } from "../../contexts/auth";
-import { useCatalog } from "../../hooks/useCatalog";
+import { useCatalogCategories } from "../../hooks/useCatalog";
 import { titleCaseIfShouting } from "../../utils/format";
 import NotificationBell from "../notificationbell";
 import { usePaymentsEnabled, useAnnouncementsEnabled, useModuleEnabled } from "../../hooks/useModuleEnabled";
@@ -93,7 +93,7 @@ export default function Header() {
 
   // Real categories from this admin's own catalog — every business
   // automatically only sees its own categories, no manual filtering needed.
-  const { categories: visibleCategories } = useCatalog();
+  const { categories: visibleCategories } = useCatalogCategories();
 
   return (
     <header className="sticky top-0 z-50 bg-white">

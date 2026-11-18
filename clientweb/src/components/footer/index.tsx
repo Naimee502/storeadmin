@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 import { siteConfig } from "../../config/site";
 import { useTenant } from "../../contexts/tenant";
-import { useCatalog } from "../../hooks/useCatalog";
+import { useCatalogCategories } from "../../hooks/useCatalog";
 
 const accountLinks = [
   { label: "Login / Sign up", to: "/login" },
@@ -35,7 +35,7 @@ export default function Footer() {
   const tagline =
     websiteTagline ||
     "A multi-category marketplace & B2B ordering platform — one storefront for retail shoppers and wholesale/manufacturer party accounts alike.";
-  const { categories } = useCatalog();
+  const { categories } = useCatalogCategories();
 
   // Only show an icon for a network once its link has actually been added
   // in the admin's Settings → General page — no dummy/placeholder icons.

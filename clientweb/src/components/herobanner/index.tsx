@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router";
 import { ChevronLeft, ChevronRight, ArrowRight } from "lucide-react";
-import { useCatalog } from "../../hooks/useCatalog";
+import { useCatalogCategories } from "../../hooks/useCatalog";
 import { useTenant } from "../../contexts/tenant";
 import { siteConfig } from "../../config/site";
 
@@ -32,7 +32,7 @@ export interface HeroSlideOverride {
 export default function HeroBanner({ overrideSlides }: { overrideSlides?: HeroSlideOverride[] }) {
   const { companyName, heroBannerShowCategoryTiles } = useTenant();
   const brandName = companyName || siteConfig.name;
-  const { categories, products } = useCatalog();
+  const { categories } = useCatalogCategories();
   const [active, setActive] = useState(0);
 
   const topCategories = categories

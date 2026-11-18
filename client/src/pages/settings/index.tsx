@@ -30,7 +30,7 @@ import {
   MODULES,
   SECTION_LABELS,
   ADMIN_REGISTER_MODULES,
-  DEFAULT_ON_MODULE_IDS,
+  ALWAYS_ON_MODULE_IDS,
   isOptIn,
   ACTION_LABELS,
   type ModuleAction,
@@ -135,8 +135,8 @@ const Settings = () => {
       }
     }
     if (list === undefined || list === null) return ADMIN_REGISTER_MODULES.map((m) => m.id).filter((id) => !isOptIn(id));
-    // Always show default-on modules, even for tenants whose allowedmodules predate them.
-    const extra = DEFAULT_ON_MODULE_IDS.filter(
+    // Always show modules the checklist never offers (Branches).
+    const extra = ALWAYS_ON_MODULE_IDS.filter(
       (id) => !list.map((x: string) => x.toLowerCase()).includes(id.toLowerCase())
     );
     return [...list, ...extra];

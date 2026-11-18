@@ -262,6 +262,8 @@ export const findModule = (id: string) => MODULES.find((m) => m.id === id);
 
 // Core modules visible by default, even for tenants saved before they existed.
 export const DEFAULT_ON_MODULE_IDS: string[] = ["branches", "departments", "accessroles"];
+// Default-on modules the Business Modules checklist does not offer; the others follow a saved module list.
+export const ALWAYS_ON_MODULE_IDS: string[] = DEFAULT_ON_MODULE_IDS.filter((id) => !findModule(id)?.inAdminRegister);
 
 export const ADMIN_REGISTER_MODULES = MODULES.filter((m) => m.inAdminRegister);
 

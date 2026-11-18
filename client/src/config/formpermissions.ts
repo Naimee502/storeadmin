@@ -493,6 +493,9 @@ export const FORM_PERMISSIONS_CONFIG: FormConfig[] = [
         fields: [
           { id: "status", label: "Status" },
           { id: "isserialised", label: "Is Product Serialised" },
+          { id: "cansell", label: "Can Sell (with Item Type)" },
+          { id: "canbuy", label: "Can Buy (with Item Type)" },
+          { id: "canmake", label: "Can Make (with Item Type)" },
         ],
       },
       {

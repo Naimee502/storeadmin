@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
-import { useCatalog } from "../../hooks/useCatalog";
+import { useCatalogCategories } from "../../hooks/useCatalog";
 import { useTenant } from "../../contexts/tenant";
 import SectionHeader from "../sectionheader";
 import { useAutoScrollX } from "../../hooks/useAutoScrollX";
 
-type Cat = ReturnType<typeof useCatalog>["categories"][number];
+type Cat = ReturnType<typeof useCatalogCategories>["categories"][number];
 
 // Ticker speed — slow enough to read a card and click it while it moves.
 const TICKER_PX_PER_SEC = 40;
@@ -94,7 +94,7 @@ function CategoryTicker({ categories }: { categories: Cat[] }) {
 }
 
 export default function CategoryGrid() {
-  const { categories, loading } = useCatalog();
+  const { categories, loading } = useCatalogCategories();
   const { categoryAutoScroll } = useTenant();
 
   if (!loading && categories.length === 0) return null;

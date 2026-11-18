@@ -15,7 +15,7 @@ const PUBLIC = new Set([
   "loginEmailOtp", "partyLoginEmailOtp", "sendOTP", "verifyOTP", "registerAccount",
   "confirmSubscription", "verifyToken",
   "getStorefrontByStoreSlug", "getAdminByCode", "getAdminById", "getAdminSettings",
-  "getBranches", "getProductServices", "getCategories", "getChargeRules", "getChannels",
+  "getBranches", "getProductServices", "getStoreCategoryCounts", "getCategories", "getChargeRules", "getChannels",
   "resolvePrice", "reverseGeocode", "isAnnouncementsEnabled", "getBookingSlots", "getClinicDoctors",
 ]);
 

@@ -1,10 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@apollo/client";
 import apolloClient from "../graphql/client";
 import { GET_ACCOUNT, RESOLVE_PRICE } from "../graphql/queries/accounts";
 import { useAuth } from "../contexts/auth";
 import { Package, type LucideIcon } from "lucide-react";
-import { GET_STORE_CATEGORIES, GET_STORE_PRODUCTS } from "../graphql/queries/catalog";
+import { GET_STORE_CATEGORIES, GET_STORE_CATEGORY_COUNTS, GET_STORE_PRODUCTS, GET_STORE_PRODUCTS_PAGE } from "../graphql/queries/catalog";
 import { useTenant } from "../contexts/tenant";
 import type { SampleProduct } from "../data/sampleData";
 import { inStockFirst } from "../utils/stock";
@@ -106,40 +106,14 @@ function mapProduct(p: any): SampleProduct {
   };
 }
 
-// Real, adminid-scoped product/category data for the storefront — the
-// website equivalent of the app's party Catalog screen. Every page (Home,
-// Shop, ProductDetail, CategoryGrid, Header nav) reads from this single
-// hook so there's one source of truth instead of each page re-fetching.
-export function useCatalog() {
+const toProducts = (list: any[]) => list.filter((p: any) => p && p.status !== false).map(mapProduct);
+
+// A logged-in party sees the rate from the price list assigned to them
+// (customer → channel+region → channel → region), on every card and the
+// detail page. Guests keep the base catalog price. Only the products passed
+// in are resolved, so a paged list asks for the cards on screen only.
+function usePartyPrices(baseProducts: SampleProduct[]): SampleProduct[] {
   const { adminid } = useTenant();
-
-  const { data: catData, loading: catLoading } = useQuery(GET_STORE_CATEGORIES, {
-    variables: { adminId: adminid },
-    skip: !adminid,
-  });
-
-  // No limit: the server treats limit=0 as "everything". The old cap of 200
-  // silently dropped products past that point — and because the resolver had no
-  // sort, WHICH 200 came back was up to Mongo, so a product could appear one day
-  // and vanish the next. The category counts on the home grid are derived from
-  // this same list, so a short list also made every count wrong.
-  const { data: prodData, loading: prodLoading } = useQuery(GET_STORE_PRODUCTS, {
-    variables: { adminid },
-    skip: !adminid,
-  });
-
-  const baseProducts = useMemo<SampleProduct[]>(() => {
-    const list = (prodData as any)?.getProductServices ?? [];
-    // Out-of-stock last everywhere the storefront lists products (the server
-    // already orders them so; this keeps it true by the card's own rule).
-    return inStockFirst(list.filter((p: any) => p && p.status !== false).map(mapProduct));
-  }, [prodData]);
-
-  // ---- Party price list -------------------------------------------------
-  // A logged-in party sees the rate from the price list assigned to them
-  // (customer → channel+region → channel → region), on every card and the
-  // detail page — not only once the item is in the cart. Guests keep the
-  // base catalog price.
   const { account } = useAuth();
   const { data: accountData } = useQuery(GET_ACCOUNT, {
     variables: { id: account?.id, adminId: adminid },
@@ -169,8 +143,7 @@ export function useCatalog() {
           const key = keyOf(p.id, p.variantid, u.unitid);
           if (priceMapRef.current[key] !== undefined) return;
           try {
-            // cache-first: every component that calls useCatalog shares the
-            // same Apollo cache, so each product+unit is fetched once.
+            // cache-first: every list shares the Apollo cache, so each product+unit is fetched once.
             const { data } = await apolloClient.query({
               query: RESOLVE_PRICE,
               variables: { productid: p.id, variantid: p.variantid, unitid: u.unitid, adminid, accountid: account.id, channelid, region },
@@ -189,7 +162,7 @@ export function useCatalog() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [baseProducts, partyAccount, account?.id, adminid]);
 
-  const products = useMemo<SampleProduct[]>(() => {
+  return useMemo<SampleProduct[]>(() => {
     if (!account?.id || Object.keys(priceMap).length === 0) return baseProducts;
     return baseProducts.map((p) => {
       if (!p.variantid || !p.unitPrices?.length) return p;
@@ -198,13 +171,8 @@ export function useCatalog() {
         const r = u.unitid ? priceMap[keyOf(p.id, p.variantid!, u.unitid)] : undefined;
         if (!r) return u;
         changed = true;
-        return {
-          ...u,
-          price: r.rate,
-          mrp: Math.max(u.mrp, r.rate),
-          // Keep the unit's own discount unless the price list sets one.
-          discount: r.discount,
-        };
+        // Keep the unit's own discount unless the price list sets one.
+        return { ...u, price: r.rate, mrp: Math.max(u.mrp, r.rate), discount: r.discount };
       });
       if (!changed) return p;
       const first = unitPrices[0];
@@ -212,24 +180,119 @@ export function useCatalog() {
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [baseProducts, priceMap, account?.id]);
+}
 
-  const categories = useMemo<DisplayCategory[]>(() => {
-    const list = (catData as any)?.getCategories ?? [];
-    return list
-      .filter((c: any) => c.status !== false)
-      .map((c: any, i: number) => {
-        const palette = PALETTE[i % PALETTE.length];
-        return {
-          id: c.id,
-          name: c.categoryname,
-          image: c.image || undefined,
-          icon: Package,
-          items: products.filter((p) => p.category === c.id).length,
-          from: palette.from,
-          to: palette.to,
-        };
+const PALETTED = (list: any[], countOf: (id: string) => number): DisplayCategory[] =>
+  list
+    .filter((c: any) => c.status !== false)
+    .map((c: any, i: number) => {
+      const palette = PALETTE[i % PALETTE.length];
+      return { id: c.id, name: c.categoryname, image: c.image || undefined, icon: Package, items: countOf(c.id), from: palette.from, to: palette.to };
+    });
+
+/** Categories with product counts, without loading the products (header, footer, grids, filters). */
+export function useCatalogCategories() {
+  const { adminid } = useTenant();
+  const { data: catData, loading: catLoading } = useQuery(GET_STORE_CATEGORIES, {
+    variables: { adminId: adminid },
+    skip: !adminid,
+  });
+  const { data: countData, loading: countLoading } = useQuery(GET_STORE_CATEGORY_COUNTS, {
+    variables: { adminid },
+    skip: !adminid,
+  });
+  const categories = useMemo(() => {
+    const counts = new Map<string, number>(((countData as any)?.getStoreCategoryCounts ?? []).map((r: any) => [String(r.categoryid), r.count]));
+    return PALETTED((catData as any)?.getCategories ?? [], (id) => counts.get(String(id)) ?? 0);
+  }, [catData, countData]);
+  const total = useMemo(
+    () => ((countData as any)?.getStoreCategoryCounts ?? []).reduce((t: number, r: any) => t + (r.count || 0), 0),
+    [countData]
+  );
+  return { categories, total, loading: catLoading || countLoading };
+}
+
+type FeedFilter = { categoryid?: string | null; ids?: string[]; instockfirst?: boolean };
+
+/**
+ * One page of products at a time (in-stock first, like the full list);
+ * loadMore() appends the next page — used for infinite scroll on Home / Shop.
+ * pageSize 0 loads the whole set in one go (picked ids).
+ */
+export function useProductFeed(filter: FeedFilter, opts: { pageSize?: number; skip?: boolean; page?: number } = {}) {
+  const { adminid } = useTenant();
+  const pageSize = opts.pageSize ?? 20;
+  const skip = !!opts.skip || !adminid || (filter.ids !== undefined && filter.ids.length === 0);
+  const serverFilter = useMemo(() => {
+    const f: any = { adminid, instockfirst: filter.instockfirst ?? true };
+    if (filter.categoryid) f.categoryid = filter.categoryid;
+    if (filter.ids?.length) f.ids = filter.ids;
+    return f;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [adminid, filter.categoryid, filter.instockfirst, (filter.ids || []).join(",")]);
+  // `page` set: that one numbered page only (no loadMore).
+  const startAt = opts.page ? (opts.page - 1) * pageSize : 0;
+  const key = JSON.stringify(serverFilter) + pageSize + ":" + startAt;
+
+  const { data, loading } = useQuery(GET_STORE_PRODUCTS_PAGE, {
+    variables: { filter: serverFilter, limit: pageSize, offset: startAt },
+    skip,
+  });
+  const first: any[] = (data as any)?.getProductServices ?? [];
+
+  const [more, setMore] = useState<{ key: string; rows: any[]; done: boolean }>({ key, rows: [], done: false });
+  const [loadingMore, setLoadingMore] = useState(false);
+  const cur = more.key === key ? more : { key, rows: [], done: false };
+  const hasMore = !skip && !opts.page && pageSize > 0 && !cur.done && first.length === pageSize;
+
+  const busy = useRef(false);
+  const loadMore = useCallback(async () => {
+    if (!hasMore || busy.current) return;
+    busy.current = true;
+    setLoadingMore(true);
+    try {
+      const offset = pageSize * (1 + Math.floor(cur.rows.length / pageSize));
+      const { data: next } = await apolloClient.query({
+        query: GET_STORE_PRODUCTS_PAGE,
+        variables: { filter: serverFilter, limit: pageSize, offset },
       });
-  }, [catData, products]);
+      const rows: any[] = (next as any)?.getProductServices ?? [];
+      setMore((m) => {
+        const base = m.key === key ? m.rows : [];
+        return { key, rows: [...base, ...rows], done: rows.length < pageSize };
+      });
+    } catch {
+      // Network hiccup: the sentinel asks again on the next scroll.
+    } finally {
+      busy.current = false;
+      setLoadingMore(false);
+    }
+  }, [hasMore, pageSize, cur.rows.length, serverFilter, key]);
 
+  const baseProducts = useMemo(() => {
+    const seen = new Set<string>();
+    return toProducts([...first, ...cur.rows].filter((p: any) => p && !seen.has(p.id) && seen.add(p.id)));
+  }, [first, cur.rows]);
+  const products = usePartyPrices(baseProducts);
+  return { products, loading: loading && !first.length, loadingMore, hasMore, loadMore };
+}
+
+/** The whole catalog in one list. Only for screens that need every product (account reorder, order edit, shop's price/brand filters). */
+export function useCatalog(opts: { skip?: boolean } = {}) {
+  const { adminid } = useTenant();
+  const { categories, loading: catLoading } = useCatalogCategories();
+
+  // limit 0 = everything; out-of-stock last (the server orders them so too).
+  const { data: prodData, loading: prodLoading } = useQuery(GET_STORE_PRODUCTS, {
+    variables: { adminid },
+    skip: !adminid || !!opts.skip,
+  });
+
+  const baseProducts = useMemo<SampleProduct[]>(() => {
+    const list = (prodData as any)?.getProductServices ?? [];
+    return inStockFirst(toProducts(list));
+  }, [prodData]);
+
+  const products = usePartyPrices(baseProducts);
   return { categories, products, loading: catLoading || prodLoading };
 }

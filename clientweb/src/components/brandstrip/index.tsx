@@ -1,8 +1,9 @@
 import { useMemo } from "react";
-import { useCatalog } from "../../hooks/useCatalog";
+import { useProductFeed } from "../../hooks/useCatalog";
 
 export default function BrandStrip() {
-  const { products } = useCatalog();
+  // Brands from the first in-stock page (shared with Deal of the Day).
+  const { products } = useProductFeed({}, { pageSize: 60 });
 
   // Real brand names pulled from this admin's own products (brandid.brandname)
   // instead of the old hardcoded demo list — hide the whole strip if none of
