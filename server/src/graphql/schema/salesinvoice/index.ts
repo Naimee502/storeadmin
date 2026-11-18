@@ -274,6 +274,8 @@ export const salesInvoiceTypeDefs = gql`
   }
 
   extend type Query {
+    "Party's bill balance before a bill (signed, + = party owes): the printed Previous Balance."
+    getPartyBillBalance(partyid: ID!, excludeInvoiceId: ID, excludePurchaseInvoiceId: ID, excludePaymentId: ID): Float
     getEInvoiceExport(invoiceId: ID!): GstExport!
     "sourceType: invoice or challan."
     getEWayBillExport(sourceType: String!, id: ID!): GstExport!

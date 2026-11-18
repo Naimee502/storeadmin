@@ -25,6 +25,7 @@ import { showMessage } from "../../../redux/slices/message";
 import { selectModuleActions } from "../../../redux/slices/permissions";
 import FormSwitch from "../../../components/formswitch";
 import PosAddCustomer from "../../../components/posaddcustomer";
+import PartyBalanceNote from "../../../components/partybalance";
 import { partyLabel } from "../../../utils/partylabel";
 import { getStockShortfalls } from "../../../utils/products/stockcheck";
 import { getBelowCostLines } from "../../../utils/rates";
@@ -824,7 +825,7 @@ const AddEditSalesInvoice = () => {
                 error={errors.paymentType}
                 searchable
               />}
-              {isFieldEnabled("partyacc") && <div className="flex items-end gap-2">
+              {isFieldEnabled("partyacc") && <div><div className="flex items-end gap-2">
                 <FormField
                   label="Party Account (Name - Mobile)"
                   name="partyAccount"
@@ -872,6 +873,8 @@ const AddEditSalesInvoice = () => {
                       : "Select a party first to see their bill history."
                   }
                 />
+              </div>
+              <PartyBalanceNote partyId={partyAccount?.id || null} total={grandTotal} excludeInvoiceId={id || null} />
               </div>}
               {isFieldEnabled("placeofsupply") && <FormField
                 label="Tax/Supply Type"

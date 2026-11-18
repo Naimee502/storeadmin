@@ -17,6 +17,7 @@ import { useBranchesQuery } from "../../../graphql/hooks/branches";
 import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
 import { showMessage } from "../../../redux/slices/message";
 import PosAddCustomer from "../../../components/posaddcustomer";
+import PartyBalanceNote from "../../../components/partybalance";
 import { partyLabel } from "../../../utils/partylabel";
 import { isVendorParty } from "../../../utils/partytype";
 import { BRANCH_REQUIRED } from "../../../utils/branch";
@@ -364,7 +365,7 @@ const AddEditPurchaseOrder = () => {
                 error={errors.paymentType}
                 searchable
               />)}
-              {isFieldEnabled("partyacc") && (<FormField
+              {isFieldEnabled("partyacc") && (<div><FormField
                 label="Party Account"
                 name="partyAccount"
                 type="select"
@@ -388,7 +389,9 @@ const AddEditPurchaseOrder = () => {
                     ? "No previous orders — this is their first order."
                     : "Select a vendor first to see their order history."
                 }
-              />)}
+              />
+              <PartyBalanceNote partyId={partyAccount?.id || null} total={grandTotal} purchase />
+              </div>)}
               {isFieldEnabled("billdate") && (<FormField
                 label="Order Date"
                 name="billDate"

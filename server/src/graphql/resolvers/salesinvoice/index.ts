@@ -77,6 +77,7 @@ const resolveCreatedBy = async (user: any, input: any) => {
   return { createdby_id: user?.id, createdby_name: name, createdby_type: type };
 };
 import { SalesOrder } from "../../../models/salesorder";
+import { partyLedgerBalance } from "../../../utils/partyledger";
 import { refId } from "../../../utils/ordermode";
 import { asText, dmyFromText, escapeRegex, notCleared, pageWindow, textMatch } from "../../../utils/listquery";
 
@@ -942,6 +943,15 @@ async function addSalesInvoiceNow(_: any, { input, autoPayment }: any, context: 
 
 export const salesInvoiceResolvers = {
   Query: {
+    getPartyBillBalance: async (_: any, { partyid, excludeInvoiceId, excludePurchaseInvoiceId, excludePaymentId }: any, context: any) => {
+      const { adminid } = await requireBackofficeTenant(context);
+      // Same switch as the printed balance: off means no balance anywhere.
+      const st: any = await AdminSettings.findOne({ adminid }).select("printShowPartyBalance").lean();
+      if (st?.printShowPartyBalance !== true) return null;
+      if (excludePaymentId) return await partyLedgerBalance(partyid, adminid, undefined, "SalesInvoice", excludePaymentId);
+      if (excludePurchaseInvoiceId) return await partyLedgerBalance(partyid, adminid, excludePurchaseInvoiceId, "PurchaseInvoice");
+      return await partyLedgerBalance(partyid, adminid, excludeInvoiceId || undefined);
+    },
     getEInvoiceExport: async (_: any, { invoiceId }: any, context: any) => {
       const { doc, seller } = await gstDoc("invoice", invoiceId, context, "einvoice");
       return exportOf(buildEInvoice(doc, seller));
@@ -1454,16 +1464,17 @@ export const salesInvoiceResolvers = {
     // "Previous Balance" = what the party owed on their OTHER unsettled
     // bills, before this one — this invoice is excluded from the sum
     // entirely, regardless of whether it's since been paid.
+    // Same basis as the Party Statement: everything before this bill.
     partyPreviousBalance: async (parent: any) => {
       const partyId = refId(parent?.partyacc);
-      return await partyBillOutstanding(partyId, parent?.id);
+      return partyId ? await partyLedgerBalance(partyId, refId(parent?.adminid), parent?.id) : 0;
     },
     // "Current Balance" = Previous Balance + this bill's own Grand Total —
     // a running statement figure (like a physical bill), not net of whether
     // this particular bill has already been settled.
     partyCurrentBalance: async (parent: any) => {
       const partyId = refId(parent?.partyacc);
-      const previous = await partyBillOutstanding(partyId, parent?.id);
+      const previous = partyId ? (await partyLedgerBalance(partyId, refId(parent?.adminid), parent?.id)) ?? 0 : 0;
       const total = Number(parent?.totalamount || 0);
       return parseFloat((previous + total).toFixed(2));
     },

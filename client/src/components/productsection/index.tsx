@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import { createPortal } from "react-dom";
 import Select, { components } from "react-select";
 import { FaHistory } from "react-icons/fa";
-import FormField from "../formfiled";
+import FormField, { HistoryTable } from "../formfiled";
 import Button from "../button";
 import { getBaseQuantity, getInvoiceLineBaseQty, formatDateDMY } from "../../utils/helper";
 import { belowCostError, getBelowCostLines, lineBelowCostError } from "../../utils/rates";
@@ -431,6 +431,21 @@ const ProductSection: React.FC<ProductSectionProps> = ({
     );
   };
 
+  // Last 5 rates under a Rate box while it is being typed in (Add box or a list row).
+  const [rateHistory, setRateHistory] = useState<{ top: number; left: number; width: number; rows: string[][] } | null>(null);
+  const showRateHistory = (el: HTMLElement, rows: string[][]) => {
+    if (!invoiceHistory.length) return;
+    const r = el.getBoundingClientRect();
+    setRateHistory({ top: r.bottom + 4, left: r.left, width: Math.max(r.width, 360), rows });
+  };
+  useEffect(() => {
+    if (!rateHistory) return;
+    const close = () => setRateHistory(null);
+    window.addEventListener("scroll", close, true);
+    window.addEventListener("resize", close);
+    return () => { window.removeEventListener("scroll", close, true); window.removeEventListener("resize", close); };
+  }, [rateHistory]);
+
   // Standalone history panel state for inline product editing
   const [inlineHistoryOpen, setInlineHistoryOpen] = useState(false);
   const [historyProductInfo, setHistoryProductInfo] = useState<{ productId: string; variantId?: string; rowIndex: number } | null>(null);
@@ -851,6 +866,10 @@ const ProductSection: React.FC<ProductSectionProps> = ({
 
         {/* ✅ Rate */}
         {isFieldEnabled("rate") && (
+          <div
+            onFocus={(e) => selectedProduct.productserviceid && showRateHistory(e.currentTarget, productSaleHistory)}
+            onBlur={() => setRateHistory(null)}
+          >
           <FormField
             label="Rate"
             name="rate"
@@ -861,6 +880,7 @@ const ProductSection: React.FC<ProductSectionProps> = ({
             }
             error={rateError ?? undefined}
           />
+          </div>
         )}
         {/* Offline mode only: price lists not on this device, so the product's own rate is used. */}
         {offlinePrice && type === "sales" && (
@@ -1176,7 +1196,8 @@ const ProductSection: React.FC<ProductSectionProps> = ({
                             autoFocus
                             value={editingValue}
                             onChange={(e) => setEditingValue(e.target.value)}
-                            onBlur={() => handleCellBlur(i, "rate", editingValue)}
+                            onFocus={(e) => showRateHistory(e.currentTarget, getProductHistory(p.productserviceid, p.variantid ?? undefined))}
+                            onBlur={() => { setRateHistory(null); handleCellBlur(i, "rate", editingValue); }}
                             onKeyDown={(e) => {
                               if (e.key === "Enter") handleCellBlur(i, "rate", editingValue);
                               if (e.key === "Escape") {
@@ -1392,6 +1413,19 @@ const ProductSection: React.FC<ProductSectionProps> = ({
           )}
 
 </fieldset>
+      {rateHistory && createPortal(
+        <div style={{ position: "fixed", top: rateHistory.top, left: rateHistory.left, width: rateHistory.width }}
+          className="z-[9998] overflow-hidden rounded-lg border border-indigo-200 bg-white shadow-lg">
+          <div className="border-b border-indigo-100 bg-indigo-50 px-3 py-2 text-xs font-bold text-indigo-700">
+            Last 5 {type === "purchase" ? "Purchase" : "Sale"} Rates of this Product
+          </div>
+          <div className="max-h-48 overflow-y-auto">
+            <HistoryTable headers={["Date", "Party", "Qty", "Rate (₹)", "Disc (₹)"]} rows={rateHistory.rows}
+              emptyText={`This product has no ${type === "purchase" ? "purchase" : "sale"} history yet.`} />
+          </div>
+        </div>,
+        document.body
+      )}
       <QuickItemModal open={quickOpen} kind={iservice ? "all" : "goods"} onClose={() => setQuickOpen(false)} onCreated={setMade} />
     </fieldset>
   );

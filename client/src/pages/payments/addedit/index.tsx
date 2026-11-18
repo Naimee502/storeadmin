@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import { useParams, useNavigate, useLocation } from "react-router";
 import HomeLayout from "../../../layouts/home";
 import FormField from "../../../components/formfiled";
+import PartyBalanceNote from "../../../components/partybalance";
 import Button from "../../../components/button";
 import FormPage from "../../../components/formpage";
 import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
@@ -1223,6 +1224,14 @@ const AddEditPayment = () => {
                         // Required in Party mode: this is the other leg.
                         placeholder={payType === "receipt" ? "Select customer" : "Select vendor"}
                         searchable
+                      />
+                    )}
+                    {/* Receipt lowers what the party owes; payment-out raises it (bill amount = cash + discount - commission). */}
+                    {!isLedgerMode && (
+                      <PartyBalanceNote
+                        partyId={partyid || null}
+                        total={(payType === "receipt" ? -1 : 1) * Math.round((totalAmount + totalDiscount - totalCommission) * 100) / 100}
+                        excludePaymentId={id || null}
                       />
                     )}
                   </div>

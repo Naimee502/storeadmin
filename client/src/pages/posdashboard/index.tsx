@@ -40,6 +40,7 @@ import { BRANCH_REQUIRED } from "../../utils/branch";
 import { isOfflineSaved, OFFLINE_SAVED_MESSAGE } from "../../offline/billing";
 import { useOfflineNumber, useOfflineStock } from "../../offline/billing";
 import { forUse } from "../../config/itemtypes";
+import PartyBalanceNote from "../../components/partybalance";
 
 // A walk-in (cash) customer account: no credit is left on it.
 const isWalkIn = (p: any) => !p || /walk[\s-]?in|cash\s*(customer|sale)/i.test(String(p.name || p.accountname || ""));
@@ -1230,6 +1231,7 @@ export default function POSDashboard() {
                     : "Select a customer first to see their history."
                 }
               />
+              <PartyBalanceNote partyId={selectedParty?.id || null} total={total} />
             </div>
 
             {/* Voucher header strip */}

@@ -88,7 +88,7 @@ const defaultIcons: Partial<Record<InputType, React.ReactNode>> = {
 };
 
 // Shared mini history table (used inside dropdown menu + standalone panel)
-const HistoryTable = ({ headers, rows, emptyText }: { headers?: string[]; rows?: string[][]; emptyText?: string }) => (
+export const HistoryTable = ({ headers, rows, emptyText }: { headers?: string[]; rows?: string[][]; emptyText?: string }) => (
   rows && rows.length > 0 ? (
     <table className="min-w-full text-xs">
       <thead className="bg-indigo-50 text-gray-600 sticky top-0">
